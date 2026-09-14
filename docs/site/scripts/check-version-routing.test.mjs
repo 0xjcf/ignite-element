@@ -62,10 +62,15 @@ function rejects(mutate, reason) {
 	assert.match(result.output, reason);
 }
 
-test("published beta.12 pages pass without the old candidate disclaimers", () =>
+test("published beta.13 pages pass without the old candidate disclaimers", () =>
 	passes());
 
-for (const selector of ["beta", "3.0.0-beta.12", "3.0.0-beta.11"]) {
+for (const selector of [
+	"beta",
+	"3.0.0-beta.13",
+	"3.0.0-beta.12",
+	"3.0.0-beta.11",
+]) {
 	test(`complete supported install selector ${selector} passes`, () =>
 		passes(({ replace, append }) => {
 			if (selector !== "beta")
@@ -76,14 +81,14 @@ for (const selector of ["beta", "3.0.0-beta.12", "3.0.0-beta.11"]) {
 				);
 			append(
 				"src/content/docs/api/compatibility.mdx",
-				`Verified public 3.0.0-beta.12; historical release 3.0.0-beta.11.\n\n\`npm install --save react "ignite-element@${selector}"\``,
+				`Verified public 3.0.0-beta.13; historical releases 3.0.0-beta.12 and 3.0.0-beta.11.\n\n\`npm install --save react "ignite-element@${selector}"\``,
 			);
 		}));
 }
 
 for (const selector of [
 	"beta.12",
-	"3.0.0-beta.13",
+	"3.0.0-beta.14",
 	"3.0.0-beta.120",
 	"3.0.0-beta.12-extra",
 	"3.0.0-beta.11-extra",
@@ -206,7 +211,7 @@ test("mutable main source links fail", () =>
 		/mutable main link/,
 	));
 for (const version of [
-	"3.0.0-beta.13",
+	"3.0.0-beta.14",
 	"3.0.0-beta.100",
 	"3.0.0-rc.1",
 	"3.0.0-beta.12-extra",

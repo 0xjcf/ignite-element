@@ -12,10 +12,11 @@ v3 publishes under the `beta` dist-tag. Install with `@beta`; the stable
 the `3.0.0` release.
 :::
 
-`3.0.0-beta.12` is published and verified, including the source-free constructor,
-testing retirement, final disposal and neutral React bindings. Install this exact
-version or `ignite-element@beta`; beta.11 does not include these changes.
-All four `beta` tags and the three scoped packages' `latest` tags point to beta.12.
+`3.0.0-beta.13` is published and verified. It retains beta.12's source-free
+constructor, testing retirement and neutral React bindings, and adds shared-source
+readiness and terminal disposal after registration. Install this exact version
+or `ignite-element@beta`; beta.12 does not include those two newer behaviors.
+All four `beta` tags and the three scoped packages' `latest` tags point to beta.13.
 The facade `ignite-element@latest` remains `2.2.2`.
 
 Ignite Element v3 keeps the default Ignite JSX renderer and headless runtime from v2, and adds a cleaner install surface, a states-first projection contract, and a narrower public API.
@@ -99,13 +100,21 @@ existing tool definitions to explicit application schemas, and project meaningfu
 availability into states. Unknown discovery schemas are null, not fabricated
 validation. State/command name collisions now fail rather than overwrite.
 
-Prepare a framework-owned core once with `core.get('states')` outside rendering.
+In beta.12, prepare a framework-owned core once with `core.get('states')` outside rendering.
 Import `useIgnite` from `ignite-element/react`; move `igniteReact` and wrapper
 types to `ignite-element/react/web`. Move Actor-Web factories requiring a real
 element host to `ignite-element/actor-web/web`. The neutral source/factory path
 never transfers native close authority. See [headless runtime](/ignite-element/api/headless-runtime/)
 and [host integration](/ignite-element/guides/host-app-integration/) for lifetime,
 single-input execution, immutable projection and native-test-host limits.
+
+## Shared readiness and registered disposal in beta.13
+
+Shared-source cores are ready after owner-controlled construction; `useIgnite(core)`
+needs no preparation-only read. Isolated machine-definition acquisition remains lazy.
+Existing `core.dispose()` now terminally drains registered views and leaves later
+connections inert. Borrowed actors still require application-owned `source.stop()`.
+See the [two-behavior migration table](/ignite-element/migration/shared-readiness-terminal-disposal/).
 
 ## Verify
 
