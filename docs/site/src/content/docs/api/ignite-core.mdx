@@ -29,7 +29,7 @@ component.get('schema');
 
 - `source`: machine definition or started actor (XState), Redux store/slice, or MobX observable.
 - `events(mapper)`: optional; defines typed DOM events.
-- `states(snapshot)`: optionally derive a plain object from the bare native snapshot; runs during preparation/rendering and source observations. Omission yields one stable empty object. The unreleased shared-readiness correction moves initial shared preparation to construction.
+- `states(snapshot)`: optionally derive a plain object from the bare native snapshot; runs during preparation/rendering and source observations. Omission yields one stable empty object. Since beta.13, initial shared preparation occurs at construction.
 - `commands(context)`: expose actions; receives `{ actor }`.
 - `effects(context)`: optional; receives `{ snapshot, prevSnapshot, select, emit }`, stays synchronous, and runs in a microtask after renderer notification for each delivered update after the initial baseline.
 - `cleanup`: shared-adapter element-refcount teardown override, not native source ownership. Defaults to `false` for shared sources. Set `cleanup: true` to release the shared adapter after the last element and retained observation handle leave. Owning-core disposal is separate: borrowed sources are never stopped, while a private Ignite-created XState actor is stopped exactly once. Headless Actor-Web factory invocation does not transfer close authority.
@@ -45,7 +45,7 @@ component.tagName; // 'counter-button'
 component.get('schema');
 ```
 
-The source-backed callable `core` carries `get`, `watch`, `on`, `execute`, and `dispose`. Read keys are exactly `states`, `schema`, `commands`, and `events`; component handles expose only the appropriate discovery keys. In published beta.12, successful registration prevents owning disposal. The [locked correction](/ignite-element/migration/shared-readiness-terminal-disposal/) makes existing `dispose()` terminal after registration; it adds no rebinding or source-ownership API. Root source-free construction returns only its registrar.
+The source-backed callable `core` carries `get`, `watch`, `on`, `execute`, and `dispose`. Read keys are exactly `states`, `schema`, `commands`, and `events`; component handles expose only the appropriate discovery keys. In beta.12, successful registration prevents owning disposal. Since [beta.13](/ignite-element/migration/shared-readiness-terminal-disposal/), existing `dispose()` is terminal after registration; it adds no rebinding or source-ownership API. Root source-free construction returns only its registrar.
 
 The accepted one-argument overload binds an opaque non-DOM projection target and returns a disposable projection session:
 

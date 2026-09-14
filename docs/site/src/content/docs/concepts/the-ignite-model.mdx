@@ -17,7 +17,7 @@ The whole model is four ideas: who **owns** the source, how the **adapter** brid
 - Headless Actor-Web factory invocation does not transfer native close authority.
 - `cleanup` is a shared-adapter teardown override; most components don't need it.
 
-An unregistered source-backed core exposes terminal `dispose()`. Successful registration prevents owning disposal before any teardown. Actor-Web's explicit web factory retains its existing per-element close behavior, distinct from backing-runtime shutdown. See [Headless runtime](/ignite-element/api/headless-runtime/#source-ownership).
+Source-backed cores expose terminal `dispose()`, including successfully registered cores since beta.13. Final disposal drains registered views and leaves later connections inert; it does not unregister tag definitions or stop a borrowed source. Actor-Web's explicit web factory retains its existing per-element close behavior, distinct from backing-runtime shutdown. See [Headless runtime](/ignite-element/api/headless-runtime/#source-ownership).
 
 ## Adapters
 

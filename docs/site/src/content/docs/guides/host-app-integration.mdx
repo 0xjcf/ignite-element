@@ -12,8 +12,9 @@ That means integration should stay browser-native. Register the element once, re
 
 For a session-owned workflow shared by headless, imperative web and React/native
 views, use the [plain-controller guide](/ignite-element/guides/plain-controllers/).
-Those views borrow a prepared, unregistered core. A registered core cannot be
-disposed like a session owner; the web wrapper is not a generic external-core binding.
+Those views borrow an owner-created core. Since beta.13, shared-source cores are
+ready at construction and registered cores also support terminal `dispose()`;
+later connections stay inert. The web wrapper is not a generic external-core binding.
 
 ## Register once
 

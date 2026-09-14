@@ -18,10 +18,10 @@ not required for existing XState actors, Redux stores or MobX values. Translate 
 subscriptions and guarded methods into a supported structural source. No XState
 conversion, new adapter package or workflow rewrite is required.
 
-:::note[Published in beta.12]
+:::note[Published API, current release beta.13]
 The reviewed source-backed API and `useIgnite` are available in
-`ignite-element@3.0.0-beta.12`. Install that exact version with your application's
-React dependency; beta.11 does not supply this API. This remains a beta,
+beta.12 and retained in `ignite-element@3.0.0-beta.13`. Install beta.13 with your application's
+React dependency for shared readiness and registered terminal disposal; beta.11 does not supply this API. This remains a beta,
 not a claim of arbitrary Expo, Metro or device compatibility.
 :::
 
@@ -168,13 +168,13 @@ source-native APIs remain valid on the source itself.
   receipts. Application/server operation identities and receipt validation remain
   necessary. This small controller's receipt fields do not create a generic
   persistence or retry protocol.
-- Disposal is terminal and idempotent for an unregistered core. A pending
+- Disposal is terminal and idempotent, including registered cores since beta.13. A pending
   `execute` cannot produce a new result after disposal, but already-returned
   direct command promises keep their ordinary outcome. Existing I/O may continue.
 
 A successfully registered beta.12 core rejects `dispose()` before teardown.
-The [locked terminal-disposal correction](/ignite-element/migration/shared-readiness-terminal-disposal/)
-does not add a runtime-replacement API.
+The [published beta.13 correction](/ignite-element/migration/shared-readiness-terminal-disposal/)
+supports terminal registered-core disposal without adding a runtime-replacement API.
 [`ignite-element/react/web`](/ignite-element/guides/host-app-integration/)
 wraps actual registered elements; `ignite-element/actor-web/web` supplies a
 DOM-host factory boundary. Neither is a generic external-core binding.

@@ -15,7 +15,7 @@ shell is needed. Each application process owns its instances; sharing code does
 not synchronize devices.
 
 For version-specific hook preparation and terminal-disposal behavior, read the
-[unreleased correction note](/ignite-element/migration/shared-readiness-terminal-disposal/).
+[beta.13 migration note](/ignite-element/migration/shared-readiness-terminal-disposal/).
 The examples below keep established public inputs and inline inferred callbacks.
 
 ## Two JSX views, one source
@@ -63,8 +63,8 @@ are outside the core's custody.
 
 <Code code={reactCode} lang="tsx" title="React shared counter" />
 
-The first `useIgnite(core)` is ready without a prerequisite read in the locked
-correction; beta.12 still requires owner preparation before rendering. A host
+The first `useIgnite(core)` is ready without a prerequisite read in published
+beta.13; beta.12 requires owner preparation before rendering. A host
 receives a core built outside rendering. Native presentation uses `Text` and
 `Pressable` with the same `const ctx = useIgnite(core)` contract. Unmounting
 either view does not dispose the core. Effects retain post-Ignite-render timing,
