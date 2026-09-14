@@ -1175,7 +1175,7 @@ describe("igniteCore", () => {
 
 		expect(register.get("schema")).toEqual({
 			schemaVersion: 1,
-			commands: null,
+			commands: { increment: { input: null } },
 			events: [{ type: "counter-incremented", payload: null }],
 			states: { schema: null },
 		});
@@ -1212,7 +1212,7 @@ describe("igniteCore", () => {
 		expect(component.get("schema")).toEqual(core.get("schema"));
 		expect(component.get("schema")).toEqual({
 			schemaVersion: 1,
-			commands: null,
+			commands: { increment: { input: null } },
 			events: [{ type: "counter-incremented", payload: null }],
 			states: { schema: null },
 		});
@@ -1280,7 +1280,11 @@ describe("igniteCore", () => {
 			},
 		};
 		const tools = igniteTools(register, undefined, { schema });
-		expect(register.get("commands")).toBeNull();
+		// Shared construction publishes metadata, but does not execute tools.
+		expect(register.get("commands")).toEqual({
+			addByAmount: { input: null },
+			increment: { input: null },
+		});
 		expect((await tools.run({ name: "addByAmount", input: 6 })).ok).toBe(false);
 		expect(store.getState().counter.count).toBe(0);
 		const result = await tools.run({ name: "addByAmount", input: 3 });

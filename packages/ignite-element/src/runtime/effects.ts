@@ -9,6 +9,27 @@ import type {
 
 export const facadeCleanupSymbol = Symbol("ignite.facade.cleanup");
 
+// Readiness installs a projection cache, not an extra headless effect surface.
+// Actual runtime use (or a committed framework subscription) activates effects.
+const deferredHosts = new WeakMap<
+	object,
+	{ active: boolean; start?: () => void }
+>();
+export function deferHostEffects(host: object): void {
+	deferredHosts.set(host, { active: false });
+}
+export function activateHostEffects(host: object): void {
+	const deferred = deferredHosts.get(host);
+	if (!deferred || deferred.active) return;
+	deferred.active = true;
+	try {
+		deferred.start?.();
+	} catch (error) {
+		deferred.active = false;
+		throw error;
+	}
+}
+
 export type FacadeLifecycle = {
 	[facadeCleanupSymbol]?: () => void;
 };
@@ -82,6 +103,26 @@ export function attachEffects<
 	host,
 	emit,
 }: AttachEffectsOptions<State, Event, Snapshot, CommandActor, Events, Host>) {
+	const deferred =
+		typeof host === "object" && host !== null
+			? deferredHosts.get(host)
+			: undefined;
+	if (deferred && !deferred.active) {
+		let release: (() => void) | undefined;
+		deferred.start = () => {
+			release = attachEffects({
+				adapter,
+				effects,
+				resolveSnapshot,
+				host,
+				emit,
+			});
+		};
+		return () => {
+			deferred.start = undefined;
+			release?.();
+		};
+	}
 	let prevSnapshot = resolveSnapshot(adapter);
 	let seeded = false;
 	let active = true;

@@ -1,7 +1,10 @@
-# Core API and bindings: v3 development candidate
+# Core API and bindings: beta.12 and the locked correction
 
-This is the implemented local-candidate contract, not publication or stable-release
-acceptance. The flow remains source → native snapshot → derived states → view.
+Beta.12 is published. This reference distinguishes that baseline from the locked,
+unreleased shared-readiness and terminal-disposal correction. Independent review
+and release remain separate decisions. The flow remains source → native
+snapshot → derived states → renderer view. See the
+[migration contract](site/src/content/docs/migration/shared-readiness-terminal-disposal.mdx).
 
 ## Construction and reads
 
@@ -11,14 +14,14 @@ Source-backed owners retain registration and opaque projection-target call forms
 
 | Surface | Contract |
 | --- | --- |
-| `get('states')` | Current inferred derived projection; first read prepares real bindings and owner cache |
+| `get('states')` | Current inferred projection; beta.12's first read prepares bindings. The correction prepares shared cores at construction, leaving isolated acquisition explicit |
 | `get('schema')` | Pure immutable minimal catalogue, never source acquisition |
 | `get('commands')` | Bound own command names with `{ input: null }`, not functions |
 | `get('events')` | Declared names with `{ type, payload: null }`, not history |
 | `watch((next, previous) => …)` | Derived observations without initial user delivery or global deep equality |
 | `on(name, handler)` | Flat outward occurrences; independently idempotent unsubscribe handle |
 | `execute({ command, input })` | One payload argument; awaited callback and paired snapshot/states/window events |
-| `dispose()` | Terminal owning cleanup; rejected before teardown after successful registration |
+| `dispose()` | Terminal owning cleanup; beta.12 rejects it after registration. The correction must end registered views without making tag definitions reusable |
 
 No zero-argument read, snapshot key, path language, function lookup or compatibility
 aliases are added. The former public raw getters/watchers, derived getters/watchers,
@@ -80,14 +83,19 @@ stopped once after observation cleanup; an unused core creates none. Redux/MobX
 release subscriptions/autoruns, not application shutdown. Headless Actor-Web factories
 do not transfer native close authority, even for newly created handles.
 
-Successful registration prevents owning disposal; failed registration does not
-permanently lock the core. Existing DOM reconnect behavior remains. Registered
-element lifetime is not a new terminal-disable project.
+Successful registration prevents owning disposal in beta.12. The locked correction
+permits terminal registered disposal, with later connections inert, retained
+commands rejected and cached catalogues still readable. Failed registration must
+not permanently lock a core; registration-in-progress remains guarded. Ordinary
+DOM reconnect and explicit shared `cleanup: true` behavior must be preserved.
+There is no registration rebinding, replacement overload or new source form.
 
 ## Framework and platform boundaries
 
-Prepare once with `core.get('states')` in application bootstrap, outside React
-rendering. `useIgnite(core)` from `ignite-element/react` borrows inferred states
+In beta.12, prepare once with `core.get('states')` in application bootstrap, outside
+React rendering. The correction removes this prerequisite for shared sources by
+preparing at construction, never during render. `useIgnite(core)` from
+`ignite-element/react` borrows inferred states
 and stable commands through a shared private capability. Reads are cached and
 pure, remain current across subscription gaps, and reconcile render/subscribe
 races. Hook unmount does not dispose the core. Prop replacement never retargets
@@ -110,10 +118,11 @@ before invoking that factory. Its existing per-element factory close is not awai
 backing-runtime shutdown. Neutral `/actor-web` accepts source values and factories
 callable without a host context.
 
-Authentic neutral Actor-Web consumption needs the separate local upstream
-`@actor-web/runtime/source` correction. The published 0.2.1 root graph does not
-become DOM-neutral merely because the local candidate passes. Review and publish
-that upstream entrypoint before claiming it available to registry consumers.
+Actor-Web is optional and separate. Neutral consumers must use its supported
+source declaration boundary and verify their actual installed graph; importing a
+runtime's aggregate root is not a substitute for a no-DOM consumer check. This
+task does not reopen the completed beta.12/Actor-Web publication work or grant
+Ignite authority over native runtime shutdown.
 
 The React Native fixture uses the real RN Jest host and standard native-module
 mocks, not jsdom or browser stubs. It is not device/simulator evidence. SSR, Solid,

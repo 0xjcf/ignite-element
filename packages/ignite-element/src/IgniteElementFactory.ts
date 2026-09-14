@@ -1,8 +1,11 @@
 import type { IgniteAdapter } from "@ignite-element/core";
 import { StateScope } from "@ignite-element/core";
 import type { RenderStrategyFactory } from "@ignite-element/renderer";
-import type IgniteElement from "./IgniteElement";
-import { getIgniteElementClasses, rollbackElementSetup } from "./IgniteElement";
+import {
+	endElementRendering,
+	getIgniteElementClasses,
+	rollbackElementSetup,
+} from "./IgniteElement";
 import {
 	commitProjectionDocumentTarget,
 	commitProjectionSpeechTarget,
@@ -25,7 +28,7 @@ import {
 	registerElementCommands,
 	setCommandOwner,
 } from "./runtime/bindings";
-import { facadeCleanupSymbol } from "./runtime/effects";
+import { deferHostEffects, facadeCleanupSymbol } from "./runtime/effects";
 import { createLifetime, releaseAll } from "./runtime/lifetime";
 import { resolveProjectionTarget } from "./runtime/projectionTargets";
 import { toInspectableSchemaValue } from "./runtime/schema";
@@ -256,22 +259,17 @@ export default function igniteElementFactory<
 ): ComponentFactory<State, Event, RenderArgs, View> {
 	type RuntimeAdditionalArgs = AdditionalRenderArgs<State, Event, RenderArgs>;
 	const lifetime = createLifetime();
-	let registered = false;
 	let registrationInProgress = false;
 	let acquiring = false;
 
 	let sharedAdapter: IgniteAdapter<State, Event> | null = null;
-	let sharedAdditionalArgs = new WeakMap<
-		IgniteElement<State, Event, View>,
-		RuntimeAdditionalArgs
-	>();
-	let sharedInstanceCount = 0;
-	let sharedRuntimeActive = false;
-	let sharedRuntimeAccessCount = 0;
-	let sharedCleanupPending = false;
 	let runtimeAdapter: IgniteAdapter<State, Event> | null = null;
 	let runtimeAdditionalArgs: RuntimeAdditionalArgs | null = null;
 	let runtimeHost: EventTarget | null = null;
+	let releaseRuntimeArgs: (() => void) | undefined;
+	let connectedViews = 0;
+	let runtimeUsers = 0;
+	let cleanupRequested = false;
 
 	const createAdditionalArgs: (
 		adapter: IgniteAdapter<State, Event>,
@@ -288,15 +286,8 @@ export default function igniteElementFactory<
 		options?.scope ??
 		(createAdapter as { scope?: StateScope }).scope ??
 		StateScope.Isolated;
-	// A consumer-owned shared source (an already-live instance passed to
-	// igniteCore — a started actor, store, observable, or actor-web source) lives
-	// for the core's lifetime, not any single element's. Releasing the shared
-	// adapter when the element refcount transiently hits zero (e.g. an outlet
-	// swapping pages, or test teardown) would freeze every consumer's reads. So
-	// cleanup defaults to false for shared scope; isolated scope, where ignite
-	// creates and owns one adapter per element, keeps per-element teardown.
-	const cleanupSharedLifecycle =
-		options?.cleanup ?? inferredScope !== StateScope.Shared;
+	// A shared core owns its prepared observation until dispose(), independently
+	// of temporary element/React borrowers. Isolated elements still own acquisition.
 	const eventTypes = options?.eventTypes ?? [];
 	const resolveStates =
 		options?.resolveStates ?? ((_) => Object.create(null) as RuntimeView);
@@ -350,60 +341,13 @@ export default function igniteElementFactory<
 		};
 	};
 
-	const resolveSharedAdditionalArgs = (
-		host: IgniteElement<State, Event, View>,
-	): AdditionalRenderArgs<State, Event, RenderArgs> => {
-		const { adapter } = resolveSharedResources();
-		let existing = sharedAdditionalArgs.get(host);
-		if (!existing) {
-			existing = createAdditionalArgs(adapter, host);
-			sharedAdditionalArgs.set(host, existing);
-		}
-		return existing;
-	};
-
-	const releaseSharedResources = () => {
-		if (!sharedAdapter) {
-			return;
-		}
-
-		const adapterToStop = sharedAdapter;
-		const runtimeArgsToCleanup = runtimeAdditionalArgs;
-		let releaseError: unknown;
-		let failed = false;
-		try {
-			if (runtimeArgsToCleanup) {
-				cleanupAdditionalArgs(runtimeArgsToCleanup);
-			}
-		} catch (error) {
-			failed = true;
-			releaseError = error;
-		}
-		try {
-			adapterToStop.stop();
-		} catch (error) {
-			if (!failed) {
-				failed = true;
-				releaseError = error;
-			}
-		} finally {
-			sharedAdapter = null;
-			sharedAdditionalArgs = new WeakMap();
-			sharedInstanceCount = 0;
-			sharedRuntimeAccessCount = 0;
-			sharedRuntimeActive = false;
-			sharedCleanupPending = false;
-			runtimeAdditionalArgs = null;
-			runtimeHost = null;
-		}
-		if (failed) {
-			throw releaseError;
-		}
-	};
-
 	// The headless agent runtime only needs EventTarget APIs for `on()` and
 	// effect-emitted events. The DOM render path creates its own real element.
-	const createRuntimeHost = (): EventTarget => new EventTarget();
+	const createRuntimeHost = (): EventTarget => {
+		const host = new EventTarget();
+		deferHostEffects(host);
+		return host;
+	};
 
 	const resolveRuntimeAdapter = () => {
 		if (inferredScope === StateScope.Shared) {
@@ -427,6 +371,24 @@ export default function igniteElementFactory<
 		runtimeHost = null;
 		adapter?.stop();
 	};
+	// Only explicit element cleanup may release a shared adapter early. A
+	// prepared cache is not a permanent lease; actual framework/watch/on users are.
+	const releaseUnusedSharedAdapter = () => {
+		if (!lifetime.active || !cleanupRequested || connectedViews || runtimeUsers)
+			return;
+		const adapter = sharedAdapter,
+			releaseArgs = releaseRuntimeArgs;
+		sharedAdapter = null;
+		runtimeAdditionalArgs = null;
+		runtimeHost = null;
+		releaseRuntimeArgs = undefined;
+		cleanupRequested = false;
+		releaseAll([
+			releasePreparation,
+			() => releaseArgs?.(),
+			() => adapter?.stop(),
+		]);
+	};
 	const rollbackNewAdapter = () => {
 		// Shared factories cache a reusable wrapper over a borrowed source. Its
 		// stop is terminal, not a release of this acquisition's observation handles.
@@ -434,10 +396,8 @@ export default function igniteElementFactory<
 		if (inferredScope !== StateScope.Shared) clearRuntime();
 	};
 	const dispose = () => {
-		if (registered || registrationInProgress)
-			throw new Error(
-				"[igniteCore] Cannot dispose a registered core or during registration.",
-			);
+		if (registrationInProgress)
+			throw new Error("[igniteCore] Cannot dispose during registration.");
 		lifetime.dispose(clearRuntime);
 	};
 	const resolveRuntimeResources = () => {
@@ -455,6 +415,7 @@ export default function igniteElementFactory<
 				const args = createAdditionalArgs(adapter, runtimeHost);
 				setCommandOwner(args, lifetime.assertActive);
 				const releaseArgs = lifetime.own(() => cleanupAdditionalArgs(args));
+				releaseRuntimeArgs = releaseArgs;
 				let rolledBack = false;
 				rollback = () => {
 					if (rolledBack) return;
@@ -500,39 +461,6 @@ export default function igniteElementFactory<
 			throw error;
 		} finally {
 			acquiring = false;
-		}
-	};
-	const retainRuntimeAccess = () => {
-		if (inferredScope !== StateScope.Shared) {
-			return;
-		}
-
-		sharedRuntimeAccessCount += 1;
-		sharedRuntimeActive = true;
-	};
-	const releaseRuntimeAccess = () => {
-		if (inferredScope !== StateScope.Shared) {
-			return;
-		}
-
-		if (sharedRuntimeAccessCount > 0) {
-			sharedRuntimeAccessCount -= 1;
-		}
-		sharedRuntimeActive = sharedRuntimeAccessCount > 0;
-		if (
-			sharedCleanupPending &&
-			cleanupSharedLifecycle &&
-			sharedInstanceCount === 0 &&
-			sharedRuntimeAccessCount === 0
-		) {
-			try {
-				releaseSharedResources();
-			} catch (error) {
-				console.error(
-					"[IgniteElement] Deferred disconnect cleanup failed.",
-					error,
-				);
-			}
 		}
 	};
 
@@ -728,6 +656,7 @@ export default function igniteElementFactory<
 		bindingStore,
 		publishCatalogue,
 		readCatalogue,
+		releasePreparation,
 	} = createAgentRuntime<
 		State,
 		Event,
@@ -738,12 +667,24 @@ export default function igniteElementFactory<
 		hasCommands: options?.hasCommands,
 		lifetime,
 		dispose,
-		retainRuntimeAccess,
-		releaseRuntimeAccess,
 		resolveInspection,
 		resolveRuntime: resolveRuntimeResources,
 		resolveDeliveredStates,
 		resolveStates,
+		retainRuntimeAccess: () => {
+			runtimeUsers++;
+		},
+		releaseRuntimeAccess: () => {
+			runtimeUsers--;
+			try {
+				releaseUnusedSharedAdapter();
+			} catch (error) {
+				console.error(
+					"[IgniteElement] Deferred disconnect cleanup failed.",
+					error,
+				);
+			}
+		},
 	});
 
 	const bindProjectionTarget = (target: unknown): IgniteProjectionSession => {
@@ -925,80 +866,115 @@ export default function igniteElementFactory<
 
 		if (inferredScope === StateScope.Shared) {
 			const render = resolveRenderer(resolvedRenderer);
-			resolveSharedResources();
-
 			class SharedIgniteComponent extends IgniteElement<State, Event, View> {
-				private additionalArgs: AdditionalRenderArgs<State, Event, RenderArgs>;
+				private additionalArgs: RuntimeAdditionalArgs | undefined;
+				private releaseCommands: (() => void) | undefined;
+				private releaseOwner: (() => void) | undefined;
+				private counted = false;
 				private disconnectAttrObserver: (() => void) | undefined;
-
 				constructor() {
-					const { adapter } = resolveSharedResources();
-					super(adapter, renderStrategyFactory());
-					this.additionalArgs = resolveSharedAdditionalArgs(this);
+					super(undefined, renderStrategyFactory());
+					if (lifetime.active) this.acquire();
 				}
-
-				connectedCallback(): void {
-					const reconnectedBeforeTeardown = this.hasPendingDisconnectTeardown;
-					const { adapter } = resolveSharedResources();
-					if (this.adapter !== adapter) {
+				private acquire(): void {
+					if (this.additionalArgs) return;
+					try {
+						const { adapter } = resolveSharedResources();
+						const args = createAdditionalArgs(adapter, this);
+						this.additionalArgs = args;
+						setCommandOwner(args, lifetime.assertActive);
+						this.releaseCommands = exposeCommands(this, args);
 						this.initializeAdapter(adapter);
+						this.releaseOwner = lifetime.own(() => {
+							if (!lifetime.active)
+								releaseAll([
+									() => endElementRendering(this),
+									() => this.onTrueDisconnect(),
+								]);
+						});
+					} catch (error) {
+						try {
+							releaseAll([
+								() => rollbackElementSetup(this),
+								() => this.onTrueDisconnect(),
+							]);
+						} catch (cleanupError) {
+							console.error(
+								"[IgniteElement] Connection rollback failed.",
+								cleanupError,
+							);
+						}
+						throw error;
 					}
-					this.additionalArgs = resolveSharedAdditionalArgs(this);
-					exposeCommands(this, this.additionalArgs as Record<string, unknown>);
-					this.disconnectAttrObserver ??= setupAttributeObservation(this);
-					if (!reconnectedBeforeTeardown) {
-						sharedInstanceCount += 1;
+				}
+				connectedCallback(): void {
+					if (!lifetime.active) {
+						endElementRendering(this);
+						return;
 					}
-					super.connectedCallback();
+					try {
+						this.acquire();
+						if (!this.counted) {
+							this.counted = true;
+							connectedViews++;
+						}
+						this.disconnectAttrObserver ??= setupAttributeObservation(this);
+						super.connectedCallback();
+					} catch (error) {
+						try {
+							releaseAll([
+								() => rollbackElementSetup(this),
+								() => this.onTrueDisconnect(),
+							]);
+						} catch (cleanupError) {
+							console.error(
+								"[IgniteElement] Connection rollback failed.",
+								cleanupError,
+							);
+						}
+						throw error;
+					}
 				}
-
-				disconnectedCallback(): void {
-					super.disconnectedCallback();
-				}
-
-				public onTrueDisconnect(): void {
-					this.disconnectAttrObserver?.();
+				onTrueDisconnect(): void {
+					const args = this.additionalArgs,
+						commands = this.releaseCommands;
+					const observer = this.disconnectAttrObserver,
+						owner = this.releaseOwner;
+					this.additionalArgs = undefined;
+					this.releaseCommands = undefined;
 					this.disconnectAttrObserver = undefined;
-					const additionalArgs = this.additionalArgs;
-					sharedAdditionalArgs.delete(this);
-
-					if (sharedInstanceCount > 0) {
-						sharedInstanceCount -= 1;
+					this.releaseOwner = undefined;
+					if (this.counted) {
+						this.counted = false;
+						connectedViews--;
+						if (options?.cleanup && connectedViews === 0)
+							cleanupRequested = true;
 					}
-
-					if (
-						cleanupSharedLifecycle &&
-						sharedInstanceCount === 0 &&
-						!sharedRuntimeActive
-					) {
-						releaseSharedResources();
-					} else if (
-						cleanupSharedLifecycle &&
-						sharedInstanceCount === 0 &&
-						sharedRuntimeActive
-					) {
-						sharedCleanupPending = true;
-					}
-					cleanupAdditionalArgs(additionalArgs);
+					releaseAll([
+						() => observer?.(),
+						() => commands?.(),
+						() => cleanupAdditionalArgs(args),
+						() => owner?.(),
+						releaseUnusedSharedAdapter,
+					]);
 				}
-
-				public renderView(): View {
+				renderView(): View {
+					if (!this.additionalArgs)
+						throw new Error("[igniteCore] View is not initialized.");
 					return render(
 						createRenderArgs(
 							this.currentState,
-							(event) => this.send(event),
+							(event) => {
+								lifetime.assertActive();
+								this.send(event);
+							},
 							this.additionalArgs,
 						),
 					);
 				}
 			}
 
-			try {
-				registry.define(elementName, SharedIgniteComponent);
-			} finally {
-				if (registry.get(elementName) === SharedIgniteComponent)
-					registered = true;
-			}
+			registry.define(elementName, SharedIgniteComponent);
 			return handle;
 		}
 
@@ -1010,6 +986,7 @@ export default function igniteElementFactory<
 			private readonly renderImpl: (args: RenderArgs) => View;
 			private disconnectAttrObserver: (() => void) | undefined;
 			private releaseCommands: (() => void) | undefined;
+			private releaseOwner: (() => void) | undefined;
 
 			constructor() {
 				super(undefined, renderStrategyFactory());
@@ -1017,6 +994,10 @@ export default function igniteElementFactory<
 			}
 
 			connectedCallback(): void {
+				if (!lifetime.active) {
+					endElementRendering(this);
+					return;
+				}
 				const acquiring = !this.adapterInstance;
 				try {
 					if (!this.adapterInstance) {
@@ -1024,6 +1005,15 @@ export default function igniteElementFactory<
 						adapter.scope ??= StateScope.Isolated;
 						this.adapterInstance = adapter;
 						this.additionalArgs = createAdditionalArgs(adapter, this);
+						setCommandOwner(this.additionalArgs, lifetime.assertActive);
+						this.releaseOwner = lifetime.own(() => {
+							if (!lifetime.active)
+								releaseAll([
+									() => endElementRendering(this),
+									() => this.onTrueDisconnect(),
+									() => adapter.stop(),
+								]);
+						});
 						this.releaseCommands = exposeCommands(
 							this,
 							this.additionalArgs as Record<string, unknown>,
@@ -1054,7 +1044,7 @@ export default function igniteElementFactory<
 			}
 
 			disconnectedCallback(): void {
-				super.disconnectedCallback();
+				if (lifetime.active) super.disconnectedCallback();
 			}
 
 			public onTrueDisconnect(): void {
@@ -1063,12 +1053,15 @@ export default function igniteElementFactory<
 				this.releaseCommands = undefined;
 				this.disconnectAttrObserver = undefined;
 				const additionalArgs = this.additionalArgs;
+				const releaseOwner = this.releaseOwner;
+				this.releaseOwner = undefined;
 				this.additionalArgs = undefined;
 				this.adapterInstance = undefined;
 				releaseAll([
 					() => disconnectObserver?.(),
 					() => releaseCommands?.(),
 					() => cleanupAdditionalArgs(additionalArgs),
+					() => releaseOwner?.(),
 				]);
 			}
 
@@ -1082,19 +1075,17 @@ export default function igniteElementFactory<
 				return this.renderImpl(
 					createRenderArgs(
 						this.currentState,
-						(event) => this.send(event),
+						(event) => {
+							lifetime.assertActive();
+							this.send(event);
+						},
 						this.additionalArgs,
 					),
 				);
 			}
 		}
 
-		try {
-			registry.define(elementName, IsolatedIgniteComponent);
-		} finally {
-			if (registry.get(elementName) === IsolatedIgniteComponent)
-				registered = true;
-		}
+		registry.define(elementName, IsolatedIgniteComponent);
 		return handle;
 	};
 

@@ -67,7 +67,7 @@ describe("owning core keyed API", () => {
 		const core = makeCore();
 		const reason = { registration: "failed" };
 		const define = vi.spyOn(customElements, "define").mockImplementation(() => {
-			expect(() => core.dispose()).toThrow(/register/i);
+			expect(() => core.dispose()).toThrow(/during registration/i);
 			throw reason;
 		});
 		try {
@@ -136,13 +136,16 @@ describe("owning core keyed API", () => {
 		expect(() => core.get("states")).toThrow(/collision/i);
 		core.dispose();
 	});
-	it("rejects owning disposal after registration, but not failed registration", () => {
+	it("permits terminal disposal after successful or failed registration", () => {
 		const core = makeCore();
 		expect(() => core("notvalid", () => null)).toThrow();
 		core.dispose();
 		const registered = makeCore();
 		registered("core-bindings-registered", () => null);
-		expect(() => registered.dispose()).toThrow(/register/i);
+		expect(() => registered.dispose()).not.toThrow();
+		expect(() => registered.dispose()).not.toThrow();
+		expect(() => registered.get("states")).toThrow(/disposed/i);
+		expect(customElements.get("core-bindings-registered")).toBeDefined();
 	});
 	it("web factories cannot be acquired headlessly", async () => {
 		const source = vi.fn(() => ({

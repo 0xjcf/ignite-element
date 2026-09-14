@@ -34,7 +34,7 @@ describe("retired testing and recording API", () => {
 			});
 			expect(core).not.toHaveProperty("record");
 			expect(source.getSnapshot().value).toBe("ready");
-			expect(core.get("commands")).toBeNull();
+			expect(core.get("commands")).toEqual({ ping: { input: null } });
 			expect((await core.execute({ command: "ping" })).snapshot.value).toBe(
 				"ready",
 			);

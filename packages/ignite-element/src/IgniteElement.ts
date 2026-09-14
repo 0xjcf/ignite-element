@@ -4,6 +4,11 @@ import type { RenderStrategy } from "./renderers/RenderStrategy";
 import { releaseAll } from "./runtime/lifetime";
 
 const setupRollbacks = new WeakMap<object, () => void>();
+const terminalReleases = new WeakMap<object, () => void>();
+/** Internal final rendering release; never shuts down a borrowed source. */
+export function endElementRendering(element: object): void {
+	terminalReleases.get(element)?.();
+}
 /** Internal assembly rollback; not a public element lifecycle API. */
 export function rollbackElementSetup(element: object): void {
 	setupRollbacks.get(element)?.();
@@ -92,6 +97,7 @@ export function getIgniteElementClasses(
 		private _hasCurrentState = false;
 		private _initialized = false;
 		private _isActive = false;
+		private ended = false;
 		private _unsubscribe: (() => void) | undefined;
 		private _sendListener: ((event: globalThis.Event) => void) | undefined;
 		private readonly strategy: RenderStrategy<View>;
@@ -122,6 +128,15 @@ export function getIgniteElementClasses(
 					() => unsubscribe?.(),
 				]);
 			});
+			terminalReleases.set(this, () => {
+				if (this.ended) return;
+				this.ended = true;
+				releaseAll([
+					() => rollbackElementSetup(this),
+					() => this.strategy.detach?.(),
+					() => this._shadowRoot.replaceChildren(),
+				]);
+			});
 
 			if (adapter) {
 				this.initializeAdapter(adapter);
@@ -129,6 +144,7 @@ export function getIgniteElementClasses(
 		}
 
 		public initializeAdapter(adapter: IgniteAdapter<State, Event>): void {
+			if (this.ended) return;
 			this._adapter = adapter;
 			this.updateCurrentState(this._adapter.getSnapshot());
 			this._initialized = true;
@@ -140,6 +156,7 @@ export function getIgniteElementClasses(
 		}
 
 		connectedCallback(): void {
+			if (this.ended) return;
 			this.cancelDisconnectTeardown();
 
 			if (!this._unsubscribe && this._adapter) {
@@ -210,12 +227,13 @@ export function getIgniteElementClasses(
 				return;
 			}
 
-			this.strategy.render(
-				this.renderView({
-					state: this._currentState,
-					send: (event: Event) => this.send(event),
-				}),
-			);
+			const view = this.renderView({
+				state: this._currentState,
+				send: (event: Event) => this.send(event),
+			});
+			// User rendering may synchronously end the owner. Never commit a
+			// returned view after its renderer and observations have been released.
+			if (this._isActive && !this.ended) this.strategy.render(view);
 		}
 
 		public abstract renderView(props: {

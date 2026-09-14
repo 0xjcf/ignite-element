@@ -89,17 +89,19 @@ describe("v3 states/view public contract", () => {
 			}),
 		});
 
-		// Bind commands and check initial collisions separately from the result
-		// observation. This listener does not prepare a framework state cache.
+		// Shared construction already prepared the framework cache. A catalogue
+		// listener must add no projection; execute also has one cache notification.
+		states.mockClear();
 		counter.on("unused", () => {}).unsubscribe();
-		expect(states).toHaveBeenCalledOnce();
+		expect(states).not.toHaveBeenCalled();
 		states.mockClear();
 		seenSnapshots.length = 0;
 		const result = await counter.execute({ command: "increment" });
 
 		expect(result).toMatchObject({ states: { count: 1 }, events: [] });
-		expect(states).toHaveBeenCalledTimes(1);
-		expect(Object.is(seenSnapshots[0], result.snapshot)).toBe(true);
+		expect(states).toHaveBeenCalledTimes(2);
+		expect(Object.is(seenSnapshots[1], result.snapshot)).toBe(true);
+		counter.dispose();
 		actor.stop();
 	});
 
