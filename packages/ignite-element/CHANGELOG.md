@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.0.0-beta.13
+
+### Minor Changes
+
+- e71ea90: Prepare shared-source bindings at owner-controlled core construction and permit
+  terminal disposal of registered source-backed cores. Keep existing source inputs,
+  application-owned source shutdown, isolated acquisition, ordinary commands and
+  callable JSX registration. Document the intended readiness/error-timing migration
+  and terminal tag lifetime. These behaviors are new relative to beta.12.
+
+### Patch Changes
+
+- @ignite-element/core@3.0.0-beta.13
+- @ignite-element/adapters@3.0.0-beta.13
+- @ignite-element/renderer@3.0.0-beta.13
+
 ## 3.0.0-beta.12
 
 ### Major Changes
