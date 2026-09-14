@@ -43,6 +43,7 @@
 		"remove-deprecated-pre-stable-surface",
 		"retire-testing-story-recording",
 		"scope-sibling-packages",
+		"shared-source-ownership-candidate",
 		"shared-source-ownership-cleanup",
 		"story-object-form-testing-dsl",
 		"strict-scalar-tool-envelope",
