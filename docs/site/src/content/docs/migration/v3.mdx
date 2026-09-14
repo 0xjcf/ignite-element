@@ -122,7 +122,10 @@ For an existing plain TypeScript controller, use the
 [shared-controller guide](/ignite-element/guides/plain-controllers/) rather than
 rewriting its behavior into a state library. The checkout example uses built public
 exports and exact packed candidates; registry beta.11 is not an equivalent input.
-Keep session cores unregistered and move each login epoch to a new application owner.
+Registration no longer prevents terminal disposal in beta.13. Keep the source and
+core stable for their application-owned lifetime; sign-in/out and stale receipts
+remain source behavior, not a requirement to recreate the core on each login.
+See [shared source ownership](/ignite-element/guides/shared-source-ownership/).
 
 - Reinstall and run a TypeScript check (`pnpm exec tsc --noEmit`).
 - Confirm only your chosen state library is installed (`npm ls xstate redux mobx`).

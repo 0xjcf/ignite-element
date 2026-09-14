@@ -65,6 +65,34 @@ function rejects(mutate, reason) {
 test("published beta.13 pages pass without the old candidate disclaimers", () =>
 	passes());
 
+test("current lifetime guides retain the published registered-disposal contract", () => {
+	for (const file of [
+		"concepts/the-ignite-model.mdx",
+		"guides/testing.mdx",
+		"guides/actor-web.mdx",
+	]) {
+		const content = fs.readFileSync(
+			path.join(site, "src/content/docs", file),
+			"utf8",
+		);
+		assert.match(content, /beta\.13/, file);
+		assert.doesNotMatch(
+			content,
+			/[Ss]uccessful registration (?:still )?prevents owning(?:-core)? disposal|registered cores reject owning disposal/,
+			file,
+		);
+	}
+	const migration = fs.readFileSync(
+		path.join(site, "src/content/docs/migration/v3.mdx"),
+		"utf8",
+	);
+	assert.doesNotMatch(
+		migration,
+		/Keep session cores unregistered/,
+		"registration is not a disposal prohibition in beta.13",
+	);
+});
+
 for (const selector of [
 	"beta",
 	"3.0.0-beta.13",
