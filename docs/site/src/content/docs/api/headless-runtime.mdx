@@ -10,6 +10,11 @@ Use an adapter entrypoint's `igniteCore(...)` for source-backed construction.
 The root source-free `const core = igniteCore()` remains registrar-only.
 The canonical flow is source → native snapshot → derived states → renderer view.
 
+This reference preserves published beta.12 behavior. The two intentional changes
+in the [unreleased correction](/ignite-element/migration/shared-readiness-terminal-disposal/)
+are automatic shared-source readiness and terminal registered-core disposal.
+No method or source input is added.
+
 ```ts
 import { igniteCore } from 'ignite-element/xstate';
 
@@ -118,10 +123,11 @@ remain safe to release.
 Live state reads, watches, listeners, commands and binding acquisition reject
 after disposal. Catalogue reads remain available without reacquisition.
 
-A successfully registered core rejects disposal **before teardown**. Failed
+A successfully registered beta.12 core rejects disposal **before teardown**. Failed
 registration does not permanently lock the core. Registration-in-progress is
 guarded. Element disconnect/reconnect continues to use its existing lifecycle;
-this is not a terminal element-disable API.
+the locked correction extends final disposal to registered views, making later
+connections inert without unregistering or rebinding tag definitions.
 
 ## Source ownership
 
@@ -170,7 +176,9 @@ preserving source enforcement; availability is not authorization.
 ## React and React Native
 
 `useIgnite(core)` from `ignite-element/react` borrows a core prepared once by its
-owner with `core.get("states")`, outside rendering. It returns inferred derived
+owner with `core.get("states")`, outside rendering in beta.12. The correction
+prepares shared-source cores at construction instead; isolated headless
+acquisition remains explicit. The hook returns inferred derived
 states and stable callable commands. It uses pure cached reads and releases only
 its own subscription on unmount. Snapshot values must be suitable immutable
 projections: nested plain data is detached without freezing the source;

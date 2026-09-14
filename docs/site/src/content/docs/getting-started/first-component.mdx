@@ -29,44 +29,27 @@ export const toggleMachine = createMachine({
 import { igniteCore } from 'ignite-element/xstate';
 import { toggleMachine } from './toggleMachine';
 
-const registerToggle = igniteCore({
+const core = igniteCore({
   source: toggleMachine,
-  events: (event) => ({ toggled: event<{ isOn: boolean }>() }),
   states: (snapshot) => ({ isOn: snapshot.matches('on') }),
   commands: ({ actor }) => ({
     toggle: () => {
       actor.send({ type: 'TOGGLE' });
     },
   }),
-  effects: ({ emit, select }) => {
-    const isOn = select((snapshot) => snapshot.matches('on'));
-    if (!isOn.changed) return;
-    emit({ type: 'toggled', isOn: isOn.current });
-  },
 });
 
-registerToggle('ignite-toggle', ({ isOn, toggle }) => (
-  <>
-    <style>{`
-      .ignite-toggle {
-        border-radius: 12px;
-        padding: 0.75rem 1.25rem;
-        border: 1px solid #1ad2ff;
-        background: radial-gradient(circle at 20% 20%, rgba(26, 210, 255, 0.15), transparent 50%),
-          #0f182e;
-        color: #e2e8f0;
-      }
-    `}</style>
-    <button class="ignite-toggle" onClick={toggle}>
-      {isOn ? 'On' : 'Off'}
-    </button>
-  </>
+core('ignite-toggle', ctx => (
+  <button type="button" onClick={() => ctx.toggle()}>
+    {ctx.isOn ? 'On' : 'Off'}
+  </button>
 ));
 ```
 
-:::tip[Typing events]
-`events` adds a typed `emit` helper to your `effects`. `select(...)` makes it easy to emit only when a derived value actually changed. Skip `events` entirely if you don’t need to broadcast DOM `CustomEvent`s.
-:::
+The machine owns behavior, `states` projects a value for the view, and the command
+expresses intent. The renderer receives both as `ctx`. This machine-definition
+form creates an isolated actor for each element; two tags do not implicitly share
+one actor.
 
 ## 3) Use it anywhere
 
@@ -76,20 +59,21 @@ Because it's a web component, drop the tag into plain HTML or any host framework
 <ignite-toggle></ignite-toggle>
 ```
 
-In Ignite JSX, the `toggled` event you declared becomes an `onToggled` prop; read the payload via `event.detail`. For concrete React, Vue, plain-HTML, and SSR patterns, see [Host app integration](/ignite-element/guides/host-app-integration/).
+## Then share behavior
 
-## Variations
+Pass an existing actor to `ignite-element/xstate` when multiple views should
+observe the same source. Its application owner remains responsible for shutdown.
+Use `ignite-element/redux` for a Redux store or `ignite-element/mobx` for an
+observable value; neither requires an additional controller. Actor-Web is an
+optional separate runtime, not a prerequisite for any of these sources.
 
-- Swap `source` for a Redux slice or MobX store via `ignite-element/redux` or `ignite-element/mobx`.
-- Keep styles local by default; reach for shared style injection only in the advanced `@ignite-element/renderer` path.
-- Opt into the legacy `lit` renderer only if you need it, via the advanced docs path.
-- Share actors/stores by passing long-lived instances. Ignite never stops user-owned sources.
-- Advanced overrides: a consumer-owned shared adapter stays alive for the core's lifetime by default; set `cleanup: true` only to opt into element-refcount teardown.
+For complete typed shared examples, explicit ownership and source-owned session transitions,
+see [Share a source and own its lifetime](/ignite-element/guides/shared-source-ownership/).
 
 ## Next steps
 
 You shipped a working component — here's where to go from here:
 
 - **Set up a real project**: the [Installation project checklist](/ignite-element/getting-started/installation/#project-checklist) for the Node, TypeScript, testing, and tooling baseline.
-- **Understand the model**: [The Ignite model](/ignite-element/concepts/the-ignite-model/) explains how `source`, `view`, `commands`, and `effects` fit together.
+- **Understand the model**: [The Ignite model](/ignite-element/concepts/the-ignite-model/) explains how source snapshots, `states`, commands, renderer views and effects fit together.
 - **Ship it into an app**: [Host app integration](/ignite-element/guides/host-app-integration/) covers React, Vue, and SSR patterns.

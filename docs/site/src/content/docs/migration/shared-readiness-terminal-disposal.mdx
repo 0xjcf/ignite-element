@@ -1,0 +1,52 @@
+---
+title: Shared readiness and terminal disposal
+description: The locked post-beta.12 correction, without new API forms.
+---
+
+:::caution[Unreleased correction]
+Beta.12 is published. The local candidate correction described here is not
+available in a release. This page describes its migration contract, not behavior
+shipped in beta.12; independent review and release remain separate decisions.
+:::
+
+Only two behaviors change. Source inputs, inline `states` and `commands`, events,
+effects, `core(tag, render)` and runtime method names stay the same.
+
+| Behavior | Published beta.12 | Locked correction |
+| --- | --- | --- |
+| Shared source and `useIgnite(core)` | Owner prepares once with `core.get("states")` before rendering | Shared construction prepares bindings; the first hook needs no prerequisite read |
+| `dispose()` after registration | Rejects before teardown | Terminally drains connected views and runtime handles; later connections stay inert |
+
+Preparation belongs at owner-controlled construction, not React rendering or an
+external-store snapshot read. Projection errors and real command metadata may
+become visible earlier. Commands and effects must not execute merely to prepare
+or inspect the catalogue. Existing explicit preparation reads remain valid.
+Machine-definition acquisition stays lazy and isolated; prepare an isolated
+headless owner explicitly when it is needed.
+
+Terminal disposal clears presentation and releases observations, exposed commands,
+attribute observers and renderer resources. It attempts every owned release even
+if one throws, preserves the first cleanup error and is idempotent. Cached
+catalogues remain readable. Old executable bindings reject further work. Browser
+tag definitions remain registered, inert and unavailable for replacement; disposal
+does not unregister them or permit a new core to take over.
+
+The correction preserves ordinary reconnect behavior and `cleanup: true`.
+Readiness cannot keep a permanent bookkeeping lease that defeats explicit shared
+adapter teardown. Source-free root registration retains its existing surface.
+
+Readiness alone observes projections; it does not create another effect surface.
+Existing explicit runtime use activates headless effects, and committed framework
+subscriptions activate them outside rendering. DOM effects remain attached to
+their rendered host. An abandoned React render adds no effects or acquisition.
+
+No ownership descriptor, source-construction function, registration `bind`,
+replacement overload, shell, controller, provider, command registry, or forwarding
+configuration is added. Applications supply dependencies through source-native
+input/configuration. An existing actor remains borrowed: the application calls
+`source.stop()` separately when its own lifetime ends.
+
+The normal feature keeps one core and its registrations. Sign-in/out and private
+state reset belong to source behavior, not automatic core recreation. See
+[Source ownership](/ignite-element/guides/shared-source-ownership/) and the
+[headless reference](/ignite-element/api/headless-runtime/).

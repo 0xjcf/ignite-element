@@ -1,6 +1,8 @@
 import type { FacadeCommandFunction } from "@ignite-element/core";
 
 export type BindingStore = {
+	/** Owner-only bootstrap; read and subscribe never acquire a source. */
+	prepare(): void;
 	read(): Readonly<Record<string, unknown>>;
 	subscribe(listener: () => void): () => void;
 };

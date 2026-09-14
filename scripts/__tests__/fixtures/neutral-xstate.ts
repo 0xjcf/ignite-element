@@ -57,3 +57,14 @@ core.canExecute("add");
 core.watchSnapshot(() => {});
 void count;
 core.dispose();
+
+// @ts-expect-error No public owned-source descriptor type.
+import type { OwnedSource } from "@ignite-element/core";
+
+// @ts-expect-error XState does not accept a source-construction function.
+igniteCore({ source: () => source });
+// @ts-expect-error XState does not accept an ownership descriptor.
+igniteCore({ source: { create: () => source, dispose: () => source.stop() } });
+const registration = core("compile-only-counter", (ctx) => ctx.count);
+// @ts-expect-error Registration handles cannot rebind another runtime.
+registration.bind(core);

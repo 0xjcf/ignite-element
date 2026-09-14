@@ -46,28 +46,29 @@ describe("recoverable core setup", () => {
 		const release = vi.fn();
 		let fail = true;
 		const log = vi.spyOn(console, "error").mockImplementation(() => {});
-		const core = actorCore({
-			source: {
-				...source,
-				subscribe(listener: Parameters<typeof source.subscribe>[0]) {
-					oldCallbacks.push(listener);
-					const off = source.subscribe(listener);
-					return () => {
-						off();
-						release();
-						if (fail) throw Error("cleanup");
-					};
+		const construct = () =>
+			actorCore({
+				source: {
+					...source,
+					subscribe(listener: Parameters<typeof source.subscribe>[0]) {
+						oldCallbacks.push(listener);
+						const off = source.subscribe(listener);
+						return () => {
+							off();
+							release();
+							if (fail) throw Error("cleanup");
+						};
+					},
+					subscribeTransportStatus() {
+						if (fail) throw null;
+						return () => {};
+					},
 				},
-				subscribeTransportStatus() {
-					if (fail) throw null;
-					return () => {};
-				},
-			},
-			states: (s) => ({ count: s.context.count }),
-			commands: ({ actor }) => ({ add: () => actor.send({ type: "add" }) }),
-		});
+				states: (s) => ({ count: s.context.count }),
+				commands: ({ actor }) => ({ add: () => actor.send({ type: "add" }) }),
+			});
 		try {
-			core.watch(() => {});
+			construct();
 			throw Error("expected failure");
 		} catch (error) {
 			expect(error).toBe(null);
@@ -75,6 +76,7 @@ describe("recoverable core setup", () => {
 		expect(listeners.size).toBe(0);
 		expect(release).toHaveBeenCalledOnce();
 		fail = false;
+		const core = construct();
 		const seen = vi.fn();
 		const handle = core.watch(seen);
 		core.get("states");
@@ -93,16 +95,19 @@ describe("recoverable core setup", () => {
 		async (mode) => {
 			const actor = createActor(machine).start();
 			const reason = { setup: mode };
+			let failWatch = false;
 			const core = xstateCore({
 				source: actor,
-				states: (s) => ({ count: s.context.count }),
+				states: (s) => {
+					if (failWatch) throw reason;
+					return { count: s.context.count };
+				},
 				commands: ({ actor }) => ({ add: () => actor.send({ type: "ADD" }) }),
 				events: (event) => ({ changed: event<{ count: number }>() }),
 			});
-			if (mode === "watch")
-				vi.spyOn(actor, "subscribe").mockImplementationOnce(() => {
-					throw reason;
-				});
+			// The ready cache already holds the native adapter subscription. Fail
+			// this watch's projection setup, rather than an unused native subscribe.
+			if (mode === "watch") failWatch = true;
 			else
 				vi.spyOn(actor, "on").mockImplementationOnce(() => {
 					throw reason;
@@ -116,6 +121,7 @@ describe("recoverable core setup", () => {
 				expect(error).toBe(reason);
 			}
 			expect(actor.getSnapshot().context.count).toBe(0);
+			failWatch = false;
 			const seen = vi.fn();
 			const watch = core.watch(seen);
 			const event = core.on("changed", () => {});
@@ -135,7 +141,7 @@ describe("recoverable core setup", () => {
 		async (mode) => {
 			const { source, listeners, close } = sourceFixture();
 			const reason = { setup: mode };
-			let fail = true;
+			let fail = false;
 			const subscribe = source.subscribe;
 			const events = new Set<(event: { type: "changed" }) => void>();
 			const fullSource = {
@@ -152,10 +158,14 @@ describe("recoverable core setup", () => {
 			};
 			const core = actorCore({
 				source: fullSource,
-				states: (s) => ({ count: s.context.count }),
+				states: (s) => {
+					if (fail && mode === "watch") throw reason;
+					return { count: s.context.count };
+				},
 				commands: ({ actor }) => ({ add: () => actor.send({ type: "add" }) }),
 				events: (event) => ({ changed: event() }),
 			});
+			fail = true;
 			try {
 				if (mode === "watch") core.watch(() => {});
 				else if (mode === "on") core.on("changed", () => {});
@@ -165,7 +175,8 @@ describe("recoverable core setup", () => {
 				expect(error).toBe(reason);
 			}
 			expect(source.snapshot().context.count).toBe(0);
-			expect(listeners.size).toBe(0);
+			// Failed additional work must preserve the ready cache's subscription.
+			expect(listeners.size).toBe(1);
 			expect(events.size).toBe(0);
 			fail = false;
 			core.get("states");
@@ -190,26 +201,28 @@ describe("recoverable core setup", () => {
 			expect(close).not.toHaveBeenCalled();
 		},
 	);
-	it("recovers a borrowed real XState actor after failed preparation", async () => {
+	it("preserves a borrowed real XState actor after failed ready construction and retries construction", async () => {
 		const actor = createActor(machine).start();
 		const stop = vi.spyOn(actor, "stop");
 		const reason = { temporary: true };
 		let fail = true;
-		const core = xstateCore({
-			source: actor,
-			states: (s) => {
-				if (fail) throw reason;
-				return { count: s.context.count };
-			},
-			commands: ({ actor }) => ({ add: () => actor.send({ type: "ADD" }) }),
-		});
+		const construct = () =>
+			xstateCore({
+				source: actor,
+				states: (s) => {
+					if (fail) throw reason;
+					return { count: s.context.count };
+				},
+				commands: ({ actor }) => ({ add: () => actor.send({ type: "ADD" }) }),
+			});
 		try {
-			core.get("states");
+			construct();
 			throw Error("expected failure");
 		} catch (error) {
 			expect(error).toBe(reason);
 		}
 		fail = false;
+		const core = construct();
 		expect(core.get("states").count).toBe(0);
 		const seen = vi.fn();
 		const watch = core.watch(seen);
@@ -225,26 +238,28 @@ describe("recoverable core setup", () => {
 		expect(stop).not.toHaveBeenCalled();
 		actor.stop();
 	});
-	it("recovers a borrowed Actor-Web source with live reads, commands and watch", async () => {
+	it("retries failed Actor-Web ready construction with live reads, commands and watch", async () => {
 		const { source, listeners, close } = sourceFixture();
 		let fail = true;
 		const reason = { temporary: true };
-		const core = actorCore({
-			source,
-			states: (s) => {
-				if (fail) throw reason;
-				return { count: s.context.count };
-			},
-			commands: ({ actor }) => ({ add: () => actor.send({ type: "add" }) }),
-		});
+		const construct = () =>
+			actorCore({
+				source,
+				states: (s) => {
+					if (fail) throw reason;
+					return { count: s.context.count };
+				},
+				commands: ({ actor }) => ({ add: () => actor.send({ type: "add" }) }),
+			});
 		try {
-			core.get("states");
+			construct();
 			throw Error("expected failure");
 		} catch (error) {
 			expect(error).toBe(reason);
 		}
 		expect(listeners.size).toBe(0);
 		fail = false;
+		const core = construct();
 		expect(core.get("states").count).toBe(0);
 		const seen = vi.fn();
 		const watch = core.watch(seen);

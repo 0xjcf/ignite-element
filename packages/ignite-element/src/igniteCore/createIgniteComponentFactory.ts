@@ -7,10 +7,10 @@ import type {
 	FacadeEffectsObjectCallback,
 	FacadeStatesCallback,
 	IgniteAdapter,
-	StateScope,
 } from "@ignite-element/core";
-import { event } from "@ignite-element/core";
+import { event, StateScope } from "@ignite-element/core";
 import { createComponentFactory } from "../createComponentFactory";
+import { requireBindingStore } from "../runtime/bindings";
 import type { IgniteCoreReturn } from "./publicTypes";
 
 export type IgniteComponentAdapterFactory<
@@ -109,7 +109,7 @@ export function createIgniteComponentFactory<
 			"[igniteCore] Config `view` was removed; use `states` with a bare native snapshot callback.",
 		);
 	}
-	return createComponentFactory<
+	const core = createComponentFactory<
 		State,
 		Event,
 		Snapshot,
@@ -134,4 +134,22 @@ export function createIgniteComponentFactory<
 		CommandsResult,
 		Events
 	>;
+	// Only the source-core assembly promises ready framework bindings. Keep
+	// low-level factories and isolated machine acquisition lazy.
+	if (createAdapter.scope === StateScope.Shared) {
+		try {
+			requireBindingStore(core).prepare();
+		} catch (error) {
+			try {
+				core.dispose();
+			} catch (cleanupError) {
+				console.error(
+					"[igniteCore] Construction rollback failed.",
+					cleanupError,
+				);
+			}
+			throw error;
+		}
+	}
+	return core;
 }

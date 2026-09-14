@@ -12,6 +12,7 @@ import {
 	type BindingStore,
 	immutableProjection,
 } from "./bindings";
+import { activateHostEffects } from "./effects";
 import { type Lifetime, releaseAll } from "./lifetime";
 
 type RuntimeEventMember = {
@@ -159,6 +160,8 @@ export function createAgentRuntime<
 	}
 	let prepared = false;
 	let preparing = false;
+	let releasePreparation: (() => void) | undefined;
+	let preparedHost: EventTarget | undefined;
 	let currentStates: States;
 	let snapshot: Readonly<Record<string, unknown>>;
 	const bindingListeners = new Set<() => void>();
@@ -171,7 +174,7 @@ export function createAgentRuntime<
 			releaseRuntimeAccess?.();
 		};
 	};
-	const prepare = () => {
+	const prepare = (effects = true) => {
 		lifetime.assertActive();
 		if (prepared) return currentStates;
 		if (preparing)
@@ -180,11 +183,13 @@ export function createAgentRuntime<
 		let releaseLease = () => {};
 		let release: (() => void) | undefined;
 		let rollback: (() => void) | undefined;
+		let observing = true;
 		try {
 			releaseLease = retainLease();
 			const resources = resolveRuntime();
 			rollback = resources.rollback;
 			const { adapter, additionalArgs } = resources;
+			if (effects) activateHostEffects(resources.host);
 			const update = (states: States) => {
 				if (!lifetime.active) return;
 				assertNoCollisions(states, additionalArgs);
@@ -204,21 +209,28 @@ export function createAgentRuntime<
 			const initialStates = resolveStates(adapter);
 			update(initialStates);
 			const subscription = adapter.subscribeSnapshots((value) => {
-				if (!lifetime.active) return;
+				if (!observing || !lifetime.active) return;
 				update(derive(value));
 				for (const listener of [...bindingListeners])
 					if (lifetime.active && bindingListeners.has(listener)) listener();
 			});
-			release = lifetime.own(() =>
-				releaseAll([() => subscription.unsubscribe(), releaseLease]),
-			);
+			release = lifetime.own(() => {
+				observing = false;
+				prepared = false;
+				preparedHost = undefined;
+				releasePreparation = undefined;
+				subscription.unsubscribe();
+			});
+			releasePreparation = release;
 			lifetime.assertActive();
 			publishCatalogue(additionalArgs);
 			prepared = true;
+			preparedHost = resources.host;
 			// Synchronous replay updates the framework cache, but the public read
 			// still honors the configured snapshot resolver used for this read.
 			return initialStates;
 		} catch (error) {
+			observing = false;
 			try {
 				releaseAll([release ?? releaseLease, () => rollback?.()]);
 			} catch (cleanupError) {
@@ -230,9 +242,13 @@ export function createAgentRuntime<
 			throw error;
 		} finally {
 			preparing = false;
+			releaseLease();
 		}
 	};
 	const bindingStore: BindingStore = {
+		prepare() {
+			prepare(false);
+		},
 		read() {
 			lifetime.assertActive();
 			if (!prepared)
@@ -243,15 +259,21 @@ export function createAgentRuntime<
 		},
 		subscribe(listener) {
 			bindingStore.read();
+			// Framework subscription runs after rendering and only activates an
+			// already-acquired host; it never creates an actor or runtime facade.
+			if (preparedHost) activateHostEffects(preparedHost);
+			const releaseLease = retainLease();
 			bindingListeners.add(listener);
 			return lifetime.own(() => {
 				bindingListeners.delete(listener);
+				releaseLease();
 			});
 		},
 	};
 	lifetime.own(() => {
 		bindingListeners.clear();
 		prepared = false;
+		preparedHost = undefined;
 		currentStates = undefined as never;
 		snapshot = Object.freeze({});
 	});
@@ -268,6 +290,7 @@ export function createAgentRuntime<
 		try {
 			const resources = resolveRuntime();
 			rollback = resources.rollback;
+			activateHostEffects(resources.host);
 			const { adapter } = resources;
 			let previous = read(adapter);
 			let installing = true;
@@ -328,6 +351,7 @@ export function createAgentRuntime<
 		try {
 			const resources = resolveRuntime();
 			rollback = resources.rollback;
+			activateHostEffects(resources.host);
 			const { adapter, host } = resources;
 			for (const name of names) {
 				const listener = (event: globalThis.Event) => {
@@ -377,6 +401,7 @@ export function createAgentRuntime<
 	) => {
 		lifetime.assertActive();
 		const resources = resolveRuntime();
+		activateHostEffects(resources.host);
 		const { adapter, additionalArgs } = resources;
 		const descriptor = Object.getOwnPropertyDescriptor(
 			additionalArgs,
@@ -420,7 +445,11 @@ export function createAgentRuntime<
 				lifetime.assertActive();
 				// Public reads re-project the current source. Only framework reads
 				// consume the detached, referentially stable observation cache.
-				if (prepared) return resolveStates(resolveRuntime().adapter);
+				if (prepared) {
+					const resources = resolveRuntime();
+					activateHostEffects(resources.host);
+					return resolveStates(resources.adapter);
+				}
 				return prepare();
 			}
 			if (key === "schema") return readCatalogue(key);
@@ -441,6 +470,7 @@ export function createAgentRuntime<
 	};
 	return {
 		runtime,
+		releasePreparation: () => releasePreparation?.(),
 		bindingStore,
 		watchSnapshot,
 		publishCatalogue,
