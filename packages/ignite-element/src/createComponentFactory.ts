@@ -45,6 +45,8 @@ export type ElementFactoryOptions<
 	createRenderStrategy?: RenderStrategyFactory<View>;
 	eventTypes?: readonly (keyof Events & string)[];
 	hasCommands?: boolean;
+	disposeEffects?: () => void;
+	hasActiveEffects?: (adapter: IgniteAdapter<State, Event>) => boolean;
 	resolveStates?: (
 		adapter: IgniteAdapter<State, Event>,
 	) => RuntimeView | Record<never, never>;
@@ -193,6 +195,8 @@ export function bindProjectionToElements<
 		cleanup: projection.cleanup,
 		eventTypes: projection.eventTypes,
 		hasCommands: projection.hasCommands,
+		disposeEffects: projection.disposeEffects,
+		hasActiveEffects: projection.hasActiveEffects,
 		resolveInspection: projection.resolveInspection,
 		resolveStates: projection.resolveStates,
 		resolveDeliveredStates: projection.resolveDeliveredStates,
@@ -206,10 +210,12 @@ export function bindProjectionToElements<
 			}
 			const renderHost = host as HTMLElement;
 			const emit = createDomEmit<Events>(host);
-			return projection.createAdditionalArgs(adapter, renderHost, (event) => {
-				observeEffect?.(event.type);
-				emit(event);
-			});
+			return projection.createAdditionalArgs(
+				adapter,
+				renderHost,
+				emit,
+				observeEffect,
+			);
 		},
 	});
 }

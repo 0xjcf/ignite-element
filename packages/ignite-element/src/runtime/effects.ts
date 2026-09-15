@@ -9,14 +9,21 @@ import type {
 
 export const facadeCleanupSymbol = Symbol("ignite.facade.cleanup");
 
-// Readiness installs a projection cache, not an extra headless effect surface.
-// Actual runtime use (or a committed framework subscription) activates effects.
+// Readiness registers an inactive recipient. Actual runtime use or a committed
+// subscription/connection activates its core/source owner, never a view runner.
 const deferredHosts = new WeakMap<
 	object,
 	{ active: boolean; start?: () => void }
 >();
-export function deferHostEffects(host: object): void {
-	deferredHosts.set(host, { active: false });
+export function registerHostEffects(
+	host: object,
+	start: () => void,
+): () => void {
+	const record = { active: false, start };
+	deferredHosts.set(host, record);
+	return () => {
+		if (deferredHosts.get(host) === record) deferredHosts.delete(host);
+	};
 }
 export function activateHostEffects(host: object): void {
 	const deferred = deferredHosts.get(host);
@@ -45,8 +52,9 @@ type AttachEffectsOptions<
 	adapter: IgniteAdapter<State, Event>;
 	effects: FacadeEffectsObjectCallback<Snapshot, CommandActor, Events, Host>;
 	resolveSnapshot: (adapter: IgniteAdapter<State, Event>) => Snapshot;
-	host: Host;
+	host: unknown;
 	emit: EmitFromEvents<Events>;
+	isActive?: () => boolean;
 };
 
 type ErrorHandlingHost = {
@@ -102,33 +110,14 @@ export function attachEffects<
 	resolveSnapshot,
 	host,
 	emit,
+	isActive = () => true,
 }: AttachEffectsOptions<State, Event, Snapshot, CommandActor, Events, Host>) {
-	const deferred =
-		typeof host === "object" && host !== null
-			? deferredHosts.get(host)
-			: undefined;
-	if (deferred && !deferred.active) {
-		let release: (() => void) | undefined;
-		deferred.start = () => {
-			release = attachEffects({
-				adapter,
-				effects,
-				resolveSnapshot,
-				host,
-				emit,
-			});
-		};
-		return () => {
-			deferred.start = undefined;
-			release?.();
-		};
-	}
 	let prevSnapshot = resolveSnapshot(adapter);
 	let seeded = false;
 	let active = true;
 
 	const listener = () => {
-		if (!active) return;
+		if (!active || !isActive()) return;
 		const snapshot = resolveSnapshot(adapter);
 
 		// Adapters seed subscribers with the current snapshot immediately.
@@ -146,13 +135,15 @@ export function attachEffects<
 		// Headless observers have no renderer commit barrier; this does not wait
 		// for a React (or other external framework) commit.
 		queueMicrotask(() => {
-			if (!active) return;
+			if (!active || !isActive()) return;
 			try {
 				const select = createSelect(snapshot, prev);
 				const result = effects({
 					snapshot,
 					prevSnapshot: prev,
-					emit,
+					emit: (event) => {
+						if (active && isActive()) emit(event);
+					},
 					select,
 				});
 

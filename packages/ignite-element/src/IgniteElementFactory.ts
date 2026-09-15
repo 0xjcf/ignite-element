@@ -28,7 +28,7 @@ import {
 	registerElementCommands,
 	setCommandOwner,
 } from "./runtime/bindings";
-import { deferHostEffects, facadeCleanupSymbol } from "./runtime/effects";
+import { activateHostEffects, facadeCleanupSymbol } from "./runtime/effects";
 import { createEventOrigins } from "./runtime/eventOrigins";
 import { forwardNativeEvents } from "./runtime/nativeEvents";
 import { createLifetime, releaseAll } from "./runtime/lifetime";
@@ -100,6 +100,8 @@ type FactoryOptions<
 	scope?: StateScope;
 	eventTypes?: readonly string[];
 	hasCommands?: boolean;
+	disposeEffects?: () => void;
+	hasActiveEffects?: (adapter: IgniteAdapter<State, Event>) => boolean;
 	createAdditionalArgs?: (
 		adapter: IgniteAdapter<State, Event>,
 		host?: EventTarget,
@@ -262,6 +264,7 @@ export default function igniteElementFactory<
 ): ComponentFactory<State, Event, RenderArgs, View> {
 	type RuntimeAdditionalArgs = AdditionalRenderArgs<State, Event, RenderArgs>;
 	const lifetime = createLifetime();
+	lifetime.own(() => options?.disposeEffects?.());
 	const eventOrigins = createEventOrigins();
 	lifetime.own(() => eventOrigins.dispose());
 	let registrationInProgress = false;
@@ -351,7 +354,6 @@ export default function igniteElementFactory<
 	// effect-emitted events. The DOM render path creates its own real element.
 	const createRuntimeHost = (): EventTarget => {
 		const host = new EventTarget();
-		deferHostEffects(host);
 		return host;
 	};
 
@@ -380,6 +382,7 @@ export default function igniteElementFactory<
 	// Only explicit element cleanup may release a shared adapter early. A
 	// prepared cache is not a permanent lease; actual framework/watch/on users are.
 	const releaseUnusedSharedAdapter = () => {
+		if (sharedAdapter && options?.hasActiveEffects?.(sharedAdapter)) return;
 		if (!lifetime.active || !cleanupRequested || connectedViews || runtimeUsers)
 			return;
 		const adapter = sharedAdapter,
@@ -944,6 +947,7 @@ export default function igniteElementFactory<
 						}
 						this.disconnectAttrObserver ??= setupAttributeObservation(this);
 						super.connectedCallback();
+						activateHostEffects(this);
 					} catch (error) {
 						try {
 							releaseAll([
@@ -1066,6 +1070,7 @@ export default function igniteElementFactory<
 						this.releaseNativeEvents = release;
 					}
 					super.connectedCallback();
+					activateHostEffects(this);
 				} catch (error) {
 					if (acquiring) {
 						const adapter = this.adapterInstance;

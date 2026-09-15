@@ -10,7 +10,8 @@ Start with a source, inline `states`, inline `commands`, and a renderer using
 Web Components as well as the existing headless channel. New inferred checks
 reserve precise native emitted names against effect emission. Beta.13 already
 supports native headless events and per-projection effects; it does not provide
-this equivalent native DOM forwarding.
+this equivalent native DOM forwarding. The next candidate also moves effect
+evaluation to one owner per core/source instance, as described below.
 
 ## One counter, two meanings
 
@@ -155,10 +156,24 @@ and durable receipts belong to the source/application.
 
 ## Delivery and ownership
 
-- Effects run once **per active projection**, not globally once per source.
-  Selection semantics are unchanged: the initial baseline does not report a
-  change; callbacks stay synchronous and return nothing. Queued post-render
-  microtasks run after the corresponding renderer update.
+- Effects run once **per delivered source update per core/source instance**,
+  not once per view. The initial activation establishes a baseline without an
+  effect call. Each later notification queues one synchronous, void-returning
+  callback; `select(...).changed` compares with `Object.is`. Intermediate
+  updates are not coalesced.
+- A shared evaluator starts on legitimate runtime use or committed subscription
+  / element connection, not constructor preparation or render-time reads.
+  Once started it observes through zero-view gaps until `core.dispose()`.
+  Reconnecting does not reset its baseline. Each isolated source instance has
+  its own evaluator and releases it with that instance; a fresh instance has a
+  fresh baseline. Independently configured cores remain independent even when
+  borrowing the same actor.
+- Delivery is queued after source processing, not a universal framework commit
+  barrier. Synchronous Ignite render updates can complete before that microtask;
+  React, React Native, Solid or Vue may not have committed yet. Core-owned
+  effect failures use the existing `console.error` fallback once per failed
+  evaluation, not the first element's `handleError` / `onError` hook. Invalid
+  async returns also report the synchronous-void violation and any rejection.
 - Native occurrences are forwarded as received, only for names declared in
   that core's public map. `type` is the DOM event name; the remaining flat
   payload becomes `detail`; `bubbles` and `composed` are true.
@@ -171,6 +186,10 @@ and durable receipts belong to the source/application.
   cross-stream ordering is promised. In particular, an event emitted before a
   React wrapper attaches listeners is not guaranteed to reach its callback.
   Ignite does not restart a borrowed source to replay startup events.
+- Eligibility is checked when the queued effect emits: a listener subscribed
+  before that future emission can receive it. Subscribing after emission never
+  replays it. Disconnect/unsubscribe before delivery retires that recipient;
+  terminal disposal also discards pending evaluations and later emissions.
 - True disconnect removes the view's forwarding subscription; reconnect adds
   one fresh subscription. Same-tick moves retain it. Isolated source instances
   remain separate. Disconnect never shuts down an application-owned source.
@@ -182,6 +201,28 @@ do not redundantly unsubscribe every listener immediately before disposal.
 View unmount is not application shutdown. Actual presentation resources use
 their framework lifecycle, not these effects. Future renderer refs, commit
 hooks, and keyed reconciliation are not implemented by this change.
+
+For two connected `app-counter` elements sharing the core above, one increment
+evaluates the effect once and produces one `countChanged`. Each host dispatches
+its own DOM event, so a shared ancestor sees two deliveries. Each `core.on`
+registration receives one delivery, not an echo from those hosts. Adding a
+`useIgnite(core)` consumer does not add an evaluator. Without a headless
+listener the two DOM consumers work the same way; without DOM hosts a headless
+listener works alone.
+
+### Migration from per-view effects
+
+Applications depending on one callback or comparison baseline per mounted view
+must move view-specific work to actual framework lifecycle facilities. There
+is no compatibility flag or per-view runner. Ordinary source, inline states,
+commands, `ctx`, and public core methods are unchanged. This is notification
+derivation, not global or application-wide exactly-once business execution.
+
+Future Solid/Vue bindings should subscribe to the core's state and release only
+their consumer on cleanup, not execute Ignite effects in each framework watcher.
+Those bindings are not implemented here. Focus, layout, canvas and native view
+resources remain framework-owned; persistence, retry and durable confirmation
+remain source/application-owned.
 
 ## One production rule per public event
 

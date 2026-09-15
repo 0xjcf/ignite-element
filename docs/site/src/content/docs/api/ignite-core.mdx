@@ -31,8 +31,8 @@ component.get('schema');
 - `events(mapper)`: optional; declares names and payload types, not emissions or runtime schemas. See [Events](/ignite-element/guides/events/) for unreleased native DOM forwarding and producer checks.
 - `states(snapshot)`: optionally derive a plain object from the bare native snapshot; runs during preparation/rendering and source observations. Omission yields one stable empty object. Since beta.13, initial shared preparation occurs at construction.
 - `commands(context)`: expose actions; receives `{ actor }`.
-- `effects(context)`: optional; receives `{ snapshot, prevSnapshot, select, emit }`, stays synchronous, and runs in a microtask after renderer notification for each delivered update after the initial baseline.
-- `cleanup`: shared-adapter element-refcount teardown override, not native source ownership. Defaults to `false` for shared sources. Set `cleanup: true` to release the shared adapter after the last element and retained observation handle leave. Owning-core disposal is separate: borrowed sources are never stopped, while a private Ignite-created XState actor is stopped exactly once. Headless Actor-Web factory invocation does not transfer close authority.
+- `effects(context)`: optional; receives `{ snapshot, prevSnapshot, select, emit }` and stays synchronous. **Unreleased after beta.13:** one evaluator per core/source instance queues each delivered update after its initial baseline; consumers do not create separate runners. See [Events](/ignite-element/guides/events/) for activation, ownership and migration.
+- `cleanup`: shared-adapter element-refcount teardown override, not native source ownership. Defaults to `false` for shared sources. Set `cleanup: true` to release the shared adapter after the last element and retained observation handle leave. An activated shared effect evaluator retains observation until terminal core disposal, even with this option. Owning-core disposal is separate: borrowed sources are never stopped, while a private Ignite-created XState actor is stopped exactly once. Headless Actor-Web factory invocation does not transfer close authority.
 
 ## Returns
 
@@ -58,7 +58,7 @@ Create supported targets with `createProjectionDocumentTarget(...)` or `createPr
 
 ## Advanced overrides
 
-`cleanup` controls shared-adapter teardown; most components won't need to change it. A consumer-owned shared source is kept alive for the core's lifetime by default — pass `cleanup: true` only to opt a shared core back into element-refcount teardown of the adapter.
+`cleanup` controls shared-adapter teardown; most components won't need to change it. A consumer-owned shared source is kept alive for the core's lifetime by default — pass `cleanup: true` only to opt a shared core back into element-refcount teardown of the adapter when no activated effect evaluator retains it.
 
 ```ts
 const component = igniteCore({
@@ -76,7 +76,7 @@ Source-backed construction exposes the runtime before registration. Tag-and-rend
 ## Callback boundaries
 
 - Commands express explicit intent. Pass user or host-derived data as command input instead of reading it from an implicit host object.
-- Effects stay synchronous and publish outward facts after the renderer has been notified. Move async environmental work, retries, cancellation, and feedback loops into source/application ports.
+- Effects stay synchronous and queue outward facts after source processing, without promising that every framework has committed its view. Core-owned errors use the console fallback, not a particular element's error hook. Move async environmental work, retries, cancellation, and feedback loops into source/application ports.
 - DOM event dispatch and internal error routing still exist, but the host stays an internal runtime concern rather than a public callback capability.
 
 ```ts
