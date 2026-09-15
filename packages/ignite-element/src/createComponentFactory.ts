@@ -40,6 +40,7 @@ export type ElementFactoryOptions<
 	createAdditionalArgs?: (
 		adapter: IgniteAdapter<State, Event>,
 		host?: EventTarget,
+		observeEffect?: (name: string) => void,
 	) => AdditionalRenderArgs<State, Event, RenderArgs>;
 	createRenderStrategy?: RenderStrategyFactory<View>;
 	eventTypes?: readonly (keyof Events & string)[];
@@ -197,18 +198,18 @@ export function bindProjectionToElements<
 		resolveDeliveredStates: projection.resolveDeliveredStates,
 		createRenderArgs: projection.createRenderArgs,
 		createRenderStrategy: options.createRenderStrategy,
-		createAdditionalArgs: (adapter, host) => {
+		createAdditionalArgs: (adapter, host, observeEffect) => {
 			if (!host) {
 				throw new Error(
 					`[${errorPrefix}] Host element is required for projection.`,
 				);
 			}
 			const renderHost = host as HTMLElement;
-			return projection.createAdditionalArgs(
-				adapter,
-				renderHost,
-				createDomEmit<Events>(host),
-			);
+			const emit = createDomEmit<Events>(host);
+			return projection.createAdditionalArgs(adapter, renderHost, (event) => {
+				observeEffect?.(event.type);
+				emit(event);
+			});
 		},
 	});
 }

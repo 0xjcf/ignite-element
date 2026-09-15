@@ -52,3 +52,28 @@ core.canExecute("add");
 core.watchSnapshot(() => {});
 void count;
 core.dispose();
+
+const emittingSource = {
+	address: "native",
+	snapshot: () => ({
+		address: "native",
+		context: { count: 0 },
+		phase: "active",
+		toJSON: () => ({}),
+	}),
+	subscribe: () => () => {},
+	subscribeEvent:
+		(_listener: (event: { type: "reset"; count: number }) => void) => () => {},
+};
+igniteCore({
+	source: emittingSource,
+	events: (event) => ({
+		reset: event<{ count: number }>(),
+		changed: event<{ count: number }>(),
+	}),
+	effects: ({ emit }) => {
+		emit({ type: "changed", count: 1 });
+		// @ts-expect-error A present precise outward channel reserves this event.
+		emit({ type: "reset", count: 0 });
+	},
+});

@@ -78,6 +78,7 @@ type AgentRuntimeOptions<
 	AdditionalArgs extends Record<string, unknown>,
 > = {
 	eventTypes: readonly string[];
+	observeNative?: (adapter: IgniteAdapter<State, Event>, name: string) => void;
 	hasCommands?: boolean;
 	lifetime: Lifetime;
 	dispose: () => void;
@@ -99,6 +100,7 @@ export function createAgentRuntime<
 	AdditionalArgs extends Record<string, unknown>,
 >({
 	eventTypes,
+	observeNative,
 	hasCommands,
 	lifetime,
 	dispose,
@@ -367,6 +369,7 @@ export function createAgentRuntime<
 			const subscription = adapter.subscribeEvents?.((event: unknown) => {
 				if (!active || !lifetime.active) return;
 				const member = sourceEventToRuntimeEvent(event);
+				if (member) observeNative?.(adapter, member.type);
 				if (member && (allSourceEvents || names.includes(member.type)))
 					handler(member);
 			});

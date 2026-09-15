@@ -10,12 +10,17 @@ import type {
 	EventMap,
 	FacadeCommandFunction,
 	FacadeCommandResult,
+	EventsDefinition,
+	FacadeEffectsObjectCallback,
+	FacadeCommandsCallback,
+	FacadeStatesCallback,
 } from "@ignite-element/core";
 import type {
-	ActorWebConfig,
-	IgniteCoreReturn,
-	WithEmittedEvents,
-} from "./actorWebTypes";
+	ChannelEmitted,
+	CompatibleEvents,
+	EffectEvents,
+} from "./eventProducerTypes";
+import type { IgniteCoreReturn, WithEmittedEvents } from "./actorWebTypes";
 import {
 	createIgniteComponentFactory,
 	type IgniteComponentFactoryOptions,
@@ -39,30 +44,38 @@ type ActorWebSubpathConfig<
 		never,
 		FacadeCommandFunction
 	>,
-> = Omit<
-	ActorWebConfig<
-		Context,
-		Message,
-		Emitted,
-		Events,
-		StatesResult,
-		CommandsResult
-	>,
-	"adapter" | "source" | "states"
-> & {
-	adapter?: "actor-web";
-	source:
+	Source extends
 		| ActorWebSubpathSourceValue<Context, Message, Emitted>
-		| (() => ActorWebSubpathSourceValue<Context, Message, Emitted>);
-	states?: ActorWebConfig<
-		Context,
-		Message,
-		Emitted,
-		Events,
-		StatesResult,
-		CommandsResult
-	>["states"];
-};
+		| (() => ActorWebSubpathSourceValue<Context, Message, Emitted>) =
+		| ActorWebSubpathSourceValue<Context, Message, Emitted>
+		| (() => ActorWebSubpathSourceValue<Context, Message, Emitted>),
+> = {
+	commands?: FacadeCommandsCallback<
+		ActorWebCommandActor<Context, Message, Emitted>,
+		CommandsResult,
+		unknown,
+		ActorWebExtendedState<Context>
+	>;
+	cleanup?: boolean;
+	events?: EventsDefinition<
+		Events & CompatibleEvents<NoInfer<Events>, ChannelEmitted<NoInfer<Source>>>
+	>;
+	effects?: FacadeEffectsObjectCallback<
+		ActorWebExtendedState<Context>,
+		ActorWebCommandActor<Context, Message, Emitted>,
+		NoInfer<EffectEvents<Events, ChannelEmitted<Source>>>
+	>;
+	adapter?: "actor-web";
+	source: Source &
+		(
+			| ActorWebSubpathSourceValue<Context, Message, Emitted>
+			| (() => ActorWebSubpathSourceValue<Context, Message, Emitted>)
+		);
+	states?: FacadeStatesCallback<ActorWebExtendedState<Context>, StatesResult>;
+} & import("./publicTypes").DisjointBindings<
+	NoInfer<StatesResult>,
+	NoInfer<CommandsResult>
+>;
 
 export function igniteCoreActorWeb<
 	Context extends object,
@@ -74,6 +87,11 @@ export function igniteCoreActorWeb<
 		never,
 		FacadeCommandFunction
 	>,
+	Source extends
+		| ActorWebSubpathSourceValue<Context, Message, Emitted>
+		| (() => ActorWebSubpathSourceValue<Context, Message, Emitted>) =
+		| ActorWebSubpathSourceValue<Context, Message, Emitted>
+		| (() => ActorWebSubpathSourceValue<Context, Message, Emitted>),
 >(
 	options: ActorWebSubpathConfig<
 		Context,
@@ -81,7 +99,8 @@ export function igniteCoreActorWeb<
 		Emitted,
 		Events,
 		StatesResult,
-		CommandsResult
+		CommandsResult,
+		Source
 	>,
 ): IgniteCoreReturn<
 	ActorWebExtendedState<Context>,

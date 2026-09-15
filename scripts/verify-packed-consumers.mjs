@@ -323,7 +323,7 @@ function verifyConsumer(lane, tarballPaths) {
 					strict: true,
 					target: "ES2022",
 				},
-				include: ["consumer.tsx", "removed-*.ts"],
+				include: ["consumer.tsx", "removed-*.ts", "native-events.tsx"],
 			},
 			null,
 			2,
@@ -394,6 +394,16 @@ assert.throws(() => require.resolve("lit-html"), { code: "MODULE_NOT_FOUND" });`
 		);
 	}
 	if (lane.name === "adapters") {
+		writeFileSync(
+			join(consumerDirectory, "native-events.tsx"),
+			readFileSync(
+				join(
+					repositoryRoot,
+					"scripts/__tests__/fixtures/native-events-dom.tsx",
+				),
+				"utf8",
+			),
+		);
 		for (const entry of ["xstate", "redux", "mobx", "actor-web"]) {
 			writeFileSync(
 				join(consumerDirectory, "removed-" + entry + ".ts"),

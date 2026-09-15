@@ -15,6 +15,7 @@ import type {
 	PublicFacadeRenderArgs,
 } from "../types/render";
 import type { IgniteAgentSchema, IgniteSchemaValue } from "../types/schema";
+import type { KnownEmitted, NativeMember } from "./eventProducerTypes";
 
 // Dynamic index signatures need the runtime check; exact known keys can also
 // reject a collision at construction without changing either callback's inference.
@@ -33,11 +34,14 @@ export type DisjointBindings<States, Commands> = string extends
  * `Message`), each emitted member is folded into the headless runtime's events
  * as the flat runtime event member, matching the runtime bridge, so
  * `on(...)` / `execute().events` are typed from the source with no `events:`
- * map. Explicitly declared `events:` keys win on collision. A non-distinct
+ * map. Explicitly declared keys are checked against native payloads at the
+ * supported typed constructors before taking precedence. A non-distinct
  * `Emitted` (the `= Message` default) contributes nothing, and neither does a
  * broad union whose `type` is plain `string` (e.g. XState's `EventObject`
  * default on machines that declare no `emitted` types) — folding that in
- * would add a string index signature to the events map.
+ * would add a string index signature to the events map. XState passes `never`
+ * for Message: its real emitted union is authoritative even if input and output
+ * happen to have identical types.
  */
 export type WithEmittedEvents<
 	Events extends EventMap,
@@ -45,13 +49,13 @@ export type WithEmittedEvents<
 	Message extends { type: string },
 > = [Emitted] extends [Message]
 	? Events
-	: string extends Emitted["type"]
+	: [KnownEmitted<Emitted>] extends [never]
 		? Events
 		: Events &
 				Omit<
 					{
-						[Type in Emitted["type"]]: EventDescriptor<
-							Extract<Emitted, { type: Type }>
+						[Type in KnownEmitted<Emitted>["type"]]: EventDescriptor<
+							NativeMember<KnownEmitted<Emitted>, Type>
 						>;
 					},
 					keyof Events

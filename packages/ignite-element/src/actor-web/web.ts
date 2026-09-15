@@ -20,6 +20,12 @@ import type {
 } from "../igniteCore/actorWebTypes";
 import { createIgniteComponentFactory } from "../igniteCore/createIgniteComponentFactory";
 import type { DisjointBindings } from "../igniteCore/publicTypes";
+import type {
+	ChannelEmitted,
+	CompatibleEvents,
+	EffectEvents,
+} from "../igniteCore/eventProducerTypes";
+import type { IgniteComponentFactoryOptions } from "../igniteCore/createIgniteComponentFactory";
 
 export type ActorWebHostFactory<
 	Context extends object,
@@ -38,10 +44,15 @@ export function igniteCore<
 	Events extends EventMap = EmptyEventMap,
 	States extends Record<string, unknown> = Record<never, never>,
 	Commands extends FacadeCommandResult = Record<never, never>,
+	Source extends ActorWebHostFactory<
+		Context,
+		Message,
+		Emitted
+	> = ActorWebHostFactory<Context, Message, Emitted>,
 >(
 	options: {
 		adapter?: "actor-web";
-		source: ActorWebHostFactory<Context, Message, Emitted>;
+		source: Source & ActorWebHostFactory<Context, Message, Emitted>;
 		states?: FacadeStatesCallback<
 			ActorWebExtendedState<NoInfer<Context>>,
 			States
@@ -56,7 +67,10 @@ export function igniteCore<
 			unknown,
 			ActorWebExtendedState<NoInfer<Context>>
 		>;
-		events?: EventsDefinition<Events>;
+		events?: EventsDefinition<
+			Events &
+				CompatibleEvents<NoInfer<Events>, ChannelEmitted<NoInfer<Source>>>
+		>;
 		cleanup?: boolean;
 		effects?: FacadeEffectsObjectCallback<
 			ActorWebExtendedState<NoInfer<Context>>,
@@ -65,7 +79,7 @@ export function igniteCore<
 				NoInfer<Message>,
 				NoInfer<Emitted>
 			>,
-			Events
+			EffectEvents<NoInfer<Events>, ChannelEmitted<NoInfer<Source>>>
 		>;
 	} & DisjointBindings<NoInfer<States>, NoInfer<Commands>>,
 ): IgniteCoreReturn<
@@ -90,7 +104,13 @@ export function igniteCore<
 	}, factory);
 	return createIgniteComponentFactory(
 		createAdapter,
-		options,
+		options as IgniteComponentFactoryOptions<
+			ActorWebExtendedState<Context>,
+			ActorWebCommandActor<Context, Message, Emitted>,
+			States,
+			Commands,
+			Events
+		>,
 	) as IgniteCoreReturn<
 		ActorWebExtendedState<Context>,
 		Message,

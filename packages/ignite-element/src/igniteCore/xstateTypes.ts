@@ -4,8 +4,11 @@ import type {
 	EventMap,
 	FacadeCommandFunction,
 	FacadeCommandResult,
+	FacadeEffectsObjectCallback,
+	EventBuilder,
 } from "@ignite-element/core";
-import type { AnyStateMachine } from "xstate";
+import type { AnyStateMachine, EmittedFrom, StateFrom } from "xstate";
+import type { CompatibleEvents, EffectEvents } from "./eventProducerTypes";
 import type { DisjointBindings } from "./publicTypes";
 
 export type { IgniteCoreReturn, WithEmittedEvents } from "./publicTypes";
@@ -17,11 +20,16 @@ export type XStateConfig<
 		never,
 		FacadeCommandFunction
 	>,
-> = AdapterXStateConfig<
-	Machine,
-	Events,
-	StatesResult,
-	CommandsResult,
-	unknown
-> &
-	DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>>;
+> = Omit<
+	AdapterXStateConfig<Machine, Events, StatesResult, CommandsResult, unknown>,
+	"effects" | "events"
+> & {
+	events?: (
+		event: EventBuilder,
+	) => Events & NoInfer<CompatibleEvents<Events, EmittedFrom<Machine>>>;
+	effects?: FacadeEffectsObjectCallback<
+		StateFrom<Machine>,
+		unknown,
+		EffectEvents<NoInfer<Events>, NoInfer<EmittedFrom<Machine>>>
+	>;
+} & DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>>;

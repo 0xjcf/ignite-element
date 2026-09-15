@@ -13,6 +13,7 @@ import type {
 	StateFrom,
 } from "xstate";
 import { createIgniteComponentFactory } from "./createIgniteComponentFactory";
+import type { IgniteComponentFactoryOptions } from "./createIgniteComponentFactory";
 import type {
 	IgniteCoreReturn,
 	WithEmittedEvents,
@@ -36,7 +37,7 @@ export function igniteCoreXState<
 	StatesResult,
 	XStateCommandActor<Machine>,
 	CommandsResult,
-	WithEmittedEvents<Events, EmittedFrom<Machine>, EventFrom<Machine>>
+	WithEmittedEvents<Events, EmittedFrom<Machine>, never>
 > {
 	const createAdapter = createXStateAdapter(options.source);
 	// The machine's emitted union widens the static events map only; the
@@ -50,13 +51,24 @@ export function igniteCoreXState<
 		XStateCommandActor<Machine>,
 		CommandsResult,
 		Events
-	>(createAdapter, options) as IgniteCoreReturn<
+		// Public configuration narrows the emitter to effect-owned names. It can
+		// safely receive the assembly emitter, which supports all declared names.
+	>(
+		createAdapter,
+		options as IgniteComponentFactoryOptions<
+			StateFrom<Machine>,
+			XStateCommandActor<Machine>,
+			StatesResult,
+			CommandsResult,
+			Events
+		>,
+	) as IgniteCoreReturn<
 		StateFrom<Machine>,
 		EventFrom<Machine>,
 		StateFrom<Machine>,
 		StatesResult,
 		XStateCommandActor<Machine>,
 		CommandsResult,
-		WithEmittedEvents<Events, EmittedFrom<Machine>, EventFrom<Machine>>
+		WithEmittedEvents<Events, EmittedFrom<Machine>, never>
 	>;
 }

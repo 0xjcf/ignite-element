@@ -28,7 +28,7 @@ component.get('schema');
 ## Parameters
 
 - `source`: machine definition or started actor (XState), Redux store/slice, or MobX observable.
-- `events(mapper)`: optional; defines typed DOM events.
+- `events(mapper)`: optional; declares names and payload types, not emissions or runtime schemas. See [Events](/ignite-element/guides/events/) for unreleased native DOM forwarding and producer checks.
 - `states(snapshot)`: optionally derive a plain object from the bare native snapshot; runs during preparation/rendering and source observations. Omission yields one stable empty object. Since beta.13, initial shared preparation occurs at construction.
 - `commands(context)`: expose actions; receives `{ actor }`.
 - `effects(context)`: optional; receives `{ snapshot, prevSnapshot, select, emit }`, stays synchronous, and runs in a microtask after renderer notification for each delivered update after the initial baseline.
