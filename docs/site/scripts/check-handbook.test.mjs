@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import routes from "../src/route-map.json" with { type: "json" };
 import {
 	currentRoute,
 	routeUrl,
@@ -40,4 +41,18 @@ test("advanced current pages retain a useful current destination", () => {
 		versionDestination("api/advanced-config", true),
 		"2.x/concepts/configuration",
 	);
+});
+
+test("legacy Events sections preserve their corresponding handbook subjects", () => {
+	for (const heading of [
+		"one-counter-two-meanings",
+		"delivery-and-ownership",
+		"migration-from-per-view-effects",
+		"one-production-rule-per-public-event",
+	]) {
+		assert.equal(
+			routes.fragmentTargets["guides/events"][heading],
+			`/ignite-element/handbook/events/#${heading}`,
+		);
+	}
 });

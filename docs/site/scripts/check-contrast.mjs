@@ -303,9 +303,24 @@ async function main() {
 				.selectOption({ label: "v3 (beta)" });
 			await page.waitForURL(`${origin}/`);
 			assert.equal(await page.locator("h1").innerText(), "Getting started");
+			for (const [fragment, title] of [
+				["one-counter-two-meanings", "One counter, two meanings"],
+				["delivery-and-ownership", "Delivery and ownership"],
+				["migration-from-per-view-effects", "Migration from per-view effects"],
+				[
+					"one-production-rule-per-public-event",
+					"One production rule per public event",
+				],
+			]) {
+				await page.goto(`${origin}/guides/events/#${fragment}`);
+				await page.waitForURL(`${origin}/handbook/events/#${fragment}`);
+				assert.equal(await page.locator(`#${fragment}`).innerText(), title);
+			}
 			await context.close();
 		}
-		console.log("Desktop and mobile version selection round trips passed.");
+		console.log(
+			"Desktop/mobile version round trips and four preserved Events subjects passed.",
+		);
 	} finally {
 		await browser.close();
 		server.close();

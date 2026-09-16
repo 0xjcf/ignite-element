@@ -75,6 +75,7 @@ assert.ok(
 	full.includes('import { igniteCore } from "ignite-element/xstate";'),
 	"canonical imports must survive agent export",
 );
+assert.doesNotMatch(full, /Effects retain post-Ignite-render timing/);
 assert.match(full, /Version: v3 \(beta\)/);
 assert.doesNotMatch(
 	full,

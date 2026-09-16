@@ -27,7 +27,7 @@ view is authored — it consumes the same browser contract either way.
 | --- | --- |
 | `compilerOptions.isCustomElement` | The one required setup: tell Vue's compiler the hyphenated tag is a custom element (Vite config) or Vue warns and skips it. |
 | Event-name casing | `addEventListener('toggled', …)` is always correct. Vue's `@toggled` works for an all-lowercase event, but a camelCase event (e.g. `countChanged`) needs `@count-changed` or an explicit listener. |
-| Untyped commands | The raw element has no typed command surface, so `toggleRef.value?.toggle()` needs a cast. This is exactly the seam React's `igniteReact` smooths over — a Vue helper could too (a follow-up; see below). |
+| Untyped commands | The raw element has no typed command surface, so `toggleRef.value?.toggle()` needs a cast. See the [current interop contract](https://0xjcf.github.io/ignite-element/handbook/views/#browser-custom-element-interoperability). |
 | Attribute coercion | Attributes are strings. `:label` (a string) flows cleanly; non-string data would need explicit DOM-property binding rather than an attribute. |
 
 ## Files
@@ -51,11 +51,9 @@ The Vite config aliases `ignite-element` and the `@ignite-element/*` workspace
 packages to local **source**, so the demo always runs against current code.
 `xstate` is pinned to the workspace version (`5.32.1`) to avoid a dual-copy skew.
 
-## Why standard APIs (no wrapper)
+## Standard custom-element interoperability
 
-React earned a dedicated `igniteReact` helper because its custom-element friction
-is the worst (props-as-attributes, no declarative `CustomEvent` listeners before
-React 19). Vue's friction is milder, so this demo stays on the standard surface
-to show what plain interop costs. A schema-driven `igniteVue` is a possible
-follow-up — the same `getSchema()` that drives `igniteReact` would drive it — but
-it is intentionally out of scope here.
+This example uses the registered element's attributes, DOM events and commands.
+See the [current interop contract](https://0xjcf.github.io/ignite-element/handbook/views/#browser-custom-element-interoperability)
+for platform boundaries and the separate React web wrapper. A dedicated Ignite
+Vue binding is not implemented.

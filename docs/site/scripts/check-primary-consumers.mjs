@@ -99,6 +99,24 @@ for (const lane of ["web", "native"]) {
 		).match(/```ts title="toggle-events.ts"\n([\s\S]*?)```/);
 		if (!migration) throw new Error("Current migration module is missing");
 		writeFileSync(join(dir, "toggle-events.ts"), migration[1]);
+		// Compile the actual linked README with its real decorated MobX store.
+		const mobxReadme = readFileSync(
+			join(repo, "examples/adapters/mobx/README.md"),
+			"utf8",
+		).match(/```ts title="mobx-cores.ts"\n([\s\S]*?)```/);
+		if (!mobxReadme) throw new Error("MobX README module is missing");
+		const mobxDir = join(dir, "mobx-readme");
+		mkdirSync(mobxDir);
+		writeFileSync(join(mobxDir, "mobx-cores.ts"), mobxReadme[1]);
+		copyFileSync(
+			join(repo, "examples/adapters/mobx/mobxCounterStore.ts"),
+			join(mobxDir, "mobxCounterStore.ts"),
+		);
+		json(join(mobxDir, "tsconfig.json"), {
+			extends: "../tsconfig.json",
+			compilerOptions: { experimentalDecorators: true },
+			include: ["*.ts"],
+		});
 		json(join(dir, "tsconfig.json"), {
 			compilerOptions: {
 				strict: true,
@@ -138,7 +156,10 @@ for (const lane of ["web", "native"]) {
 	if (lane === "native") {
 		run(dir, "pnpm", ["run", "isolation"]);
 		run(dir, "pnpm", ["test"]);
-	} else run(dir, "pnpm", ["exec", "vitest", "run"]);
+	} else {
+		run(dir, "pnpm", ["exec", "tsc", "-p", "mobx-readme/tsconfig.json"]);
+		run(dir, "pnpm", ["exec", "vitest", "run"]);
+	}
 }
 console.log(
 	`Strict packed handbook consumers passed. Task-local evidence retained: ${output}`,

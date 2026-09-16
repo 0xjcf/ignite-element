@@ -1,5 +1,7 @@
 # Handbook review receipt
 
+This records the original `ce4c577a` candidate. Navigator review found H01–H04 and reference leftovers despite the green checks. The [bounded correction receipt](navigator-corrections.md) records their resolution and supersedes the original completeness claims for those paths. The original browser matrix remains evidence for that original candidate.
+
 ## Authority and custody
 
 Authorized endpoint: documentation/example candidate and review PRs, before Navigator review, merge, deployment, or publication. The Operator confirmed the effects paragraph in beta `AGENTS.md` at `d77118fbb660ccaa2c850ce42b44ecd9c2779645`; it supersedes only the outdated conversation paragraph. No runtime or governing file changes.

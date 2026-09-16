@@ -2,6 +2,8 @@
 
 Baseline: `d77118fbb660ccaa2c850ce42b44ecd9c2779645` (beta.14).
 
+Navigator follow-up: the four original Events headings now map to the same headings in Events & effects; see [correction receipt](navigator-corrections.md).
+
 Static legacy pages contain an explicit destination link and client navigation; GitHub Pages server redirects are not assumed. Archive API content remains frozen.
 
 | Audited route | Action | Destination |
@@ -83,7 +85,7 @@ Recipes retain routing, Actor-Web, agent tools, advanced plain controllers, sour
 | `docs/accessibility-by-default.md` | accepted design; preserved |
 | `docs/actor-web-evidence-governed-projections.md` | normative optional consumer contract; preserved |
 | `docs/adr-003-shared-arc.md` | historical/archived; preserved |
-| `docs/api/README.md` | retained current guidance |
+| `docs/api/README.md` | shortened to canonical links with explicit beta/stable version context; Navigator reference correction |
 | `docs/architecture.md` | normative package boundaries; preserved |
 | `docs/can-execute.md` | corrected current guidance |
 | `docs/core-api-bindings.md` | corrected current beta.14 reference |
@@ -148,8 +150,8 @@ Recipes retain routing, Actor-Web, agent tools, advanced plain controllers, sour
 | `docs/site/src/content/docs/guides/index.mdx` | merged/redirected; see route matrix |
 | `docs/site/src/content/docs/guides/plain-controllers.mdx` | corrected current guidance |
 | `docs/site/src/content/docs/guides/redux-and-mobx.mdx` | merged/redirected; see route matrix |
-| `docs/site/src/content/docs/guides/routing.mdx` | retained current guidance |
-| `docs/site/src/content/docs/guides/shared-source-ownership.mdx` | retained current guidance |
+| `docs/site/src/content/docs/guides/routing.mdx` | corrected current guidance; H03 terminal cleanup |
+| `docs/site/src/content/docs/guides/shared-source-ownership.mdx` | corrected current guidance; H01 timing and lifetime |
 | `docs/site/src/content/docs/guides/styling.mdx` | merged/redirected; see route matrix |
 | `docs/site/src/content/docs/guides/testing.mdx` | merged/redirected; see route matrix |
 | `docs/site/src/content/docs/index.mdx` | corrected current guidance |
@@ -170,7 +172,7 @@ Recipes retain routing, Actor-Web, agent tools, advanced plain controllers, sour
 | `docs/v3-stable-roadmap.md` | historical plan; inactive FAS references preserved |
 | `docs/view-context-canonicalization.md` | accepted implemented states contract; preserved |
 | `docs/when-code-becomes-cheap.md` | historical essay; preserved |
-| `examples/adapters/mobx/README.md` | retained current guidance |
+| `examples/adapters/mobx/README.md` | corrected current guidance; H02 checked factory discriminator and real import |
 | `examples/adapters/redux/README.md` | retained current guidance |
 | `examples/adapters/xstate/README.md` | corrected current guidance |
 | `examples/agents/smart-home/GAPS.md` | historical dogfood findings; preserved |
@@ -185,8 +187,8 @@ Recipes retain routing, Actor-Web, agent tools, advanced plain controllers, sour
 | `examples/apps/shared-controller/README.md` | retained current guidance |
 | `examples/apps/spa-router/README.md` | corrected current guidance |
 | `examples/frameworks/react/README.md` | corrected current guidance |
-| `examples/frameworks/svelte/README.md` | corrected current guidance |
-| `examples/frameworks/vue/README.md` | corrected current guidance |
+| `examples/frameworks/svelte/README.md` | corrected current guidance; canonical interop link replaces stale wrapper description |
+| `examples/frameworks/vue/README.md` | corrected current guidance; canonical interop link replaces stale wrapper description |
 | `packages/ignite-adapters/CHANGELOG.md` | historical/archived; preserved |
 | `packages/ignite-adapters/README.md` | retained current guidance |
 | `packages/ignite-core/CHANGELOG.md` | historical/archived; preserved |

@@ -281,10 +281,10 @@
 			"observation-and-lifetime-checks": "/ignite-element/handbook/ownership/#terminal-disposal"
 		},
 		"guides/events": {
-			"one-counter-two-meanings": "/ignite-element/handbook/events/#_top",
-			"delivery-and-ownership": "/ignite-element/handbook/ownership/#terminal-disposal",
-			"migration-from-per-view-effects": "/ignite-element/handbook/events/#delivery-and-ownership",
-			"one-production-rule-per-public-event": "/ignite-element/handbook/events/#delivery-and-ownership"
+			"one-counter-two-meanings": "/ignite-element/handbook/events/#one-counter-two-meanings",
+			"delivery-and-ownership": "/ignite-element/handbook/events/#delivery-and-ownership",
+			"migration-from-per-view-effects": "/ignite-element/handbook/events/#migration-from-per-view-effects",
+			"one-production-rule-per-public-event": "/ignite-element/handbook/events/#one-production-rule-per-public-event"
 		},
 		"getting-started/project-setup": {},
 		"concepts/state-adapters": {},
