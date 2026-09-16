@@ -48,6 +48,26 @@ toggle('ignite-toggle', ({ isOn, toggle }) => (
 ));
 ```
 
+### Native source events
+
+For beta.14 native forwarding, declare native names in `events`. The source owns
+the occurrence; no effect is needed to re-emit it. Using the
+[canonical counter source](/ignite-element/guides/events/):
+
+```ts
+import { igniteCore } from 'ignite-element/xstate';
+import { counterMachine } from './counter-machine';
+
+const nativeCounter = igniteCore({
+  source: counterMachine,
+  events: event => ({ counterReset: event<{ count: number }>() }),
+});
+```
+
+Registered, connected hosts deliver `counterReset` with `{ count }` in `detail`,
+including reset-at-zero. Undeclared native names remain available headlessly but
+are not forwarded to DOM. Do not mirror native occurrences in effects.
+
 ## Plain HTML
 
 ```html
@@ -280,7 +300,12 @@ Ignite keeps logic out of the renderer; it does not invent semantics for you.
 
 ### Commands stay internal, events go outward
 
-Inside Ignite, `commands` are the renderer-facing intent API. Outside Ignite, host apps integrate through DOM events and the custom-element boundary. Emit events from `effects`, not from view code:
+Inside Ignite, `commands` are the renderer-facing intent API. Outside Ignite,
+host apps integrate through DOM events and the custom-element boundary.
+Use [declaration-only forwarding](#native-source-events) for native occurrences.
+
+When a source has no corresponding native occurrence, derive a distinct outward
+notification from state in `effects`, not from view code:
 
 ```ts
 events: (event) => ({
@@ -301,7 +326,12 @@ effects: ({ snapshot, emit, select }) => {
 },
 ```
 
-Good event contracts are stable, named for business meaning (not framework mechanics), emitted from `effects`, and documented as part of the public element surface.
+These comparisons report observed state transitions, not durable completion or
+every repeated occurrence. If the source already emits `saveSucceeded` or
+`saveFailed`, declare that native event instead of deriving the same name here.
+Good public event contracts are stable, documented, and have one production rule:
+source emission or effect derivation. See the event guide for wrapper callbacks,
+core-owned evaluation and the distinction between occurrences and comparisons.
 
 ### Accessibility is not optional
 

@@ -1,9 +1,9 @@
-# Native events and effects — unreleased contract
+# Native events and effects — published in beta.14
 
 The Operator retained optional `events` and `effects`, superseding the earlier
 consultation's blanket-removal recommendation. Historical consultation receipts
-remain historical and are not rewritten. This is a candidate after beta.13,
-not a claim about published artifacts.
+remain historical and are not rewritten. This contract is published in beta.14;
+the public tarballs match the independently accepted stages.
 
 The canonical progression is source, inline states, inline commands, renderer
 `ctx`, then optional outward notifications. See the canonical
@@ -22,7 +22,7 @@ effect under its own meaningful event name. Do not add producer flags, event
 buses, lifecycle hooks, or manual native-to-DOM forwarding.
 
 The subsequent Operator amendment replaces per-projection effect evaluation
-with one evaluator per core/source instance. This remains unreleased. After
+with one evaluator per core/source instance in beta.14. After
 first activation a shared evaluator retains its comparison baseline through
 zero-view gaps until terminal disposal; isolated instances own separate
 evaluators. Consumers receive notifications rather than running the effect.

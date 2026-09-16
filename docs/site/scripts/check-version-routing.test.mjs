@@ -62,8 +62,42 @@ function rejects(mutate, reason) {
 	assert.match(result.output, reason);
 }
 
-test("published beta.13 pages pass without the old candidate disclaimers", () =>
+test("published beta.14 pages pass without the old candidate disclaimers", () =>
 	passes());
+
+test("verified beta.14 publication and exact installation are permitted", () =>
+	passes(({ append }) =>
+		append(
+			installation,
+			"3.0.0-beta.14 is published. Install with `pnpm add ignite-element@3.0.0-beta.14`.",
+		),
+	));
+
+test("current headless guidance uses beta.14 core-owned effect timing", () => {
+	const content = fs.readFileSync(
+		path.join(site, "src/content/docs/api/headless-runtime.mdx"),
+		"utf8",
+	);
+	assert.match(content, /published beta\.14/);
+	assert.match(content, /one\s+evaluator per core\/source instance/);
+	assert.match(content, /not a renderer or\s+framework commit barrier/);
+	assert.doesNotMatch(content, /retain Ignite-renderer\s+post-render timing/);
+});
+
+test("current host guidance distinguishes native declarations from effect derivation", () => {
+	for (const file of [
+		"concepts/the-ignite-model.mdx",
+		"guides/host-app-integration.mdx",
+	]) {
+		const content = fs.readFileSync(
+			path.join(site, "src/content/docs", file),
+			"utf8",
+		);
+		assert.match(content, /declare native names in `events`/, file);
+		assert.match(content, /counterReset: event<\{ count: number \}>\(\)/, file);
+		assert.match(content, /Do not mirror native occurrences in effects/, file);
+	}
+});
 
 test("current lifetime guides retain the published registered-disposal contract", () => {
 	for (const file of [
@@ -95,6 +129,7 @@ test("current lifetime guides retain the published registered-disposal contract"
 
 for (const selector of [
 	"beta",
+	"3.0.0-beta.14",
 	"3.0.0-beta.13",
 	"3.0.0-beta.12",
 	"3.0.0-beta.11",
@@ -109,14 +144,14 @@ for (const selector of [
 				);
 			append(
 				"src/content/docs/api/compatibility.mdx",
-				`Verified public 3.0.0-beta.13; historical releases 3.0.0-beta.12 and 3.0.0-beta.11.\n\n\`npm install --save react "ignite-element@${selector}"\``,
+				`Verified public 3.0.0-beta.14; historical releases 3.0.0-beta.13, 3.0.0-beta.12 and 3.0.0-beta.11.\n\n\`npm install --save react "ignite-element@${selector}"\``,
 			);
 		}));
 }
 
 for (const selector of [
 	"beta.12",
-	"3.0.0-beta.14",
+	"3.0.0-beta.15",
 	"3.0.0-beta.120",
 	"3.0.0-beta.12-extra",
 	"3.0.0-beta.11-extra",
@@ -239,7 +274,7 @@ test("mutable main source links fail", () =>
 		/mutable main link/,
 	));
 for (const version of [
-	"3.0.0-beta.14",
+	"3.0.0-beta.15",
 	"3.0.0-beta.100",
 	"3.0.0-rc.1",
 	"3.0.0-beta.12-extra",

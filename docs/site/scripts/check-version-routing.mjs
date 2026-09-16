@@ -39,14 +39,15 @@ function installArguments(command) {
 	if (word) args.push(word);
 	return args;
 }
-// Verified beta.13 public bytes match accepted four-stage archive
-// 69214ab711207d30bdef581ee49e0a26a2f6151772a2f374b61e5359419551b1.
-// Provenance binds release commit 3e7adae5f86bdefa8d8a6ce1602d75a5ea493811.
+// Verified beta.14 public bytes match accepted four-stage archive
+// 1b764be6e4a28e24d24b06bea4438374e7fe221ef60a33f7c9f96cb175bc1e2f.
+// Provenance binds release commit 0966a739bf05c00a27777dfe05ca3aa7fd34ec93.
 // Publication authority is explicit, not inferred from package.json or page text.
-const verifiedRelease = "3.0.0-beta.13";
+const verifiedRelease = "3.0.0-beta.14";
 const supportedFacadeInstalls = new Set([
 	"ignite-element@beta",
 	`ignite-element@${verifiedRelease}`,
+	"ignite-element@3.0.0-beta.13", // Retained historical release instructions.
 	"ignite-element@3.0.0-beta.12", // Retained historical release instructions.
 	"ignite-element@3.0.0-beta.11", // Retained historical release instructions.
 ]);

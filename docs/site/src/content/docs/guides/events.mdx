@@ -6,11 +6,11 @@ description: Optional native forwarding and state-derived effects, with one prod
 Start with a source, inline `states`, inline `commands`, and a renderer using
 `ctx`. Ordinary state views need neither `events` nor `effects`.
 
-**Unreleased after beta.13:** declared native emissions now reach connected
+**Published in beta.14:** declared native emissions now reach connected
 Web Components as well as the existing headless channel. New inferred checks
 reserve precise native emitted names against effect emission. Beta.13 already
 supports native headless events and per-projection effects; it does not provide
-this equivalent native DOM forwarding. The next candidate also moves effect
+this equivalent native DOM forwarding. Beta.14 also moves effect
 evaluation to one owner per core/source instance, as described below.
 
 ## One counter, two meanings

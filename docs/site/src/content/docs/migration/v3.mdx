@@ -12,12 +12,20 @@ v3 publishes under the `beta` dist-tag. Install with `@beta`; the stable
 the `3.0.0` release.
 :::
 
-`3.0.0-beta.13` is published and verified. It retains beta.12's source-free
-constructor, testing retirement and neutral React bindings, and adds shared-source
+`3.0.0-beta.14` is published and verified. It adds [native event forwarding and
+core-owned effects](/ignite-element/guides/events/), retaining beta.12's source-free
+constructor, testing retirement and neutral React bindings, and beta.13's shared-source
 readiness and terminal disposal after registration. Install this exact version
-or `ignite-element@beta`; beta.12 does not include those two newer behaviors.
-All four `beta` tags and the three scoped packages' `latest` tags point to beta.13.
+or `ignite-element@beta`; beta.12 does not include beta.13's two newer behaviors.
+All four `beta` tags and the three scoped packages' `latest` tags point to beta.14.
 The facade `ignite-element@latest` remains `2.2.2`.
+
+For beta.13 event/effect users, keep one producer per event: declare native events,
+and derive distinct state-change notifications in effects. Effects no longer own
+per-view baselines; an activated shared evaluator survives zero-view intervals
+until `core.dispose()`. Move view-specific work to framework lifecycle facilities.
+Queued evaluation is not a renderer commit barrier, and effect errors use the
+core's console fallback. See the event guide for the complete migration contract.
 
 Ignite Element v3 keeps the default Ignite JSX renderer and headless runtime from v2, and adds a cleaner install surface, a states-first projection contract, and a narrower public API.
 

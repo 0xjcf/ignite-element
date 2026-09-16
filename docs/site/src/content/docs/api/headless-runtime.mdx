@@ -10,9 +10,10 @@ Use an adapter entrypoint's `igniteCore(...)` for source-backed construction.
 The root source-free `const core = igniteCore()` remains registrar-only.
 The canonical flow is source → native snapshot → derived states → renderer view.
 
-This reference describes published beta.13 behavior. The two intentional changes
-since beta.12, covered in the [migration note](/ignite-element/migration/shared-readiness-terminal-disposal/),
-are automatic shared-source readiness and terminal registered-core disposal.
+This reference describes published beta.14 behavior. Beta.13 introduced automatic
+shared-source readiness and terminal registered-core disposal, covered in the
+[migration note](/ignite-element/migration/shared-readiness-terminal-disposal/).
+Beta.14 adds [native DOM forwarding and core-owned effects](/ignite-element/guides/events/).
 No method or source input is added.
 
 ```ts
@@ -187,8 +188,13 @@ states remain states.
 
 `igniteReact` and web-only wrapper types move to `ignite-element/react/web`;
 they target actual registered elements, not a hidden headless runtime. No SSR
-fallback or React commit barrier is provided. Effects retain Ignite-renderer
-post-render timing and may precede a framework commit.
+fallback or React commit barrier is provided. Since beta.14, effects use one
+evaluator per core/source instance. Their queued execution is not a renderer or
+framework commit barrier and may precede a view update. An activated shared
+evaluator retains its baseline through zero-view intervals until `core.dispose()`;
+isolated evaluators follow their instance lifetime. Effect errors use the core's
+console fallback, not an element's error hook. See the [event guide](/ignite-element/guides/events/)
+for timing and migration; view resources belong to the actual framework lifecycle.
 
 ## Removed methods and private inspection
 
