@@ -48,6 +48,26 @@ toggle('ignite-toggle', ({ isOn, toggle }) => (
 ));
 ```
 
+### Native source events
+
+For beta.14 native forwarding, declare native names in `events`. The source owns
+the occurrence; no effect is needed to re-emit it. Using the
+[canonical counter source](/ignite-element/guides/events/):
+
+```ts
+import { igniteCore } from 'ignite-element/xstate';
+import { counterMachine } from './counter-machine';
+
+const nativeCounter = igniteCore({
+  source: counterMachine,
+  events: event => ({ counterReset: event<{ count: number }>() }),
+});
+```
+
+Registered, connected hosts deliver `counterReset` with `{ count }` in `detail`,
+including reset-at-zero. Undeclared native names remain available headlessly but
+are not forwarded to DOM. Do not mirror native occurrences in effects.
+
 ## Plain HTML
 
 ```html
@@ -282,23 +302,7 @@ Ignite keeps logic out of the renderer; it does not invent semantics for you.
 
 Inside Ignite, `commands` are the renderer-facing intent API. Outside Ignite,
 host apps integrate through DOM events and the custom-element boundary.
-For beta.14 native forwarding, declare native names in `events`. The source owns
-the occurrence; no effect is needed to re-emit it. Using the
-[canonical counter source](/ignite-element/guides/events/):
-
-```ts
-import { igniteCore } from 'ignite-element/xstate';
-import { counterMachine } from './counter-machine';
-
-const nativeCounter = igniteCore({
-  source: counterMachine,
-  events: event => ({ counterReset: event<{ count: number }>() }),
-});
-```
-
-Registered, connected hosts deliver `counterReset` with `{ count }` in `detail`,
-including reset-at-zero. Undeclared native names remain available headlessly but
-are not forwarded to DOM. Do not mirror native occurrences in effects.
+Use [declaration-only forwarding](#native-source-events) for native occurrences.
 
 When a source has no corresponding native occurrence, derive a distinct outward
 notification from state in `effects`, not from view code:
