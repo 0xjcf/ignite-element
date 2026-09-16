@@ -8,14 +8,14 @@ integration tests:
 | [`examples/adapters/xstate`](../../examples/adapters/xstate) | XState | Shared actor vs. isolated machine, Tailwind styling, gradient tally renderer |
 | [`examples/adapters/redux`](../../examples/adapters/redux) | Redux Toolkit | Store factory vs. shared store instance, Bootstrap UI, facade commands |
 | [`examples/adapters/mobx`](../../examples/adapters/mobx) | MobX | Observable reuse vs. factory isolation, theme variables, component-specific CSS |
-| [`examples/apps/spa-router`](../../examples/apps/spa-router) | Routing | History routing, dynamic params, auth guards, and headless route assertions |
+| [`examples/apps/spa-router`](../../examples/apps/spa-router) | Routing | Navigation API routing, dynamic params, auth guards, and headless route assertions |
 | [`examples/apps/form-with-validation`](../../examples/apps/form-with-validation) | Forms | XState form validation, guarded submit, async success/error path, and headless form tests |
 | [`examples/apps/nested-child-router`](../../examples/apps/nested-child-router) | Nested routing | Parent route plus child outlets projecting one shared actor |
 | [`examples/apps/dashboard-with-shared-state`](../../examples/apps/dashboard-with-shared-state) | Shared state | Independent dashboard widgets coordinated through one consumer-owned source |
 
 Each example now uses the v3 public adapter entrypoints: `ignite-element/xstate`, `ignite-element/redux`, and `ignite-element/mobx`. `igniteCore` detects the correct scope from the `source` you provide. Shared sources (running actors, store instances, observables) produce shared scopes, while definitions (machines, slices, factories) yield isolated scopes.
 
-Examples project public data through `states(snapshot)` and expose intent through `commands(...)`. Public `igniteCore` renderers receive those derived states and commands, not raw `state` or `send`. The XState example also exposes `record(...)` so the Playwright proof can drive behavior traces and DOM lifecycle evidence from the same story object.
+Examples project public data through `states(snapshot)` and expose intent through `commands(...)`. Public `igniteCore` renderers receive those derived states and commands, not raw `state` or `send`. The XState example uses ordinary behavior and DOM assertions; the former recording API is retired.
 
 > The examples include `ignite.config.ts` only as an advanced compatibility layer for demo-wide shared styles. The normal v3 public path is adapter entrypoint + `jsxImportSource: "ignite-element/jsx"` + component-local `<style>` tags.
 

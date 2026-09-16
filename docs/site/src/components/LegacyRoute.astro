@@ -1,0 +1,21 @@
+---
+import routes from "../route-map.json";
+import { currentRoute, routeUrl } from "../route-map.mjs";
+const { route } = Astro.props;
+const fragments: Record<string, string[]> = routes.fragments;
+const fragmentTargets: Record<
+	string,
+	Record<string, string>
+> = routes.fragmentTargets;
+const target = routeUrl(currentRoute(route));
+---
+<p>This page has moved into the handbook. <a id="destination" href={target} data-fragments={JSON.stringify(fragmentTargets[route] ?? {})}>Continue to the current documentation</a>.</p>
+{(fragments[route] ?? []).map(id => <span id={id}></span>)}
+<script>
+  const destination = document.querySelector<HTMLAnchorElement>('#destination');
+  if (destination) {
+    const fragments: Record<string, string> = JSON.parse(destination.dataset.fragments ?? '{}');
+    const hash = decodeURIComponent(location.hash.slice(1));
+    location.replace(fragments[hash] ?? destination.href);
+  }
+</script>

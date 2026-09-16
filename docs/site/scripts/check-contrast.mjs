@@ -30,6 +30,7 @@
  *   npm run check:contrast    (build first)    # see package.json
  */
 
+import assert from "node:assert/strict";
 import { readFile, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
@@ -45,7 +46,7 @@ const TEXT = 4.5; // WCAG AA for body text
 
 // selector -> { sel, min }. `min` is the threshold for that element class.
 const SELECTORS = {
-	versionPicker: { sel: "starlight-version-select select", min: UI },
+	versionPicker: { sel: ".version-select select", min: UI },
 	themeToggle: { sel: "starlight-theme-select select", min: UI },
 	search: { sel: "site-search button", min: UI },
 	sidebar: { sel: ".sidebar-pane a", min: TEXT },
@@ -59,11 +60,7 @@ const SELECTORS = {
 // Pages chosen to cover every selector at least once across both themes.
 // The 2.x page keeps the archived (stable cyan) accent ramp under guard
 // alongside the beta (green) ramp on current pages.
-const PAGES = [
-	"/getting-started/installation/",
-	"/migration/v3/",
-	"/2.x/getting-started/installation/",
-];
+const PAGES = ["/", "/migration/v3/", "/2.x/getting-started/installation/"];
 const THEMES = ["dark", "light"];
 
 // Geometry guardrail: interactive controls must use the radius scale and (where
@@ -74,21 +71,21 @@ const THEMES = ["dark", "light"];
 const RADIUS_SCALE_VARS = ["--radius-sm", "--radius-md", "--radius-lg"];
 const GEOMETRY = [
 	{
-		path: "/getting-started/installation/",
-		sel: "starlight-version-select label",
+		path: "/",
+		sel: ".version-select",
 		needPadX: false,
 	},
 	{
-		path: "/getting-started/installation/",
+		path: "/",
 		sel: "starlight-theme-select label",
 		needPadX: false,
 	},
 	{
-		path: "/getting-started/installation/",
+		path: "/",
 		sel: "site-search button",
 		needPadX: true,
 	},
-	{ path: "/", sel: ".hero .actions a", needPadX: true },
+	{ path: "/", sel: ".expressive-code .copy button", needPadX: false },
 ];
 
 const MIME = {
@@ -284,6 +281,46 @@ async function main() {
 			}
 		}
 		await geomContext.close();
+
+		// Starlight renders separate desktop and mobile control instances.
+		for (const width of [1366, 390]) {
+			const context = await browser.newContext({
+				viewport: { width, height: 900 },
+			});
+			const page = await context.newPage();
+			await page.goto(`${origin}/contributing/shared-controller-validation/`);
+			if (width < 800)
+				await page.getByRole("button", { name: "Menu", exact: true }).click();
+			await page
+				.getByRole("combobox", { name: "Select version", exact: true })
+				.selectOption({ label: "2.x" });
+			await page.waitForURL(`${origin}/2.x/`);
+			assert.equal(await page.locator("h1").innerText(), "Ignite Element");
+			if (width < 800)
+				await page.getByRole("button", { name: "Menu", exact: true }).click();
+			await page
+				.getByRole("combobox", { name: "Select version", exact: true })
+				.selectOption({ label: "v3 (beta)" });
+			await page.waitForURL(`${origin}/`);
+			assert.equal(await page.locator("h1").innerText(), "Getting started");
+			for (const [fragment, title] of [
+				["one-counter-two-meanings", "One counter, two meanings"],
+				["delivery-and-ownership", "Delivery and ownership"],
+				["migration-from-per-view-effects", "Migration from per-view effects"],
+				[
+					"one-production-rule-per-public-event",
+					"One production rule per public event",
+				],
+			]) {
+				await page.goto(`${origin}/guides/events/#${fragment}`);
+				await page.waitForURL(`${origin}/handbook/events/#${fragment}`);
+				assert.equal(await page.locator(`#${fragment}`).innerText(), title);
+			}
+			await context.close();
+		}
+		console.log(
+			"Desktop/mobile version round trips and four preserved Events subjects passed.",
+		);
 	} finally {
 		await browser.close();
 		server.close();

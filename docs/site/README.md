@@ -5,7 +5,7 @@ This is the v3 beta documentation site for Ignite Element, retaining the frozen 
 ## Project structure
 
 - `astro.config.mjs` – Starlight config, sidebar, theme, logo, and metadata.
-- `src/content/docs` – All docs content (organized by IA: overview, getting-started, concepts, API, guides, migration, community).
+- `src/content/docs` – All docs content (eight primary handbook pages, supporting recipes/reference, migration, and archive).
 - `src/assets` – Logo and any shared imagery.
 - `src/styles/theme.css` – Custom theming to match the desired XState-like feel.
 
@@ -35,7 +35,7 @@ It renders the real page (not just the tokens), so it catches un-themed defaults
 | `pnpm --filter docs-site test:contrast` | Build, then check contrast (one-shot). |
 | `pnpm --filter docs-site check:contrast` | Check an existing `dist/` build. |
 
-Install the Chromium binary once with `pnpm --filter docs-site exec playwright install chromium`. CI runs this automatically on PRs touching `docs/site/**` (see [`.github/workflows/docs-contrast.yml`](../../.github/workflows/docs-contrast.yml)).
+Install the Chromium binary once with `pnpm --filter docs-site exec playwright install chromium`. CI runs this automatically on PRs touching `docs/site/**` (see [`.github/workflows/docs-contrast.yml`](../../../.github/workflows/docs-contrast.yml)).
 
 ## Doc code-example guardrail
 
@@ -49,7 +49,7 @@ A baseline ([`scripts/doc-examples-baseline.json`](./scripts/doc-examples-baseli
 | --- | --- |
 | `pnpm build && pnpm --filter docs-site check:docs` | Build workspace declarations, then typecheck doc examples. |
 
-CI runs this on PRs touching `docs/site/**` or `packages/**` (the same [docs-contrast workflow](../../.github/workflows/docs-contrast.yml)).
+CI runs this on PRs touching `docs/site/**` or `packages/**` (the same [docs-contrast workflow](../../../.github/workflows/docs-contrast.yml)).
 
 ## Publication contract
 
@@ -66,3 +66,16 @@ Version checks preserve exact v2 installs (`2.2.2`), current beta chrome, archiv
 routes and branding, and the beta.12 candidate's pending-publication disclosures.
 Main's separate browser-audit harness is not part of Pages deployment; beta's
 existing contrast/geometry check remains in its PR-validation workflow.
+
+## Handbook validation
+
+`pnpm --filter docs-site check:primary` packs the current built package family,
+copies canonical files from `scripts/__tests__/fixtures/handbook` and the React example, and runs
+strict web and no-DOM native consumers with `skipLibCheck: false`. It also runs
+source/core/DOM/React tests and the existing React Native host fixture. These are
+independent of the legacy per-fence guard's ambient placeholders and exclusions.
+
+`pnpm --filter docs-site check:handbook` checks all built legacy destinations,
+version selectors, banner links, and version-separated agent exports. The short
+agent index links only the eight primary pages; the full v3 text and v2 archive
+are separate files. Static legacy pages work without server redirect support.

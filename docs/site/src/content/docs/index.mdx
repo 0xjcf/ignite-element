@@ -1,90 +1,71 @@
 ---
-title: Ignite Element
-description: Build platform-native custom elements with typed state, commands, effects, events, and a headless runtime.
-sidebar:
-  label: Welcome
-  order: 1
-hero:
-  tagline: Platform-native custom elements for modern state-driven UI.
-  badge: v3 beta
-  actions:
-    - text: Install
-      link: /ignite-element/getting-started/installation/
-    - text: Try it live
-      link: /ignite-element/#try-it-live
-      variant: secondary
-    - text: Build your first component
-      link: /ignite-element/getting-started/first-component/
-      variant: minimal
+title: Getting started
+description: Connect a source, derive states, render a view, and call a command.
 ---
 
-import CounterDemo from '../../components/CounterDemo.astro';
+import { Code } from '@astrojs/starlight/components';
+import toggle from '../../../../../scripts/__tests__/fixtures/handbook/toggle.tsx?raw';
 
-Ignite Element is a thin, typed layer around modern state systems so you can ship platform-native custom elements without dragging along an app-framework runtime. Commands express intent, effects express consequences, and the same component contract runs in the DOM, in tests, or headlessly.
+Ignite connects an existing state source to Web Components, React, or headless
+consumers. Your source owns behavior; Ignite observes it and provides derived
+values and commands to a view.
 
-:::note[Upgrading?]
-You're reading the **v3 (beta)** docs. Coming from v2? See the [v2 → v3 migration guide](/ignite-element/migration/v3/), and use the version picker to switch to the **2.x** docs.
-:::
+__source → source-native snapshot → states → view__
 
-The verified public release is `3.0.0-beta.14`. It adds [native event forwarding and core-owned effects](/ignite-element/guides/events/), retaining beta.13's shared readiness and terminal disposal. Install that exact version or follow the beta channel; stable `ignite-element@latest` remains v2.
+## Install v3 beta
 
-```tsx
-import { igniteCore } from 'ignite-element/xstate';
-import { toggleMachine } from './toggle-machine';
+This handbook describes __v3 (beta), published beta.14__. Install the beta package
+and the source library you use:
 
-const toggle = igniteCore({
-  source: toggleMachine,
-  states: (snapshot) => ({ isOn: snapshot.matches('on') }),
-  commands: ({ actor }) => ({ toggle: () => actor.send({ type: 'TOGGLE' }) }),
-});
-
-toggle('ignite-toggle', ({ isOn, toggle }) => (
-  <button onClick={toggle}>{isOn ? 'On' : 'Off'}</button>
-));
+```sh title="Terminal"
+pnpm add ignite-element@beta xstate
 ```
 
-The source-backed `toggle` core is usable headlessly before registration, without browser globals. Registering `<ignite-toggle>` requires a browser DOM; keep modules that register tags during evaluation on the browser side.
+To pin this release, use `ignite-element@3.0.0-beta.14` instead of `@beta`.
+The stable facade policy is `ignite-element@latest = 2.2.2`;
+[stable v2 documentation](/ignite-element/2.x/) is separate.
+Use Node 22+ and a TypeScript/bundler project. v3 is native ESM-only.
 
-## Pick your path
+## Build a component
 
-- **Build a UI** — install, enable JSX once, and ship a component. Start with [Installation](/ignite-element/getting-started/installation/) → [Your first component](/ignite-element/getting-started/first-component/), then read [The Ignite model](/ignite-element/concepts/the-ignite-model/).
-- **Build for agents** — drive and inspect component behavior through the headless runtime before any DOM exists. Start with [Ignite Element for AI Agents](/ignite-element/overview/ignite-for-ai-agents/), then read [Build for agents](/ignite-element/guides/agent-runtime-v3/) and the [Headless runtime](/ignite-element/api/headless-runtime/) reference.
+Save this complete file as `src/toggle.tsx`. The file-level pragma selects Ignite
+JSX; an application using only Ignite JSX can instead set `jsx: "react-jsx"`
+and `jsxImportSource: "ignite-element/jsx"` in `tsconfig.json`.
 
-New to the idea entirely? Read [What is Ignite Element?](/ignite-element/overview/what-is-ignite-element/) for the why and how it compares to other tools.
+<Code code={toggle} lang="tsx" title="src/toggle.tsx" />
 
-## Try it live
+Load it from your bundler's HTML entry:
 
-Try the counter directly in the docs, or open the full example in StackBlitz.
-
-<CounterDemo />
-
-Every press is a command — the buttons express intent, the state machine owns the transition, `states(snapshot)` derives the read model, and the renderer view re-renders from those states. Here is the same counter with the real API:
-
-```tsx
-import { igniteCore } from 'ignite-element/xstate';
-import { counterMachine } from './counter-machine';
-
-const counter = igniteCore({
-  source: counterMachine,
-  states: (snapshot) => ({ count: snapshot.context.count }),
-  commands: ({ actor }) => ({
-    increment: () => actor.send({ type: 'INC' }),
-    decrement: () => actor.send({ type: 'DEC' }),
-    reset: () => actor.send({ type: 'RESET' }),
-  }),
-});
-
-counter('ignite-counter', ({ count, increment, decrement, reset }) => (
-  <div>
-    <button onClick={decrement}>−</button>
-    <output>{count}</output>
-    <button onClick={increment}>+</button>
-    <button onClick={reset}>Reset</button>
-  </div>
-));
+```html title="index.html"
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8" /><title>Ignite toggle</title></head>
+  <body>
+    <ignite-toggle></ignite-toggle>
+    <script type="module" src="/src/toggle.tsx"></script>
+  </body>
+</html>
 ```
 
-Want to edit and fork the full project?
+For example, in a new directory containing those two files:
 
-- [Open in StackBlitz](https://stackblitz.com/edit/ignite-element?file=src%2Fmy-counter.tsx)
-- [Open repo example](https://github.com/0xjcf/ignite-element/tree/beta/examples/adapters/xstate)
+```sh title="Terminal"
+pnpm add -D vite typescript
+pnpm exec vite
+```
+
+The actor owns `off` and `on`. Inline `states` derives `isOn` from its native
+snapshot; the inline command sends `TOGGLE`. The renderer receives inferred
+values and commands through `ctx`. No configuration file or notifications are
+needed for this component. Call `dispose()` at final application shutdown.
+
+## Where next
+
+- [Sources](/ignite-element/handbook/sources/): use XState, Redux, or MobX directly.
+- [Views](/ignite-element/handbook/views/): use Ignite JSX or `useIgnite(core)`.
+- [Examples](/ignite-element/handbook/examples/): run a complete project.
+- [API reference](/ignite-element/handbook/api/): look up exact contracts.
+
+Ignite fits applications that already own a source and need several ways to
+observe and control it. It does not supply routing, business persistence, or
+server rendering. See [compatibility](/ignite-element/api/compatibility/).

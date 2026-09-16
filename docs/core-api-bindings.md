@@ -1,10 +1,8 @@
-# Core API and bindings: beta.12 and the locked correction
+# Core API and bindings: beta.14
 
-Beta.12 is published. This reference distinguishes that baseline from the locked,
-unreleased shared-readiness and terminal-disposal correction. Independent review
-and release remain separate decisions. The flow remains source → native
-snapshot → derived states → renderer view. See the
-[migration contract](site/src/content/docs/migration/shared-readiness-terminal-disposal.mdx).
+Current API details are maintained in the [handbook reference](site/src/content/docs/handbook/api.mdx).
+Shared readiness and registered terminal disposal shipped in beta.13; beta.14
+uses the accepted core-owned effect evaluator.
 
 ## Construction and reads
 
@@ -14,14 +12,14 @@ Source-backed owners retain registration and opaque projection-target call forms
 
 | Surface | Contract |
 | --- | --- |
-| `get('states')` | Current inferred projection; beta.12's first read prepares bindings. The correction prepares shared cores at construction, leaving isolated acquisition explicit |
+| `get('states')` | Current inferred projection; shared cores prepare at construction, leaving isolated acquisition explicit |
 | `get('schema')` | Pure immutable minimal catalogue, never source acquisition |
 | `get('commands')` | Bound own command names with `{ input: null }`, not functions |
 | `get('events')` | Declared names with `{ type, payload: null }`, not history |
 | `watch((next, previous) => …)` | Derived observations without initial user delivery or global deep equality |
 | `on(name, handler)` | Flat outward occurrences; independently idempotent unsubscribe handle |
 | `execute({ command, input })` | One payload argument; awaited callback and paired snapshot/states/window events |
-| `dispose()` | Terminal owning cleanup; beta.12 rejects it after registration. The correction must end registered views without making tag definitions reusable |
+| `dispose()` | Terminal owning cleanup, including registered views; tag definitions are not reusable |
 
 No zero-argument read, snapshot key, path language, function lookup or compatibility
 aliases are added. The former public raw getters/watchers, derived getters/watchers,
@@ -83,18 +81,17 @@ stopped once after observation cleanup; an unused core creates none. Redux/MobX
 release subscriptions/autoruns, not application shutdown. Headless Actor-Web factories
 do not transfer native close authority, even for newly created handles.
 
-Successful registration prevents owning disposal in beta.12. The locked correction
-permits terminal registered disposal, with later connections inert, retained
-commands rejected and cached catalogues still readable. Failed registration must
-not permanently lock a core; registration-in-progress remains guarded. Ordinary
-DOM reconnect and explicit shared `cleanup: true` behavior must be preserved.
+Terminal disposal ends registered views, leaving later connections inert,
+retained commands rejected, and cached catalogues readable. Failed registration
+does not permanently lock a core; registration-in-progress remains guarded.
+Ordinary DOM reconnect preserves its existing behavior.
 There is no registration rebinding, replacement overload or new source form.
 
 ## Framework and platform boundaries
 
-In beta.12, prepare once with `core.get('states')` in application bootstrap, outside
-React rendering. The correction removes this prerequisite for shared sources by
-preparing at construction, never during render. `useIgnite(core)` from
+Shared cores prepare during owner-controlled construction, without a preparation-only
+read. Isolated headless acquisition remains explicit outside rendering.
+`useIgnite(core)` from
 `ignite-element/react` borrows inferred states
 and stable commands through a shared private capability. Reads are cached and
 pure, remain current across subscription gaps, and reconcile render/subscribe
@@ -104,8 +101,9 @@ old commands to a new owner.
 Framework snapshots detach/freeze nested plain records and arrays without freezing
 the source. Project suitable primitives/plain data/functions; arbitrary classes
 and accessors are rejected, not serialized. Presentation-owned resources remain
-with the framework. Effects keep queued post-Ignite-render timing; they may precede
-React commit and are not `useEffect` or a cross-framework commit barrier.
+with the framework. Effects follow source processing with no renderer or framework commit guarantee.
+The [events reference](site/src/content/docs/handbook/events.mdx) owns their
+activation, baseline, disposal, synchronous-void, and error rules.
 
 `ignite-element/react/web` retains the custom-element wrapper, typed props/events/
 imperative refs and actual per-element command targets. It creates no hidden

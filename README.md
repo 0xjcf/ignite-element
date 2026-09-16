@@ -1,404 +1,96 @@
-# ignite-element
+# Ignite Element
 
-Platform-native custom elements built around explicit intent, derived state, deterministic effects, and DOM-native contracts.
+Connect a state source to Web Components, React, or headless consumers.
 
-Ignite Element lets you build systems where:
+**source → source-native snapshot → states → view**
 
-- commands express intent
-- state defines truth
-- effects express consequences
-- custom elements expose the public contract
-
-That makes components easier to reason about for developers, easier to reuse across host apps, and directly operable by AI agents.
-
-Quick links: [Quick start](#quick-start) · [Mental model](#mental-model) · [Agent runtime](#agent-runtime) · [Testing](#testing) · [Install matrix](#installation-matrix) · [Documentation](#documentation)
-
-The development candidate also supports [sharing an existing plain controller](docs/site/src/content/docs/guides/plain-controllers.mdx)
-across headless, imperative web, React and native views. The [complete synthetic example](examples/apps/shared-controller/README.md)
-uses one session owner and the checked-out candidate's public exports—not the
-previously published beta.11 bindings. Native test-host coverage is not device acceptance.
-
-## Why Ignite Element?
-
-Most UI systems blur together rendering, state changes, and side effects.
-
-Ignite keeps them separate:
-
-```txt
-command (intent)
-      ↓
-state transition
-      ↓
-states derivation
-      ↓
-UI render
-      ↓
-effect microtask (outward consequence)
-```
-
-This gives you:
-
-- platform-native distribution through custom elements and `CustomEvent`
-- typed boundaries between intent, state, effects, and rendering
-- reusable stateful UI without shipping an app framework runtime
-- a headless runtime for testing and automation
-
-Ignite is not trying to replace your app framework. It gives you a browser-native distribution layer for stateful UI: project behavior into a custom element, expose DOM-native events, and keep the same contract usable in plain HTML, React, Vue, tests, and automation.
+This branch documents **v3 beta.14**. Install `ignite-element@beta` for this API.
+Stable `ignite-element@latest` is v2.2.2; use the [v2 archive](https://0xjcf.github.io/ignite-element/2.x/)
+for stable applications.
 
 ## Quick start
 
-### Source-free layouts (unpublished review candidate)
+```sh
+pnpm add ignite-element@beta xstate
+```
 
-The candidate replaces beta.11's `igniteShell` with root `igniteCore()` and removes
-its `onConnect`/teardown option. Released beta.11 does not have this root API.
-No state library is needed for source-free composition:
+Save as `src/toggle.tsx` in a Vite/TypeScript project:
 
 ```tsx
-import { igniteCore } from "ignite-element";
-
-const core = igniteCore();
-core("app-layout", () => <main><slot /></main>);
-```
-
-The renderer has no source arguments; successful DOM mounts once per instance.
-The result is a registrar, not a behavior runtime. Adapter imports stay unchanged.
-See the [breaking migration](./docs/source-free-core.md).
-
-### Source-backed components
-
-> **v3 is in beta.** Install with `@beta` — the stable `latest` tag is still
-> v2.2.x. The state libraries are optional peer dependencies, so only the one
-> you install is pulled in. v3 packages are native ESM-only, so use ESM
-> imports rather than CommonJS `require`. See the [v2 → v3 migration guide](./docs/site/src/content/docs/migration/v3.mdx).
-
-Install Ignite Element with the one state library you use.
-
-```bash
-npm install ignite-element@beta xstate
-```
-
-If you use the built-in JSX runtime, enable Ignite JSX once in your `tsconfig.json`:
-
-```json
-{
-  "compilerOptions": {
-    "jsx": "react-jsx",
-    "jsxImportSource": "ignite-element/jsx"
-  }
-}
-```
-
-If you cannot change `tsconfig`, add this per file:
-
-```ts
 /** @jsxImportSource ignite-element/jsx */
-```
-
-For the default path, you do not need `ignite.config.ts`, a bundler plugin, or shared adapter teardown overrides.
-
-Co-locate component CSS in ordinary `<style>` tags and keep it next to the JSX that uses it:
-
-```tsx
-const toggleStyles = `
-  :host { display: inline-block; }
-  button { min-width: 5rem; }
-`;
-
-toggle("toggle-button", ({ isOn, toggle }) => (
-  <>
-    <style>{toggleStyles}</style>
-    <button onClick={toggle}>{isOn ? "On" : "Off"}</button>
-  </>
-));
-```
-
-If your bundler can import CSS as text, you can swap `toggleStyles` for an imported string. Use `ignite.config.ts` only for shared shadow-root styles or diagnostics. The optional lit path is config-free but directly imports a scoped package, so install `ignite-element@beta @ignite-element/renderer@beta lit-html` before importing `@ignite-element/renderer/lit`. For hosts with strict `style-src` CSP rules, prefer emitted stylesheet URLs through shared styles instead of inline `<style>` tags.
-
-Create a component:
-
-```tsx
-import { createMachine } from "xstate";
 import { igniteCore } from "ignite-element/xstate";
+import { createActor, createMachine } from "xstate";
 
-const machine = createMachine({
-  initial: "off",
-  states: {
-    off: { on: { TOGGLE: "on" } },
-    on: { on: { TOGGLE: "off" } },
-  },
-});
-
-const toggle = igniteCore({
-  source: machine,
-
-  events: (event) => ({
-    toggled: event<{ isOn: boolean }>(),
-  }),
-
-  states: (snapshot) => ({
-    isOn: snapshot.matches("on"),
-  }),
-
-  commands: ({ actor }) => ({
-    toggle: () => {
-      actor.send({ type: "TOGGLE" });
+const source = createActor(
+  createMachine({
+    initial: "off",
+    states: {
+      off: { on: { TOGGLE: "on" } },
+      on: { on: { TOGGLE: "off" } },
     },
   }),
+).start();
 
-  effects: ({ emit, select }) => {
-    const isOn = select((snapshot) => snapshot.matches("on"));
-    if (!isOn.changed) return;
-    emit({ type: "toggled", isOn: isOn.current });
-  },
+export const core = igniteCore({
+  source,
+  states: (snapshot) => ({ isOn: snapshot.matches("on") }),
+  commands: ({ actor }) => ({
+    toggle: () => actor.send({ type: "TOGGLE" }),
+  }),
 });
 
-toggle("toggle-button", ({ isOn, toggle }) => (
-  <button onClick={toggle}>{isOn ? "On" : "Off"}</button>
+core("ignite-toggle", (ctx) => (
+  <section>
+    <button type="button" onClick={() => ctx.toggle()}>
+      {ctx.isOn ? "On" : "Off"}
+    </button>
+  </section>
 ));
-```
 
-Use it anywhere the browser can render a custom element:
-
-```html
-<toggle-button></toggle-button>
-```
-
-Because the outward contract is DOM-native, the same component can be consumed from plain HTML or host frameworks without a wrapper-specific protocol.
-
-## Mental model
-
-### Commands = intent
-
-Commands describe what should happen.
-
-```ts
-commands: ({ actor }) => ({
-  toggle: () => actor.send({ type: "TOGGLE" })
-})
-```
-
-Commands:
-
-- do not emit events
-- do not contain outward side effects
-- express intent through the adapter actor or store
-- accept explicit typed input when they need data from the host environment
-
-### Native snapshot = truth; states = derived read model
-
-The source-native snapshot remains authoritative. `states(snapshot)` derives
-the consumer-facing values used by renderers and the headless runtime.
-
-```ts
-states: (snapshot) => ({
-  isOn: snapshot.matches("on")
-})
-```
-
-This keeps rendering tied to explicit derived states, not ad hoc imperative
-updates. The registration renderer turns those states into the view.
-
-### Effects = consequences
-
-Effects react to state transitions.
-
-```ts
-effects: ({ emit, select }) => {
-  const isOn = select((snapshot) => snapshot.matches("on"));
-  if (!isOn.changed) return;
-  emit({ type: "toggled", isOn: isOn.current });
-}
-```
-
-Effects:
-
-- run synchronously in a microtask after the renderer has been notified
-- can read `snapshot`, `prevSnapshot`, `select(...)`, and `emit(...)`
-- expose `select(...)` for common transition comparisons
-- emit typed DOM events
-- support deterministic testing and replay-safe workflows
-- stay synchronous; async work belongs in the source runtime and re-enters as facts
-- must return `undefined`/nothing so `async` effect callbacks are rejected at compile time
-
-Inline effect callbacks can usually omit a return. Extracted helpers or explicitly typed effect functions may need an `undefined` return annotation plus an explicit `return undefined`.
-
-When one transition needs multiple consequences, keep each concern in its own guarded block inside the same `effects(...)` callback:
-
-```ts
-effects: ({ snapshot, emit, select }) => {
-  const status = select((current) => current.context.status);
-  const error = select((current) => current.context.error);
-
-  if (status.changed && status.current === "saved") {
-    emit({ type: "saved", id: snapshot.context.id });
-  }
-
-  if (error.changed && error.current) {
-    emit({ type: "save-failed", message: error.current });
-  }
-}
-```
-
-For larger components, extract each branch into a small helper and call those helpers from the single `effects(...)` callback.
-
-### Events = public contract
-
-```ts
-events: (event) => ({
-  toggled: event<{ isOn: boolean }>()
-})
-```
-
-Events are:
-
-- typed
-- observable
-- DOM-native
-- usable by parent components, tests, and agent runtimes
-
-## Agent runtime
-
-Source-backed `igniteCore(...)` construction exposes a headless runtime alongside its registration surface. Root source-free construction remains registrar-only.
-
-```ts
-async function inspectToggle() {
-  const eventSubscription = toggle.on("toggled", (event) => {
-    console.log(event.isOn);
-  });
-  const statesSubscription = toggle.watch((states, prevStates) => {
-    console.log(prevStates.isOn, "->", states.isOn);
-  });
-
+export function dispose() {
   try {
-    const result = await toggle.execute({ command: "toggle" });
-    console.log(result.snapshot); // paired native snapshot from this execution
-    toggle.get('states');
-    toggle.get('schema');
+    core.dispose();
   } finally {
-    eventSubscription.unsubscribe();
-    statesSubscription.unsubscribe();
+    source.stop();
   }
 }
 ```
 
-Use `on(...)` for outward occurrences and `watch(...)` for derived-state next/previous updates without initial delivery. Native source reads remain on the caller-owned source. An unregistered owner ends its observation lifetime with `dispose()`; a successfully registered core rejects disposal before teardown. Borrowed sources are never stopped. Only an Ignite-created private XState actor is natively stopped by owner disposal.
+Load that file from your HTML entry and add `<ignite-toggle></ignite-toggle>`.
+The [Getting started handbook](https://0xjcf.github.io/ignite-element/) includes
+the complete HTML and run commands. Inline `states` and `commands` preserve
+inference; the view uses `ctx`. The application owns final source shutdown.
 
-Ordinary tests assert command results and source outcomes directly. The former testing/story recorder is retired in the development candidate; no portable trace or complete lifecycle history replaces it.
+## React and React Native
 
-`execute()` returns structured output:
+Use `const ctx = useIgnite(core)` from `ignite-element/react`. Render `ctx.count`
+and call `ctx.increment()` or `ctx.decrement()` without mirrored React state.
+See the [complete React example](https://github.com/0xjcf/ignite-element/tree/beta/examples/frameworks/react)
+and [Views](https://0xjcf.github.io/ignite-element/handbook/views/).
+`igniteReact(handle)` from `/react/web` is the separate browser custom-element recipe.
 
-```ts
-{
-  snapshot,
-  states: { isOn: true },
-  events: [{ type: "toggled", isOn: true }]
-}
-```
+## Handbook
 
-`get('schema')` returns pure immutable discovery data after real command binding:
+- [Getting started](https://0xjcf.github.io/ignite-element/)
+- [Sources](https://0xjcf.github.io/ignite-element/handbook/sources/)
+- [Views](https://0xjcf.github.io/ignite-element/handbook/views/)
+- [Events & effects](https://0xjcf.github.io/ignite-element/handbook/events/)
+- [Ownership & cleanup](https://0xjcf.github.io/ignite-element/handbook/ownership/)
+- [Testing](https://0xjcf.github.io/ignite-element/handbook/testing/)
+- [API reference](https://0xjcf.github.io/ignite-element/handbook/api/)
+- [Examples](https://0xjcf.github.io/ignite-element/handbook/examples/)
 
-```ts
-{
-  schemaVersion: 1,
-  commands: { toggle: { input: null } },
-  events: [{ type: "toggled", payload: null }],
-  states: { schema: null }
-}
-```
+Events/effects and Actor-Web are optional. `core.dispose()` is terminal, including
+after registration, and releases Ignite resources without shutting down borrowed
+sources. Root `igniteCore()` is the source-free registrar only.
 
-Before a configured commands callback is bound, its catalogue is `null`; without a callback it is `{}`. Null schemas are unknown, not inferred validation. Tools must supply explicit application-owned input definitions and availability predicates. See [core API and bindings](./docs/core-api-bindings.md).
+v3 is native ESM-only. Install only your chosen source peers; Lit is optional.
+See [compatibility](https://0xjcf.github.io/ignite-element/api/compatibility/) for
+the known NodeNext declaration limitation and tested platform boundaries.
 
-## Testing
+## Contributing and support
 
-Use your ordinary test runner with the retained runtime:
-
-```ts
-import { expect } from "vitest";
-
-const result = await toggle.execute({ command: "toggle" });
-expect(result.snapshot.matches("on")).toBe(true);
-expect(result.states.isOn).toBe(true);
-expect(result.events).toContainEqual({ type: "toggled", isOn: true });
-```
-
-Use a fresh source per test. Mount registered components and query actual rendered controls for DOM coverage. The application/test owns asynchronous source outcomes and source shutdown; `execute()` does not wait for every downstream business operation. See [testing](./docs/testing.md) and the [migration notice](https://0xjcf.github.io/ignite-element/api/testing-dsl/).
-
-## Installation matrix
-
-- XState: `npm install ignite-element@beta xstate`
-- Redux: `npm install ignite-element@beta @reduxjs/toolkit`
-- MobX: `npm install ignite-element@beta mobx`
-
-## Package map
-
-`ignite-element` is the default public package. Unless you are extending Ignite itself, this is the package you should install and document against.
-
-- `ignite-element`: default public package for app and component authors
-- `ignite-element/xstate`, `ignite-element/redux`, `ignite-element/mobx`: default public adapter entrypoints
-- `@ignite-element/core`: advanced adapter-neutral contracts, event/effect typing, and shared utilities
-- `@ignite-element/adapters`: advanced adapter factories, guards, and source-specific config/types
-- `@ignite-element/renderer`: advanced renderer/runtime layer for custom renderer integration work
-
-These scoped packages are internal dependencies of `ignite-element` and install automatically; you don't add them directly.
-
-## Multiple components from one core
-
-Define behavior once and register multiple render surfaces from the same core.
-
-```ts
-const toggle = igniteCore({
-  source: machine,
-  events: toggleEvents,
-  states: toggleStates,
-  commands: toggleCommands,
-  effects: toggleEffects,
-});
-
-toggle("toggle-button", ToggleButtonView);
-toggle("toggle-chip", ToggleChipView);
-toggle("toggle-menu-item", ToggleMenuItemView);
-```
-
-## Recommended file structure
-
-```txt
-toggle/
-  toggle.core.ts
-  toggle.machine.ts
-  toggle.states.ts
-  toggle.commands.ts
-  toggle.effects.ts
-  toggle.events.ts
-  toggle.view.tsx
-```
-
-This structure works well for both human maintainers and agent tooling because the execution model is explicit.
-
-## Documentation
-
-- [API docs](./docs/site/src/content/docs/api/ignite-core.mdx)
-- [Host app integration](./docs/site/src/content/docs/guides/host-app-integration.mdx)
-- [Platform contracts](./docs/site/src/content/docs/guides/platform-contracts.mdx)
-- [Testing guide](./docs/site/src/content/docs/guides/testing.mdx)
-- [Configuration and renderers](./docs/site/src/content/docs/api/define-ignite-config.mdx)
-- [State adapter lifecycle](./docs/site/src/content/docs/concepts/state-adapters.mdx)
-- [Migration guide](./docs/migrations/v2.2.3-effects-events.md)
-- [Package boundary migration](./docs/migrations/adr-003-package-boundaries.md)
-- Advanced package layers: `ignite-core`, `ignite-adapters`, and `ignite-renderer`
-- [Local examples](./examples)
-
-## Philosophy
-
-Ignite enforces three rules:
-
-1. Commands express intent.
-2. The native snapshot defines truth; `states` derives the public read model.
-3. Effects express consequences.
-
-The result is a deterministic UI architecture that scales from ordinary component work to testing, automation, and AI-agent execution.
-
-## Headless Node boundary
-
-The development candidate imports and uses source-backed cores in Node 22.16.0 without fabricated browser globals. Keep `source → snapshot → states → renderer view`: construct a named core first, then register tags only in the browser. Root source-free `const core = igniteCore()` returns only a registrar. Tag registration throws synchronously without a DOM; ordinary runtime work and existing non-DOM projection bindings do not register a tag.
-
-Observation cleanup does not establish reclamation of abandoned cores. Cached effects and factory-owned source work retain existing core-lifetime semantics. Root/adapter TypeScript consumers still need browser declaration types (`lib: DOM`), independently of runtime DOM safety. Both whole-core ownership and no-DOM declaration support remain stable-readiness follow-ups, not solved by this candidate.
+[Contributing](https://github.com/0xjcf/ignite-element/blob/beta/CONTRIBUTING.md) ·
+[Issues](https://github.com/0xjcf/ignite-element/issues) ·
+[Discussions](https://github.com/0xjcf/ignite-element/discussions) ·
+[MIT license](https://github.com/0xjcf/ignite-element/blob/beta/LICENSE)

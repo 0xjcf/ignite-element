@@ -1,0 +1,299 @@
+{
+	"redirects": {
+		"overview/what-is-ignite-element": "",
+		"overview/when-to-choose-ignite": "api/compatibility",
+		"overview/ignite-for-ai-agents": "guides/agent-runtime-v3",
+		"getting-started/installation": "",
+		"getting-started/first-component": "",
+		"concepts/the-ignite-model": "handbook/sources",
+		"concepts/rendering": "handbook/views",
+		"api/ignite-core": "handbook/api",
+		"guides": "handbook/examples",
+		"guides/host-app-integration": "handbook/views",
+		"guides/redux-and-mobx": "handbook/sources",
+		"guides/styling": "handbook/views",
+		"guides/testing": "handbook/testing",
+		"guides/events": "handbook/events",
+		"getting-started/project-setup": "",
+		"concepts/state-adapters": "handbook/sources",
+		"concepts/renderers": "handbook/views",
+		"concepts/events-and-commands": "handbook/events",
+		"concepts/configuration": "api/advanced-config",
+		"api/define-ignite-config": "api/advanced-config",
+		"api/renderers": "handbook/views",
+		"guides/tooling": "api/advanced-config",
+		"2.x/contributing/shared-controller-validation": "2.x"
+	},
+	"fragments": {
+		"overview/what-is-ignite-element": [
+			"why-teams-pick-ignite-element",
+			"ignite-vs-other-options",
+			"performance-snapshot"
+		],
+		"overview/when-to-choose-ignite": [
+			"compared-with-app-frameworks",
+			"compared-with-web-component-renderers",
+			"compared-with-state-library-lock-in",
+			"agent-and-tooling-angle",
+			"next-steps"
+		],
+		"overview/ignite-for-ai-agents": [
+			"the-contract",
+			"what-agents-should-do",
+			"where-ignitetools-fits",
+			"ecosystem-boundaries",
+			"read-next"
+		],
+		"getting-started/installation": [
+			"1-configure-jsx-required-for-the-default-ignite-jsx-path",
+			"2-start-building",
+			"optional-advanced-and-legacy-setup",
+			"runtime-dependencies-and-tree-shaking",
+			"verify-your-setup",
+			"project-checklist"
+		],
+		"getting-started/first-component": [
+			"1-define-a-machine",
+			"2-register-the-component",
+			"3-use-it-anywhere",
+			"then-share-behavior",
+			"next-steps"
+		],
+		"concepts/the-ignite-model": [
+			"ownership-model",
+			"adapters",
+			"adapter-shapes",
+			"source-factory-adapter-inference",
+			"shared-vs-isolated",
+			"projection-states",
+			"commands-events-and-effects",
+			"putting-it-together",
+			"deterministic-effects",
+			"lifecycle-at-a-glance",
+			"choosing-ignite-elementxstate-vs-ignite-elementactor-web",
+			"renderers-and-configuration",
+			"design-principles"
+		],
+		"concepts/rendering": [
+			"two-ways-to-author-a-view",
+			"ignite-jsx-default",
+			"lit-html",
+			"where-jsximportsource-lives",
+			"renderer-selection-is-automatic",
+			"typescript-is-optional",
+			"related"
+		],
+		"api/ignite-core": [
+			"parameters",
+			"returns",
+			"advanced-overrides",
+			"headless-runtime",
+			"callback-boundaries",
+			"related"
+		],
+		"guides": [],
+		"guides/host-app-integration": [
+			"register-once",
+			"native-source-events",
+			"plain-html",
+			"react",
+			"headless-react-and-react-native",
+			"schema-driven-wrapper-recommended",
+			"hand-rolled-wrapper-fallback",
+			"vue",
+			"svelte",
+			"ssr-and-hydration",
+			"the-element-contract",
+			"semantics-live-in-your-markup",
+			"commands-stay-internal-events-go-outward",
+			"accessibility-is-not-optional",
+			"design-rule"
+		],
+		"guides/redux-and-mobx": [
+			"redux-toolkit",
+			"slice-source-isolated",
+			"store-instance-source-shared",
+			"events-and-effects",
+			"mobx",
+			"choosing-an-adapter",
+			"related"
+		],
+		"guides/styling": ["styling-is-part-of-the-contract"],
+		"guides/testing": [
+			"behavior-tests-vs-dom-tests",
+			"commands-events-and-external-updates",
+			"setup",
+			"state-tests-xstate-example",
+			"dom-tests-web-component--xstate--lit",
+			"observation-and-lifetime-checks"
+		],
+		"guides/events": [
+			"one-counter-two-meanings",
+			"delivery-and-ownership",
+			"migration-from-per-view-effects",
+			"one-production-rule-per-public-event"
+		],
+		"getting-started/project-setup": [],
+		"concepts/state-adapters": [],
+		"concepts/renderers": [],
+		"concepts/events-and-commands": [],
+		"concepts/configuration": [],
+		"api/define-ignite-config": [],
+		"api/renderers": [],
+		"guides/tooling": [],
+		"2.x/contributing/shared-controller-validation": []
+	},
+	"archive": [
+		"2.x",
+		"2.x/api/define-ignite-config",
+		"2.x/api/ignite-core",
+		"2.x/api/renderers",
+		"2.x/community",
+		"2.x/concepts/configuration",
+		"2.x/concepts/events-and-commands",
+		"2.x/concepts/renderers",
+		"2.x/concepts/state-adapters",
+		"2.x/getting-started/first-component",
+		"2.x/getting-started/installation",
+		"2.x/getting-started/project-setup",
+		"2.x/guides/styling",
+		"2.x/guides/testing",
+		"2.x/guides/tooling",
+		"2.x/migration/v2",
+		"2.x/overview/what-is-ignite-element"
+	],
+	"counterparts": {
+		"": "2.x",
+		"handbook/sources": "2.x/concepts/state-adapters",
+		"handbook/views": "2.x/concepts/renderers",
+		"handbook/events": "2.x/concepts/events-and-commands",
+		"handbook/ownership": "2.x/concepts/state-adapters",
+		"handbook/testing": "2.x/guides/testing",
+		"handbook/api": "2.x/api/ignite-core",
+		"api/headless-runtime": "2.x/api/ignite-core",
+		"api/advanced-config": "2.x/concepts/configuration",
+		"migration/v2": "2.x/migration/v2",
+		"community": "2.x/community"
+	},
+	"fragmentTargets": {
+		"overview/what-is-ignite-element": {
+			"why-teams-pick-ignite-element": "/ignite-element/#_top",
+			"ignite-vs-other-options": "/ignite-element/#_top",
+			"performance-snapshot": "/ignite-element/#_top"
+		},
+		"overview/when-to-choose-ignite": {
+			"compared-with-app-frameworks": "/ignite-element/api/compatibility/#_top",
+			"compared-with-web-component-renderers": "/ignite-element/api/compatibility/#_top",
+			"compared-with-state-library-lock-in": "/ignite-element/api/compatibility/#_top",
+			"agent-and-tooling-angle": "/ignite-element/api/compatibility/#_top",
+			"next-steps": "/ignite-element/api/compatibility/#_top"
+		},
+		"overview/ignite-for-ai-agents": {
+			"the-contract": "/ignite-element/guides/agent-runtime-v3/#_top",
+			"what-agents-should-do": "/ignite-element/guides/agent-runtime-v3/#_top",
+			"where-ignitetools-fits": "/ignite-element/guides/agent-runtime-v3/#_top",
+			"ecosystem-boundaries": "/ignite-element/guides/agent-runtime-v3/#_top",
+			"read-next": "/ignite-element/guides/agent-runtime-v3/#_top"
+		},
+		"getting-started/installation": {
+			"1-configure-jsx-required-for-the-default-ignite-jsx-path": "/ignite-element/#install-v3-beta",
+			"2-start-building": "/ignite-element/#install-v3-beta",
+			"optional-advanced-and-legacy-setup": "/ignite-element/#install-v3-beta",
+			"runtime-dependencies-and-tree-shaking": "/ignite-element/#install-v3-beta",
+			"verify-your-setup": "/ignite-element/#install-v3-beta",
+			"project-checklist": "/ignite-element/#install-v3-beta"
+		},
+		"getting-started/first-component": {
+			"1-define-a-machine": "/ignite-element/#build-a-component",
+			"2-register-the-component": "/ignite-element/#build-a-component",
+			"3-use-it-anywhere": "/ignite-element/#build-a-component",
+			"then-share-behavior": "/ignite-element/#build-a-component",
+			"next-steps": "/ignite-element/#build-a-component"
+		},
+		"concepts/the-ignite-model": {
+			"ownership-model": "/ignite-element/handbook/ownership/#terminal-disposal",
+			"adapters": "/ignite-element/handbook/sources/#_top",
+			"adapter-shapes": "/ignite-element/handbook/sources/#_top",
+			"source-factory-adapter-inference": "/ignite-element/handbook/sources/#_top",
+			"shared-vs-isolated": "/ignite-element/handbook/sources/#_top",
+			"projection-states": "/ignite-element/handbook/sources/#_top",
+			"commands-events-and-effects": "/ignite-element/handbook/events/#delivery-and-ownership",
+			"putting-it-together": "/ignite-element/handbook/sources/#_top",
+			"deterministic-effects": "/ignite-element/handbook/events/#delivery-and-ownership",
+			"lifecycle-at-a-glance": "/ignite-element/handbook/sources/#_top",
+			"choosing-ignite-elementxstate-vs-ignite-elementactor-web": "/ignite-element/handbook/sources/#_top",
+			"renderers-and-configuration": "/ignite-element/handbook/sources/#_top",
+			"design-principles": "/ignite-element/handbook/sources/#_top"
+		},
+		"concepts/rendering": {
+			"two-ways-to-author-a-view": "/ignite-element/handbook/views/#_top",
+			"ignite-jsx-default": "/ignite-element/handbook/views/#_top",
+			"lit-html": "/ignite-element/handbook/views/#_top",
+			"where-jsximportsource-lives": "/ignite-element/handbook/views/#_top",
+			"renderer-selection-is-automatic": "/ignite-element/handbook/views/#_top",
+			"typescript-is-optional": "/ignite-element/handbook/views/#_top",
+			"related": "/ignite-element/handbook/views/#_top"
+		},
+		"api/ignite-core": {
+			"parameters": "/ignite-element/handbook/api/#_top",
+			"returns": "/ignite-element/handbook/api/#_top",
+			"advanced-overrides": "/ignite-element/handbook/api/#_top",
+			"headless-runtime": "/ignite-element/handbook/api/#_top",
+			"callback-boundaries": "/ignite-element/handbook/api/#_top",
+			"related": "/ignite-element/handbook/api/#_top"
+		},
+		"guides": {},
+		"guides/host-app-integration": {
+			"register-once": "/ignite-element/handbook/views/#_top",
+			"native-source-events": "/ignite-element/handbook/events/#delivery-and-ownership",
+			"plain-html": "/ignite-element/handbook/views/#_top",
+			"react": "/ignite-element/handbook/views/#react",
+			"headless-react-and-react-native": "/ignite-element/handbook/views/#react",
+			"schema-driven-wrapper-recommended": "/ignite-element/handbook/views/#_top",
+			"hand-rolled-wrapper-fallback": "/ignite-element/handbook/views/#_top",
+			"vue": "/ignite-element/handbook/views/#_top",
+			"svelte": "/ignite-element/handbook/views/#_top",
+			"ssr-and-hydration": "/ignite-element/handbook/views/#_top",
+			"the-element-contract": "/ignite-element/handbook/views/#_top",
+			"semantics-live-in-your-markup": "/ignite-element/handbook/views/#_top",
+			"commands-stay-internal-events-go-outward": "/ignite-element/handbook/events/#delivery-and-ownership",
+			"accessibility-is-not-optional": "/ignite-element/handbook/views/#_top",
+			"design-rule": "/ignite-element/handbook/views/#_top"
+		},
+		"guides/redux-and-mobx": {
+			"redux-toolkit": "/ignite-element/handbook/sources/#redux",
+			"slice-source-isolated": "/ignite-element/handbook/sources/#_top",
+			"store-instance-source-shared": "/ignite-element/handbook/sources/#_top",
+			"events-and-effects": "/ignite-element/handbook/events/#delivery-and-ownership",
+			"mobx": "/ignite-element/handbook/sources/#mobx",
+			"choosing-an-adapter": "/ignite-element/handbook/sources/#_top",
+			"related": "/ignite-element/handbook/sources/#_top"
+		},
+		"guides/styling": {
+			"styling-is-part-of-the-contract": "/ignite-element/handbook/views/#styling"
+		},
+		"guides/testing": {
+			"behavior-tests-vs-dom-tests": "/ignite-element/handbook/testing/#_top",
+			"commands-events-and-external-updates": "/ignite-element/handbook/events/#delivery-and-ownership",
+			"setup": "/ignite-element/handbook/testing/#_top",
+			"state-tests-xstate-example": "/ignite-element/handbook/testing/#_top",
+			"dom-tests-web-component--xstate--lit": "/ignite-element/handbook/testing/#_top",
+			"observation-and-lifetime-checks": "/ignite-element/handbook/ownership/#terminal-disposal"
+		},
+		"guides/events": {
+			"one-counter-two-meanings": "/ignite-element/handbook/events/#one-counter-two-meanings",
+			"delivery-and-ownership": "/ignite-element/handbook/events/#delivery-and-ownership",
+			"migration-from-per-view-effects": "/ignite-element/handbook/events/#migration-from-per-view-effects",
+			"one-production-rule-per-public-event": "/ignite-element/handbook/events/#one-production-rule-per-public-event"
+		},
+		"getting-started/project-setup": {},
+		"concepts/state-adapters": {},
+		"concepts/renderers": {},
+		"concepts/events-and-commands": {},
+		"concepts/configuration": {},
+		"api/define-ignite-config": {},
+		"api/renderers": {},
+		"guides/tooling": {},
+		"2.x/contributing/shared-controller-validation": {}
+	}
+}

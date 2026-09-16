@@ -42,10 +42,13 @@ This showcase combines **ignite-element**, **MobX**, and **lit-html** to build r
 
 ## igniteCore Setup
 
-We reuse the same `view`/`commands` facades for both shared and isolated scopes. The only difference is whether we pass a live observable or a factory:
+Keep `states` and `commands` inline for inferred types. Save this module beside
+[`mobxCounterStore.ts`](mobxCounterStore.ts) in this example. A live observable
+is shared; a factory requires `adapter: "mobx"` and creates isolated instances:
 
-```ts
+```ts title="mobx-cores.ts"
 import { igniteCore } from "ignite-element/mobx";
+import counterStore from "./mobxCounterStore";
 
 const sharedStore = counterStore();
 
@@ -59,6 +62,7 @@ export const registerSharedMobx = igniteCore({
 });
 
 export const registerIsolatedMobx = igniteCore({
+  adapter: "mobx",
   source: counterStore, // factory → new observable each time
   states: (snapshot) => ({ count: snapshot.count }),
   commands: ({ actor }) => ({

@@ -3,7 +3,7 @@
 	"version": "1.0.0",
 	"private": true,
 	"type": "module",
-	"description": "React 19 demo consuming an ignite element through the schema-driven igniteReact wrapper.",
+	"description": "React 19 shared-core useIgnite example with optional custom-element interoperability.",
 	"scripts": {
 		"dev": "vite",
 		"build": "vite build",

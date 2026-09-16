@@ -63,12 +63,14 @@ are outside the core's custody.
 
 <Code code={reactCode} lang="tsx" title="React shared counter" />
 
-The first `useIgnite(core)` is ready without a prerequisite read in published
-beta.13; beta.12 requires owner preparation before rendering. A host
-receives a core built outside rendering. Native presentation uses `Text` and
-`Pressable` with the same `const ctx = useIgnite(core)` contract. Unmounting
-either view does not dispose the core. Effects retain post-Ignite-render timing,
-not a React commit barrier.
+Shared cores are ready after owner-controlled construction. Unmounting a view
+releases its subscription, not the core. One effect evaluator per core/source
+instance starts on legitimate runtime use or committed subscription/element
+connection, establishes an initial baseline, and queues delivery after source
+processing. The activated shared evaluator survives zero-view intervals until
+core disposal; delivery does not guarantee a renderer update or framework commit.
+See [delivery and ownership](/ignite-element/handbook/events/#delivery-and-ownership)
+for the canonical activation, lifetime, disposal, synchronous-void and error rules.
 
 ## Source-owned account and receipt behavior
 

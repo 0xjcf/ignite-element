@@ -15,7 +15,7 @@ The practical model is:
 3. Add the DOM layer as a projection over already-proven behavior.
 
 :::note[API reference]
-This guide is the narrative walkthrough. For exact signatures and return shapes, see [Headless runtime](/ignite-element/api/headless-runtime/), [Command metadata](/ignite-element/api/command-metadata/), and the [Testing guide](/ignite-element/guides/testing/).
+This guide is the narrative walkthrough. For exact signatures and return shapes, see [Headless runtime](/ignite-element/api/headless-runtime/), [Command metadata](/ignite-element/api/command-metadata/), and the [Testing guide](/ignite-element/handbook/testing/).
 :::
 
 ## Behavior-first components
@@ -121,7 +121,7 @@ counter('counter-panel', ({ count, limit, isLimited, increment, setLimit }) => (
 ));
 ```
 
-This keeps DOM tests focused on rendering and accessibility, while behavior tests stay selector-free. To assert rendered controls by role and accessible name, mount the registered component and use DOM Testing Library on its actual rendered elements — see the [Testing guide](/ignite-element/guides/testing/).
+This keeps DOM tests focused on rendering and accessibility, while behavior tests stay selector-free. To assert rendered controls by role and accessible name, mount the registered component and use DOM Testing Library on its actual rendered elements — see the [Testing guide](/ignite-element/handbook/testing/).
 
 ## Agent-readable contracts
 

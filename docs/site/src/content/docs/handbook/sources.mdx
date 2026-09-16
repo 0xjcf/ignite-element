@@ -1,0 +1,53 @@
+---
+title: Sources
+description: Pass an existing source through its supported adapter entrypoint.
+---
+
+import { Code } from '@astrojs/starlight/components';
+import redux from '../../../../../../scripts/__tests__/fixtures/handbook/redux.ts?raw';
+import mobx from '../../../../../../scripts/__tests__/fixtures/handbook/mobx.ts?raw';
+
+Pass your existing source directly to the matching `igniteCore` entrypoint.
+An __Ignite source adapter__ normalizes snapshots, commands, and observation.
+An __application I/O adapter or port__ supplies network, storage, timers, or
+other environmental capabilities to the source. These are different jobs.
+
+| Source | Import | Native snapshot | Commands use |
+| --- | --- | --- | --- |
+| XState actor or machine | `ignite-element/xstate` | XState snapshot | `actor.send(event)` |
+| Redux store or slice | `ignite-element/redux` | Store/slice state | `actor.dispatch(action)` |
+| MobX observable or factory | `ignite-element/mobx` | Observable value | Native actions |
+| Optional Actor-Web source | `ignite-element/actor-web` | Source snapshot | Source command interface |
+
+## XState
+
+[Getting started](/ignite-element/#build-a-component) shows a complete started
+actor. Its native snapshot exposes `context`, `matches(...)`, and `can(...)`.
+XState machine states describe behavior; Ignite `states` derives values for views.
+Keep invocation, cancellation, guards, retries, and persistence in the source.
+
+## Redux
+
+<Code code={redux} lang="ts" title="redux.ts" />
+
+A combined store uses its root shape, for example `snapshot.counter.count`.
+A Redux slice passed directly creates isolated state; the snapshot is the slice
+state. See [ownership](/ignite-element/handbook/ownership/).
+
+## MobX
+
+<Code code={mobx} lang="ts" title="mobx.ts" />
+
+For an isolated observable factory use `source: () => new Counter()` and
+`adapter: 'mobx'`. The explicit adapter avoids executing a factory to infer it.
+Both examples keep `states` and `commands` inline so their types are inferred.
+Call `core.dispose()` when its application owner ends.
+
+## Optional integrations
+
+[Actor-Web](/ignite-element/guides/actor-web/) adapts an existing distributed
+runtime. Actor-Web retains admission, authorization, execution receipts, replay,
+transport, and shutdown authority. Ignite only adapts and projects its facts.
+
+Existing plain controllers can use the [advanced interoperability recipe](/ignite-element/guides/plain-controllers/).
+Neither integration is required for XState, Redux, or MobX.

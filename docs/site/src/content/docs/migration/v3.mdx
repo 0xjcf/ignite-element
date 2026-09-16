@@ -13,7 +13,7 @@ the `3.0.0` release.
 :::
 
 `3.0.0-beta.14` is published and verified. It adds [native event forwarding and
-core-owned effects](/ignite-element/guides/events/), retaining beta.12's source-free
+core-owned effects](/ignite-element/handbook/events/), retaining beta.12's source-free
 constructor, testing retirement and neutral React bindings, and beta.13's shared-source
 readiness and terminal disposal after registration. Install this exact version
 or `ignite-element@beta`; beta.12 does not include beta.13's two newer behaviors.
@@ -57,7 +57,7 @@ pnpm add ignite-element@beta xstate
 
 In v3 the state libraries and `lit-html` are declared as **optional** peer dependencies. Installing `ignite-element@beta xstate` no longer pulls in Redux, MobX, Redux Toolkit, or lit, and you won't see "unmet peer" warnings for the adapters you don't use. `lit-html` is only needed if you opt into the `lit` render strategy — the default Ignite JSX renderer requires no renderer dependency.
 
-Selecting lit is now **config-free**: install `@ignite-element/renderer` and `lit-html` as direct dependencies, import `@ignite-element/renderer/lit`, and author lit-html templates — Ignite auto-detects them and renders with lit. You no longer set `renderer: 'lit'` in `ignite.config.ts` just to use lit (it remains the way to *force* one renderer project-wide). See [Rendering](/ignite-element/concepts/rendering/).
+Selecting lit is now **config-free**: install `@ignite-element/renderer` and `lit-html` as direct dependencies, import `@ignite-element/renderer/lit`, and author lit-html templates — Ignite auto-detects them and renders with lit. You no longer set `renderer: 'lit'` in `ignite.config.ts` just to use lit (it remains the way to *force* one renderer project-wide). See [Rendering](/ignite-element/handbook/views/).
 
 ## 3) Canonical states projection
 
@@ -92,7 +92,7 @@ If an advanced app still needs shared shadow styles or renderer diagnostics, imp
 
 Beta.12 removes `test` from all five public barrels, the 27 dedicated testing/story types, the declaration-reachable testing graph, `record(name)`, and the accessibility bridge. Migrate to ordinary runtime/source assertions and real registered-element DOM queries. Retained runtime results, typed commands/events, subscriptions, snapshots, derived states and schema remain. Portable receipts and internal lifecycle histories are intentionally removed; there is no alias or replacement recorder.
 
-See the [migration table](/ignite-element/api/testing-dsl/) and [complete testing examples](/ignite-element/guides/testing/). Source/application ownership of asynchronous work, cancellation and native shutdown is unchanged. This major changeset was consumed into beta.12; publication is established separately by verified public package bytes and provenance.
+See the [migration table](/ignite-element/api/testing-dsl/) and [complete testing examples](/ignite-element/handbook/testing/). Source/application ownership of asynchronous work, cancellation and native shutdown is unchanged. This major changeset was consumed into beta.12; publication is established separately by verified public package bytes and provenance.
 
 ## Core API and React bindings in beta.12
 
@@ -108,12 +108,13 @@ existing tool definitions to explicit application schemas, and project meaningfu
 availability into states. Unknown discovery schemas are null, not fabricated
 validation. State/command name collisions now fail rather than overwrite.
 
-In beta.12, prepare a framework-owned core once with `core.get('states')` outside rendering.
+The historical beta.12 preparation read is unnecessary for current shared-source cores.
+Only isolated runtime acquisition uses `core.get('states')` before a framework borrows it.
 Import `useIgnite` from `ignite-element/react`; move `igniteReact` and wrapper
 types to `ignite-element/react/web`. Move Actor-Web factories requiring a real
 element host to `ignite-element/actor-web/web`. The neutral source/factory path
 never transfers native close authority. See [headless runtime](/ignite-element/api/headless-runtime/)
-and [host integration](/ignite-element/guides/host-app-integration/) for lifetime,
+and [host integration](/ignite-element/handbook/views/) for lifetime,
 single-input execution, immutable projection and native-test-host limits.
 
 ## Shared readiness and registered disposal in beta.13
@@ -137,4 +138,4 @@ See [shared source ownership](/ignite-element/guides/shared-source-ownership/).
 
 - Reinstall and run a TypeScript check (`pnpm exec tsc --noEmit`).
 - Confirm only your chosen state library is installed (`npm ls xstate redux mobx`).
-- Smoke-test a component per [Your first component](/ignite-element/getting-started/first-component/).
+- Smoke-test a component per [Your first component](/ignite-element/).

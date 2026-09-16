@@ -1,5 +1,7 @@
 # Retained complex interfaces
 
+> Accepted pre-stable architecture, not shipped JSX lifecycle behavior. Its baseline effect-ordering observations are historical; the current [beta.14 event contract](native-events-and-effects.md) supersedes them. Inclusion in v3 remains an Operator decision.
+
 ## Status and decision
 
 Accepted on 2026-07-11 for the Ignite Element v3 beta design window. This is a

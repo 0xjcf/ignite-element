@@ -196,7 +196,7 @@ Retained resources stay outside source provisioning and outside effects.
 
 ## Source-free composition
 
-Released beta.11 provides `igniteShell`. The explicitly amended, unpublished
+Released beta.11 provides `igniteShell`. The explicitly amended, published
 review candidate replaces it with root `igniteCore()` without a public lifecycle
 hook. See [source-free core and breaking migration](./source-free-core.md).
 

@@ -1,5 +1,7 @@
 # 🔥 ignite-websocket
 
+Proposal: this document does not describe an implemented package or supported public export. Use the [current handbook](https://0xjcf.github.io/ignite-element/) for shipped APIs.
+
 > **Behavior-first WebSocket integration for ignite-element + adapter contracts**
 
 `ignite-websocket` provides a **behavior-first, state-machine–driven** way to work with WebSockets in the ignite ecosystem.

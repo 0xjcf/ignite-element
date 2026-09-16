@@ -210,7 +210,7 @@ runtime.get("states");
 
 ---
 
-The development candidate no longer records stories or lifecycle histories. The bounded loop belongs to this application; asynchronous report work and shutdown remain source/application-owned. Test real controls by role and accessible name, independently of headless state assertions. This core registers an element, so its owner cannot call `dispose()` afterward. Unregistered headless owners dispose their Ignite resources when finished.
+The development candidate no longer records stories or lifecycle histories. The bounded loop belongs to this application; asynchronous report work and shutdown remain source/application-owned. Test real controls by role and accessible name, independently of headless state assertions. Terminal `core.dispose()` also releases registered cores. It does not stop borrowed sources; the application owns their shutdown.
 
 `apiShowcaseCommandDefinitions` keeps the application's tool descriptions and input schemas separate from these ordinary commands. For example, `setLimit` retains description "Set maximum count" and `{ type: "number", minimum: 3, maximum: 12 }`. Core discovery reports the name with `input: null`; it does not infer or validate that schema.
 
@@ -265,7 +265,7 @@ The example Vite config is only there to alias this monorepo workspace into loca
 
 ## More
 
-- Docs: [ignite-element.dev](https://ignite-element.dev)
+- Docs: [ignite-element.dev](https://0xjcf.github.io/ignite-element/)
 - Live playground: [StackBlitz demo](https://stackblitz.com/edit/ignite-element?file=src%2Fmy-counter.tsx)
 
 Enjoy exploring ignite-element with XState! If you run into issues, file a ticket on the main repository or share feedback in the discussions tab.

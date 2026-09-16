@@ -38,7 +38,8 @@ From that checkout, with Node 22.16.0 and the repository's pinned pnpm 10.33.0:
 ```sh
 pnpm install --frozen-lockfile
 pnpm --filter ignite-element... build
-pnpm --dir examples/apps/shared-controller install --ignore-workspace --no-link-workspace-packages --frozen-lockfile
+pnpm --dir examples/apps/shared-controller install \
+  --ignore-workspace --no-link-workspace-packages --frozen-lockfile
 pnpm --dir examples/apps/shared-controller typecheck
 pnpm --dir examples/apps/shared-controller test
 pnpm --dir examples/apps/shared-controller dev
@@ -175,11 +176,11 @@ source-native APIs remain valid on the source itself.
 A successfully registered beta.12 core rejects `dispose()` before teardown.
 The [published beta.13 correction](/ignite-element/migration/shared-readiness-terminal-disposal/)
 supports terminal registered-core disposal without adding a runtime-replacement API.
-[`ignite-element/react/web`](/ignite-element/guides/host-app-integration/)
+[`ignite-element/react/web`](/ignite-element/handbook/views/)
 wraps actual registered elements; `ignite-element/actor-web/web` supplies a
 DOM-host factory boundary. Neither is a generic external-core binding.
 
-Effects are synchronous callbacks queued after Ignite's own renderer update.
+Effects are synchronous callbacks queued after source processing, with no renderer-update guarantee.
 They can precede a React commit and do not replace framework effects. Environmental
 I/O and retained presentation resources stay in application ports and presentation
 owners. Dedicated Solid/Vue bindings, SSR/hydration, SwiftUI/Compose and the

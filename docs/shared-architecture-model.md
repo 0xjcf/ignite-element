@@ -229,7 +229,7 @@ Current fact:
 
 Target state:
 
-- effects are documented as outward post-render facts rather than a generic
+- effects are documented as queued outward source facts rather than a generic
   imperative escape hatch
 - retained Canvas/Cytoscape lifecycle stays in presentation-owned ref or commit
   code rather than projection or effect ownership

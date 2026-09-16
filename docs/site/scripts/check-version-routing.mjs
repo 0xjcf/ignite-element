@@ -60,25 +60,21 @@ const facadeInstalls = (content) =>
 
 const requiredCurrentRoutes = [
 	"index",
-	"getting-started/installation",
-	"getting-started/first-component",
-	"concepts/the-ignite-model",
-	"concepts/rendering",
-	"api/ignite-core",
+	"handbook/sources",
+	"handbook/views",
+	"handbook/events",
+	"handbook/ownership",
+	"handbook/testing",
+	"handbook/api",
+	"handbook/examples",
 	"api/headless-runtime",
 	"api/command-metadata",
-	"api/testing-dsl",
 	"api/advanced-config",
 	"api/compatibility",
-	"guides/host-app-integration",
-	"guides/agent-runtime-v3",
-	"guides/redux-and-mobx",
 	"guides/routing",
-	"guides/accessibility-first",
 	"guides/actor-web",
 	"guides/plain-controllers",
-	"guides/styling",
-	"guides/testing",
+	"guides/accessibility-first",
 	"migration/v3",
 ];
 
@@ -140,11 +136,6 @@ assert.match(
 	/routeMiddleware:\s*["']\.\/src\/starlightRouteData\.ts["']/,
 	"route-specific stable branding must be configured",
 );
-assert.match(
-	config,
-	/exclude:\s*\[\s*["']2\.x\/\*\*["']\s*\]/,
-	"small LLM output must exclude the v2 archive",
-);
 
 for (const route of [...requiredCurrentRoutes, ...requiredArchivedRoutes]) {
 	assert.ok(routeSource(route), `missing documentation route source: ${route}`);
@@ -165,10 +156,7 @@ assert.ok(
 	"missing stable-v2 favicon",
 );
 
-const installation = fs.readFileSync(
-	routeSource("getting-started/installation"),
-	"utf8",
-);
+const installation = fs.readFileSync(routeSource("index"), "utf8");
 assert.ok(
 	facadeInstalls(installation).some((selector) =>
 		supportedFacadeInstalls.has(selector),
@@ -343,8 +331,8 @@ if (process.argv.includes("--built")) {
 	const smallLlmsContent = fs.readFileSync(smallLlms, "utf8");
 	assert.doesNotMatch(
 		smallLlmsContent,
-		/\/2\.x\//,
-		"llms-small.txt must exclude frozen v2 pages",
+		/reading the Ignite Element v2 docs/,
+		"llms-small.txt must exclude frozen v2 page bodies",
 	);
 	assert.match(
 		smallLlmsContent,
@@ -367,8 +355,8 @@ if (process.argv.includes("--built")) {
 	);
 	assert.match(
 		fullLlmsContent,
-		/reading the Ignite Element v2 docs/,
-		"llms-full.txt must identify the frozen v2 archive",
+		/Version: v3 \(beta\)/,
+		"llms-full.txt must identify current v3 content",
 	);
 }
 
