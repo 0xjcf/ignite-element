@@ -43,7 +43,7 @@ The root `igniteCore()` is source-free. Use the appropriate public adapter entry
 ## Shared vs. isolated
 
 - **Isolated (default)** — Ignite constructs a new adapter per element instance. Great for local state; stopped on disconnect (for XState, the Ignite-created actor is stopped too).
-- **Shared** — pass a long-lived actor/store/observable. Because you own that source, Ignite keeps the shared adapter alive for the core's lifetime; element disconnects don't tear it down, so an outlet swapping elements never freezes the shared state. Ignite never stops or closes a source you provided. Set `cleanup: true` to opt back into reference-counted teardown of the adapter when the last element disconnects.
+- **Shared** — pass a long-lived actor/store/observable. Because you own that source, Ignite keeps the shared adapter alive for the core's lifetime; element disconnects don't tear it down, so an outlet swapping elements never freezes the shared state. Ignite never stops or closes a source you provided. Set `cleanup: true` to opt back into reference-counted teardown when no consumer retains observation. Since beta.14, an activated shared effect evaluator retains observation through zero-view intervals until `core.dispose()`, including with `cleanup: true`.
 
 ```ts no-check
 import { createActor } from 'xstate';
@@ -105,7 +105,11 @@ commands: ({ actor }) => ({
 });
 ```
 
-Declare `events` to type `emit`, then fire DOM `CustomEvent`s from `effects`. Events bubble and are composed by default, so host frameworks can listen with `addEventListener`. Prefer names whose casing maps to Ignite JSX handler props (`onEventName`).
+Declare `events` for the public DOM contract. A notification comes either from a
+native source occurrence or from a distinct state comparison in `effects`.
+DOM `CustomEvent`s bubble and are composed, so host frameworks can listen with
+`addEventListener`. The following example derives a count-change notification;
+it does not reproduce a native source occurrence.
 
 ```ts
 events: (event) => ({
@@ -129,8 +133,29 @@ In development, emitting an event that isn't declared in `events` throws, to kee
 :::
 
 :::note[Declared vs source-emitted events]
-Events declared in `events:` and fired from `effects` are **UI-derived** — you compute them from snapshot changes. Sources that natively publish domain events (an XState v5 machine's `emit(...)`, or an Actor-Web actor's emit channel) don't need that ceremony: the adapter bridges source emits straight into `on(...)` and `execute().events`, typed from the source's `Emitted` union, with no `events:`/`effects:` involvement. The two flow side by side; `get('schema').events` lists only the declared names. See [Emitted events](/ignite-element/guides/actor-web/#emitted-events) in the Actor-Web guide.
+Source-native occurrences still reach `on(...)` and `execute().events` without a
+public declaration. For beta.14 DOM forwarding, declare native names in `events`
+with payloads compatible with the source. Do not mirror native occurrences in effects.
+Only declared names reach connected elements; `get('schema').events` lists those
+names. Actor-Web forwarding requires an actual adapter event channel, not merely
+a generic type. See the [canonical counter](/ignite-element/guides/events/) for
+the complete source and its distinct `countChanged` effect.
 :::
+
+For that counter source, the declaration alone exposes its native reset event:
+
+```ts
+import { igniteCore } from 'ignite-element/xstate';
+import { counterMachine } from './counter-machine';
+
+const nativeCounter = igniteCore({
+  source: counterMachine,
+  events: event => ({ counterReset: event<{ count: number }>() }),
+});
+```
+
+This declaration does not emit a reset. The source emits each occurrence;
+connected hosts forward it with the flat `{ count }` payload in `detail`.
 
 Host ownership stays inside Ignite's runtime for rendering, DOM/headless event dispatch, and error routing. That internal host seam is not a public command/effect capability; keep state in your adapter, pass environment-derived intent as command input, and keep rendering declarative.
 

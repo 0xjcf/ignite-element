@@ -73,6 +73,32 @@ test("verified beta.14 publication and exact installation are permitted", () =>
 		),
 	));
 
+test("current headless guidance uses beta.14 core-owned effect timing", () => {
+	const content = fs.readFileSync(
+		path.join(site, "src/content/docs/api/headless-runtime.mdx"),
+		"utf8",
+	);
+	assert.match(content, /published beta\.14/);
+	assert.match(content, /one\s+evaluator per core\/source instance/);
+	assert.match(content, /not a renderer or\s+framework commit barrier/);
+	assert.doesNotMatch(content, /retain Ignite-renderer\s+post-render timing/);
+});
+
+test("current host guidance distinguishes native declarations from effect derivation", () => {
+	for (const file of [
+		"concepts/the-ignite-model.mdx",
+		"guides/host-app-integration.mdx",
+	]) {
+		const content = fs.readFileSync(
+			path.join(site, "src/content/docs", file),
+			"utf8",
+		);
+		assert.match(content, /declare native names in `events`/, file);
+		assert.match(content, /counterReset: event<\{ count: number \}>\(\)/, file);
+		assert.match(content, /Do not mirror native occurrences in effects/, file);
+	}
+});
+
 test("current lifetime guides retain the published registered-disposal contract", () => {
 	for (const file of [
 		"concepts/the-ignite-model.mdx",
