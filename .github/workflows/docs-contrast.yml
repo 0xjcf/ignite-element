@@ -12,6 +12,8 @@ on:
       - "docs/site/**"
       - "scripts/__tests__/fixtures/handbook/**"
       - "examples/frameworks/react/**"
+      - "examples/adapters/mobx/README.md"
+      - "examples/adapters/mobx/mobxCounterStore.ts"
       - "packages/**" # doc examples are typechecked against the package API
       - ".github/workflows/docs-contrast.yml"
       - ".github/workflows/docs-deploy.yml"

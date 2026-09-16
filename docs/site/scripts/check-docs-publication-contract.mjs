@@ -316,6 +316,8 @@ export function inspectDocumentationWorkflow(
 		for (const filter of [
 			"package.json",
 			"docs/site/**",
+			"examples/adapters/mobx/README.md",
+			"examples/adapters/mobx/mobxCounterStore.ts",
 			"packages/**",
 			".github/workflows/docs-contrast.yml",
 			".github/workflows/docs-deploy.yml",
