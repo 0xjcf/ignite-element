@@ -28,10 +28,10 @@ component.get('schema');
 ## Parameters
 
 - `source`: machine definition or started actor (XState), Redux store/slice, or MobX observable.
-- `events(mapper)`: optional; declares names and payload types, not emissions or runtime schemas. See [Events](/ignite-element/guides/events/) for unreleased native DOM forwarding and producer checks.
+- `events(mapper)`: optional; declares names and payload types, not emissions or runtime schemas. See [Events](/ignite-element/guides/events/) for native DOM forwarding and producer checks introduced in beta.14.
 - `states(snapshot)`: optionally derive a plain object from the bare native snapshot; runs during preparation/rendering and source observations. Omission yields one stable empty object. Since beta.13, initial shared preparation occurs at construction.
 - `commands(context)`: expose actions; receives `{ actor }`.
-- `effects(context)`: optional; receives `{ snapshot, prevSnapshot, select, emit }` and stays synchronous. **Unreleased after beta.13:** one evaluator per core/source instance queues each delivered update after its initial baseline; consumers do not create separate runners. See [Events](/ignite-element/guides/events/) for activation, ownership and migration.
+- `effects(context)`: optional; receives `{ snapshot, prevSnapshot, select, emit }` and stays synchronous. **Since beta.14:** one evaluator per core/source instance queues each delivered update after its initial baseline; consumers do not create separate runners. See [Events](/ignite-element/guides/events/) for activation, ownership and migration.
 - `cleanup`: shared-adapter element-refcount teardown override, not native source ownership. Defaults to `false` for shared sources. Set `cleanup: true` to release the shared adapter after the last element and retained observation handle leave. An activated shared effect evaluator retains observation until terminal core disposal, even with this option. Owning-core disposal is separate: borrowed sources are never stopped, while a private Ignite-created XState actor is stopped exactly once. Headless Actor-Web factory invocation does not transfer close authority.
 
 ## Returns
