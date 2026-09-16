@@ -17,14 +17,14 @@ import type {
 	StateFrom,
 } from "xstate";
 import type {
+	CompatibleEvents,
+	EffectEvents,
+} from "./igniteCore/eventProducerTypes";
+import type {
 	DisjointBindings,
 	IgniteCoreReturn,
 	WithEmittedEvents,
 } from "./igniteCore/publicTypes";
-import type {
-	CompatibleEvents,
-	EffectEvents,
-} from "./igniteCore/eventProducerTypes";
 import type { XStateConfig as CheckedXStateConfig } from "./igniteCore/xstateTypes";
 
 // A machine's declared `emitted` types fold into the headless runtime's events
@@ -165,7 +165,8 @@ export function igniteCore<
 				? Events
 				: EmptyEventMap
 			: EmptyEventMap
-	>
+	>,
+	ReturnType<EventDefinition>
 >;
 
 export function igniteCore<
@@ -184,7 +185,8 @@ export function igniteCore<
 	StatesResult,
 	XStateCommandActor<Machine>,
 	CommandsResult,
-	XStateRuntimeEvents<Machine, EmptyEventMap>
+	XStateRuntimeEvents<Machine, EmptyEventMap>,
+	EmptyEventMap
 >;
 
 export function igniteCore<

@@ -12,8 +12,8 @@ import type {
 	EventFrom,
 	StateFrom,
 } from "xstate";
-import { createIgniteComponentFactory } from "./createIgniteComponentFactory";
 import type { IgniteComponentFactoryOptions } from "./createIgniteComponentFactory";
+import { createIgniteComponentFactory } from "./createIgniteComponentFactory";
 import type {
 	IgniteCoreReturn,
 	WithEmittedEvents,
@@ -37,7 +37,8 @@ export function igniteCoreXState<
 	StatesResult,
 	XStateCommandActor<Machine>,
 	CommandsResult,
-	WithEmittedEvents<Events, EmittedFrom<Machine>, never>
+	WithEmittedEvents<Events, EmittedFrom<Machine>, never>,
+	Events
 > {
 	const createAdapter = createXStateAdapter(options.source);
 	// The machine's emitted union widens the static events map only; the
@@ -69,6 +70,7 @@ export function igniteCoreXState<
 		StatesResult,
 		XStateCommandActor<Machine>,
 		CommandsResult,
-		WithEmittedEvents<Events, EmittedFrom<Machine>, never>
+		WithEmittedEvents<Events, EmittedFrom<Machine>, never>,
+		Events
 	>;
 }

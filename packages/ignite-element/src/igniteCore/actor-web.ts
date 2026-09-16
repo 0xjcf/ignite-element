@@ -8,23 +8,24 @@ import { createActorWebAdapter } from "@ignite-element/adapters/actor-web";
 import type {
 	EmptyEventMap,
 	EventMap,
+	EventsDefinition,
 	FacadeCommandFunction,
 	FacadeCommandResult,
-	EventsDefinition,
-	FacadeEffectsObjectCallback,
 	FacadeCommandsCallback,
+	FacadeEffectsObjectCallback,
 	FacadeStatesCallback,
 } from "@ignite-element/core";
+import type { IgniteCoreReturn } from "./actorWebTypes";
+import {
+	createIgniteComponentFactory,
+	type IgniteComponentFactoryOptions,
+} from "./createIgniteComponentFactory";
 import type {
 	ChannelEmitted,
 	CompatibleEvents,
 	EffectEvents,
 } from "./eventProducerTypes";
-import type { IgniteCoreReturn, WithEmittedEvents } from "./actorWebTypes";
-import {
-	createIgniteComponentFactory,
-	type IgniteComponentFactoryOptions,
-} from "./createIgniteComponentFactory";
+import type { ActorWebRuntimeEvents } from "./publicTypes";
 
 type ActorWebSubpathSourceValue<
 	Context extends object,
@@ -109,7 +110,8 @@ export function igniteCoreActorWeb<
 	StatesResult,
 	ActorWebCommandActor<Context, Message, Emitted>,
 	CommandsResult,
-	WithEmittedEvents<Events, Emitted, Message>
+	ActorWebRuntimeEvents<Events, Source, Emitted, Message>,
+	Events
 > {
 	// Actor-Web remains the runtime owner; Ignite only adapts projection snapshots
 	// and command access into the headless component contract.
@@ -138,6 +140,7 @@ export function igniteCoreActorWeb<
 		StatesResult,
 		ActorWebCommandActor<Context, Message, Emitted>,
 		CommandsResult,
-		WithEmittedEvents<Events, Emitted, Message>
+		ActorWebRuntimeEvents<Events, Source, Emitted, Message>,
+		Events
 	>;
 }

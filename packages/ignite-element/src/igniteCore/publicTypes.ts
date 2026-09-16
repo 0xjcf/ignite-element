@@ -15,7 +15,11 @@ import type {
 	PublicFacadeRenderArgs,
 } from "../types/render";
 import type { IgniteAgentSchema, IgniteSchemaValue } from "../types/schema";
-import type { KnownEmitted, NativeMember } from "./eventProducerTypes";
+import type {
+	ChannelEmitted,
+	KnownEmitted,
+	NativeMember,
+} from "./eventProducerTypes";
 
 // Dynamic index signatures need the runtime check; exact known keys can also
 // reject a collision at construction without changing either callback's inference.
@@ -39,9 +43,9 @@ export type DisjointBindings<States, Commands> = string extends
  * `Emitted` (the `= Message` default) contributes nothing, and neither does a
  * broad union whose `type` is plain `string` (e.g. XState's `EventObject`
  * default on machines that declare no `emitted` types) — folding that in
- * would add a string index signature to the events map. XState passes `never`
- * for Message: its real emitted union is authoritative even if input and output
- * happen to have identical types.
+ * would add a string index signature to the events map. Constructors with an
+ * established outward channel (XState emissions or Actor-Web ChannelEmitted)
+ * pass `never` for Message: input/output overlap cannot erase real emissions.
  */
 export type WithEmittedEvents<
 	Events extends EventMap,
@@ -60,6 +64,18 @@ export type WithEmittedEvents<
 					},
 					keyof Events
 				>;
+
+/** Prefer a proven channel; retain legacy optional-channel observation typing.
+ * The fallback does not reserve producers or infer emissions from commands.
+ */
+export type ActorWebRuntimeEvents<
+	Events extends EventMap,
+	Source,
+	Emitted extends { type: string },
+	Message extends { type: string },
+> = [ChannelEmitted<Source>] extends [never]
+	? WithEmittedEvents<Events, Emitted, Message>
+	: WithEmittedEvents<Events, ChannelEmitted<Source>, never>;
 
 /**
  * Typed per-element handle returned by registration (`igniteCore(config)(tag,
@@ -95,6 +111,9 @@ export type IgniteCoreReturn<
 		FacadeCommandFunction
 	>,
 	Events extends EventMap = EmptyEventMap,
+	// Native headless emissions do not imply a declared DOM event. Defaulting
+	// preserves existing type-alias consumers and adapters with one event map.
+	DeclaredEvents extends EventMap = Events,
 > = {
 	(target: IgniteProjectionTarget): IgniteProjectionSession;
 	(
@@ -105,17 +124,17 @@ export type IgniteCoreReturn<
 				CommandActor,
 				CommandsResult,
 				Record<never, never>,
-				Events
+				DeclaredEvents
 			> &
 				Record<never, Snapshot>
 		>,
-	): IgniteComponent<CommandsResult, Events>;
+	): IgniteComponent<CommandsResult, DeclaredEvents>;
 	readonly __igniteRenderArgs?: PublicFacadeRenderArgs<
 		StatesResult,
 		CommandActor,
 		CommandsResult,
 		Record<never, never>,
-		Events
+		DeclaredEvents
 	> &
 		Record<never, Snapshot>;
 } & IgniteAgentRuntime<

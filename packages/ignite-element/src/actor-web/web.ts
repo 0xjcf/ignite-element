@@ -14,18 +14,18 @@ import type {
 	FacadeEffectsObjectCallback,
 	FacadeStatesCallback,
 } from "@ignite-element/core";
-import type {
-	IgniteCoreReturn,
-	WithEmittedEvents,
-} from "../igniteCore/actorWebTypes";
+import type { IgniteCoreReturn } from "../igniteCore/actorWebTypes";
+import type { IgniteComponentFactoryOptions } from "../igniteCore/createIgniteComponentFactory";
 import { createIgniteComponentFactory } from "../igniteCore/createIgniteComponentFactory";
-import type { DisjointBindings } from "../igniteCore/publicTypes";
 import type {
 	ChannelEmitted,
 	CompatibleEvents,
 	EffectEvents,
 } from "../igniteCore/eventProducerTypes";
-import type { IgniteComponentFactoryOptions } from "../igniteCore/createIgniteComponentFactory";
+import type {
+	ActorWebRuntimeEvents,
+	DisjointBindings,
+} from "../igniteCore/publicTypes";
 
 export type ActorWebHostFactory<
 	Context extends object,
@@ -89,7 +89,8 @@ export function igniteCore<
 	States,
 	ActorWebCommandActor<Context, Message, Emitted>,
 	Commands,
-	WithEmittedEvents<Events, Emitted, Message>
+	ActorWebRuntimeEvents<Events, Source, Emitted, Message>,
+	Events
 > {
 	const factory = createActorWebAdapter<Context, Message, Emitted, HTMLElement>(
 		(context = {}) => options.source(context),
@@ -118,6 +119,7 @@ export function igniteCore<
 		States,
 		ActorWebCommandActor<Context, Message, Emitted>,
 		Commands,
-		WithEmittedEvents<Events, Emitted, Message>
+		ActorWebRuntimeEvents<Events, Source, Emitted, Message>,
+		Events
 	>;
 }

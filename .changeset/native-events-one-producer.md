@@ -9,6 +9,10 @@ to eligible consumers. Infer native emitted names to reject competing effect
 emissions and incompatible public payload declarations; warn in development
 when both producers are observed at runtime without changing delivery.
 
+Infer precise Actor-Web native channels even when command and emission types
+overlap. Keep inferred headless events distinct from the explicitly declared
+component event map: undeclared native events do not advertise React callbacks.
+
 This is unreleased. Existing beta.13 artifacts are unchanged. If an effect
 re-emits an event already produced by the source, keep one production rule:
 retain the declaration for public discovery/handlers and remove that effect
