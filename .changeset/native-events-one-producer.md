@@ -13,7 +13,7 @@ Infer precise Actor-Web native channels even when command and emission types
 overlap. Keep inferred headless events distinct from the explicitly declared
 component event map: undeclared native events do not advertise React callbacks.
 
-This is unreleased. Existing beta.13 artifacts are unchanged. If an effect
+This change targets beta.14. Existing beta.13 artifacts are unchanged. If an effect
 re-emits an event already produced by the source, keep one production rule:
 retain the declaration for public discovery/handlers and remove that effect
 emission. Use a different effect-only name for a state-derived notification.

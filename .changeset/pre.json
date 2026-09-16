@@ -37,6 +37,7 @@
 		"ignitetools-view-in-observation",
 		"lit-renderer-autodetect",
 		"narrow-command-effect-callbacks",
+		"native-events-one-producer",
 		"object-command-call-envelope",
 		"optional-peer-dependencies",
 		"recoverable-core-react-bindings",
