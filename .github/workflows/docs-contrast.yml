@@ -6,10 +6,12 @@ name: Docs Contrast
 # PRs that touch docs/site so non-docs PRs don't pay the browser cost.
 on:
   pull_request:
-    branches: [main]
+    branches: [main, beta]
     paths:
       - "package.json" # publication policy authenticates the packageManager pin
       - "docs/site/**"
+      - "scripts/__tests__/fixtures/handbook/**"
+      - "examples/frameworks/react/**"
       - "packages/**" # doc examples are typechecked against the package API
       - ".github/workflows/docs-contrast.yml"
       - ".github/workflows/docs-deploy.yml"
@@ -49,6 +51,9 @@ jobs:
       - name: Typecheck doc code examples against the public API
         run: pnpm --filter docs-site run check:docs
 
+      - name: Check strict packed handbook and native consumers
+        run: pnpm --filter docs-site run check:primary
+
       - name: Validate Astro content and types
         run: pnpm --filter docs-site run check:astro
 
@@ -63,6 +68,9 @@ jobs:
 
       - name: Check internal routes, links, anchors, and assets
         run: pnpm --filter docs-site run check:links
+
+      - name: Check handbook destinations and agent exports
+        run: pnpm --filter docs-site run check:handbook
 
       - name: Check theme contrast (WCAG AA) and control geometry
         run: pnpm --filter docs-site run check:contrast

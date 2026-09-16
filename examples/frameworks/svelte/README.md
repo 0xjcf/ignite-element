@@ -4,7 +4,7 @@ A Svelte 5 demo that consumes an ignite custom element through the **standard
 custom-element surface** — no wrapper, and (unlike Vue) **no compiler
 config at all**. It is deliberately minimal (one element, not a full app) and
 pairs with the [host app integration
-guide](../../../../../../docs/site/src/content/docs/guides/host-app-integration.mdx).
+guide](https://0xjcf.github.io/ignite-element/handbook/views/).
 
 To widen coverage across the framework demos, this element uses a **Redux Toolkit**
 slice (React and Vue use xstate) with a **lit-html** view. Svelte never sees the
@@ -54,7 +54,7 @@ What is **not** friction here, and is worth calling out:
 ## Run
 
 ```bash
-cd src/examples/frameworks/svelte
+cd examples/frameworks/svelte
 pnpm install --ignore-workspace --no-link-workspace-packages
 pnpm run dev
 ```

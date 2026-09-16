@@ -1,13 +1,13 @@
 {
 	"name": "docs-site",
-	"description": "Ignite Element v2 documentation (Astro + Starlight).",
+	"description": "Ignite Element versioned handbook (Astro + Starlight).",
 	"private": true,
 	"type": "module",
 	"version": "0.0.1",
 	"scripts": {
 		"dev": "astro dev",
 		"start": "astro dev",
-		"build": "astro build",
+		"build": "astro build && node scripts/generate-agent-docs.mjs",
 		"preview": "astro preview",
 		"astro": "astro",
 		"check:contrast": "node scripts/check-contrast.mjs",
@@ -17,7 +17,9 @@
 		"check:publication": "node --test scripts/check-docs-publication-permissions.test.mjs scripts/check-links.test.mjs scripts/check-version-routing.test.mjs && node scripts/check-docs-publication-contract.mjs",
 		"check:links": "node scripts/check-links.mjs",
 		"check:versions": "node scripts/check-version-routing.mjs",
-		"check:versions:built": "node scripts/check-version-routing.mjs --built"
+		"check:versions:built": "node scripts/check-version-routing.mjs --built",
+		"check:handbook": "node --test scripts/check-handbook.test.mjs && node scripts/check-handbook.mjs",
+		"check:primary": "node scripts/check-primary-consumers.mjs"
 	},
 	"dependencies": {
 		"@astrojs/starlight": "^0.39.3",

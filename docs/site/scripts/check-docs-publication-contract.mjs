@@ -300,8 +300,8 @@ export function inspectDocumentationWorkflow(
 	const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 	const trigger = kind === "deploy" ? "push" : "pull_request";
 	// Deployment ownership is policy, not a value supplied by the workflow.
-	// Main remains the unrelated PR-validation/default-registration branch.
-	const branches = kind === "deploy" ? ["beta"] : ["main"];
+	// PR validation covers stable and beta; deployment remains beta-only.
+	const branches = kind === "deploy" ? ["beta"] : ["main", "beta"];
 	if (
 		!data.on ||
 		Object.keys(data.on).sort().join(",") !==

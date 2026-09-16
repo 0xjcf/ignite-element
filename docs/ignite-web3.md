@@ -1,5 +1,7 @@
 # 🔥 ignite-web3
 
+Proposal: this document does not describe an implemented package or supported public export. Use the [current handbook](https://0xjcf.github.io/ignite-element/) for shipped APIs.
+
 > **Session-oriented Web3 behavior for ignite-element + adapter contracts**
 
 `ignite-web3` provides **state-machine–driven Web3 session behavior**

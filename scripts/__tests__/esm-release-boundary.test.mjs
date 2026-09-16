@@ -115,15 +115,17 @@ test("Voice Workbench imports test from the supported XState adapter boundary", 
 	);
 });
 
-test("public documentation places effect execution after renderer notification", () => {
+test("public documentation preserves core-owned queued effects without a commit barrier", () => {
 	const model = readFileSync(
-		resolve(
-			repositoryRoot,
-			"docs/site/src/content/docs/concepts/the-ignite-model.mdx",
-		),
+		resolve(repositoryRoot, "docs/site/src/content/docs/handbook/events.mdx"),
 		"utf8",
 	);
 
 	assert.doesNotMatch(model, /effects attach before the render subscription/i);
-	assert.match(model, /renderer notification[\s\S]*effect microtask/i);
+	assert.match(model, /per delivered source update per core\/source instance/i);
+	assert.match(
+		model,
+		/queued after source processing, not a universal framework commit/i,
+	);
+	assert.match(model, /zero-view gaps until `core.dispose\(\)`/);
 });

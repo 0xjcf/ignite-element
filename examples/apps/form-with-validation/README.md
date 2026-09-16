@@ -43,12 +43,12 @@ DOM:
   runtime (`execute` / `getStates`).
 
 Example tests are typecheck-gated (the package's `vitest` run set excludes
-`src/examples/**`); run them directly with `vitest run` against this folder.
+`examples/**`); run them directly with `vitest run` against this folder.
 
 ## Run
 
 ```bash
-cd src/examples/apps/form-with-validation
+cd examples/apps/form-with-validation
 pnpm install --ignore-workspace --no-link-workspace-packages
 pnpm run dev
 ```

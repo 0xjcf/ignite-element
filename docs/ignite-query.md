@@ -1,5 +1,7 @@
 # 🔥 ignite-query
 
+Proposal: this document does not describe an implemented package or supported public export. Use the [current handbook](https://0xjcf.github.io/ignite-element/) for shipped APIs.
+
 > **Behavior-first server-state (data-over-time) integration for ignite-element + adapter contracts**
 
 `ignite-query` integrates **query runtimes** (such as TanStack Query) into the ignite ecosystem by separating **behavior** from **IO**.

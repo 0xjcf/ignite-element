@@ -1,0 +1,11 @@
+---
+import { routeUrl, versionDestination } from "../route-map.mjs";
+const route = Astro.url.pathname
+	.replace(/^\/ignite-element\/?/, "")
+	.replace(/\/$/, "");
+const archived = route === "2.x" || route.startsWith("2.x/");
+---
+{archived && <aside aria-label="Documentation version">You are reading the Ignite Element v2 docs. <a href={routeUrl(versionDestination(route, false))}>Read the v3 beta documentation</a>.</aside>}
+<style>
+  aside { padding: 1rem; border: 1px solid var(--sl-color-orange); background: var(--sl-color-orange-low); margin-block: 1rem; }
+</style>

@@ -3,7 +3,7 @@
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import remarkGfm from "remark-gfm";
-import starlightLlmsTxt from "starlight-llms-txt";
+
 import starlightVersions from "starlight-versions";
 
 // https://astro.build/config
@@ -20,10 +20,6 @@ export default defineConfig({
 		starlight({
 			title: "Ignite Element",
 			plugins: [
-				// Keep the frozen v2 archive out of the agent-facing llms output.
-				// Note: `exclude` only filters llms-small.txt; /llms-full.txt is
-				// injected by the plugin and always contains every page.
-				starlightLlmsTxt({ exclude: ["2.x/**"] }),
 				starlightVersions({
 					versions: [{ slug: "2.x", label: "2.x" }],
 					current: { label: "v3 (beta)" },
@@ -42,6 +38,10 @@ export default defineConfig({
 			favicon: "/ignite-element-favicon.svg",
 			components: {
 				SiteTitle: "./src/components/SiteTitle.astro",
+				ThemeSelect: "./src/components/ThemeSelect.astro",
+				PageTitle: "./src/components/PageTitle.astro",
+				Banner: "./src/components/Banner.astro",
+				Footer: "./src/components/Footer.astro",
 			},
 			routeMiddleware: "./src/starlightRouteData.ts",
 			social: [
@@ -54,86 +54,62 @@ export default defineConfig({
 			customCss: ["./src/styles/theme.css"],
 			sidebar: [
 				{
-					label: "Overview",
-					items: [
-						{ label: "Welcome", slug: "index" },
-						{
-							label: "What is Ignite Element?",
-							slug: "overview/what-is-ignite-element",
-						},
-						{
-							label: "When to choose Ignite",
-							slug: "overview/when-to-choose-ignite",
-						},
-						{
-							label: "For AI agents",
-							slug: "overview/ignite-for-ai-agents",
-						},
-						{ label: "Bundle size", slug: "overview/bundle-size" },
-					],
+					label: "Getting started",
+					slug: "index",
 				},
 				{
-					label: "Getting Started",
-					items: [
-						{ label: "Installation", slug: "getting-started/installation" },
-						{
-							label: "Your first component",
-							slug: "getting-started/first-component",
-						},
-					],
+					label: "Sources",
+					slug: "handbook/sources",
 				},
 				{
-					label: "Concepts",
-					items: [
-						{ label: "The Ignite model", slug: "concepts/the-ignite-model" },
-						{ label: "Rendering", slug: "concepts/rendering" },
-					],
+					label: "Views",
+					slug: "handbook/views",
 				},
 				{
-					label: "API",
-					items: [
-						{ label: "igniteCore", slug: "api/ignite-core" },
-						{ label: "Headless runtime", slug: "api/headless-runtime" },
-						{ label: "Command metadata", slug: "api/command-metadata" },
-						{ label: "Testing API migration", slug: "api/testing-dsl" },
-						{ label: "Advanced config", slug: "api/advanced-config" },
-						{ label: "Compatibility", slug: "api/compatibility" },
-					],
+					label: "Events & effects",
+					slug: "handbook/events",
 				},
 				{
-					label: "Guides",
-					items: [
-						{ label: "Overview", slug: "guides" },
-						{
-							label: "Host app integration",
-							slug: "guides/host-app-integration",
-						},
-						{
-							label: "Build for agents",
-							slug: "guides/agent-runtime-v3",
-						},
-						{ label: "Redux & MobX", slug: "guides/redux-and-mobx" },
-						{ label: "Routing", slug: "guides/routing" },
-						{ label: "Actor-Web", slug: "guides/actor-web" },
-						{ label: "Plain controllers", slug: "guides/plain-controllers" },
-						{ label: "Styling", slug: "guides/styling" },
-						{ label: "Testing", slug: "guides/testing" },
-					],
+					label: "Ownership & cleanup",
+					slug: "handbook/ownership",
+				},
+				{
+					label: "Testing",
+					slug: "handbook/testing",
+				},
+				{
+					label: "API reference",
+					slug: "handbook/api",
+				},
+				{
+					label: "Examples",
+					slug: "handbook/examples",
 				},
 				{
 					label: "Migration",
+					collapsed: true,
 					items: [
-						{ label: "v2 → v3 (beta)", slug: "migration/v3" },
 						{
-							label: "Command emit → effects",
+							label: "v2 to v3",
+							slug: "migration/v3",
+						},
+						{
+							label: "Events and effects",
 							slug: "migration/effects-events",
 						},
-						{ label: "v1 → v2", slug: "migration/v2" },
+						{
+							label: "Readiness and disposal",
+							slug: "migration/shared-readiness-terminal-disposal",
+						},
+						{
+							label: "Retired testing API",
+							slug: "api/testing-dsl",
+						},
+						{
+							label: "Historical v1 to v2",
+							slug: "migration/v2",
+						},
 					],
-				},
-				{
-					label: "Community",
-					items: [{ label: "Support & links", slug: "community" }],
 				},
 			],
 		}),

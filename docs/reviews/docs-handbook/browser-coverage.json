@@ -1,0 +1,993 @@
+{
+	"desktop": [
+		{
+			"route": "",
+			"brokenImages": 0,
+			"codeBlocks": 4,
+			"h1": "Getting started",
+			"overflow": false,
+			"url": "/ignite-element/",
+			"width": 1366
+		},
+		{
+			"route": "2.x/",
+			"brokenImages": 3,
+			"codeBlocks": 5,
+			"h1": "Ignite Element",
+			"overflow": false,
+			"url": "/ignite-element/2.x/",
+			"width": 1366
+		},
+		{
+			"route": "2.x/api/define-ignite-config/",
+			"brokenImages": 0,
+			"codeBlocks": 1,
+			"h1": "defineIgniteConfig",
+			"overflow": false,
+			"url": "/ignite-element/2.x/api/define-ignite-config/",
+			"width": 1366
+		},
+		{
+			"route": "2.x/api/ignite-core/",
+			"brokenImages": 0,
+			"codeBlocks": 1,
+			"h1": "igniteCore",
+			"overflow": false,
+			"url": "/ignite-element/2.x/api/ignite-core/",
+			"width": 1366
+		},
+		{
+			"route": "2.x/api/renderers/",
+			"brokenImages": 0,
+			"codeBlocks": 1,
+			"h1": "Renderers & strategies",
+			"overflow": false,
+			"url": "/ignite-element/2.x/api/renderers/",
+			"width": 1366
+		},
+		{
+			"route": "2.x/community/",
+			"brokenImages": 0,
+			"codeBlocks": 0,
+			"h1": "Support & links",
+			"overflow": false,
+			"url": "/ignite-element/2.x/community/",
+			"width": 1366
+		},
+		{
+			"route": "2.x/concepts/configuration/",
+			"brokenImages": 0,
+			"codeBlocks": 1,
+			"h1": "Configuration",
+			"overflow": false,
+			"url": "/ignite-element/2.x/concepts/configuration/",
+			"width": 1366
+		},
+		{
+			"route": "2.x/concepts/events-and-commands/",
+			"brokenImages": 0,
+			"codeBlocks": 4,
+			"h1": "Events & commands",
+			"overflow": false,
+			"url": "/ignite-element/2.x/concepts/events-and-commands/",
+			"width": 1366
+		},
+		{
+			"route": "2.x/concepts/renderers/",
+			"brokenImages": 0,
+			"codeBlocks": 2,
+			"h1": "Renderers",
+			"overflow": false,
+			"url": "/ignite-element/2.x/concepts/renderers/",
+			"width": 1366
+		},
+		{
+			"route": "2.x/concepts/state-adapters/",
+			"brokenImages": 0,
+			"codeBlocks": 5,
+			"h1": "State adapters",
+			"overflow": false,
+			"url": "/ignite-element/2.x/concepts/state-adapters/",
+			"width": 1366
+		},
+		{
+			"route": "2.x/contributing/shared-controller-validation/",
+			"brokenImages": 0,
+			"codeBlocks": 5,
+			"h1": "Ignite Element",
+			"overflow": false,
+			"url": "/ignite-element/2.x/",
+			"width": 1366
+		},
+		{
+			"route": "2.x/getting-started/first-component/",
+			"brokenImages": 0,
+			"codeBlocks": 5,
+			"h1": "Your first component",
+			"overflow": false,
+			"url": "/ignite-element/2.x/getting-started/first-component/",
+			"width": 1366
+		},
+		{
+			"route": "2.x/getting-started/installation/",
+			"brokenImages": 0,
+			"codeBlocks": 5,
+			"h1": "Installation",
+			"overflow": false,
+			"url": "/ignite-element/2.x/getting-started/installation/",
+			"width": 1366
+		},
+		{
+			"route": "2.x/getting-started/project-setup/",
+			"brokenImages": 0,
+			"codeBlocks": 0,
+			"h1": "Project setup",
+			"overflow": false,
+			"url": "/ignite-element/2.x/getting-started/project-setup/",
+			"width": 1366
+		},
+		{
+			"route": "2.x/guides/styling/",
+			"brokenImages": 0,
+			"codeBlocks": 1,
+			"h1": "Styling",
+			"overflow": false,
+			"url": "/ignite-element/2.x/guides/styling/",
+			"width": 1366
+		},
+		{
+			"route": "2.x/guides/testing/",
+			"brokenImages": 0,
+			"codeBlocks": 3,
+			"h1": "Testing",
+			"overflow": false,
+			"url": "/ignite-element/2.x/guides/testing/",
+			"width": 1366
+		},
+		{
+			"route": "2.x/guides/tooling/",
+			"brokenImages": 0,
+			"codeBlocks": 0,
+			"h1": "Tooling & bundlers",
+			"overflow": false,
+			"url": "/ignite-element/2.x/guides/tooling/",
+			"width": 1366
+		},
+		{
+			"route": "2.x/migration/v2/",
+			"brokenImages": 0,
+			"codeBlocks": 5,
+			"h1": "Migrate from v1 to v2",
+			"overflow": false,
+			"url": "/ignite-element/2.x/migration/v2/",
+			"width": 1366
+		},
+		{
+			"route": "2.x/overview/what-is-ignite-element/",
+			"brokenImages": 0,
+			"codeBlocks": 0,
+			"h1": "What is Ignite Element?",
+			"overflow": false,
+			"url": "/ignite-element/2.x/overview/what-is-ignite-element/",
+			"width": 1366
+		},
+		{
+			"route": "404.html",
+			"brokenImages": 0,
+			"codeBlocks": 0,
+			"h1": "Page not found",
+			"overflow": false,
+			"url": "/ignite-element/404.html",
+			"width": 1366
+		},
+		{
+			"route": "api/advanced-config/",
+			"brokenImages": 0,
+			"codeBlocks": 7,
+			"h1": "Advanced config",
+			"overflow": false,
+			"url": "/ignite-element/api/advanced-config/",
+			"width": 1366
+		},
+		{
+			"route": "api/command-metadata/",
+			"brokenImages": 0,
+			"codeBlocks": 2,
+			"h1": "Commands and tool schemas",
+			"overflow": false,
+			"url": "/ignite-element/api/command-metadata/",
+			"width": 1366
+		},
+		{
+			"route": "api/compatibility/",
+			"brokenImages": 0,
+			"codeBlocks": 0,
+			"h1": "Compatibility",
+			"overflow": false,
+			"url": "/ignite-element/api/compatibility/",
+			"width": 1366
+		},
+		{
+			"route": "api/define-ignite-config/",
+			"brokenImages": 0,
+			"codeBlocks": 7,
+			"h1": "Advanced config",
+			"overflow": false,
+			"url": "/ignite-element/api/advanced-config/",
+			"width": 1366
+		},
+		{
+			"route": "api/headless-runtime/",
+			"brokenImages": 0,
+			"codeBlocks": 2,
+			"h1": "Headless runtime",
+			"overflow": false,
+			"url": "/ignite-element/api/headless-runtime/",
+			"width": 1366
+		},
+		{
+			"route": "api/ignite-core/",
+			"brokenImages": 0,
+			"codeBlocks": 0,
+			"h1": "API reference",
+			"overflow": false,
+			"url": "/ignite-element/handbook/api/",
+			"width": 1366
+		},
+		{
+			"route": "api/renderers/",
+			"brokenImages": 0,
+			"codeBlocks": 4,
+			"h1": "Views",
+			"overflow": false,
+			"url": "/ignite-element/handbook/views/",
+			"width": 1366
+		},
+		{
+			"route": "api/testing-dsl/",
+			"brokenImages": 0,
+			"codeBlocks": 0,
+			"h1": "Testing API migration",
+			"overflow": false,
+			"url": "/ignite-element/api/testing-dsl/",
+			"width": 1366
+		},
+		{
+			"route": "community/",
+			"brokenImages": 0,
+			"codeBlocks": 0,
+			"h1": "Support & links",
+			"overflow": false,
+			"url": "/ignite-element/community/",
+			"width": 1366
+		},
+		{
+			"route": "concepts/configuration/",
+			"brokenImages": 0,
+			"codeBlocks": 7,
+			"h1": "Advanced config",
+			"overflow": false,
+			"url": "/ignite-element/api/advanced-config/",
+			"width": 1366
+		},
+		{
+			"route": "concepts/events-and-commands/",
+			"brokenImages": 0,
+			"codeBlocks": 1,
+			"h1": "Events & effects",
+			"overflow": false,
+			"url": "/ignite-element/handbook/events/",
+			"width": 1366
+		},
+		{
+			"route": "concepts/renderers/",
+			"brokenImages": 0,
+			"codeBlocks": 4,
+			"h1": "Views",
+			"overflow": false,
+			"url": "/ignite-element/handbook/views/",
+			"width": 1366
+		},
+		{
+			"route": "concepts/rendering/",
+			"brokenImages": 0,
+			"codeBlocks": 4,
+			"h1": "Views",
+			"overflow": false,
+			"url": "/ignite-element/handbook/views/",
+			"width": 1366
+		},
+		{
+			"route": "concepts/state-adapters/",
+			"brokenImages": 0,
+			"codeBlocks": 2,
+			"h1": "Sources",
+			"overflow": false,
+			"url": "/ignite-element/handbook/sources/",
+			"width": 1366
+		},
+		{
+			"route": "concepts/the-ignite-model/",
+			"brokenImages": 0,
+			"codeBlocks": 2,
+			"h1": "Sources",
+			"overflow": false,
+			"url": "/ignite-element/handbook/sources/",
+			"width": 1366
+		},
+		{
+			"route": "contributing/shared-controller-validation/",
+			"brokenImages": 0,
+			"codeBlocks": 1,
+			"h1": "Validate the shared-controller recipe",
+			"overflow": false,
+			"url": "/ignite-element/contributing/shared-controller-validation/",
+			"width": 1366
+		},
+		{
+			"route": "getting-started/first-component/",
+			"brokenImages": 0,
+			"codeBlocks": 4,
+			"h1": "Getting started",
+			"overflow": false,
+			"url": "/ignite-element/",
+			"width": 1366
+		},
+		{
+			"route": "getting-started/installation/",
+			"brokenImages": 0,
+			"codeBlocks": 4,
+			"h1": "Getting started",
+			"overflow": false,
+			"url": "/ignite-element/",
+			"width": 1366
+		},
+		{
+			"route": "getting-started/project-setup/",
+			"brokenImages": 0,
+			"codeBlocks": 4,
+			"h1": "Getting started",
+			"overflow": false,
+			"url": "/ignite-element/",
+			"width": 1366
+		},
+		{
+			"route": "guides/",
+			"brokenImages": 0,
+			"codeBlocks": 1,
+			"h1": "Examples",
+			"overflow": false,
+			"url": "/ignite-element/handbook/examples/",
+			"width": 1366
+		},
+		{
+			"route": "guides/accessibility-first/",
+			"brokenImages": 0,
+			"codeBlocks": 5,
+			"h1": "Accessibility first",
+			"overflow": false,
+			"url": "/ignite-element/guides/accessibility-first/",
+			"width": 1366
+		},
+		{
+			"route": "guides/actor-web/",
+			"brokenImages": 0,
+			"codeBlocks": 5,
+			"h1": "Actor-Web adapter",
+			"overflow": false,
+			"url": "/ignite-element/guides/actor-web/",
+			"width": 1366
+		},
+		{
+			"route": "guides/agent-runtime-v3/",
+			"brokenImages": 0,
+			"codeBlocks": 4,
+			"h1": "Build for agents",
+			"overflow": false,
+			"url": "/ignite-element/guides/agent-runtime-v3/",
+			"width": 1366
+		},
+		{
+			"route": "guides/events/",
+			"brokenImages": 0,
+			"codeBlocks": 1,
+			"h1": "Events & effects",
+			"overflow": false,
+			"url": "/ignite-element/handbook/events/",
+			"width": 1366
+		},
+		{
+			"route": "guides/host-app-integration/",
+			"brokenImages": 0,
+			"codeBlocks": 4,
+			"h1": "Views",
+			"overflow": false,
+			"url": "/ignite-element/handbook/views/",
+			"width": 1366
+		},
+		{
+			"route": "guides/plain-controllers/",
+			"brokenImages": 0,
+			"codeBlocks": 6,
+			"h1": "Advanced plain-controller interoperability",
+			"overflow": false,
+			"url": "/ignite-element/guides/plain-controllers/",
+			"width": 1366
+		},
+		{
+			"route": "guides/redux-and-mobx/",
+			"brokenImages": 0,
+			"codeBlocks": 2,
+			"h1": "Sources",
+			"overflow": false,
+			"url": "/ignite-element/handbook/sources/",
+			"width": 1366
+		},
+		{
+			"route": "guides/routing/",
+			"brokenImages": 0,
+			"codeBlocks": 7,
+			"h1": "Routing",
+			"overflow": false,
+			"url": "/ignite-element/guides/routing/",
+			"width": 1366
+		},
+		{
+			"route": "guides/shared-source-ownership/",
+			"brokenImages": 0,
+			"codeBlocks": 5,
+			"h1": "Share a source and own its lifetime",
+			"overflow": false,
+			"url": "/ignite-element/guides/shared-source-ownership/",
+			"width": 1366
+		},
+		{
+			"route": "guides/styling/",
+			"brokenImages": 0,
+			"codeBlocks": 4,
+			"h1": "Views",
+			"overflow": false,
+			"url": "/ignite-element/handbook/views/",
+			"width": 1366
+		},
+		{
+			"route": "guides/testing/",
+			"brokenImages": 0,
+			"codeBlocks": 5,
+			"h1": "Testing",
+			"overflow": false,
+			"url": "/ignite-element/handbook/testing/",
+			"width": 1366
+		},
+		{
+			"route": "guides/tooling/",
+			"brokenImages": 0,
+			"codeBlocks": 7,
+			"h1": "Advanced config",
+			"overflow": false,
+			"url": "/ignite-element/api/advanced-config/",
+			"width": 1366
+		},
+		{
+			"route": "handbook/api/",
+			"brokenImages": 0,
+			"codeBlocks": 0,
+			"h1": "API reference",
+			"overflow": false,
+			"url": "/ignite-element/handbook/api/",
+			"width": 1366
+		},
+		{
+			"route": "handbook/events/",
+			"brokenImages": 0,
+			"codeBlocks": 1,
+			"h1": "Events & effects",
+			"overflow": false,
+			"url": "/ignite-element/handbook/events/",
+			"width": 1366
+		},
+		{
+			"route": "handbook/examples/",
+			"brokenImages": 0,
+			"codeBlocks": 1,
+			"h1": "Examples",
+			"overflow": false,
+			"url": "/ignite-element/handbook/examples/",
+			"width": 1366
+		},
+		{
+			"route": "handbook/ownership/",
+			"brokenImages": 0,
+			"codeBlocks": 0,
+			"h1": "Ownership & cleanup",
+			"overflow": false,
+			"url": "/ignite-element/handbook/ownership/",
+			"width": 1366
+		},
+		{
+			"route": "handbook/sources/",
+			"brokenImages": 0,
+			"codeBlocks": 2,
+			"h1": "Sources",
+			"overflow": false,
+			"url": "/ignite-element/handbook/sources/",
+			"width": 1366
+		},
+		{
+			"route": "handbook/testing/",
+			"brokenImages": 0,
+			"codeBlocks": 5,
+			"h1": "Testing",
+			"overflow": false,
+			"url": "/ignite-element/handbook/testing/",
+			"width": 1366
+		},
+		{
+			"route": "handbook/views/",
+			"brokenImages": 0,
+			"codeBlocks": 4,
+			"h1": "Views",
+			"overflow": false,
+			"url": "/ignite-element/handbook/views/",
+			"width": 1366
+		},
+		{
+			"route": "migration/effects-events/",
+			"brokenImages": 0,
+			"codeBlocks": 3,
+			"h1": "Migrate command emission",
+			"overflow": false,
+			"url": "/ignite-element/migration/effects-events/",
+			"width": 1366
+		},
+		{
+			"route": "migration/shared-readiness-terminal-disposal/",
+			"brokenImages": 0,
+			"codeBlocks": 0,
+			"h1": "Shared readiness and terminal disposal",
+			"overflow": false,
+			"url": "/ignite-element/migration/shared-readiness-terminal-disposal/",
+			"width": 1366
+		},
+		{
+			"route": "migration/v2/",
+			"brokenImages": 0,
+			"codeBlocks": 6,
+			"h1": "Migrate from v1 to v2",
+			"overflow": false,
+			"url": "/ignite-element/migration/v2/",
+			"width": 1366
+		},
+		{
+			"route": "migration/v3/",
+			"brokenImages": 0,
+			"codeBlocks": 2,
+			"h1": "Migrate from v2 to v3 (beta)",
+			"overflow": false,
+			"url": "/ignite-element/migration/v3/",
+			"width": 1366
+		},
+		{
+			"route": "overview/bundle-size/",
+			"brokenImages": 0,
+			"codeBlocks": 1,
+			"h1": "Historical bundle measurements",
+			"overflow": false,
+			"url": "/ignite-element/overview/bundle-size/",
+			"width": 1366
+		},
+		{
+			"route": "overview/ignite-for-ai-agents/",
+			"brokenImages": 0,
+			"codeBlocks": 4,
+			"h1": "Build for agents",
+			"overflow": false,
+			"url": "/ignite-element/guides/agent-runtime-v3/",
+			"width": 1366
+		},
+		{
+			"route": "overview/what-is-ignite-element/",
+			"brokenImages": 0,
+			"codeBlocks": 4,
+			"h1": "Getting started",
+			"overflow": false,
+			"url": "/ignite-element/",
+			"width": 1366
+		},
+		{
+			"route": "overview/when-to-choose-ignite/",
+			"brokenImages": 0,
+			"codeBlocks": 0,
+			"h1": "Compatibility",
+			"overflow": false,
+			"url": "/ignite-element/api/compatibility/",
+			"width": 1366
+		}
+	],
+	"responsive": [
+		{
+			"route": "",
+			"overflow": false,
+			"scrollingCode": 3,
+			"tables": 0,
+			"theme": "light",
+			"width": 390
+		},
+		{
+			"route": "handbook/sources/",
+			"overflow": false,
+			"scrollingCode": 2,
+			"tables": 1,
+			"theme": "light",
+			"width": 390
+		},
+		{
+			"route": "handbook/views/",
+			"overflow": false,
+			"scrollingCode": 4,
+			"tables": 0,
+			"theme": "light",
+			"width": 390
+		},
+		{
+			"route": "handbook/events/",
+			"overflow": false,
+			"scrollingCode": 1,
+			"tables": 0,
+			"theme": "light",
+			"width": 390
+		},
+		{
+			"route": "handbook/ownership/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 1,
+			"theme": "light",
+			"width": 390
+		},
+		{
+			"route": "handbook/testing/",
+			"overflow": false,
+			"scrollingCode": 5,
+			"tables": 0,
+			"theme": "light",
+			"width": 390
+		},
+		{
+			"route": "handbook/api/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 3,
+			"theme": "light",
+			"width": 390
+		},
+		{
+			"route": "handbook/examples/",
+			"overflow": false,
+			"scrollingCode": 1,
+			"tables": 1,
+			"theme": "light",
+			"width": 390
+		},
+		{
+			"route": "api/headless-runtime/",
+			"overflow": false,
+			"scrollingCode": 2,
+			"tables": 0,
+			"theme": "light",
+			"width": 390
+		},
+		{
+			"route": "guides/accessibility-first/",
+			"overflow": false,
+			"scrollingCode": 5,
+			"tables": 0,
+			"theme": "light",
+			"width": 390
+		},
+		{
+			"route": "2.x/",
+			"overflow": false,
+			"scrollingCode": 4,
+			"tables": 0,
+			"theme": "light",
+			"width": 390
+		},
+		{
+			"route": "2.x/api/ignite-core/",
+			"overflow": false,
+			"scrollingCode": 1,
+			"tables": 0,
+			"theme": "light",
+			"width": 390
+		},
+		{
+			"route": "",
+			"overflow": false,
+			"scrollingCode": 3,
+			"tables": 0,
+			"theme": "dark",
+			"width": 390
+		},
+		{
+			"route": "handbook/sources/",
+			"overflow": false,
+			"scrollingCode": 2,
+			"tables": 1,
+			"theme": "dark",
+			"width": 390
+		},
+		{
+			"route": "handbook/views/",
+			"overflow": false,
+			"scrollingCode": 4,
+			"tables": 0,
+			"theme": "dark",
+			"width": 390
+		},
+		{
+			"route": "handbook/events/",
+			"overflow": false,
+			"scrollingCode": 1,
+			"tables": 0,
+			"theme": "dark",
+			"width": 390
+		},
+		{
+			"route": "handbook/ownership/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 1,
+			"theme": "dark",
+			"width": 390
+		},
+		{
+			"route": "handbook/testing/",
+			"overflow": false,
+			"scrollingCode": 5,
+			"tables": 0,
+			"theme": "dark",
+			"width": 390
+		},
+		{
+			"route": "handbook/api/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 3,
+			"theme": "dark",
+			"width": 390
+		},
+		{
+			"route": "handbook/examples/",
+			"overflow": false,
+			"scrollingCode": 1,
+			"tables": 1,
+			"theme": "dark",
+			"width": 390
+		},
+		{
+			"route": "api/headless-runtime/",
+			"overflow": false,
+			"scrollingCode": 2,
+			"tables": 0,
+			"theme": "dark",
+			"width": 390
+		},
+		{
+			"route": "guides/accessibility-first/",
+			"overflow": false,
+			"scrollingCode": 5,
+			"tables": 0,
+			"theme": "dark",
+			"width": 390
+		},
+		{
+			"route": "2.x/",
+			"overflow": false,
+			"scrollingCode": 4,
+			"tables": 0,
+			"theme": "dark",
+			"width": 390
+		},
+		{
+			"route": "2.x/api/ignite-core/",
+			"overflow": false,
+			"scrollingCode": 1,
+			"tables": 0,
+			"theme": "dark",
+			"width": 390
+		},
+		{
+			"route": "",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 0,
+			"theme": "light",
+			"width": 768
+		},
+		{
+			"route": "handbook/sources/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 1,
+			"theme": "light",
+			"width": 768
+		},
+		{
+			"route": "handbook/views/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 0,
+			"theme": "light",
+			"width": 768
+		},
+		{
+			"route": "handbook/events/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 0,
+			"theme": "light",
+			"width": 768
+		},
+		{
+			"route": "handbook/ownership/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 1,
+			"theme": "light",
+			"width": 768
+		},
+		{
+			"route": "handbook/testing/",
+			"overflow": false,
+			"scrollingCode": 1,
+			"tables": 0,
+			"theme": "light",
+			"width": 768
+		},
+		{
+			"route": "handbook/api/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 3,
+			"theme": "light",
+			"width": 768
+		},
+		{
+			"route": "handbook/examples/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 1,
+			"theme": "light",
+			"width": 768
+		},
+		{
+			"route": "api/headless-runtime/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 0,
+			"theme": "light",
+			"width": 768
+		},
+		{
+			"route": "guides/accessibility-first/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 0,
+			"theme": "light",
+			"width": 768
+		},
+		{
+			"route": "2.x/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 0,
+			"theme": "light",
+			"width": 768
+		},
+		{
+			"route": "2.x/api/ignite-core/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 0,
+			"theme": "light",
+			"width": 768
+		},
+		{
+			"route": "",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 0,
+			"theme": "dark",
+			"width": 768
+		},
+		{
+			"route": "handbook/sources/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 1,
+			"theme": "dark",
+			"width": 768
+		},
+		{
+			"route": "handbook/views/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 0,
+			"theme": "dark",
+			"width": 768
+		},
+		{
+			"route": "handbook/events/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 0,
+			"theme": "dark",
+			"width": 768
+		},
+		{
+			"route": "handbook/ownership/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 1,
+			"theme": "dark",
+			"width": 768
+		},
+		{
+			"route": "handbook/testing/",
+			"overflow": false,
+			"scrollingCode": 1,
+			"tables": 0,
+			"theme": "dark",
+			"width": 768
+		},
+		{
+			"route": "handbook/api/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 3,
+			"theme": "dark",
+			"width": 768
+		},
+		{
+			"route": "handbook/examples/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 1,
+			"theme": "dark",
+			"width": 768
+		},
+		{
+			"route": "api/headless-runtime/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 0,
+			"theme": "dark",
+			"width": 768
+		},
+		{
+			"route": "guides/accessibility-first/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 0,
+			"theme": "dark",
+			"width": 768
+		},
+		{
+			"route": "2.x/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 0,
+			"theme": "dark",
+			"width": 768
+		},
+		{
+			"route": "2.x/api/ignite-core/",
+			"overflow": false,
+			"scrollingCode": 0,
+			"tables": 0,
+			"theme": "dark",
+			"width": 768
+		}
+	]
+}

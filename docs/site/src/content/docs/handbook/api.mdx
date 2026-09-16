@@ -1,0 +1,76 @@
+---
+title: API reference
+description: Construction, configuration, bindings, and runtime return shapes.
+---
+
+## Construction and registration
+
+| Call | Return |
+| --- | --- |
+| `igniteCore({ source, states?, commands?, events?, effects?, cleanup? })` from a source entrypoint | Callable core plus `get`, `watch`, `on`, `execute`, `dispose` |
+| `core(tagName, renderer)` | Registered component handle with `tagName` and discovery reads |
+| `core(projectionTarget)` | Disposable non-DOM projection session |
+| Root `igniteCore()` | Source-free registrar only |
+| Root registrar `(tagName, renderer)` | Source-free registered component handle |
+
+The first row shows the common configuration shape, not a universal TypeScript
+overload: source-specific options retain their adapter types. MobX factories
+require `adapter: 'mobx'`. Registration requires DOM; source-backed construction
+and execution do not. Opaque document/speech targets are separate from DOM elements.
+
+## Configuration
+
+| Option | Contract |
+| --- | --- |
+| `source` | Existing source or supported isolated definition/factory; see [Sources](/ignite-element/handbook/sources/) |
+| `states(snapshot)` | Optional derived object from the native snapshot; omission yields a stable empty object |
+| `commands({ actor })` | Object of ordinary source-directed functions; no `command` helper or `emit` capability |
+| `events(event)` | Typed public event declarations, not runtime payload validation |
+| `effects({ snapshot, prevSnapshot, select, emit })` | Synchronous `void` callback; see [Events & effects](/ignite-element/handbook/events/) |
+| `cleanup` | Shared adapter observation teardown policy, not borrowed-source shutdown authority |
+
+Keep `states` and `commands` inline for inference. A renderer receives their
+values as `ctx`; its return value is the view. State/command name collisions are
+rejected. Host capabilities and environmental I/O are not callback inputs.
+
+## Runtime methods
+
+| Method | Result and meaning |
+| --- | --- |
+| `core.get('states')` | Current derived projection; legitimate isolated runtime acquisition |
+| `core.get('schema')` | Immutable minimal catalogue |
+| `core.get('commands')` | Command catalogue, not callable functions |
+| `core.get('events')` | Event catalogue, not event history |
+| `core.watch((next, previous) => ...)` | `{ unsubscribe() }`; no initial user delivery |
+| `core.on(name, event => ...)` | `{ unsubscribe() }`; outward occurrence, no replay |
+| `await core.execute({ command, input? })` | `{ snapshot, states, events }` for the command observation window |
+| `core.dispose()` | Terminal owning cleanup; registered cores included |
+
+`execute` passes exactly one input argument, including `undefined` when omitted.
+It does not spread arrays, return the command's ordinary value, or wait for all
+business I/O. Commands requiring multiple positional arguments are callable
+directly, not through serialized execution. Native snapshots come from the source;
+there is no raw-snapshot `get` key or zero-argument `get`.
+
+For detailed execution, error, catalogue, and disposal edge cases, see the
+[headless method reference](/ignite-element/api/headless-runtime/).
+This supporting page keeps the full contract without making the handbook lookup long.
+
+## Bindings
+
+`const ctx = useIgnite(core)` from `ignite-element/react` returns inferred derived
+states and stable callable commands. Direct calls preserve the original return
+value or promise. Hook unmount releases the subscription, not the owner.
+
+`igniteReact(handle)` from `ignite-element/react/web` returns a React component
+for the actual registered custom element. `IgniteReactRef<typeof handle>` types
+its command ref; declared events become `on<Event>` callbacks receiving flat detail.
+See [Views](/ignite-element/handbook/views/) for the ordinary hook path and web interop.
+
+## Further reference
+
+- [Ownership & cleanup](/ignite-element/handbook/ownership/)
+- [Commands and tool schemas](/ignite-element/api/command-metadata/)
+- [Advanced configuration and optional Lit](/ignite-element/api/advanced-config/)
+- [Compatibility, including NodeNext limitations](/ignite-element/api/compatibility/)
+- [Historical bundle measurements](/ignite-element/overview/bundle-size/)

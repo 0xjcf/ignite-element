@@ -7,7 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const site = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const installation = "src/content/docs/getting-started/installation.mdx";
+const installation = "src/content/docs/index.mdx";
 
 function checkFixture(mutate = () => {}) {
 	const directory = fs.mkdtempSync(
@@ -84,25 +84,20 @@ test("current headless guidance uses beta.14 core-owned effect timing", () => {
 	assert.doesNotMatch(content, /retain Ignite-renderer\s+post-render timing/);
 });
 
-test("current host guidance distinguishes native declarations from effect derivation", () => {
-	for (const file of [
-		"concepts/the-ignite-model.mdx",
-		"guides/host-app-integration.mdx",
-	]) {
-		const content = fs.readFileSync(
-			path.join(site, "src/content/docs", file),
-			"utf8",
-		);
-		assert.match(content, /declare native names in `events`/, file);
-		assert.match(content, /counterReset: event<\{ count: number \}>\(\)/, file);
-		assert.match(content, /Do not mirror native occurrences in effects/, file);
-	}
+test("canonical event guidance separates native and derived producers", () => {
+	const content = fs.readFileSync(
+		path.join(site, "src/content/docs/handbook/events.mdx"),
+		"utf8",
+	);
+	assert.match(content, /Do not mirror native occurrences in effects/);
+	assert.match(content, /Headless listeners may infer native/);
+	assert.match(content, /DOM forwarding and React web callbacks/);
 });
 
 test("current lifetime guides retain the published registered-disposal contract", () => {
 	for (const file of [
-		"concepts/the-ignite-model.mdx",
-		"guides/testing.mdx",
+		"handbook/ownership.mdx",
+		"handbook/testing.mdx",
 		"guides/actor-web.mdx",
 	]) {
 		const content = fs.readFileSync(

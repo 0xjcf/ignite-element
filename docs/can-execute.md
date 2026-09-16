@@ -1,6 +1,6 @@
 # Command availability after helper retirement
 
-The earlier helper-metadata design is superseded in the v3 development candidate.
+The earlier helper-metadata design is superseded in the published v3 beta.14 API.
 The public core `canExecute(name)` method, `command(fn, metadata)` helper and
 metadata/input-builder exports are removed without aliases.
 

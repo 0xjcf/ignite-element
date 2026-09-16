@@ -169,7 +169,7 @@
    dark block, which also matches light pages at higher specificity than the
    plain light block above). DELETE this whole section at stable v3.
    ────────────────────────────────────────────────────────────────────────── */
-:root:not(:has(starlight-version-select option[selected][value*="/2.x/"])) {
+:root:not(:has(.version-select option[selected][value*="/2.x/"])) {
 	/* Accent ramp (beta dark) */
 	--sl-color-accent-low: #0a3d1c;
 	--sl-color-accent: #2bff66;
@@ -182,7 +182,7 @@
 }
 
 :root[data-theme="light"]:not(
-		:has(starlight-version-select option[selected][value*="/2.x/"])
+		:has(.version-select option[selected][value*="/2.x/"])
 	) {
 	/* Accent ramp (beta light) */
 	--sl-color-accent-low: #d7f7e2;
@@ -343,7 +343,7 @@ body {
    `site-search button` styles), which the bare tag selectors would lose to. */
 :root .header .sl-theme-toggle,
 :root starlight-theme-select label,
-:root starlight-version-select label,
+:root .version-select,
 :root site-search button {
 	display: inline-flex;
 	align-items: center;
@@ -357,14 +357,14 @@ body {
 
 :root .header .sl-theme-toggle:hover,
 :root starlight-theme-select label:hover,
-:root starlight-version-select label:hover,
+:root .version-select:hover,
 :root site-search button:hover {
 	background: var(--control-bg-hover);
 }
 
 :root .header .sl-theme-toggle:focus-within,
 :root starlight-theme-select label:focus-within,
-:root starlight-version-select label:focus-within,
+:root .version-select:focus-within,
 :root site-search button:focus-visible {
 	outline: none;
 	box-shadow: 0 0 0 2px var(--control-focus-ring);
@@ -374,14 +374,14 @@ body {
    rule shared across the toggle/select/search chrome; order is deliberate. */
 :root .header .sl-theme-toggle svg,
 :root starlight-theme-select select,
-:root starlight-version-select select,
+:root .version-select select,
 :root site-search button svg,
 :root site-search button span {
 	color: var(--control-text);
 }
 
 :root starlight-theme-select select:focus-visible,
-:root starlight-version-select select:focus-visible {
+:root .version-select select:focus-visible {
 	outline: none;
 }
 
@@ -391,7 +391,7 @@ body {
    absolutely-positioned leading icon (and the theme select a negative offset),
    so a forced uniform inline padding clips the label text. */
 :root starlight-theme-select select,
-:root starlight-version-select select {
+:root .version-select select {
 	box-sizing: border-box;
 	min-width: var(--control-select-min-width);
 	padding-top: var(--control-pad-y);
@@ -402,25 +402,25 @@ body {
    isn't flush against the edge. The label padding shifts the select/text; the
    icon is absolutely positioned, so it needs the same inset to move with it. */
 :root starlight-theme-select label,
-:root starlight-version-select label {
+:root .version-select {
 	padding-left: var(--control-pad-x);
 }
 
 /* Leading icon inset from the left, trailing caret inset from the right by the
    same token, so both affordances are balanced against their borders. */
 :root starlight-theme-select label .label-icon,
-:root starlight-version-select label .label-icon {
+:root .version-select .label-icon {
 	inset-inline-start: var(--control-pad-x);
 }
 
 :root starlight-theme-select label .caret,
-:root starlight-version-select label .caret-icon {
+:root .version-select .caret-icon {
 	inset-inline-end: var(--control-pad-x);
 }
 
 /* One deliberate gap between adjacent header controls. */
 :root starlight-theme-select,
-:root starlight-version-select {
+:root .version-select {
 	margin-left: var(--control-gap);
 }
 
@@ -590,7 +590,7 @@ mobile-starlight-toc a[aria-current="true"] {
    gray-1 on bg-nav, both dark surfaces in this theme, leaving the open dropdown
    dark-on-dark in browsers that render styled options. */
 :root starlight-theme-select option,
-:root starlight-version-select option {
+:root .version-select option {
 	color: var(--control-text);
 	background: var(--control-bg);
 }
@@ -628,4 +628,9 @@ mobile-starlight-toc a[aria-current="true"] {
 			calc(var(--sl-sidebar-width) + (100% - var(--sl-content-width)) / 3)
 		);
 	}
+}
+
+/* Keep code-copy controls on the same radius scale as header controls. */
+:root .expressive-code .copy button {
+	border-radius: var(--radius-sm);
 }

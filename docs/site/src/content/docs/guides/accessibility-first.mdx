@@ -18,8 +18,8 @@ stay honest about what headless verification can and cannot prove.
 :::note[Related docs]
 For exact runtime signatures, see [Headless runtime](/ignite-element/api/headless-runtime/).
 For actor-web boundaries, see [Actor-Web](/ignite-element/guides/actor-web/).
-For the agent framing, see [Ignite Element for AI Agents](/ignite-element/overview/ignite-for-ai-agents/).
-For test workflows, see [Testing guide](/ignite-element/guides/testing/).
+For the agent framing, see [Ignite Element for AI Agents](/ignite-element/guides/agent-runtime-v3/).
+For test workflows, see [Testing guide](/ignite-element/handbook/testing/).
 :::
 
 ## Start from the behavior contract
@@ -36,8 +36,8 @@ An accessible component usually needs the same facts regardless of channel:
 Those facts belong in the runtime contract before they are styled in the DOM.
 
 ```ts no-check
-import { igniteCore } from 'ignite-element/xstate';
-import { assign, setup } from 'xstate';
+import { igniteCore } from "ignite-element/xstate";
+import { assign, setup } from "xstate";
 
 type ThermostatContext = {
   target: number;
@@ -46,10 +46,10 @@ type ThermostatContext = {
 };
 
 type ThermostatEvent =
-  | { type: 'SET_TARGET_DRAFT'; target: number }
-  | { type: 'SAVE_TARGET'; target: number }
-  | { type: 'SAVE_SUCCESS' }
-  | { type: 'SAVE_FAILURE'; message: string };
+  | { type: "SET_TARGET_DRAFT"; target: number }
+  | { type: "SAVE_TARGET"; target: number }
+  | { type: "SAVE_SUCCESS" }
+  | { type: "SAVE_FAILURE"; message: string };
 
 const thermostatMachine = setup({
   types: {
@@ -62,7 +62,7 @@ const thermostatMachine = setup({
     isSaving: false,
     errorText: undefined,
   },
-  initial: 'ready',
+  initial: "ready",
   states: {
     ready: {
       on: {
@@ -73,7 +73,7 @@ const thermostatMachine = setup({
           }),
         },
         SAVE_TARGET: {
-          target: 'saving',
+          target: "saving",
           actions: assign({
             target: ({ event }) => event.target,
             isSaving: () => true,
@@ -85,14 +85,14 @@ const thermostatMachine = setup({
     saving: {
       on: {
         SAVE_SUCCESS: {
-          target: 'ready',
+          target: "ready",
           actions: assign({
             isSaving: () => false,
             errorText: () => undefined,
           }),
         },
         SAVE_FAILURE: {
-          target: 'ready',
+          target: "ready",
           actions: assign({
             isSaving: () => false,
             errorText: ({ event }) => event.message,
@@ -108,17 +108,24 @@ export const thermostat = igniteCore({
 
   states: (snapshot) => ({
     target: snapshot.context.target,
-    targetLabel: 'Target temperature',
-    targetHint: 'Choose a value between 58 and 82 degrees.',
-    statusLabel: snapshot.context.isSaving ? 'Saving target' : 'Ready',
+    targetLabel: "Target temperature",
+    targetHint: "Choose a value between 58 and 82 degrees.",
+    statusLabel: snapshot.context.isSaving ? "Saving target" : "Ready",
     errorText: snapshot.context.errorText,
-    canEditTarget: snapshot.can({ type: 'SET_TARGET_DRAFT', target: snapshot.context.target }),
-    canSave: snapshot.can({ type: 'SAVE_TARGET', target: snapshot.context.target }),
+    canEditTarget: snapshot.can({
+      type: "SET_TARGET_DRAFT",
+      target: snapshot.context.target,
+    }),
+    canSave: snapshot.can({
+      type: "SAVE_TARGET",
+      target: snapshot.context.target,
+    }),
   }),
 
   commands: ({ actor }) => ({
-    setTargetDraft: (target: number) => actor.send({ type: 'SET_TARGET_DRAFT', target }),
-    saveTarget: (target: number) => actor.send({ type: 'SAVE_TARGET', target }),
+    setTargetDraft: (target: number) =>
+      actor.send({ type: "SET_TARGET_DRAFT", target }),
+    saveTarget: (target: number) => actor.send({ type: "SAVE_TARGET", target }),
   }),
 });
 ```
@@ -129,13 +136,13 @@ Tool consumers preserve their explicit constraints separately from ordinary comm
 const thermostatToolSchema = {
   commands: {
     setTargetDraft: {
-      description: 'Synchronize the actor-owned target draft.',
-      input: { type: 'number', minimum: 58, maximum: 82 },
+      description: "Synchronize the actor-owned target draft.",
+      input: { type: "number", minimum: 58, maximum: 82 },
       gated: true,
     },
     saveTarget: {
-      description: 'Save the target temperature.',
-      input: { type: 'number', minimum: 58, maximum: 82 },
+      description: "Save the target temperature.",
+      input: { type: "number", minimum: 58, maximum: 82 },
       gated: true,
     },
   },
@@ -162,34 +169,46 @@ That single registration already supports three consumers:
 Once the behavior contract is stable, render it with native controls before
 reaching for ARIA.
 
-```tsx no-check
-thermostat('thermostat-panel', ({ target, targetLabel, targetHint, statusLabel, errorText, canEditTarget, canSave, setTargetDraft, saveTarget }) => (
+This renderer fragment uses the thermostat core above.
+
+```tsx no-check title="thermostat-view.tsx (fragment)"
+thermostat("thermostat-panel", (ctx) => (
   <form aria-describedby="thermostat-hint thermostat-status">
-    <label for="thermostat-target">{targetLabel}</label>
+    <label for="thermostat-target">{ctx.targetLabel}</label>
     <input
       id="thermostat-target"
       name="target"
       type="range"
       min={58}
       max={82}
-      value={target}
-      onInput={(event) => setTargetDraft(Number(event.currentTarget.value))}
-      disabled={!canEditTarget}
-      aria-invalid={errorText ? 'true' : undefined}
-      aria-describedby={errorText ? 'thermostat-hint thermostat-error thermostat-status' : 'thermostat-hint thermostat-status'}
+      value={ctx.target}
+      onInput={(event) => ctx.setTargetDraft(Number(event.currentTarget.value))}
+      disabled={!ctx.canEditTarget}
+      aria-invalid={ctx.errorText ? "true" : undefined}
+      aria-describedby={
+        ctx.errorText
+          ? "thermostat-hint thermostat-error thermostat-status"
+          : "thermostat-hint thermostat-status"
+      }
     />
 
-    <p id="thermostat-hint">{targetHint}</p>
-    <p id="thermostat-status" aria-live="polite">{statusLabel}</p>
-    {errorText && <p id="thermostat-error" role="alert">{errorText}</p>}
+    <p id="thermostat-hint">{ctx.targetHint}</p>
+    <p id="thermostat-status" aria-live="polite">
+      {ctx.statusLabel}
+    </p>
+    {ctx.errorText && (
+      <p id="thermostat-error" role="alert">
+        {ctx.errorText}
+      </p>
+    )}
 
     <button
       type="button"
-      disabled={!canSave}
+      disabled={!ctx.canSave}
       onClick={(event) => {
-        const draft = event.currentTarget.form?.elements.namedItem('target');
+        const draft = event.currentTarget.form?.elements.namedItem("target");
         if (draft instanceof HTMLInputElement) {
-          saveTarget(Number(draft.value));
+          ctx.saveTarget(Number(draft.value));
         }
       }}
     >
@@ -209,7 +228,7 @@ control from the resulting `target`. External integrations use the same command
 path, so their updates converge through the same actor state:
 
 ```ts no-check
-await thermostat.execute({ command: 'setTargetDraft', input: 72 });
+await thermostat.execute({ command: "setTargetDraft", input: 72 });
 ```
 
 The save handler still reads the synchronized native control. It does not own a
@@ -231,17 +250,20 @@ Ignite's current runtime APIs are already enough to verify most of the contract
 before any DOM assertion:
 
 ```ts no-check
-const schema = thermostat.get('schema');
-const states = thermostat.get('states');
+const schema = thermostat.get("schema");
+const states = thermostat.get("states");
 const canSave = states.canSave;
 
 if (canSave) {
   try {
-    const result = await thermostat.execute({ command: 'saveTarget', input: 70 });
+    const result = await thermostat.execute({
+      command: "saveTarget",
+      input: 70,
+    });
     console.log(result.snapshot, result.events);
   } catch (error) {
     // Availability can change after preflight; execute remains authoritative.
-    console.error('Saving the target was rejected or failed.', error);
+    console.error("Saving the target was rejected or failed.", error);
   }
 }
 

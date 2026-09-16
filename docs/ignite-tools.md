@@ -1,6 +1,6 @@
 # Tools: explicit schemas over a headless core
 
-The v3 development candidate retains the SDK-neutral tools core and provider
+The published v3 beta.14 API retains the SDK-neutral tools core and provider
 dialects while removing helper-dependent automatic core schemas. A tool
 definition is application-owned; ordinary core commands require no metadata.
 

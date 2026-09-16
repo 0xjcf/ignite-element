@@ -15,7 +15,7 @@ and the browser `<smart-home-bridge>` element observes and sends commands over a
 WebSocket bridge.
 
 For release recording, use the
-[v3 headless smart-home screencast script](../../../docs/demo/v3-headless-smart-home-screencast.md).
+[v3 headless smart-home screencast script](https://0xjcf.github.io/ignite-element/handbook/views/).
 
 ## Run it
 

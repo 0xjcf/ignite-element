@@ -43,7 +43,7 @@ hatches (no state-lib lock-in), but make the *ignite* surface uniform.
 | `expectStates` (add) + **full `state`→`snapshot` rename** (`expectState`→`expectSnapshot` + `result.snapshot`/`schema.snapshot`/record-trace) + `expectEvent` object form | `event-shape.md` + this doc | mixed | `expectStates` shipped; full rename implemented in v3 cutover batch (1781818974159) — scope = full rename (b), resolved 2026-06-20 |
 | Test host seam: fluent `.host({ dataset, attributes })` | `task-1781619012619` | additive | task (refine brief to fluent shape) |
 | `canExecute(name)` command-availability query | `can-execute.md` | additive (gap) | shipped (1781798486122) |
-| `igniteShell` sourceless composition root (+ shared move-safe teardown) | `ignite-shell.md` | historical additive | shipped in beta.11; shell surface retired in the unpublished source-free core candidate |
+| `igniteShell` sourceless composition root (+ shared move-safe teardown) | `ignite-shell.md` | historical additive | shipped in beta.11; shell surface retired in the published source-free core API |
 | Root source-free `igniteCore()` without public lifecycle hooks | `source-free-core.md` | explicitly approved breaking amendment | implemented in review candidate; not published; shared source-backed lifecycle unchanged |
 | `ignite-element/react` schema-driven wrapper + registration handle | `ignite-react.md` | additive (gap) | design ✓, task reshaped (1781805261094) |
 | `getSchema().states` — expose the typed states projection in the schema | this doc | breaking vocabulary cutover | implemented |

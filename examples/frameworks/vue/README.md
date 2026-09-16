@@ -3,7 +3,7 @@
 A Vue 3 demo that consumes an ignite custom element through the **standard
 custom-element surface** — no wrapper. It is deliberately minimal (one element,
 not a full app) and pairs with the [host app integration
-guide](../../../../../../docs/site/src/content/docs/guides/host-app-integration.mdx).
+guide](https://0xjcf.github.io/ignite-element/handbook/views/).
 
 The element here is authored with **lit-html** (the React demo uses Ignite JSX) to
 exercise both renderers across the framework examples. Vue never sees how the
@@ -42,7 +42,7 @@ view is authored — it consumes the same browser contract either way.
 ## Run
 
 ```bash
-cd src/examples/frameworks/vue
+cd examples/frameworks/vue
 pnpm install --ignore-workspace --no-link-workspace-packages
 pnpm run dev
 ```

@@ -105,7 +105,7 @@ plugin, and no framework-specific router abstraction.
 
 ## More
 
-See the [routing guide](https://ignite-element.dev/ignite-element/guides/routing/)
+See the [routing guide](https://0xjcf.github.io/ignite-element//ignite-element/guides/routing/)
 for the narrative walkthrough, and
 [`examples/apps/nested-child-router`](../nested-child-router/README.md) for the
 parent/child outlet composition variant.

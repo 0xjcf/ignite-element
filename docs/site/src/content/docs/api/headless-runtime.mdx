@@ -13,7 +13,7 @@ The canonical flow is source → native snapshot → derived states → renderer
 This reference describes published beta.14 behavior. Beta.13 introduced automatic
 shared-source readiness and terminal registered-core disposal, covered in the
 [migration note](/ignite-element/migration/shared-readiness-terminal-disposal/).
-Beta.14 adds [native DOM forwarding and core-owned effects](/ignite-element/guides/events/).
+Beta.14 adds [native DOM forwarding and core-owned effects](/ignite-element/handbook/events/).
 No method or source input is added.
 
 ```ts
@@ -193,7 +193,7 @@ evaluator per core/source instance. Their queued execution is not a renderer or
 framework commit barrier and may precede a view update. An activated shared
 evaluator retains its baseline through zero-view intervals until `core.dispose()`;
 isolated evaluators follow their instance lifetime. Effect errors use the core's
-console fallback, not an element's error hook. See the [event guide](/ignite-element/guides/events/)
+console fallback, not an element's error hook. See the [event guide](/ignite-element/handbook/events/)
 for timing and migration; view resources belong to the actual framework lifecycle.
 
 ## Removed methods and private inspection
@@ -210,5 +210,5 @@ asynchronous commit is not transactional with later source transitions.
 
 - [Build for agents](/ignite-element/guides/agent-runtime-v3/)
 - [Commands and tool schemas](/ignite-element/api/command-metadata/)
-- [Testing guide](/ignite-element/guides/testing/)
-- [Host application integration](/ignite-element/guides/host-app-integration/)
+- [Testing guide](/ignite-element/handbook/testing/)
+- [Host application integration](/ignite-element/handbook/views/)

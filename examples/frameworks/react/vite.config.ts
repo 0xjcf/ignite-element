@@ -23,6 +23,12 @@ export default defineConfig({
 	resolve: {
 		alias: [
 			{
+				find: "ignite-element/react/web",
+				replacement: resolvePath(
+					"../../../packages/ignite-element/src/react/web.ts",
+				),
+			},
+			{
 				find: "@ignite-element/core",
 				replacement: resolvePath("../../../packages/ignite-core/src/index.ts"),
 			},

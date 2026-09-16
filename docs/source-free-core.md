@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented in this unpublished review candidate. Released 3.0.0-beta.11 still
+Implemented and available in beta.14. Released 3.0.0-beta.11 still
 exports `igniteShell`; it does not provide root `igniteCore`. This is an
 explicitly approved breaking contract amendment, not a publication receipt.
 
@@ -55,7 +55,7 @@ when a source drives the view. Those entrypoints retain their existing contracts
 A malformed source never means static composition. The application/source owns
 business behavior, environmental capabilities, cancellation, sharing and native
 shutdown. Ignite owns its observation handles and rendering responsibilities.
-Effects remain queued after the corresponding renderer update, synchronous and
+Effects remain queued after source processing without a renderer commit guarantee, synchronous and
 void-returning. They do not acquire retained resources or stop sources.
 JSX refs, commit callbacks and keyed identity remain accepted pre-stable
 architecture, not implemented by this change.

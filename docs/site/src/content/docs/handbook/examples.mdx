@@ -1,0 +1,44 @@
+---
+title: Examples
+description: Runnable examples organized by the problem they demonstrate.
+---
+
+Run commands from the repository root unless a recipe says otherwise. Install
+workspace dependencies first with `pnpm install`; each standalone example has
+its own manifest and instructions. The repository examples exercise local source.
+For installed applications use public `ignite-element` entrypoints and beta packages.
+
+| Purpose | Canonical implementation |
+| --- | --- |
+| First XState + JSX component | [Getting started](/ignite-element/#build-a-component) |
+| React shared core and separate web interop | [React](https://github.com/0xjcf/ignite-element/tree/beta/examples/frameworks/react) |
+| XState sources and native events | [XState](https://github.com/0xjcf/ignite-element/tree/beta/examples/adapters/xstate) |
+| Redux store or isolated slice | [Redux](https://github.com/0xjcf/ignite-element/tree/beta/examples/adapters/redux) |
+| MobX observables | [MobX](https://github.com/0xjcf/ignite-element/tree/beta/examples/adapters/mobx) |
+| Vue custom elements | [Vue](https://github.com/0xjcf/ignite-element/tree/beta/examples/frameworks/vue) |
+| Svelte custom elements | [Svelte](https://github.com/0xjcf/ignite-element/tree/beta/examples/frameworks/svelte) |
+| Shared dashboard | [Dashboard](https://github.com/0xjcf/ignite-element/tree/beta/examples/apps/dashboard-with-shared-state) |
+| Form behavior | [Form](https://github.com/0xjcf/ignite-element/tree/beta/examples/apps/form-with-validation) |
+| Navigation API routing | [SPA router](https://github.com/0xjcf/ignite-element/tree/beta/examples/apps/spa-router) |
+| Nested route ownership | [Nested router](https://github.com/0xjcf/ignite-element/tree/beta/examples/apps/nested-child-router) |
+| Advanced ports and session lifetime | [Shared source recipe](/ignite-element/guides/shared-source-ownership/) |
+| Advanced plain-controller interoperability | [Shared controller](https://github.com/0xjcf/ignite-element/tree/beta/examples/apps/shared-controller) |
+| Advanced tool-driven behavior | [Smart home](https://github.com/0xjcf/ignite-element/tree/beta/examples/agents/smart-home) |
+| Advanced voice and story orchestration | [Voice workbench](https://github.com/0xjcf/ignite-element/tree/beta/examples/agents/voice-workbench) |
+
+## Run the React example
+
+```sh title="Terminal"
+pnpm --dir examples/frameworks/react install \
+  --ignore-workspace --no-link-workspace-packages
+pnpm --dir examples/frameworks/react dev
+```
+
+The first screen uses `useIgnite(core)` and source-derived state. Expand the
+custom-element section to inspect the separate `igniteReact(handle)` recipe.
+
+## Focused recipes
+
+[Routing](/ignite-element/guides/routing/), [agent/tool integration](/ignite-element/guides/agent-runtime-v3/),
+[Actor-Web](/ignite-element/guides/actor-web/), and
+[plain controllers](/ignite-element/guides/plain-controllers/) cover optional needs.

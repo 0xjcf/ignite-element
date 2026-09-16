@@ -4,10 +4,10 @@
 The old “design only — not implemented” status was stale. The original design
 remains in Git history at `e2eb1517c8818a16a3142ff2c2b6c534674625d4`.
 
-The unpublished review candidate explicitly replaces it with
+The published beta.14 implementation explicitly replaces it with
 [source-free root igniteCore](./source-free-core.md), retiring the shell export,
 its four shell-specific types, and the onConnect/returned-teardown capability.
-This is a breaking amendment, not an alias or a published-release claim.
+This is a breaking amendment, not an alias.
 
 Declarative consumers migrate their import and named constructor, retaining JSX
 composition. Hook consumers need an application-owned presentation boundary or
