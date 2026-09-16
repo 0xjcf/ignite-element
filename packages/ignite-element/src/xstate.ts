@@ -8,6 +8,7 @@ import type {
 	EventsDefinition,
 	FacadeCommandFunction,
 	FacadeCommandResult,
+	FacadeEffectsObjectCallback,
 } from "@ignite-element/core";
 import type {
 	AnyStateMachine,
@@ -16,10 +17,15 @@ import type {
 	StateFrom,
 } from "xstate";
 import type {
+	CompatibleEvents,
+	EffectEvents,
+} from "./igniteCore/eventProducerTypes";
+import type {
 	DisjointBindings,
 	IgniteCoreReturn,
 	WithEmittedEvents,
 } from "./igniteCore/publicTypes";
+import type { XStateConfig as CheckedXStateConfig } from "./igniteCore/xstateTypes";
 
 // A machine's declared `emitted` types fold into the headless runtime's events
 // on this adapter entry the same way they do on the bare `ignite-element`
@@ -28,7 +34,7 @@ import type {
 type XStateRuntimeEvents<
 	Machine extends AnyStateMachine,
 	Events extends EventMap,
-> = WithEmittedEvents<Events, EmittedFrom<Machine>, EventFrom<Machine>>;
+> = WithEmittedEvents<Events, EmittedFrom<Machine>, never>;
 
 export { matchState } from "@ignite-element/core";
 export type { IgniteCoreReturn } from "./igniteCore/publicTypes";
@@ -64,9 +70,14 @@ type XStateConfigBase<
 	>,
 > = Omit<
 	AdapterXStateConfig<Machine, Events, StatesResult, CommandsResult, unknown>,
-	"events"
-> &
-	DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>>;
+	"events" | "effects"
+> & {
+	effects?: FacadeEffectsObjectCallback<
+		StateFrom<Machine>,
+		unknown,
+		EffectEvents<NoInfer<Events>, NoInfer<EmittedFrom<Machine>>>
+	>;
+} & DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>>;
 
 type XStateConfigWithEvents<
 	Machine extends AnyStateMachine,
@@ -86,7 +97,15 @@ type XStateConfigWithEvents<
 	StatesResult,
 	CommandsResult
 > & {
-	events: EventDefinition;
+	// Infer the author callback once, then validate it. Wrapping this entire
+	// check preserves contextual payload inference in non-strict consumers;
+	// wrapping Emitted itself would obstruct native-union distribution.
+	events: EventDefinition &
+		NoInfer<
+			EventsDefinition<
+				CompatibleEvents<ReturnType<EventDefinition>, EmittedFrom<Machine>>
+			>
+		>;
 };
 
 type XStateConfigWithoutEvents<
@@ -146,7 +165,8 @@ export function igniteCore<
 				? Events
 				: EmptyEventMap
 			: EmptyEventMap
-	>
+	>,
+	ReturnType<EventDefinition>
 >;
 
 export function igniteCore<
@@ -165,7 +185,8 @@ export function igniteCore<
 	StatesResult,
 	XStateCommandActor<Machine>,
 	CommandsResult,
-	XStateRuntimeEvents<Machine, EmptyEventMap>
+	XStateRuntimeEvents<Machine, EmptyEventMap>,
+	EmptyEventMap
 >;
 
 export function igniteCore<
@@ -185,5 +206,14 @@ export function igniteCore<
 	> &
 		DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>>,
 ) {
-	return baseIgniteCoreXState(options);
+	// The overloads check producer/payload compatibility. Assembly receives the
+	// same callbacks; the narrowed emitter exposes a subset of its capabilities.
+	return baseIgniteCoreXState(
+		options as CheckedXStateConfig<
+			Machine,
+			EventMap,
+			StatesResult,
+			CommandsResult
+		>,
+	);
 }

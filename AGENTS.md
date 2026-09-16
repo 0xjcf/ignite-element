@@ -328,10 +328,17 @@ The canonical flow is:
 - Retained Canvas, WebGL, editor, graph, map, video, observer, and similar
   resources remain presentation-owned.
 
-Effects run from a queued post-render microtask after the corresponding renderer
-update. An effect callback itself is synchronous, must return `void`, and may
-emit outward facts. It does not own environmental I/O, retained resources,
-source commands, or source shutdown.
+Effects evaluate once per delivered source notification per core/source
+instance after an initial baseline, not once per view. They activate on
+legitimate runtime use or committed subscription/element connection, not
+constructor preparation or render-time reads. A shared evaluator and baseline
+survive zero-view intervals until core disposal, including `cleanup: true`;
+isolated instances retain independent lifetimes. Consumers are recipients, not
+additional evaluators. Queued delivery follows source processing without a
+universal framework commit barrier. Callbacks are synchronous, return `void`,
+and may emit outward facts. Core-owned failures use the existing console
+fallback, not an arbitrary element error hook. Effects do not own environmental
+I/O, retained presentation resources, source commands, or source shutdown.
 
 Actor-Web is a separate project. It owns its runtime authority, including
 admission, authentication and authorization, execution receipts, checkpoints,

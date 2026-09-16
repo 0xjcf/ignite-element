@@ -40,10 +40,13 @@ export type ElementFactoryOptions<
 	createAdditionalArgs?: (
 		adapter: IgniteAdapter<State, Event>,
 		host?: EventTarget,
+		observeEffect?: (name: string) => void,
 	) => AdditionalRenderArgs<State, Event, RenderArgs>;
 	createRenderStrategy?: RenderStrategyFactory<View>;
 	eventTypes?: readonly (keyof Events & string)[];
 	hasCommands?: boolean;
+	disposeEffects?: () => void;
+	hasActiveEffects?: (adapter: IgniteAdapter<State, Event>) => boolean;
 	resolveStates?: (
 		adapter: IgniteAdapter<State, Event>,
 	) => RuntimeView | Record<never, never>;
@@ -192,22 +195,26 @@ export function bindProjectionToElements<
 		cleanup: projection.cleanup,
 		eventTypes: projection.eventTypes,
 		hasCommands: projection.hasCommands,
+		disposeEffects: projection.disposeEffects,
+		hasActiveEffects: projection.hasActiveEffects,
 		resolveInspection: projection.resolveInspection,
 		resolveStates: projection.resolveStates,
 		resolveDeliveredStates: projection.resolveDeliveredStates,
 		createRenderArgs: projection.createRenderArgs,
 		createRenderStrategy: options.createRenderStrategy,
-		createAdditionalArgs: (adapter, host) => {
+		createAdditionalArgs: (adapter, host, observeEffect) => {
 			if (!host) {
 				throw new Error(
 					`[${errorPrefix}] Host element is required for projection.`,
 				);
 			}
 			const renderHost = host as HTMLElement;
+			const emit = createDomEmit<Events>(host);
 			return projection.createAdditionalArgs(
 				adapter,
 				renderHost,
-				createDomEmit<Events>(host),
+				emit,
+				observeEffect,
 			);
 		},
 	});

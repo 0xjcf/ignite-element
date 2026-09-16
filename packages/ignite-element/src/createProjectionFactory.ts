@@ -1,4 +1,4 @@
-import type { IgniteAdapter, StateScope } from "@ignite-element/core";
+import { StateScope, type IgniteAdapter } from "@ignite-element/core";
 import type { BaseRenderArgs, PublicFacadeRenderArgs } from "./types/render";
 
 export type { PublicFacadeRenderArgs } from "./types/render";
@@ -23,8 +23,9 @@ import {
 	attachEffects,
 	type FacadeLifecycle,
 	facadeCleanupSymbol,
+	registerHostEffects,
 } from "./runtime/effects";
-import { createLifetime } from "./runtime/lifetime";
+import { createLifetime, releaseAll } from "./runtime/lifetime";
 
 export type StandardCommandActor<State, Event> = {
 	send: (event: Event) => void;
@@ -118,6 +119,8 @@ export type ProjectionFactory<
 	cleanup?: boolean;
 	eventTypes: readonly (keyof Events & string)[];
 	hasCommands: boolean;
+	disposeEffects: () => void;
+	hasActiveEffects: (adapter: IgniteAdapter<State, Event>) => boolean;
 	resolveInspection: (adapter: IgniteAdapter<State, Event>) => {
 		snapshot: unknown;
 		states: FacadeStateResult<StatesResult>;
@@ -130,6 +133,7 @@ export type ProjectionFactory<
 		adapter: IgniteAdapter<State, Event>,
 		host: Host,
 		emit: EmitFromEvents<Events>,
+		observeEffect?: (name: string) => void,
 	) => AdditionalRenderArgs<State, Event, RenderArgs>;
 	createRenderArgs: (
 		snapshot: State,
@@ -326,6 +330,7 @@ export function createProjectionFactory<
 		adapter: IgniteAdapter<State, Event>,
 		host: Host,
 		emit: EmitFromEvents<Events>,
+		observeEffect?: (name: string) => void,
 	): AdditionalRenderArgs<State, Event, FinalRenderArgs> => {
 		if (!host) {
 			throw new Error(
@@ -385,22 +390,88 @@ export function createProjectionFactory<
 		}
 
 		assertNoCollisions(resolveStates(adapter), merged);
-		let releaseEffects: (() => void) | undefined;
-		if (effects) {
-			const safeEmit = createEmit(emit);
-			releaseEffects = attachEffects({
-				adapter,
-				effects,
-				resolveSnapshot,
-				host,
-				emit: safeEmit,
-			});
-		}
+		const releaseEffects = registerEffects(adapter, host, emit, observeEffect);
 		Object.defineProperty(merged, facadeCleanupSymbol, {
 			value: () => localLifetime.dispose(releaseEffects),
 		});
 
 		return merged;
+	};
+	type Recipient = { active: boolean; emit: EmitFromEvents<Events> };
+	const owners = new Map<
+		IgniteAdapter<State, Event>,
+		{
+			active: boolean;
+			lifetime: ReturnType<typeof createLifetime>;
+			recipients: Set<Recipient>;
+		}
+	>();
+	// This map belongs to one core, not the process or the borrowed source.
+	// Recipient leases and evaluator lifetimes are intentionally independent.
+	let ended = false;
+	const registerEffects = (
+		adapter: IgniteAdapter<State, Event>,
+		host: Host,
+		emit: EmitFromEvents<Events>,
+		observe?: (name: string) => void,
+	): (() => void) | undefined => {
+		if (!effects) return;
+		if (ended) throw new Error("[igniteCore] Effect owner is disposed.");
+		let owner = owners.get(adapter);
+		if (!owner) {
+			owner = {
+				active: false,
+				lifetime: createLifetime(),
+				recipients: new Set(),
+			};
+			owners.set(adapter, owner);
+		}
+		const current = owner;
+		const recipient: Recipient = { active: false, emit };
+		current.recipients.add(recipient);
+		const unregister = registerHostEffects(host as object, () => {
+			current.lifetime.assertActive();
+			recipient.active = true;
+			if (current.active) return;
+			current.active = true;
+			try {
+				const release = attachEffects({
+					adapter,
+					effects,
+					resolveSnapshot,
+					// No element is the error owner of a shared source evaluator.
+					host: {},
+					isActive: () => current.lifetime.active,
+					emit: createEmit((event) => {
+						if (!current.lifetime.active) return;
+						observe?.(event.type);
+						const delivered = { ...event };
+						for (const target of [...current.recipients]) {
+							if (!current.lifetime.active) break;
+							if (target.active && current.recipients.has(target))
+								target.emit(delivered);
+						}
+					}),
+				});
+				current.lifetime.own(release);
+			} catch (error) {
+				current.active = false;
+				recipient.active = false;
+				throw error;
+			}
+		});
+		return () => {
+			recipient.active = false;
+			unregister();
+			current.recipients.delete(recipient);
+			if (
+				(adapter.scope ?? scope ?? createAdapter.scope) !== StateScope.Shared &&
+				!current.recipients.size
+			) {
+				owners.delete(adapter);
+				current.lifetime.dispose();
+			}
+		};
 	};
 
 	return {
@@ -409,6 +480,13 @@ export function createProjectionFactory<
 		cleanup,
 		eventTypes: Object.keys(eventDefinitions) as Array<keyof Events & string>,
 		hasCommands: commands !== undefined,
+		disposeEffects: () => {
+			ended = true;
+			const owned = [...owners.values()];
+			owners.clear();
+			releaseAll(owned.map((owner) => () => owner.lifetime.dispose()));
+		},
+		hasActiveEffects: (adapter) => owners.get(adapter)?.active === true,
 		resolveInspection,
 		resolveStates,
 		resolveDeliveredStates,

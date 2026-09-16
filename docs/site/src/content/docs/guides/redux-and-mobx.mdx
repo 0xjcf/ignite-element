@@ -93,7 +93,10 @@ Ignite subscribes to the store you pass and reads state on change, but it never 
 
 ### Events and effects
 
-`events` and `effects` behave exactly as on the XState path. Declare events to type `emit`, then fire them from `effects` when the projected state changes:
+Both are optional. Redux and MobX keep state-derived notifications without
+middleware or an emitter wrapper. Declare a `countChanged` event and emit it
+when the selected count changes. A reset at zero is not a count change; native
+source occurrences are a distinct capability described in [Events](/ignite-element/guides/events/).
 
 ```ts
 import { igniteCore } from 'ignite-element/redux';
@@ -116,11 +119,11 @@ export const registerCounter = igniteCore({
     increment: () => actor.dispatch(counterSlice.actions.increment()),
   }),
   events: (event) => ({
-    incremented: event<{ count: number }>(),
+    countChanged: event<{ count: number }>(),
   }),
-  effects: ({ snapshot, prevSnapshot, emit }) => {
-    if (snapshot.count === prevSnapshot.count) return;
-    emit({ type: 'incremented', count: snapshot.count });
+  effects: ({ select, emit }) => {
+    const count = select(snapshot => snapshot.count);
+    if (count.changed) emit({ type: 'countChanged', count: count.current });
   },
 });
 ```
@@ -165,6 +168,11 @@ export const registerSharedCounter = igniteCore({
     increment: () => actor.increment(),
     decrement: () => actor.decrement(),
   }),
+  events: event => ({ countChanged: event<{ count: number }>() }),
+  effects: ({ select, emit }) => {
+    const count = select(snapshot => snapshot.count);
+    if (count.changed) emit({ type: 'countChanged', count: count.current });
+  },
 });
 
 // Isolated: a factory Ignite calls once per element.

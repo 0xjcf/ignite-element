@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+ <head><meta charset="UTF-8"><title>Native counter events</title></head>
+ <body>
+  <app-counter></app-counter><app-counter></app-counter>
+  <output id="notifications">[]</output>
+  <script type="module">
+   import './event-counter-view.tsx';
+   const notifications = [];
+   for (const name of ['countChanged', 'counterReset']) {
+    document.body.addEventListener(name, event => {
+     notifications.push({type: event.type, detail: event.detail});
+     document.querySelector('#notifications').textContent = JSON.stringify(notifications);
+    });
+   }
+  </script>
+ </body>
+</html>

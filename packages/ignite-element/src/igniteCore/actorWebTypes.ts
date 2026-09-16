@@ -65,7 +65,8 @@ export type ActorWebConfig<
 	 * for shared cores (you pass an already-live, consumer-owned source that
 	 * lives for the core's lifetime). Set `true` to opt a shared core back into
 	 * element-refcount teardown; ignite never stops or closes a source it did
-	 * not create.
+	 * not create. An activated shared effect evaluator retains observation until
+	 * core disposal, regardless of this option.
 	 */
 	cleanup?: boolean;
 	effects?: FacadeEffectsObjectCallback<

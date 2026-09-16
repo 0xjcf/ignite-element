@@ -196,7 +196,8 @@ export function igniteCore<
 	StatesResult,
 	XStateCommandActor<Machine>,
 	CommandsResult,
-	WithEmittedEvents<Events, EmittedFrom<Machine>, EventFrom<Machine>>
+	WithEmittedEvents<Events, EmittedFrom<Machine>, never>,
+	Events
 >;
 
 export function igniteCore<
@@ -270,7 +271,8 @@ export function igniteCore<
 	StatesResult,
 	ActorWebCommandActor<Context, Message, Emitted>,
 	CommandsResult,
-	WithEmittedEvents<Events, Emitted, Message>
+	WithEmittedEvents<Events, Emitted, Message>,
+	Events
 >;
 
 export function igniteCore<
@@ -317,7 +319,8 @@ export function igniteCore<
 		Events,
 		ActorWebSourceEmitted<Source>,
 		ActorWebSourceMessage<Source>
-	>
+	>,
+	Events
 >;
 
 export function igniteCore<
@@ -381,7 +384,14 @@ export function igniteCore(
 	}
 
 	if (isActorWebConfig(config, adapterName)) {
-		return igniteCoreActorWeb(config);
+		return igniteCoreActorWeb<
+			object,
+			{ type: string },
+			{ type: string },
+			EventMap,
+			Record<string, unknown>,
+			FacadeCommandResult
+		>(config);
 	}
 
 	return assertNever(adapterName);

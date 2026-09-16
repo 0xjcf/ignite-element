@@ -942,6 +942,7 @@ describe("igniteCore", () => {
 		type StoreState = ReturnType<typeof store.getState>;
 		const effectError = new Error("thenable failed");
 		const handleError = vi.fn();
+		const report = vi.spyOn(console, "error").mockImplementation(() => {});
 		const unhandled: unknown[] = [];
 		const captureUnhandled = (reason: unknown) => {
 			unhandled.push(reason);
@@ -1002,13 +1003,19 @@ describe("igniteCore", () => {
 		}
 
 		expect(unhandled).toEqual([]);
-		expect(handleError).toHaveBeenCalledWith(
+		// Core-owned failures are reported once, not attributed to a mounted host.
+		expect(handleError).not.toHaveBeenCalled();
+		expect(report).toHaveBeenCalledWith(
+			"[igniteCore] Effect callback failed.",
 			expect.objectContaining({
 				message:
 					"[igniteCore] Effect callbacks must return void. Move async work into the source and emit outward facts from accepted state transitions.",
 			}),
 		);
-		expect(handleError).toHaveBeenCalledWith(effectError);
+		expect(report).toHaveBeenCalledWith(
+			"[igniteCore] Effect callback failed.",
+			effectError,
+		);
 	});
 
 	it("supports headless command execution, projected views, event listeners, and watchers", async () => {

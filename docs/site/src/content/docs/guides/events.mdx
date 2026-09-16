@@ -1,0 +1,247 @@
+---
+title: Events — occurrences and derived notifications
+description: Optional native forwarding and state-derived effects, with one producer per event.
+---
+
+Start with a source, inline `states`, inline `commands`, and a renderer using
+`ctx`. Ordinary state views need neither `events` nor `effects`.
+
+**Unreleased after beta.13:** declared native emissions now reach connected
+Web Components as well as the existing headless channel. New inferred checks
+reserve precise native emitted names against effect emission. Beta.13 already
+supports native headless events and per-projection effects; it does not provide
+this equivalent native DOM forwarding. The next candidate also moves effect
+evaluation to one owner per core/source instance, as described below.
+
+## One counter, two meanings
+
+`counterReset` is a source occurrence, including reset-at-zero. `countChanged`
+is an effect-derived state comparison. Declaring either event does not emit it
+or create a runtime payload schema.
+
+```ts
+import { igniteCore } from 'ignite-element/xstate';
+import { assign, createActor, emit, setup } from 'xstate';
+
+const machine = setup({
+  types: {
+    context: {} as { count: number },
+    events: {} as { type: 'INCREMENT' } | { type: 'RESET' },
+    emitted: {} as { type: 'counterReset'; count: number },
+  },
+}).createMachine({
+  context: { count: 0 },
+  on: {
+    INCREMENT: { actions: assign({ count: ({ context }) => context.count + 1 }) },
+    RESET: {
+      actions: [
+        assign({ count: 0 }),
+        emit(({ context }) => ({ type: 'counterReset', count: context.count })),
+      ],
+    },
+  },
+});
+const counterActor = createActor(machine).start();
+const core = igniteCore({
+  source: counterActor,
+  states: snapshot => ({ count: snapshot.context.count }),
+  commands: ({ actor }) => ({
+    increment: () => actor.send({ type: 'INCREMENT' }),
+    reset: () => actor.send({ type: 'RESET' }),
+  }),
+  events: event => ({
+    countChanged: event<{ count: number }>(),
+    counterReset: event<{ count: number }>(),
+  }),
+  effects: ({ select, emit }) => {
+    const count = select(snapshot => snapshot.context.count);
+    if (count.changed) emit({ type: 'countChanged', count: count.current });
+  },
+});
+```
+
+The complete checked source is `examples/adapters/xstate/event-counter.ts`;
+its companion view uses the same core:
+
+```tsx
+const CounterElement = core('app-counter', ctx => (
+  <section>
+    <p>Count: {ctx.count}</p>
+    <button type="button" onClick={() => ctx.increment()}>Increment</button>
+    <button type="button" onClick={() => ctx.reset()}>Reset</button>
+  </section>
+));
+```
+
+React Native uses the neutral hook and native controls. Ordinary rendering
+needs no application effect, callback wrapper, mirrored state, or manual
+subscription. The strict packed native fixture compiles this complete source
+and consumer with real React Native types and no DOM declarations.
+
+```tsx
+import { useIgnite } from 'ignite-element/react';
+import { Pressable, Text, View } from 'react-native';
+import { igniteCore } from 'ignite-element/xstate';
+import { assign, createActor, emit, setup } from 'xstate';
+
+// The same application-owned source, shown in full for this native module.
+const counterActor = createActor(setup({
+  types: {
+    context: {} as { count: number },
+    events: {} as { type: 'INCREMENT' } | { type: 'RESET' },
+    emitted: {} as { type: 'counterReset'; count: number },
+  },
+}).createMachine({
+  context: { count: 0 },
+  on: {
+    INCREMENT: { actions: assign({ count: ({ context }) => context.count + 1 }) },
+    RESET: { actions: [assign({ count: 0 }), emit(({ context }) => ({ type: 'counterReset', count: context.count }))] },
+  },
+})).start();
+const core = igniteCore({
+  source: counterActor,
+  states: snapshot => ({ count: snapshot.context.count }),
+  commands: ({ actor }) => ({
+    increment: () => actor.send({ type: 'INCREMENT' }),
+    reset: () => actor.send({ type: 'RESET' }),
+  }),
+  events: event => ({ countChanged: event<{ count: number }>(), counterReset: event<{ count: number }>() }),
+  effects: ({ select, emit }) => {
+    const count = select(snapshot => snapshot.context.count);
+    if (count.changed) emit({ type: 'countChanged', count: count.current });
+  },
+});
+
+function CounterScreen() {
+  const ctx = useIgnite(core);
+  return (
+    <View>
+      <Text>{ctx.count}</Text>
+      <Pressable onPress={() => ctx.increment()}><Text>Increment</Text></Pressable>
+      <Pressable onPress={() => ctx.reset()}><Text>Reset</Text></Pressable>
+    </View>
+  );
+}
+```
+
+React Web Component callbacks receive `detail`, not a `CustomEvent` or nested
+payload. Vue and ordinary DOM listeners use `countChanged` / `counterReset`.
+
+```ts
+import { createElement } from 'react';
+import { igniteReact } from 'ignite-element/react/web';
+
+const Counter = igniteReact(CounterElement);
+const view = createElement(Counter, {
+  onCountChanged: detail => console.log(detail.count),
+  onCounterReset: detail => console.log(detail.count),
+});
+```
+
+Headless consumers receive flat tagged members through the existing interface:
+
+```ts
+core.on('countChanged', event => console.log(event.count));
+core.on('counterReset', event => console.log(event.count));
+await core.execute({ command: 'increment' });
+await core.execute({ command: 'reset' });
+await core.execute({ command: 'reset' });
+```
+
+For a connected/subscribed consumer, those commands yield changes `[1, 0]`
+and resets `[0, 0]`. Do not assert a shared total order between native events
+and queued effects. `execute().events` is a capture window, not command
+correlation or proof of durable completion. Business operations, retry policy,
+and durable receipts belong to the source/application.
+
+## Delivery and ownership
+
+- Effects run once **per delivered source update per core/source instance**,
+  not once per view. The initial activation establishes a baseline without an
+  effect call. Each later notification queues one synchronous, void-returning
+  callback; `select(...).changed` compares with `Object.is`. Intermediate
+  updates are not coalesced.
+- A shared evaluator starts on legitimate runtime use or committed subscription
+  / element connection, not constructor preparation or render-time reads.
+  Once started it observes through zero-view gaps until `core.dispose()`.
+  Reconnecting does not reset its baseline. Each isolated source instance has
+  its own evaluator and releases it with that instance; a fresh instance has a
+  fresh baseline. Independently configured cores remain independent even when
+  borrowing the same actor.
+- Delivery is queued after source processing, not a universal framework commit
+  barrier. Synchronous Ignite render updates can complete before that microtask;
+  React, React Native, Solid or Vue may not have committed yet. Core-owned
+  effect failures use the existing `console.error` fallback once per failed
+  evaluation, not the first element's `handleError` / `onError` hook. Invalid
+  async returns also report the synchronous-void violation and any rejection.
+- Native occurrences are forwarded as received, only for names declared in
+  that core's public map. `type` is the DOM event name; the remaining flat
+  payload becomes `detail`; `bubbles` and `composed` are true.
+- Headless native access still includes undeclared names. DOM forwarding does
+  not feed events back into `core.on` or execution capture. More views add
+  recipients, not source occurrences. Two identical native resets remain two.
+- Distinct hosts still bubble to a common ancestor, which can therefore receive
+  multiple notifications. There is no propagation suppression or deduplication.
+- Subscribe before work whose events matter. No replay, renderer barrier, or
+  cross-stream ordering is promised. In particular, an event emitted before a
+  React wrapper attaches listeners is not guaranteed to reach its callback.
+  Ignite does not restart a borrowed source to replay startup events.
+- Eligibility is checked when the queued effect emits: a listener subscribed
+  before that future emission can receive it. Subscribing after emission never
+  replays it. Disconnect/unsubscribe before delivery retires that recipient;
+  terminal disposal also discards pending evaluations and later emissions.
+- True disconnect removes the view's forwarding subscription; reconnect adds
+  one fresh subscription. Same-tick moves retain it. Isolated source instances
+  remain separate. Disconnect never shuts down an application-owned source.
+
+At terminal application shutdown, call `core.dispose()` to release its owned
+subscriptions, then separately `counterActor.stop()` when the application is
+finished with the borrowed actor. Individual early unsubscribe remains useful;
+do not redundantly unsubscribe every listener immediately before disposal.
+View unmount is not application shutdown. Actual presentation resources use
+their framework lifecycle, not these effects. Future renderer refs, commit
+hooks, and keyed reconciliation are not implemented by this change.
+
+For two connected `app-counter` elements sharing the core above, one increment
+evaluates the effect once and produces one `countChanged`. Each host dispatches
+its own DOM event, so a shared ancestor sees two deliveries. Each `core.on`
+registration receives one delivery, not an echo from those hosts. Adding a
+`useIgnite(core)` consumer does not add an evaluator. Without a headless
+listener the two DOM consumers work the same way; without DOM hosts a headless
+listener works alone.
+
+### Migration from per-view effects
+
+Applications depending on one callback or comparison baseline per mounted view
+must move view-specific work to actual framework lifecycle facilities. There
+is no compatibility flag or per-view runner. Ordinary source, inline states,
+commands, `ctx`, and public core methods are unchanged. This is notification
+derivation, not global or application-wide exactly-once business execution.
+
+Future Solid/Vue bindings should subscribe to the core's state and release only
+their consumer on cleanup, not execute Ignite effects in each framework watcher.
+Those bindings are not implemented here. Focus, layout, canvas and native view
+resources remain framework-owned; persistence, retry and durable confirmation
+remain source/application-owned.
+
+## One production rule per public event
+
+A precise native emitted union reserves its names: declaring `counterReset`
+is valid, but calling `effects.emit({ type: 'counterReset', ... })` is a type
+error. Public payload declarations must accept the actual native payload
+without its discriminator. Incoming command names alone are not reserved.
+
+Broad strings, erased generics, `any`, and missing channel evidence cannot
+provide complete static protection. Actor-Web forwarding uses only a source's
+actual `subscribeEvent` capability; a generic type is not proof it exists.
+Redux and MobX keep their concise state-derived events/effects without new
+middleware or wrappers; see [their examples](/ignite-element/guides/redux-and-mobx/).
+
+In development, observing the same name from both origins warns once for that
+core/source ownership lifetime. Separate isolated sources and unrelated cores,
+same-origin repeats, and multiple projection recipients do not conflict.
+Detection is best-effort: it needs both origins on active paths, adds no hidden
+source or monitoring subscription, and cannot prevent or retract earlier
+delivery. Warnings contain names/origins, not payloads or snapshots. Neither
+development nor production chooses a winner, throws, drops, or deduplicates
+events.

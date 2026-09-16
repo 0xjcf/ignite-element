@@ -57,7 +57,8 @@ export type IgniteComponentFactoryOptions<
 	 *   keeps the shared adapter alive across element disconnects (an outlet
 	 *   swapping pages won't freeze it). Set `cleanup: true` to opt back into
 	 *   element-refcount teardown of the adapter; ignite still never stops or
-	 *   closes a source it did not create.
+	 *   closes a source it did not create. An activated shared effect evaluator
+	 *   retains observation until core disposal, regardless of this option.
 	 */
 	cleanup?: boolean;
 };

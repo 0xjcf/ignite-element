@@ -14,12 +14,18 @@ import type {
 	FacadeEffectsObjectCallback,
 	FacadeStatesCallback,
 } from "@ignite-element/core";
-import type {
-	IgniteCoreReturn,
-	WithEmittedEvents,
-} from "../igniteCore/actorWebTypes";
+import type { IgniteCoreReturn } from "../igniteCore/actorWebTypes";
+import type { IgniteComponentFactoryOptions } from "../igniteCore/createIgniteComponentFactory";
 import { createIgniteComponentFactory } from "../igniteCore/createIgniteComponentFactory";
-import type { DisjointBindings } from "../igniteCore/publicTypes";
+import type {
+	ChannelEmitted,
+	CompatibleEvents,
+	EffectEvents,
+} from "../igniteCore/eventProducerTypes";
+import type {
+	ActorWebRuntimeEvents,
+	DisjointBindings,
+} from "../igniteCore/publicTypes";
 
 export type ActorWebHostFactory<
 	Context extends object,
@@ -38,10 +44,15 @@ export function igniteCore<
 	Events extends EventMap = EmptyEventMap,
 	States extends Record<string, unknown> = Record<never, never>,
 	Commands extends FacadeCommandResult = Record<never, never>,
+	Source extends ActorWebHostFactory<
+		Context,
+		Message,
+		Emitted
+	> = ActorWebHostFactory<Context, Message, Emitted>,
 >(
 	options: {
 		adapter?: "actor-web";
-		source: ActorWebHostFactory<Context, Message, Emitted>;
+		source: Source & ActorWebHostFactory<Context, Message, Emitted>;
 		states?: FacadeStatesCallback<
 			ActorWebExtendedState<NoInfer<Context>>,
 			States
@@ -56,7 +67,10 @@ export function igniteCore<
 			unknown,
 			ActorWebExtendedState<NoInfer<Context>>
 		>;
-		events?: EventsDefinition<Events>;
+		events?: EventsDefinition<
+			Events &
+				CompatibleEvents<NoInfer<Events>, ChannelEmitted<NoInfer<Source>>>
+		>;
 		cleanup?: boolean;
 		effects?: FacadeEffectsObjectCallback<
 			ActorWebExtendedState<NoInfer<Context>>,
@@ -65,7 +79,7 @@ export function igniteCore<
 				NoInfer<Message>,
 				NoInfer<Emitted>
 			>,
-			Events
+			EffectEvents<NoInfer<Events>, ChannelEmitted<NoInfer<Source>>>
 		>;
 	} & DisjointBindings<NoInfer<States>, NoInfer<Commands>>,
 ): IgniteCoreReturn<
@@ -75,7 +89,8 @@ export function igniteCore<
 	States,
 	ActorWebCommandActor<Context, Message, Emitted>,
 	Commands,
-	WithEmittedEvents<Events, Emitted, Message>
+	ActorWebRuntimeEvents<Events, Source, Emitted, Message>,
+	Events
 > {
 	const factory = createActorWebAdapter<Context, Message, Emitted, HTMLElement>(
 		(context = {}) => options.source(context),
@@ -90,7 +105,13 @@ export function igniteCore<
 	}, factory);
 	return createIgniteComponentFactory(
 		createAdapter,
-		options,
+		options as IgniteComponentFactoryOptions<
+			ActorWebExtendedState<Context>,
+			ActorWebCommandActor<Context, Message, Emitted>,
+			States,
+			Commands,
+			Events
+		>,
 	) as IgniteCoreReturn<
 		ActorWebExtendedState<Context>,
 		Message,
@@ -98,6 +119,7 @@ export function igniteCore<
 		States,
 		ActorWebCommandActor<Context, Message, Emitted>,
 		Commands,
-		WithEmittedEvents<Events, Emitted, Message>
+		ActorWebRuntimeEvents<Events, Source, Emitted, Message>,
+		Events
 	>;
 }

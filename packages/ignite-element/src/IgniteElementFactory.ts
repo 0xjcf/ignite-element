@@ -28,7 +28,9 @@ import {
 	registerElementCommands,
 	setCommandOwner,
 } from "./runtime/bindings";
-import { deferHostEffects, facadeCleanupSymbol } from "./runtime/effects";
+import { activateHostEffects, facadeCleanupSymbol } from "./runtime/effects";
+import { createEventOrigins } from "./runtime/eventOrigins";
+import { forwardNativeEvents } from "./runtime/nativeEvents";
 import { createLifetime, releaseAll } from "./runtime/lifetime";
 import { resolveProjectionTarget } from "./runtime/projectionTargets";
 import { toInspectableSchemaValue } from "./runtime/schema";
@@ -98,9 +100,12 @@ type FactoryOptions<
 	scope?: StateScope;
 	eventTypes?: readonly string[];
 	hasCommands?: boolean;
+	disposeEffects?: () => void;
+	hasActiveEffects?: (adapter: IgniteAdapter<State, Event>) => boolean;
 	createAdditionalArgs?: (
 		adapter: IgniteAdapter<State, Event>,
 		host?: EventTarget,
+		observeEffect?: (name: string) => void,
 	) => AdditionalRenderArgs<State, Event, RenderArgs>;
 	resolveStates?: (adapter: IgniteAdapter<State, Event>) => RuntimeStates;
 	resolveInspection?: (adapter: IgniteAdapter<State, Event>) => {
@@ -259,6 +264,9 @@ export default function igniteElementFactory<
 ): ComponentFactory<State, Event, RenderArgs, View> {
 	type RuntimeAdditionalArgs = AdditionalRenderArgs<State, Event, RenderArgs>;
 	const lifetime = createLifetime();
+	lifetime.own(() => options?.disposeEffects?.());
+	const eventOrigins = createEventOrigins();
+	lifetime.own(() => eventOrigins.dispose());
 	let registrationInProgress = false;
 	let acquiring = false;
 
@@ -276,8 +284,9 @@ export default function igniteElementFactory<
 		host?: EventTarget,
 	) => AdditionalRenderArgs<State, Event, RenderArgs> = (adapter, host) => {
 		const args =
-			options?.createAdditionalArgs?.(adapter, host) ??
-			({} as AdditionalRenderArgs<State, Event, RenderArgs>);
+			options?.createAdditionalArgs?.(adapter, host, (name) =>
+				eventOrigins.observe(adapter, name, "effect"),
+			) ?? ({} as AdditionalRenderArgs<State, Event, RenderArgs>);
 		publishCatalogue(args);
 		return args;
 	};
@@ -345,7 +354,6 @@ export default function igniteElementFactory<
 	// effect-emitted events. The DOM render path creates its own real element.
 	const createRuntimeHost = (): EventTarget => {
 		const host = new EventTarget();
-		deferHostEffects(host);
 		return host;
 	};
 
@@ -374,6 +382,7 @@ export default function igniteElementFactory<
 	// Only explicit element cleanup may release a shared adapter early. A
 	// prepared cache is not a permanent lease; actual framework/watch/on users are.
 	const releaseUnusedSharedAdapter = () => {
+		if (sharedAdapter && options?.hasActiveEffects?.(sharedAdapter)) return;
 		if (!lifetime.active || !cleanupRequested || connectedViews || runtimeUsers)
 			return;
 		const adapter = sharedAdapter,
@@ -669,6 +678,8 @@ export default function igniteElementFactory<
 		dispose,
 		resolveInspection,
 		resolveRuntime: resolveRuntimeResources,
+		observeNative: (adapter, name) =>
+			eventOrigins.observe(adapter, name, "native"),
 		resolveDeliveredStates,
 		resolveStates,
 		retainRuntimeAccess: () => {
@@ -872,6 +883,7 @@ export default function igniteElementFactory<
 				private releaseOwner: (() => void) | undefined;
 				private counted = false;
 				private disconnectAttrObserver: (() => void) | undefined;
+				private releaseNativeEvents: (() => void) | undefined;
 				constructor() {
 					super(undefined, renderStrategyFactory());
 					if (lifetime.active) this.acquire();
@@ -914,12 +926,28 @@ export default function igniteElementFactory<
 					}
 					try {
 						this.acquire();
+						const adapter = this.adapter;
+						if (adapter && !this.releaseNativeEvents) {
+							const release = forwardNativeEvents(
+								adapter,
+								this,
+								eventTypes,
+								(name) => eventOrigins.observe(adapter, name, "native"),
+								lifetime,
+							);
+							if (!lifetime.active) {
+								release();
+								lifetime.assertActive();
+							}
+							this.releaseNativeEvents = release;
+						}
 						if (!this.counted) {
 							this.counted = true;
 							connectedViews++;
 						}
 						this.disconnectAttrObserver ??= setupAttributeObservation(this);
 						super.connectedCallback();
+						activateHostEffects(this);
 					} catch (error) {
 						try {
 							releaseAll([
@@ -936,6 +964,8 @@ export default function igniteElementFactory<
 					}
 				}
 				onTrueDisconnect(): void {
+					const nativeEvents = this.releaseNativeEvents;
+					this.releaseNativeEvents = undefined;
 					const args = this.additionalArgs,
 						commands = this.releaseCommands;
 					const observer = this.disconnectAttrObserver,
@@ -951,6 +981,7 @@ export default function igniteElementFactory<
 							cleanupRequested = true;
 					}
 					releaseAll([
+						() => nativeEvents?.(),
 						() => observer?.(),
 						() => commands?.(),
 						() => cleanupAdditionalArgs(args),
@@ -979,6 +1010,7 @@ export default function igniteElementFactory<
 		}
 
 		class IsolatedIgniteComponent extends IgniteElement<State, Event, View> {
+			private releaseNativeEvents: (() => void) | undefined;
 			private additionalArgs:
 				| AdditionalRenderArgs<State, Event, RenderArgs>
 				| undefined;
@@ -1022,7 +1054,23 @@ export default function igniteElementFactory<
 						this.initializeAdapter(adapter);
 					}
 
+					const adapter = this.adapterInstance;
+					if (adapter && !this.releaseNativeEvents) {
+						const release = forwardNativeEvents(
+							adapter,
+							this,
+							eventTypes,
+							(name) => eventOrigins.observe(adapter, name, "native"),
+							lifetime,
+						);
+						if (!lifetime.active) {
+							release();
+							lifetime.assertActive();
+						}
+						this.releaseNativeEvents = release;
+					}
 					super.connectedCallback();
+					activateHostEffects(this);
 				} catch (error) {
 					if (acquiring) {
 						const adapter = this.adapterInstance;
@@ -1048,6 +1096,8 @@ export default function igniteElementFactory<
 			}
 
 			public onTrueDisconnect(): void {
+				const nativeEvents = this.releaseNativeEvents;
+				this.releaseNativeEvents = undefined;
 				const disconnectObserver = this.disconnectAttrObserver;
 				const releaseCommands = this.releaseCommands;
 				this.releaseCommands = undefined;
@@ -1058,6 +1108,7 @@ export default function igniteElementFactory<
 				this.additionalArgs = undefined;
 				this.adapterInstance = undefined;
 				releaseAll([
+					() => nativeEvents?.(),
 					() => disconnectObserver?.(),
 					() => releaseCommands?.(),
 					() => cleanupAdditionalArgs(additionalArgs),

@@ -71,11 +71,17 @@ test("two native views borrow one ready actor without acquiring it during render
 	).start();
 	const stop = jest.spyOn(source, "stop");
 	const subscribe = jest.spyOn(source, "subscribe");
+	const evaluated = jest.fn();
 	const core = igniteCore({
 		source,
 		states: (snapshot) => ({ count: snapshot.context.count }),
 		commands: ({ actor }) => ({ add: () => actor.send({ type: "ADD" }) }),
+		effects: ({ select }) => {
+			const count = select((snapshot) => snapshot.context.count);
+			evaluated(count.previous, count.current);
+		},
 	});
+	expect(evaluated).not.toHaveBeenCalled();
 	const preparedSubscriptions = subscribe.mock.calls.length;
 	let held;
 	function Counter({ id }) {
@@ -98,6 +104,7 @@ test("two native views borrow one ready actor without acquiring it during render
 			);
 		});
 		expect(subscribe).toHaveBeenCalledTimes(preparedSubscriptions);
+		expect(evaluated).not.toHaveBeenCalled();
 		await act(async () => {
 			root.root.findByProps({ testID: "first" }).props.onPress();
 		});
@@ -107,6 +114,24 @@ test("two native views borrow one ready actor without acquiring it during render
 		await act(async () => {
 			root.unmount();
 		});
+		source.send({ type: "ADD" });
+		await Promise.resolve();
+		await act(async () => {
+			root = create(
+				<React.StrictMode>
+					<Counter id="again" />
+				</React.StrictMode>,
+			);
+		});
+		expect(
+			root.root.findByProps({ testID: "again-count" }).props.children,
+		).toBe(2);
+		expect(evaluated.mock.calls).toEqual([
+			[0, 1],
+			[1, 2],
+		]);
+		expect(subscribe).toHaveBeenCalledTimes(preparedSubscriptions);
+		await act(async () => root.unmount());
 		core.dispose();
 		core.dispose();
 		expect(stop).not.toHaveBeenCalled();
