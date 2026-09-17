@@ -71,7 +71,8 @@ At final application shutdown, dispose the core and separately stop a borrowed a
 import { createActor, createMachine } from 'xstate';
 import { igniteCore } from 'ignite-element/xstate';
 
-const source = createActor(createMachine({})).start();
+const machine = createMachine({});
+const source = createActor(machine).start();
 const core = igniteCore({ source });
 try {
   core.dispose();
