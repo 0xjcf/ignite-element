@@ -88,6 +88,18 @@ export default defineConfig({
 					label: "Examples",
 					slug: "handbook/examples",
 				},
+				{
+					label: "Guides",
+					collapsed: true,
+					items: [
+						{ label: "Actor-Web adapter", slug: "guides/actor-web" },
+						{ label: "Plain controllers", slug: "guides/plain-controllers" },
+						{ label: "Shared sources", slug: "guides/shared-source-ownership" },
+						{ label: "Routing", slug: "guides/routing" },
+						{ label: "Accessibility", slug: "guides/accessibility-first" },
+						{ label: "Build for agents", slug: "guides/agent-runtime-v3" },
+					],
+				},
 			],
 		}),
 	],

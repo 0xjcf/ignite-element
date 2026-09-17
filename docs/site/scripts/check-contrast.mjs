@@ -443,6 +443,7 @@ async function main() {
 				await page.setViewportSize({ width, height: 960 });
 				for (const path of [
 					"/",
+					"/handbook/sources/",
 					"/handbook/examples/",
 					"/handbook/api/",
 					"/guides/routing/",
@@ -544,6 +545,12 @@ async function main() {
 								.scrollIntoViewIfNeeded();
 						}
 						await capture(page, `starlight-${theme}-${width}-${name}`);
+						if (path === "/handbook/sources/" && SCREENSHOTS) {
+							await page.screenshot({
+								path: join(SCREENSHOTS, `sources-${theme}-${width}-full.png`),
+								fullPage: true,
+							});
+						}
 					}
 					assert.ok(
 						layout.overflow <= 1,
@@ -602,7 +609,62 @@ async function main() {
 			await context.close();
 		}
 		console.log(
-			"Shared layout: 50 page/theme/viewport cases; table grids and table/code keyboard scrolling passed.",
+			"Shared layout: 60 page/theme/viewport cases; table grids and table/code keyboard scrolling passed.",
+		);
+
+		// Readers can revisit retained guides from either navigation layout.
+		for (const theme of THEMES) {
+			for (const width of [1440, 390]) {
+				const context = await browser.newContext({
+					viewport: { width, height: 960 },
+				});
+				await context.addInitScript(
+					(value) => localStorage.setItem("starlight-theme", value),
+					theme,
+				);
+				const page = await context.newPage();
+				for (const [slug, label] of [
+					["actor-web", "Actor-Web adapter"],
+					["plain-controllers", "Plain controllers"],
+				]) {
+					await page.goto(`${origin}/handbook/sources/`);
+					await page.locator(`main a[href="${BASE}/guides/${slug}/"]`).click();
+					await page.waitForURL(`${origin}/guides/${slug}/`);
+					if (width < 800)
+						await page
+							.getByRole("button", { name: "Menu", exact: true })
+							.click();
+					const sidebar = page.locator(".sidebar-pane");
+					const active = sidebar.getByRole("link", {
+						name: label,
+						exact: true,
+					});
+					await expect(active).toBeVisible();
+					await expect(active).toHaveAttribute("aria-current", "page");
+					await capture(page, `guides-${slug}-${theme}-${width}`);
+					await sidebar
+						.getByRole("link", { name: "Sources", exact: true })
+						.click();
+					await page.waitForURL(`${origin}/handbook/sources/`);
+					if (width < 800)
+						await page
+							.getByRole("button", { name: "Menu", exact: true })
+							.click();
+					const group = sidebar.locator("details").filter({
+						has: page.locator("summary", { hasText: /^\s*Guides\s*$/ }),
+					});
+					if (!(await group.evaluate((element) => element.open))) {
+						await group.locator("summary").focus();
+						await page.keyboard.press("Enter");
+					}
+					await sidebar.getByRole("link", { name: label, exact: true }).click();
+					await page.waitForURL(`${origin}/guides/${slug}/`);
+				}
+				await context.close();
+			}
+		}
+		console.log(
+			"Sources guide links, active sidebar entries and keyboard return navigation pass in both themes on desktop/mobile.",
 		);
 
 		// Geometry guardrail (theme-agnostic — checked once).

@@ -1,53 +1,124 @@
 ---
 title: Sources
-description: Pass an existing source through its supported adapter entrypoint.
+description: Choose a source adapter, derive values, and send commands to your source.
 ---
 
 import { Code } from '@astrojs/starlight/components';
 import redux from '../../../../../../scripts/__tests__/fixtures/handbook/redux.ts?raw';
 import mobx from '../../../../../../scripts/__tests__/fixtures/handbook/mobx.ts?raw';
 
-Pass your existing source directly to the matching `igniteCore` entrypoint.
-An __Ignite source adapter__ normalizes snapshots, commands, and observation.
-An __application I/O adapter or port__ supplies network, storage, timers, or
-other environmental capabilities to the source. These are different jobs.
+Your source owns state and behavior.
 
-| Source | Import | Native snapshot | Commands use |
-| --- | --- | --- | --- |
-| XState actor or machine | `ignite-element/xstate` | XState snapshot | `actor.send(event)` |
-| Redux store or slice | `ignite-element/redux` | Store/slice state | `actor.dispatch(action)` |
-| MobX observable or factory | `ignite-element/mobx` | Observable value | Native actions |
-| Optional Actor-Web source | `ignite-element/actor-web` | Source snapshot | Source command interface |
+Pass it to `igniteCore` through the entrypoint for your source library.
+
+Use `states` to derive values for the view and `commands` to call the source.
+
+## Choose a source adapter
+
+An Ignite source adapter connects your source to Ignite's observation and command APIs.
+
+| Source | Import `igniteCore` from |
+| --- | --- |
+| XState | `ignite-element/xstate` |
+| Redux | `ignite-element/redux` |
+| MobX | `ignite-element/mobx` |
+| Actor-Web | `ignite-element/actor-web` |
+
+Network requests, storage, timers, and other I/O stay in your source or application.
+
+## What `states` receives
+
+The callback input depends on the source adapter.
+
+| Source | Input to `states` |
+| --- | --- |
+| XState | The actor snapshot, including `context`, `matches(...)`, and `can(...)` for state machines. |
+| Redux | The store's `getState()` result, or the selected slice state when you pass a slice. |
+| MobX | The result of `toJS(store)`, rather than the observable instance itself. |
+| Actor-Web | An extended state combining the source snapshot, its context fields, and transport status. |
+
+The name `snapshot` in the examples is a callback parameter, not a shared shape across all sources.
 
 ## XState
 
-[Getting started](/ignite-element/#build-a-component) shows a complete started
-actor. Its native snapshot exposes `context`, `matches(...)`, and `can(...)`.
-XState machine states describe behavior; Ignite `states` derives values for views.
-Keep invocation, cancellation, guards, retries, and persistence in the source.
+Install Ignite and XState:
+
+```sh title="Terminal"
+pnpm add ignite-element@3.0.0-beta.14 xstate
+```
+
+The [Getting started light switch](/ignite-element/#build-a-component) passes a machine definition to `igniteCore`.
+
+Each mounted light switch gets its own actor.
+
+To share state between views, pass an existing started actor instead.
+
+XState machine states describe behavior; Ignite's `states` callback derives values for views.
+
+Keep guards, invoked services, cancellation, retries, and persistence in XState or the application.
 
 ## Redux
 
+Install Ignite and Redux Toolkit:
+
+```sh title="Terminal"
+pnpm add ignite-element@3.0.0-beta.14 @reduxjs/toolkit
+```
+
+Create `redux.ts` to connect a counter store:
+
 <Code code={redux} lang="ts" title="redux.ts" />
 
-A combined store uses its root shape, for example `snapshot.counter.count`.
-A Redux slice passed directly creates isolated state; the snapshot is the slice
-state. See [ownership](/ignite-element/handbook/ownership/).
+The `states` callback reads `snapshot.count` because this store uses the counter reducer directly.
+
+The `increment()` command dispatches the slice's action to the store.
+
+For a combined store, read its root shape, such as `snapshot.counter.count`.
+
+Passing a store shares that store between views.
+
+Passing a Redux slice instead creates isolated state for each element.
 
 ## MobX
 
+Install Ignite and MobX:
+
+```sh title="Terminal"
+pnpm add ignite-element@3.0.0-beta.14 mobx
+```
+
+Create `mobx.ts` to connect an observable counter:
+
 <Code code={mobx} lang="ts" title="mobx.ts" />
 
-For an isolated observable factory use `source: () => new Counter()` and
-`adapter: 'mobx'`. The explicit adapter avoids executing a factory to infer it.
-Both examples keep `states` and `commands` inline so their types are inferred.
-Call `core.dispose()` when its application owner ends.
+The `states` callback reads the observable data copied by `toJS`.
+
+Do not assume methods or computed getters are fields in that result.
+
+The `increment()` command calls the original store's action through `actor`.
+
+Passing an observable instance shares it between views.
+
+For an isolated observable per element, use `source: () => new Counter()` with `adapter: "mobx"`.
+
+The explicit adapter identifies the factory without calling it to guess its type.
 
 ## Optional integrations
 
-[Actor-Web](/ignite-element/guides/actor-web/) adapts an existing distributed
-runtime. Actor-Web retains admission, authorization, execution receipts, replay,
-transport, and shutdown authority. Ignite only adapts and projects its facts.
+These integrations are not required for XState, Redux, or MobX:
 
-Existing plain controllers can use the [advanced interoperability recipe](/ignite-element/guides/plain-controllers/).
-Neither integration is required for XState, Redux, or MobX.
+- [Actor-Web adapter](/ignite-element/guides/actor-web/): project an existing distributed runtime into a view.
+- [Plain-controller interoperability](/ignite-element/guides/plain-controllers/): adapt an existing TypeScript controller to the supported source protocol.
+
+Actor-Web retains ownership of admission, authorization, execution receipts, replay, transport, and shutdown.
+
+Find these pages again in the sidebar's __Guides__ group.
+
+## Where next
+
+- [Views](/ignite-element/handbook/views/): render the values and commands exposed by your core.
+- [Ownership & cleanup](/ignite-element/handbook/ownership/): choose shared or isolated state and place cleanup at its owner boundary.
+
+At final application shutdown, call `core.dispose()` to release Ignite-owned resources.
+
+The application remains responsible for shutting down any source it created.
