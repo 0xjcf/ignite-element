@@ -9,7 +9,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: pages
+  group: pages-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -64,7 +64,7 @@ jobs:
 
   deploy:
     needs: build
-    if: github.ref == 'refs/heads/beta'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/beta'
     runs-on: ubuntu-22.04
     permissions:
       pages: write
