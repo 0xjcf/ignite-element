@@ -395,15 +395,12 @@ export function inspectDocumentationWorkflow(
 		if (deploy.needs !== "build" && !same(deploy.needs, ["build"]))
 			problems.push("deploy must depend on successful build");
 		for (const [name, job] of Object.entries({ build, deploy })) {
-			if (
-				![
-					"github.ref == 'refs/heads/beta'",
-					`\${{ github.ref == 'refs/heads/beta' }}`,
-				].includes(job.if)
-			)
-				problems.push(
-					`${name} must use the explicit beta-only condition with implicit success()`,
-				);
+			const condition =
+				name === "deploy"
+					? "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/beta'"
+					: "github.ref == 'refs/heads/beta'";
+			if (![condition, `\${{ ${condition} }}`].includes(job.if))
+				problems.push(`${name} must use ${condition} with implicit success()`);
 		}
 		if (deploy.environment?.name !== "github-pages")
 			problems.push("deploy must use the github-pages environment");

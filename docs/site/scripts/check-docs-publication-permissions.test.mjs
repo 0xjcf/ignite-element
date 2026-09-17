@@ -396,6 +396,42 @@ for (const kind of ["contrast", "deploy"]) {
 	});
 }
 const deploymentMutations = new Map([
+	[
+		"automatic push deployment",
+		(d) => d.setIn(["jobs", "deploy", "if"], "github.ref == 'refs/heads/beta'"),
+	],
+	[
+		"push event deployment",
+		(d) =>
+			d.setIn(
+				["jobs", "deploy", "if"],
+				"github.event_name == 'push' && github.ref == 'refs/heads/beta'",
+			),
+	],
+	[
+		"dispatch without branch restriction",
+		(d) =>
+			d.setIn(
+				["jobs", "deploy", "if"],
+				"github.event_name == 'workflow_dispatch'",
+			),
+	],
+	[
+		"dispatch or beta instead of both",
+		(d) =>
+			d.setIn(
+				["jobs", "deploy", "if"],
+				"github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/beta'",
+			),
+	],
+	[
+		"dispatch bypassing failed build",
+		(d) =>
+			d.setIn(
+				["jobs", "deploy", "if"],
+				"always() && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/beta'",
+			),
+	],
 	["missing build branch guard", (d) => d.deleteIn(["jobs", "build", "if"])],
 	[
 		"main build branch guard",
@@ -730,3 +766,15 @@ for (const kind of ["contrast", "deploy"]) {
 		});
 	}
 }
+
+test("deployment requires an explicit beta dispatch while pushes retain build checks", () => {
+	const doc = parseDocument(deployment).toJSON();
+	assert.deepEqual(doc.on.push.branches, ["beta"]);
+	assert.ok(Object.hasOwn(doc.on, "workflow_dispatch"));
+	assert.equal(doc.jobs.build.if, "github.ref == 'refs/heads/beta'");
+	assert.equal(
+		doc.jobs.deploy.if,
+		"github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/beta'",
+	);
+	assert.equal(doc.jobs.deploy.needs, "build");
+});
