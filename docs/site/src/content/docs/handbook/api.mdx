@@ -16,8 +16,10 @@ description: Construction, configuration, bindings, and runtime return shapes.
 | Root registrar `(tagName, renderer)` | Source-free registered component handle |
 
 The first row shows the common configuration shape, not a universal TypeScript
-overload: source-specific options retain their adapter types. MobX factories
-require `adapter: 'mobx'`. Registration requires DOM; source-backed construction
+overload: source-specific options retain their adapter types.
+The dedicated MobX and Redux imports accept factories without an `adapter` property.
+An explicit matching discriminator remains valid.
+Registration requires DOM; source-backed construction
 and execution do not. Opaque document/speech targets are separate from DOM elements.
 
 ## Configuration

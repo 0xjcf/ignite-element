@@ -8,6 +8,8 @@ description: Pass an existing source through its supported adapter entrypoint.
 import { Code } from '@astrojs/starlight/components';
 import redux from '../../../../../../scripts/__tests__/fixtures/handbook/redux.ts?raw';
 import mobx from '../../../../../../scripts/__tests__/fixtures/handbook/mobx.ts?raw';
+import reduxFactory from '../../../../../../scripts/__tests__/fixtures/handbook/redux-factory.ts?raw';
+import mobxFactory from '../../../../../../scripts/__tests__/fixtures/handbook/mobx-factory.ts?raw';
 
 Pass your existing source directly to the matching `igniteCore` entrypoint.
 An __Ignite source adapter__ normalizes snapshots, commands, and observation.
@@ -17,7 +19,7 @@ other environmental capabilities to the source. These are different jobs.
 | Source | Import | Native snapshot | Commands use |
 | --- | --- | --- | --- |
 | XState actor or machine | `ignite-element/xstate` | XState snapshot | `source.send(event)` |
-| Redux store or slice | `ignite-element/redux` | Store/slice state | `source.dispatch(action)` |
+| Redux store, slice, or factory | `ignite-element/redux` | Store/slice state | `source.dispatch(action)` |
 | MobX observable or factory | `ignite-element/mobx` | Observable value | Native actions |
 | Optional Actor-Web source | `ignite-element/actor-web` | Source snapshot | Source command interface |
 
@@ -44,14 +46,23 @@ Keep invocation, cancellation, guards, retries, and persistence in the source.
 
 A combined store uses its root shape, for example `snapshot.counter.count`.
 A Redux slice passed directly creates isolated state; the snapshot is the slice
-state. See [ownership](/ignite-element/handbook/ownership/).
+state.
+For a separate store per element, pass a factory through `ignite-element/redux`:
+
+<Code code={reduxFactory} lang="ts" title="redux-factory.ts" />
+
+The dedicated import selects the adapter; no `adapter` property is needed.
+See [ownership](/ignite-element/handbook/ownership/).
 
 ## MobX
 
 <Code code={mobx} lang="ts" title="mobx.ts" />
 
-For an isolated observable factory use `source: () => new Counter()` and
-`adapter: 'mobx'`. The explicit adapter avoids executing a factory to infer it.
+For a separate observable per element, pass a factory through `ignite-element/mobx`:
+
+<Code code={mobxFactory} lang="ts" title="mobx-factory.ts" />
+
+The dedicated import selects the adapter; no `adapter` property is needed.
 Both examples keep `states` and `commands` inline so their types are inferred.
 Call `core.dispose()` when its application owner ends.
 

@@ -116,7 +116,6 @@ const cases = [
 						})
 					: form === "factory"
 						? reduxCore({
-								adapter: "redux",
 								source: factory,
 								states: (s) => ({ count: s.count }),
 								commands: ({ source: store }) => ({
@@ -155,7 +154,6 @@ const cases = [
 						}),
 					})
 				: mobxCore({
-						adapter: "mobx",
 						source: factory,
 						states: (s) => ({ count: s.count }),
 						commands: ({ source: store }) => ({

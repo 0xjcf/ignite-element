@@ -325,6 +325,7 @@ function verifyConsumer(lane, tarballPaths) {
 				},
 				include: [
 					"consumer.tsx",
+					"factory.ts",
 					"removed-*.ts",
 					"native-events.tsx",
 					"event-contract.tsx",
@@ -394,6 +395,19 @@ assert.throws(() => require.resolve("lit-html"), { code: "MODULE_NOT_FOUND" });`
 			join(consumerDirectory, "consumer.tsx"),
 			readFileSync(
 				join(repositoryRoot, "scripts/__tests__/fixtures", `${lane.name}.ts`),
+				"utf8",
+			),
+		);
+	}
+	if (lane.name === "neutral-mobx" || lane.name === "neutral-redux") {
+		writeFileSync(
+			join(consumerDirectory, "factory.ts"),
+			readFileSync(
+				join(
+					repositoryRoot,
+					"packages/ignite-element/src/tests/types",
+					`factory-${lane.name.slice("neutral-".length)}.ts`,
+				),
 				"utf8",
 			),
 		);
@@ -681,6 +695,12 @@ igniteCore({ onConnect() {} });
 igniteCore({ onConnect: undefined });
 // @ts-expect-error source belongs to adapter entrypoints
 igniteCore({ source: {} });
+// @ts-expect-error An explicit discriminator does not make the root source-aware.
+igniteCore({ source: () => ({}), adapter: "mobx" });
+// @ts-expect-error An explicit discriminator does not make the root source-aware.
+igniteCore({ source: () => ({}), adapter: "redux" });
+// @ts-expect-error Factories still belong to dedicated entrypoints.
+igniteCore({ source: () => ({}) });
 // @ts-expect-error invalid source is not a static component
 igniteCore({ source: undefined });
 // @ts-expect-error no states configuration
@@ -719,7 +739,7 @@ for (const args of [[], [undefined], [{}]]) {
     assert.equal(name in core, false);
   }
 }
-for (const config of [null, [], 1, "", () => {}, { onConnect() {} }, { source: undefined }, { states() {} }, { unexpected: true }]) {
+for (const config of [null, [], 1, "", () => {}, { onConnect() {} }, { source: undefined }, { source: () => ({}) }, { source: () => ({}), adapter: "mobx" }, { source: () => ({}), adapter: "redux" }, { states() {} }, { unexpected: true }]) {
   assert.throws(() => root.igniteCore(config), /source-free.*configuration/i);
 }
 `;

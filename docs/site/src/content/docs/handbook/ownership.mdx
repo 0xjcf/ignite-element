@@ -9,7 +9,8 @@ description: Choose sharing deliberately and release resources at their owner bo
 | --- | --- |
 | Existing XState actor, Redux store, MobX observable | Borrowed and shared; application owns native shutdown |
 | XState machine, Redux slice | Isolated runtime instances acquired when used |
-| MobX factory with `adapter: 'mobx'` | Isolated observable per instance |
+| Redux store factory from `ignite-element/redux` | Isolated store per instance |
+| MobX factory from `ignite-element/mobx` | Isolated observable per instance |
 | Actor-Web source or headless factory | Application retains native close authority |
 
 One core serves one source/runtime contract. Multiple registered names or hooks

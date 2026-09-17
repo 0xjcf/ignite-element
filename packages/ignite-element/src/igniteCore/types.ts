@@ -11,12 +11,11 @@ import type {
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
 import type { AnyStateMachine } from "xstate";
 import type { ActorWebConfig } from "./actorWebTypes";
-import type { MobxConfig } from "./mobxTypes";
 import type {
-	ReduxBlueprintConfig,
-	ReduxInstanceConfig,
-	ReduxInstanceSource,
-} from "./reduxTypes";
+	DispatchMobxConfig as MobxConfig,
+	DispatchReduxBlueprintConfig as ReduxBlueprintConfig,
+} from "./dispatchTypes";
+import type { ReduxInstanceConfig, ReduxInstanceSource } from "./reduxTypes";
 import type { XStateConfig } from "./xstateTypes";
 
 export type {
@@ -31,7 +30,11 @@ export type {
 	EventsDefinition,
 } from "@ignite-element/core";
 export type * from "./actorWebTypes";
-export type * from "./mobxTypes";
+export type { MobxEvent } from "./mobxTypes";
+export type {
+	DispatchMobxConfig as MobxConfig,
+	DispatchReduxBlueprintConfig as ReduxBlueprintConfig,
+} from "./dispatchTypes";
 export type * from "./publicTypes";
 export type * from "./reduxTypes";
 export type * from "./xstateTypes";
