@@ -6,6 +6,10 @@ This ledger carries all A01–A12 and E01–E10 findings from the supplied audit
 
 Current slice: shared editorial consistency across current pages, with Getting started still the next acceptance checkpoint. The parked branch stays unchanged at `1cfc2310557e9ed602c6e7f9524e9827e45f4dbc`, tree `14689a7da715fa2cfde41745438f7485bbb34b5d`. Its original Getting started approval remains historical evidence. The local successor `fas/docs-getting-started-source` includes integrated beta `af0de5696b60922aacbbcc895879adcc72851357`; see the [factory reconciliation and Getting started re-review receipt](getting-started-factory-reconciliation.md). Getting started now awaits re-review. Sources still awaits review and Views remains queued. The accepted shared presentation is preserved. The Operator has authorized the shared prose pass below; individual page acceptance remains sequential.
 
+## Shared and isolated hook setup — 2026-09-17
+
+The Operator identified an ambiguous preparation instruction in Ownership and supplied the Navigator's distinction between existing sources and isolated inputs. The [hook setup receipt](hook-setup.md) records implementation verification, separated guidance and related reference corrections. Ordinary shared-source examples still need no preparation read. Page checkpoints are unchanged.
+
 ## JSX teaching path and owner-boundary cleanup — 2026-09-17
 
 The Operator requested removing advanced-config promotion from v3 teaching and making hook/core/source cleanup responsibilities concrete. The [cleanup and renderer-scope receipt](jsx-and-owner-boundaries.md) records JSX-focused links, a clearly labeled compatibility reference, corrected legacy destinations, and a session-end example. Runtime support and page acceptance are unchanged.

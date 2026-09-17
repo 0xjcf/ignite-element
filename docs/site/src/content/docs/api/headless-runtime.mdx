@@ -57,11 +57,17 @@ A retained DOM element is not a projection target.
 There is no zero-argument form, raw-snapshot key, path language or function lookup.
 
 - `get("states")` reads the optional derived projection; omitted states return a
-  stable empty object. Its first read prepares the owner runtime, real commands,
-  and observation cache outside framework rendering.
+  stable empty object. On an isolated core, it also acquires the headless runtime
+  if needed, including commands and the observation cache.
 - `get("schema")` returns the immutable minimal catalogue described below.
 - `get("commands")` and `get("events")` select catalogue data, not functions or
   event history.
+
+Existing-source cores are ready at construction and need no preparation read before `useIgnite(core)`.
+
+For isolated cores, acquire the headless runtime outside framework rendering before using the hook.
+
+See [isolated headless cores](/ignite-element/handbook/ownership/#isolated-headless-cores).
 
 Native source APIs such as `actor.getSnapshot()` remain source-owned.
 
@@ -81,7 +87,7 @@ The returned `{ unsubscribe() }` handle is independently idempotent.
 
 For an imperative initial render, subscribe first, then call `get('states')`, and unsubscribe if that render throws.
 
-A first preparation read may return its captured initial value while synchronous replay has already updated the framework cache.
+When a read first acquires an isolated headless runtime, it may return its captured initial value while synchronous replay has already updated the framework cache.
 
 ### `on(name, handler)`
 
@@ -202,9 +208,11 @@ Project availability into public states while preserving source enforcement; ava
 
 `useIgnite(core)` from `ignite-element/react` borrows a core created by its owner outside rendering.
 
-Shared-source cores prepare at construction.
+With an existing actor, store or observable, pass the core directly to the hook without a preparation read.
 
-Isolated headless acquisition remains explicit.
+For a machine, slice or source factory, [acquire the isolated headless runtime](/ignite-element/handbook/ownership/#isolated-headless-cores) outside rendering first.
+
+Multiple hooks using the same core share its headless runtime.
 
 The hook returns inferred derived states and stable callable commands.
 

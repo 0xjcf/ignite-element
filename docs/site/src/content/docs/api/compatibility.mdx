@@ -85,7 +85,11 @@ Disposed registered cores leave later connections inert.
 
 Handles and projection sessions remain independently releasable.
 
-Shared-source cores prepare during owner-controlled construction; the React hook needs no preparation-only read and never disposes its owner on unmount.
+With an existing actor, store or observable, the core is ready at construction and needs no preparation read before `useIgnite(core)`.
+
+Machine, slice and source-factory inputs need [isolated headless acquisition](/ignite-element/handbook/ownership/#isolated-headless-cores) outside rendering before using the hook.
+
+The hook never disposes its owning core on unmount.
 
 SSR, framework commit barriers and native device execution are not implied.
 

@@ -20,11 +20,27 @@ Multiple registered names or hooks may intentionally share that contract.
 
 Create the source and core outside framework rendering.
 
-Shared cores are ready after construction.
+When you pass an existing XState actor, Redux store or MobX observable, the core is ready after construction.
 
-Acquire an isolated headless runtime outside rendering.
+Pass that core directly to `useIgnite(core)`.
 
-Call `core.get('states')` before a hook borrows that core.
+No preparation read is required.
+
+See the [shared React example](/ignite-element/handbook/views/#two-views-one-source).
+
+### Isolated headless cores
+
+Passing an XState machine, Redux slice or source factory leaves the headless runtime uncreated until it is first used.
+
+Before passing that core to `useIgnite(core)`, acquire its headless runtime outside framework rendering by calling `core.get('states')`.
+
+The hook rejects an isolated core whose headless runtime has not been acquired.
+
+Multiple hooks borrowing that core share its one headless runtime.
+
+Mounting another hook does not create another actor or store.
+
+This differs from registered custom elements, where each element gets its own isolated source instance.
 
 ## Observation handles
 
