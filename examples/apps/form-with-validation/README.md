@@ -56,5 +56,4 @@ pnpm run dev
 The Vite config aliases `ignite-element` and the `@ignite-element/*` workspace
 packages to local **source**, so the app always runs against current code.
 `xstate` is pinned to the workspace version (`5.32.1`). ignite-JSX is transformed
-from this example's `tsconfig.json` `jsxImportSource` (Vite reads it) — the same
-config-free setup as the spa-router app.
+from this example's `tsconfig.json` `jsxImportSource` (Vite reads it).

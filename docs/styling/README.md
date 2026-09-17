@@ -19,23 +19,17 @@ const cardCss = `
 );
 ```
 
-This keeps structure and styling together, works without `ignite.config.ts`, and lets the JSX renderer preserve the same `<style>` node across ordinary rerenders instead of duplicating it.
+This keeps structure and styling together.
+
+The JSX renderer preserves the same `<style>` node across ordinary rerenders instead of duplicating it.
 
 If your bundler can import CSS as text, you can replace `cardCss` with that imported string. If it cannot, keep the CSS string in a `.ts` module or inline constant.
 
 ## Shared shadow-root styles
 
-Use `defineIgniteConfig({ styles })` from `ignite-renderer` only when you want one stylesheet injected into every component shadow root.
+Use `defineIgniteConfig({ styles })` from `@ignite-element/renderer` to inject one stylesheet into every component shadow root.
 
-```ts
-import { defineIgniteConfig } from "ignite-renderer";
-
-export default defineIgniteConfig({
-  styles: new URL("./theme.css", import.meta.url).href,
-});
-```
-
-Treat this as an advanced compatibility path for shared themes, not the default authoring flow.
+See [Advanced configuration](https://0xjcf.github.io/ignite-element/api/advanced-config/) for dependencies and complete setup.
 
 ## CSS variables across shadow boundaries
 
@@ -55,7 +49,7 @@ Host pages can then set `--card-bg` outside the shadow root without rewriting co
 
 ## CSP note
 
-Inline `<style>` tags can conflict with strict `style-src` CSP settings. If your host app forbids inline styles, use shared stylesheet URLs through advanced `ignite-renderer` config or a bundler flow that emits external CSS files.
+Inline `<style>` tags can conflict with strict `style-src` CSP settings. If your host app forbids inline styles, use shared stylesheet URLs through [shared stylesheet settings](https://0xjcf.github.io/ignite-element/api/advanced-config/) or a bundler flow that emits external CSS files.
 
 ## Light-DOM page styles
 

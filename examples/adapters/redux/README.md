@@ -82,12 +82,13 @@ Each registered element receives the projected **view** fields (e.g. `count`) an
 
 ---
 
-## Styling with Bootstrap (config-free)
+## Styling with Bootstrap
 
 Ignite renders each component into its own Shadow DOM, so Bootstrap's classes
-can't reach component internals from a global `<link>`. The example imports
-Bootstrap's stylesheet as raw text and injects a `<style>` into each component's
-shadow root — no `ignite.config.ts`, no sass build step:
+can't reach component internals from a global `<link>`.
+
+The example imports Bootstrap's stylesheet as raw text and injects a `<style>`
+into each component's shadow root:
 
 ```tsx
 import bootstrapStyles from "bootstrap/dist/css/bootstrap.min.css?raw";

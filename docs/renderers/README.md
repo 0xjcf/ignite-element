@@ -6,8 +6,6 @@ Ignite Element ships with Ignite JSX as the default renderer. The normal v3 path
 2. Return JSX from your component render function.
 3. Co-locate any component CSS with ordinary `<style>` tags.
 
-No `ignite.config.ts` file or bundler plugin is required for that path.
-
 ## Default JSX path
 
 ```tsx
@@ -25,32 +23,13 @@ component("ignite-counter", ({ count, increment }) => (
 
 The JSX renderer diffs ordinary rerenders by default, so stable nodes such as `<style>` tags are updated in place instead of being duplicated.
 
-## Renderer compatibility
+## Lit and project-wide settings
 
-- `ignite-jsx` is the default and requires no extra registration through the public `ignite-element` entrypoints.
-- `lit` remains supported for compatibility. Use it when you need to preserve existing lit templates.
-- `ignite.config.ts`, `igniteConfigVitePlugin()`, and `IgniteConfigWebpackPlugin` stay available as advanced compatibility tools, not the default onboarding path.
+For Lit templates, import `@ignite-element/renderer/lit` before registering components.
 
-Use config only when you need one of these project-wide overrides:
+For shared shadow-root styles or renderer settings, use `defineIgniteConfig` from `@ignite-element/renderer`.
 
-- shared shadow-root stylesheet injection
-- renderer selection such as `renderer: "lit"`
-- strategy/logging diagnostics for debugging
-
-## Optional config path
-
-```ts
-import { defineIgniteConfig } from "ignite-renderer";
-
-export default defineIgniteConfig({
-  styles: new URL("./theme.css", import.meta.url).href,
-  logging: "warn",
-  // renderer: "lit",
-  // strategy: "replace",
-});
-```
-
-If you opt into `lit`, import `ignite-renderer/lit` yourself before registering components.
+See [Advanced configuration](https://0xjcf.github.io/ignite-element/api/advanced-config/) for dependencies and complete setup.
 
 ## Diff vs. replace
 

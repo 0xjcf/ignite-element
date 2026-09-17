@@ -11,5 +11,4 @@ Use the current handbook as the API authority:
 - [Events and effects](https://0xjcf.github.io/ignite-element/handbook/events/): native occurrences, declarations and queued delivery.
 - [Advanced configuration](https://0xjcf.github.io/ignite-element/api/advanced-config/): optional renderer configuration and public imports.
 
-Ordinary examples need no configuration file or command helper. Keep `states`
-and `commands` inline for inference and render through `ctx`.
+Keep `states` and `commands` inline for inference and render through `ctx`.

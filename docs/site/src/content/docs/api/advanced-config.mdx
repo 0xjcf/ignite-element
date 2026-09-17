@@ -1,6 +1,6 @@
 ---
 title: Advanced config
-description: The ignite.config.ts file, defineIgniteConfig options, renderer selection, and render-strategy primitives in one reference.
+description: Optional project-wide styles, renderer settings, and render-strategy primitives.
 sidebar:
   label: Advanced config
   order: 5
@@ -24,7 +24,15 @@ For Lit without project-wide settings, see [Renderer selection](#renderer-select
 
 `ignite.config.ts` is an ordinary TypeScript module that calls `defineIgniteConfig` and `export default`s the result.
 
-There is **no auto-loader** in the v3 beta API — you wire the file in yourself.
+Load it explicitly from your application entry module.
+
+The filename is a convention; another module name works too.
+
+Install the package you import directly:
+
+```sh title="Terminal"
+pnpm add @ignite-element/renderer@beta
+```
 
 ### 1. Create the config file
 
@@ -174,11 +182,10 @@ Manage shared styles through `defineIgniteConfig({ styles })` instead.
 
 - With no `renderer` set — whether config is absent or present only for `styles`/`logging` — Ignite auto-detects per view (lit for lit-html output, Ignite JSX otherwise).
 - `lit` is not part of the stable `ignite-element` root surface — import `@ignite-element/renderer/lit` to make the lit strategy available; auto-detection then selects it for lit-html views.
-- Legacy config-loader plugins are compatibility-only internals, not part of the v3 beta API. Keep them only in setups you already own.
 - `globalStyles` is a deprecated alias for `styles`; migrate to `styles`.
 
 ## Related
 
-- [The Ignite model](/ignite-element/handbook/sources/) — where the config-free default path is explained.
+- [Sources](/ignite-element/handbook/sources/) — connect source behavior to a component.
 - [igniteCore](/ignite-element/handbook/api/) — the component factory these options apply to.
 - [Compatibility](/ignite-element/api/compatibility/) — supported `lit-html` and toolchain versions.

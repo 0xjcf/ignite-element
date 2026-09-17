@@ -17,9 +17,8 @@ view is authored — it consumes the same browser contract either way.
   mirrors it into local state via `addEventListener` in `onMounted`.
 - **Commands via a ref.** `toggle()` is an element method, reached through a
   template ref.
-- **Config-free lit.** The element's `html\`\`` view renders with lit purely
-  because `@ignite-element/renderer/lit` is imported — auto-detected, no
-  `ignite.config.ts`.
+- **Lit renderer.** Importing `@ignite-element/renderer/lit` registers the
+  renderer for the element's `html\`\`` view.
 
 ## The Vue friction (not papered over)
 

@@ -74,9 +74,23 @@ See [Sources](/ignite-element/handbook/sources/) for each adapter's snapshot and
 
 The v2 `ignite-element/config/*` and `ignite-element/renderers/*` entrypoints are not public v3 entrypoints.
 
-The default Ignite JSX path needs no configuration plugin or renderer import.
+Remove `igniteConfigVitePlugin()` or `IgniteConfigWebpackPlugin` from your bundler setup.
 
-If your application uses shared shadow styles or Lit, follow [Advanced configuration](/ignite-element/api/advanced-config/).
+The v3 public API does not include these config-loader plugins.
+
+For Ignite JSX, use the compiler settings and component-local CSS shown in [Getting started](/ignite-element/).
+
+If your `ignite.config.ts` only selected the default JSX renderer, remove that file and its imports.
+
+Preserve any shared stylesheet or renderer settings your application still needs.
+
+For those settings, import `defineIgniteConfig` from `@ignite-element/renderer` and load the settings module explicitly before registering components.
+
+The filename `ignite.config.ts` has no special loading behavior in v3.
+
+For Lit, import `@ignite-element/renderer/lit` before registering components.
+
+See [Advanced configuration](/ignite-element/api/advanced-config/) for the required dependencies and complete setup.
 
 ## Check behavior and ownership
 

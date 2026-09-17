@@ -99,9 +99,7 @@ See `src/routerSource.test.ts`, `src/router.headless.test.ts`, and
 
 ## Styling
 
-Each component injects `styles.css?raw` into its own shadow root. The example
-still uses the config-free styling path: no `ignite.config.ts`, no router
-plugin, and no framework-specific router abstraction.
+Each component injects `styles.css?raw` into its own shadow root.
 
 ## More
 
