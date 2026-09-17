@@ -9,8 +9,7 @@ import coreTest from '../../../../../../scripts/__tests__/fixtures/handbook/core
 import viewTest from '../../../../../../scripts/__tests__/fixtures/handbook/toggle.test.tsx?raw';
 
 Test behavior at its owner boundary: the source, the core, then the rendered
-controls. Use ordinary assertions. The [retired testing API](/ignite-element/api/testing-dsl/)
-is migration material, not a prerequisite.
+controls. Use ordinary assertions.
 
 ## Setup
 
@@ -62,7 +61,7 @@ It checks actual accessible controls and source-derived state.
 Register each custom-element name once. Use fresh fixture-owned sources or
 explicitly shared fixtures; do not dispose a core that later tests reuse.
 Remove hosts, unsubscribe temporary observers, and terminally dispose test-owned
-cores. Registered-core disposal is supported since beta.13. Stop borrowed sources
+cores, including registered cores. Stop borrowed sources
 only when the test owns them. Use `try/finally` around the entire acquisition/use
 boundary so failed assertions still clean up.
 

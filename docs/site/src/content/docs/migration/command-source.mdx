@@ -1,61 +1,9 @@
 ---
-title: "Command context: actor to source"
-description: Upgrade an existing v3 beta command callback from actor to source without changing ownership.
+title: Moved documentation
+description: This documentation is now part of the v3 handbook.
+pagefind: false
 ---
 
-Use this note when upgrading a v3 beta application whose command callbacks receive `actor`.
+import LegacyRoute from '../../../components/LegacyRoute.astro';
 
-For a new project, follow [Getting started](/ignite-element/); no rename is needed.
-
-For the broader upgrade from stable v2, see [v2 to v3 (beta)](/ignite-element/migration/v3/).
-
-## Rename the callback property
-
-The command callback now receives `source` as its only command-target property.
-
-```diff
-- commands: ({ actor }) => ({
--   increment: () => actor.send({ type: "INCREMENT" }),
-+ commands: ({ source }) => ({
-+   increment: () => source.send({ type: "INCREMENT" }),
-  })
-```
-
-To keep an existing local variable name, change only the destructuring:
-
-```diff
-- commands: ({ actor }) => ({
-+ commands: ({ source: actor }) => ({
-    increment: () => actor.send({ type: "INCREMENT" }),
-  })
-```
-
-`{ source: store }` is the same local-alias pattern for Redux or MobX.
-
-There is no compatibility `actor` property, additional `store` property or configuration switch.
-
-## Keep the same source ownership
-
-Configuration `source` still accepts the adapter's supported instance, factory or definition.
-
-Callback `source` is the resolved command interface for the active instance.
-
-It is not necessarily the original configuration object, and the rename adds no methods or capabilities.
-
-Existing factories and definitions keep their acquisition rules and instance boundaries.
-
-Commands keep their argument types, results and return behavior.
-
-Effects and the `states` callback do not gain a new `source` property.
-
-Change the callback property while preserving source construction, subscriptions, command logic and cleanup.
-
-Disposing an Ignite core still does not shut down a borrowed source.
-
-## Update Ignite
-
-Update Ignite before applying the rename:
-
-```sh title="Terminal"
-pnpm add ignite-element@beta
-```
+<LegacyRoute route="migration/command-source" />

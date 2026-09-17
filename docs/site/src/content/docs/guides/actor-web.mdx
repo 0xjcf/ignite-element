@@ -72,7 +72,7 @@ export const shipmentCard = igniteCore({
 :::note[Source shapes]
 The neutral `ignite-element/actor-web` entrypoint accepts source values and factories callable without a host context. Neither a borrowed source nor headless factory invocation transfers native close authority. The application retains source handles and owns shutdown.
 
-Host-dependent factories use `igniteCore` from `ignite-element/actor-web/web`. Their context retains the real `{ host?: HTMLElement }` type, so `host?.getAttribute('fleet-id')` remains typed. Provisioning happens per element; metadata reads stay pure, and headless `get('states')`, `watch`, `on`, `execute` or React preparation reject before invoking that factory. Existing DOM factory-close behavior remains: handle close is not awaited backing-runtime shutdown. Since beta.13, owning-core `dispose()` also drains registered views and leaves later connections inert, without claiming Actor-Web backing-runtime shutdown.
+Host-dependent factories use `igniteCore` from `ignite-element/actor-web/web`. Their context retains the real `{ host?: HTMLElement }` type, so `host?.getAttribute('fleet-id')` remains typed. Provisioning happens per element; metadata reads stay pure, and headless `get('states')`, `watch`, `on`, `execute` or React preparation reject before invoking that factory. Existing DOM factory-close behavior remains: handle close is not awaited backing-runtime shutdown. Owning-core `dispose()` also drains registered views and leaves later connections inert, without claiming Actor-Web backing-runtime shutdown.
 :::
 
 ## Where sources come from

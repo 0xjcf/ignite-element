@@ -14,6 +14,10 @@ The Operator requested another audit after finding stale MobX prose. The [audit 
 
 The Operator requested the wording readers will see after the supporting beta is released. This supersedes temporary unreleased notices in the learner-facing candidate. The [publication-copy receipt](publication-copy-preview.md) records the beta install/download changes and remaining release verification. This local preview does not establish publication or authorize deployment. Getting started awaits re-review; Sources awaits review; Views remains queued.
 
+## Current API without beta migration notes — 2026-09-17
+
+The Operator approved removing beta-to-beta instructions and checking the other pages. The [cleanup receipt](current-api-without-beta-history.md) records current-contract wording, redirects for retired beta notes, and a stable-source-grounded v2 upgrade guide. Earlier proposed Release notes navigation is no longer planned; package changelogs retain release history. Page checkpoints remain unchanged.
+
 ## Pages
 
 Source paths below are relative to `docs/site/src/content/docs/`. All pages inherit A06–A09 presentation validation; archive content retains its historical API.

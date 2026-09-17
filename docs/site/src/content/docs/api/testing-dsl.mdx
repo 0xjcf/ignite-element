@@ -1,23 +1,9 @@
 ---
-title: Testing API migration
-description: Migrate retired testing, story, recording, and accessibility-bridge APIs to ordinary tests.
-sidebar:
-  label: Testing API migration
-  order: 6
+title: Moved documentation
+description: This documentation is now part of the v3 handbook.
+pagefind: false
 ---
 
-The published v3 beta.12 retires the `test` export from `ignite-element` and all four adapter entrypoints, its 27 dedicated named testing/story types and declaration-reachable helpers, and the source-backed runtime's `record(name)` method. This old URL remains a migration notice, not a compatibility API.
+import LegacyRoute from '../../../components/LegacyRoute.astro';
 
-Use the [Testing guide](/ignite-element/handbook/testing/) for complete checked examples and [Headless runtime](/ignite-element/api/headless-runtime/) for retained signatures.
-
-| Former capability | Migration |
-| --- | --- |
-| `given`, snapshot/state checkpoints | Ordinary assertions on native source snapshots, execution results and `get('states')` |
-| `when`, `intent`, recorded `execute` | `await core.execute({ command, input })` and assertions on its result |
-| Fixture `behavior` | Run fixture-owned operations directly, then observe source outcomes |
-| `until` | Bounded application loops or bounded waits for source-owned completion |
-| Event expectations | Assert `result.events`; use `on(...)` for longer-lived observation |
-| Accessibility bridge and `expectControls` | Mount registered components and query their rendered elements by role and accessible name |
-| Story snapshots, traces, summaries, lifecycle histories | Intentionally removed; no replacement portable receipt or lifecycle recorder |
-
-Preserve command availability, errors, event ordering where contracted, native snapshots, derived states, asynchronous correlation and cleanup assertions. The source/application owns asynchronous work and source lifetime. Command, event, execution-result and subscription types remain. There is no alias, testing subpath, replacement hook or recorder package.
+<LegacyRoute route="api/testing-dsl" />

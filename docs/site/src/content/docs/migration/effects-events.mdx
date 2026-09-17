@@ -5,15 +5,15 @@ description: Preserve command input and choose a source occurrence or derived no
 
 ## Historical command emission
 
-This intentionally historical fragment illustrates the retired command `emit`
-capability. It is not current runnable code. The input describes the caller's
+This historical v2 fragment illustrates command-owned event emission.
+It is not current v3 code. The input describes the caller's
 intent and must survive migration.
 
 ```ts title="Historical command fragment" no-check
 commands: ({ actor, emit }) => ({
   toggle: (mode: 'user' | 'system') => {
     actor.send({ type: 'TOGGLE', mode });
-    emit({ type: 'toggleRequested', mode });
+    emit('toggleRequested', { mode });
   },
 })
 ```

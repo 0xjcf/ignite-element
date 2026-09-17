@@ -170,4 +170,4 @@ See [Commands and tool schemas](/ignite-element/api/command-metadata/).
 
 Assert the direct runtime results shown above, preserving source-owned asynchronous outcomes and real DOM coverage. Replace unbounded loops with an application-specific step limit; after a command starts asynchronous source work, wait on its correlated source state/event rather than assuming `execute()` completes it. Release observers and let the source owner stop native resources.
 
-The former recorder, trace helpers, story snapshots and lifecycle histories are intentionally retired without a replacement recorder. See the [migration notice](/ignite-element/api/testing-dsl/). Logic remains inspectable without the DOM, and the DOM remains a projection over that contract.
+Logic remains inspectable without the DOM, and the DOM remains a projection over that contract.

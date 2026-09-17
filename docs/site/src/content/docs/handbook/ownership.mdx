@@ -39,7 +39,7 @@ including with `cleanup: true`. See [effect activation and timing](/ignite-eleme
 ## Terminal disposal
 
 At final application shutdown, call `core.dispose()`. This is terminal even after
-successful custom-element registration (supported since beta.13). It releases
+successful custom-element registration. It releases
 Ignite-owned observation, events, effects, projections, bindings, and command
 windows. Registered definitions remain; later connections are inert.
 

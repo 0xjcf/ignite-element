@@ -74,12 +74,12 @@ test("verified beta.14 publication and exact installation are permitted", () =>
 		),
 	));
 
-test("current headless guidance uses beta.14 core-owned effect timing", () => {
+test("current headless guidance defines core-owned effect timing", () => {
 	const content = fs.readFileSync(
 		path.join(site, "src/content/docs/api/headless-runtime.mdx"),
 		"utf8",
 	);
-	assert.match(content, /published beta\.14/);
+	assert.doesNotMatch(content, /Since beta\.|required in beta\./);
 	assert.match(content, /one\s+evaluator per core\/source instance/);
 	assert.match(content, /not a renderer or\s+framework commit barrier/);
 	assert.doesNotMatch(content, /retain Ignite-renderer\s+post-render timing/);
@@ -105,7 +105,11 @@ test("current lifetime guides retain the published registered-disposal contract"
 			path.join(site, "src/content/docs", file),
 			"utf8",
 		);
-		assert.match(content, /beta\.13/, file);
+		assert.match(
+			content,
+			/dispos(?:al|e(?:\(\))?).{0,100}registered|registered.{0,100}dispos(?:al|e(?:\(\))?)/is,
+			file,
+		);
 		assert.doesNotMatch(
 			content,
 			/[Ss]uccessful registration (?:still )?prevents owning(?:-core)? disposal|registered cores reject owning disposal/,
@@ -119,7 +123,7 @@ test("current lifetime guides retain the published registered-disposal contract"
 	assert.doesNotMatch(
 		migration,
 		/Keep session cores unregistered/,
-		"registration is not a disposal prohibition in beta.13",
+		"registration is not a disposal prohibition",
 	);
 });
 
@@ -321,3 +325,20 @@ test("publication copy cannot regain internal release instructions", () =>
 		({ append }) => append(installation, "Use the candidate checkout."),
 		/must show publication copy/,
 	));
+
+test("stable migration guidance does not teach early-beta APIs as v2", () => {
+	const content = fs.readFileSync(
+		path.join(site, "src/content/docs/migration/v3.mdx"),
+		"utf8",
+	);
+	assert.doesNotMatch(
+		content,
+		/beta\.\d+|getView|watchView|record\(name\)|view:|Testing\/story retirement/,
+	);
+	assert.match(content, /v2 already supported this callback/);
+	assert.match(
+		content,
+		/v2 command context exposed `actor`, `emit`, and `host`/,
+	);
+	assert.match(content, /v3 is native ESM-only/);
+});

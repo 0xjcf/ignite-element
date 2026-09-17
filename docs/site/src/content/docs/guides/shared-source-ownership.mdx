@@ -14,8 +14,8 @@ source can serve multiple views. No controller, source descriptor or mandatory
 shell is needed. Each application process owns its instances; sharing code does
 not synchronize devices.
 
-For version-specific hook preparation and terminal-disposal behavior, read the
-[beta.13 migration note](/ignite-element/migration/shared-readiness-terminal-disposal/).
+For observation and terminal disposal, see
+[Ownership & cleanup](/ignite-element/handbook/ownership/).
 The examples below keep established public inputs and inline inferred callbacks.
 
 ## Two JSX views, one source
@@ -34,8 +34,7 @@ The core and source are created at application bootstrap, not in a renderer.
 | Existing Redux store or MobX observable | Application-owned behavior, using `ignite-element/redux` or `ignite-element/mobx` and native operations |
 | Actor-Web source | Separate optional runtime; native authority stays with Actor-Web/application |
 
-The root `igniteCore()` is still source-free and registrar-only. New source
-factories and ownership descriptors are not part of this correction.
+The root `igniteCore()` is source-free and registrar-only.
 
 Navigation removes observers, not the feature's source. Source-native sign-in,
 sign-out and account reset can keep one core and its registrations. At final

@@ -1,141 +1,102 @@
 ---
 title: Migrate from v2 to v3 (beta)
-description: Upgrade to Ignite Element v3 — scoped internal packages, optional state-library peers, and the states-first single-source contract.
+description: Upgrade a stable v2 application to the current v3 beta.
 sidebar:
   label: v2 → v3 (beta)
   order: 0
 ---
 
+This guide is for applications using stable v2.
+
+For a new project, start with [Getting started](/ignite-element/).
+
 :::caution[v3 is in beta]
-v3 publishes under the `beta` dist-tag. Install with `@beta`; the stable
-`latest` tag is still v2.2.x. APIs are stable but may see small changes before
-the `3.0.0` release.
+Install v3 through `@beta`.
+
+The stable `ignite-element@latest` package remains v2.2.2.
 :::
 
-`3.0.0-beta.14` is published and verified. It adds [native event forwarding and
-core-owned effects](/ignite-element/handbook/events/), retaining beta.12's source-free
-constructor, testing retirement and neutral React bindings, and beta.13's shared-source
-readiness and terminal disposal after registration. Install this exact version
-or `ignite-element@beta`; beta.12 does not include beta.13's two newer behaviors.
-All four `beta` tags and the three scoped packages' `latest` tags point to beta.14.
-The facade `ignite-element@latest` remains `2.2.2`.
+## Install the beta
 
-For beta.13 event/effect users, keep one producer per event: declare native events,
-and derive distinct state-change notifications in effects. Effects no longer own
-per-view baselines; an activated shared evaluator survives zero-view intervals
-until `core.dispose()`. Move view-specific work to framework lifecycle facilities.
-Queued evaluation is not a renderer commit barrier, and effect errors use the
-core's console fallback. See the event guide for the complete migration contract.
+Install Ignite with the source library your application uses:
 
-Ignite Element v3 keeps the default Ignite JSX renderer and headless runtime from v2, and adds a cleaner install surface, a states-first projection contract, and a narrower public API.
-
-:::tip[Will this break my app?]
-The states projection cutover is breaking for v3 beta consumers: config `view`
-is removed, `states` receives the bare native snapshot, and headless projection
-fields use states vocabulary. The renderer callback supplied during component
-registration remains a view.
-:::
-
-## TL;DR
-
-1. Install the beta: `pnpm add ignite-element@beta` (plus the one state library you use).
-2. State libraries (`xstate`, `redux`, `@reduxjs/toolkit`, `mobx`) and `lit-html` are now **optional** peers — install only what you use.
-3. Use the canonical states projection: `states: (snapshot) => …`; config `view` is rejected.
-4. The removed `ignite-element/config/*` and `ignite-element/renderers/*` subpaths are no longer part of the public API.
-
-## 1) Install the beta
-
-```bash
+```sh title="Terminal"
 pnpm add ignite-element@beta xstate
-# pnpm add ignite-element@beta @reduxjs/toolkit   # Redux
-# pnpm add ignite-element@beta mobx               # MobX
 ```
 
-`ignite-element` now depends on the scoped packages `@ignite-element/core`, `@ignite-element/adapters`, and `@ignite-element/renderer`. They install automatically as dependencies — you don't add them yourself, and your imports stay `ignite-element` and `ignite-element/<adapter>`.
+For Redux, replace `xstate` with `@reduxjs/toolkit`.
 
-## 2) Optional peer dependencies
+For MobX, replace it with `mobx`.
 
-In v3 the state libraries and `lit-html` are declared as **optional** peer dependencies. Installing `ignite-element@beta xstate` no longer pulls in Redux, MobX, Redux Toolkit, or lit, and you won't see "unmet peer" warnings for the adapters you don't use. `lit-html` is only needed if you opt into the `lit` render strategy — the default Ignite JSX renderer requires no renderer dependency.
+State libraries and `lit-html` are optional peers in v3.
 
-Selecting lit is now **config-free**: install `@ignite-element/renderer` and `lit-html` as direct dependencies, import `@ignite-element/renderer/lit`, and author lit-html templates — Ignite auto-detects them and renders with lit. You no longer set `renderer: 'lit'` in `ignite.config.ts` just to use lit (it remains the way to *force* one renderer project-wide). See [Rendering](/ignite-element/handbook/views/).
+The facade installs its internal `@ignite-element` packages automatically.
 
-## 3) Canonical states projection
+Keep importing `igniteCore` from the entrypoint for your source, such as
+`ignite-element/xstate`.
 
-Replace the beta.10 `view` projection with `states`, passing the bare native snapshot:
+## Use ES modules
 
-```ts
-// v2 / early v3 beta
-view: ({ context, transport }) => ({
-  status: context.status,
-  connected: transport.state === "connected",
-});
+v3 is native ESM-only.
 
-// v3
-states: (snapshot) => ({
-  status: snapshot.context.status,
-  connected: snapshot.transport.state === "connected",
-});
+Replace CommonJS `require` calls with ES module imports.
+
+See [Compatibility](/ignite-element/api/compatibility/) for supported toolchains
+and declaration-resolution limits.
+
+## Update command callbacks
+
+The v2 command context exposed `actor`, `emit`, and `host`.
+
+In v3, commands receive `source`, the active instance's command interface.
+
+For a callback that only sends an XState event, update it as follows:
+
+```diff
+- commands: ({ actor }) => ({
+-   toggle: () => actor.send({ type: "TOGGLE" }),
++ commands: ({ source }) => ({
++   toggle: () => source.send({ type: "TOGGLE" }),
+  })
 ```
 
-XState uses native `StateFrom<Machine>` snapshots. XState and Actor-Web state live under `snapshot.context`; Redux and MobX state are the snapshot itself. Also migrate `getView`/`watchView` to `get("states")`/`watch`, `schema.view` to `schema.states`, execution results to `{ snapshot, states, events }`, and public renderer access from raw `state`/`send` to derived states and semantic commands.
+Pass presentation-specific values as command arguments instead of reading
+`host` in the callback.
 
-## 4) Narrower public API
+Move outward event production out of commands.
 
-v3 locks the stable public surface to the root entrypoint, the adapter entrypoints (`ignite-element/xstate`, `/redux`, `/mobx`, `/actor-web`), and the JSX entrypoints. The following are no longer public:
+Use native source events for occurrences and effects for notifications derived
+from state changes.
 
-- The `ignite-element/config/*` and `ignite-element/renderers/*` subpaths.
-- Root exports for config loaders, renderer-strategy registration, global style mutation, and factory internals.
+The [command emission guide](/ignite-element/migration/effects-events/) shows
+how to preserve command input and repeated occurrences.
 
-If an advanced app still needs shared shadow styles or renderer diagnostics, import the underlying `@ignite-element/renderer` primitives directly in app-owned code. For the default Ignite JSX path you need none of this.
+Keep `states` for derived values; v2 already supported this callback.
 
-## Testing/story retirement in beta.12
+See [Sources](/ignite-element/handbook/sources/) for each adapter's snapshot and
+command shapes.
 
-Beta.12 removes `test` from all five public barrels, the 27 dedicated testing/story types, the declaration-reachable testing graph, `record(name)`, and the accessibility bridge. Migrate to ordinary runtime/source assertions and real registered-element DOM queries. Retained runtime results, typed commands/events, subscriptions, snapshots, derived states and schema remain. Portable receipts and internal lifecycle histories are intentionally removed; there is no alias or replacement recorder.
+## Update configuration imports
 
-See the [migration table](/ignite-element/api/testing-dsl/) and [complete testing examples](/ignite-element/handbook/testing/). Source/application ownership of asynchronous work, cancellation and native shutdown is unchanged. This major changeset was consumed into beta.12; publication is established separately by verified public package bytes and provenance.
+The v2 `ignite-element/config/*` and `ignite-element/renderers/*` entrypoints
+are not public v3 entrypoints.
 
-## Core API and React bindings in beta.12
+The default Ignite JSX path needs no configuration plugin or renderer import.
 
-Source-backed owners use `get('states')`, `get('schema')`, `get('commands')`,
-`get('events')`, `watch`, `on`, `execute`, and `dispose`. The former raw/derived
-getters and watchers, schema getter and core `canExecute` query have no aliases.
-Native source snapshot APIs and paired execution results remain. Component
-handles expose discovery-only keyed reads; root source-free construction remains
-registrar-only.
+If your application uses shared shadow styles or Lit, follow
+[Advanced configuration](/ignite-element/api/advanced-config/).
 
-Commands are ordinary functions. Remove the helper and input builders, move
-existing tool definitions to explicit application schemas, and project meaningful
-availability into states. Unknown discovery schemas are null, not fabricated
-validation. State/command name collisions now fail rather than overwrite.
+## Check behavior and ownership
 
-The historical beta.12 preparation read is unnecessary for current shared-source cores.
-Only isolated runtime acquisition uses `core.get('states')` before a framework borrows it.
-Import `useIgnite` from `ignite-element/react`; move `igniteReact` and wrapper
-types to `ignite-element/react/web`. Move Actor-Web factories requiring a real
-element host to `ignite-element/actor-web/web`. The neutral source/factory path
-never transfers native close authority. See [headless runtime](/ignite-element/api/headless-runtime/)
-and [host integration](/ignite-element/handbook/views/) for lifetime,
-single-input execution, immutable projection and native-test-host limits.
+Run TypeScript checks and the application's behavior and DOM tests.
 
-## Shared readiness and registered disposal in beta.13
+Verify declared events, their payloads, and listeners using
+[Events & effects](/ignite-element/handbook/events/).
 
-Shared-source cores are ready after owner-controlled construction; `useIgnite(core)`
-needs no preparation-only read. Isolated machine-definition acquisition remains lazy.
-Existing `core.dispose()` now terminally drains registered views and leaves later
-connections inert. Borrowed actors still require application-owned `source.stop()`.
-See the [two-behavior migration table](/ignite-element/migration/shared-readiness-terminal-disposal/).
+Keep source construction and native shutdown at the application boundary.
 
-## Verify
+Use [Ownership & cleanup](/ignite-element/handbook/ownership/) to review
+shared sources, isolated instances, and terminal disposal.
 
-For an existing plain TypeScript controller, use the
-[shared-controller guide](/ignite-element/guides/plain-controllers/) rather than
-rewriting its behavior into a state library. The checkout example uses built public
-exports and exact packed candidates; registry beta.11 is not an equivalent input.
-Registration no longer prevents terminal disposal in beta.13. Keep the source and
-core stable for their application-owned lifetime; sign-in/out and stale receipts
-remain source behavior, not a requirement to recreate the core on each login.
-See [shared source ownership](/ignite-element/guides/shared-source-ownership/).
-
-- Reinstall and run a TypeScript check (`pnpm exec tsc --noEmit`).
-- Confirm only your chosen state library is installed (`npm ls xstate redux mobx`).
-- Smoke-test a component per [Your first component](/ignite-element/).
+The [Testing guide](/ignite-element/handbook/testing/) shows source, core,
+and rendered-control assertions.

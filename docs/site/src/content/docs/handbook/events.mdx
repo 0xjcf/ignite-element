@@ -84,19 +84,18 @@ registration receives one delivery, not an echo from those hosts. Adding a
 listener the two DOM consumers work the same way; without DOM hosts a headless
 listener works alone.
 
-### Migration from per-view effects
+<span id="migration-from-per-view-effects"></span>
 
-Applications depending on one callback or comparison baseline per mounted view
-must move view-specific work to actual framework lifecycle facilities. There
-is no compatibility flag or per-view runner. Ordinary source, inline states,
-commands, `ctx`, and public core methods are unchanged. This is notification
-derivation, not global or application-wide exactly-once business execution.
+### View-specific work
 
-Future Solid/Vue bindings should subscribe to the core's state and release only
-their consumer on cleanup, not execute Ignite effects in each framework watcher.
-Those bindings are not implemented here. Focus, layout, canvas and native view
-resources remain framework-owned; persistence, retry and durable confirmation
-remain source/application-owned.
+Use framework lifecycle facilities for work tied to a mounted view.
+
+Focus, layout, canvas and native view resources remain framework-owned.
+
+Persistence, retry and durable confirmation remain source/application-owned.
+
+Ignite effects derive notifications from source updates; they do not provide
+application-wide exactly-once business execution.
 
 ## One production rule per public event
 

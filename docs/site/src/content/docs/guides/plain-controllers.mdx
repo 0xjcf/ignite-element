@@ -144,8 +144,7 @@ belongs in this shared contract.
 The full reference is [Headless runtime](/ignite-element/api/headless-runtime/):
 `get("states" | "commands" | "events" | "schema")`, `watch`, `on`, `execute`,
 and `dispose`. Root source-free `igniteCore()` is a registrar, not this runtime.
-Removed snapshot/state getter aliases and command metadata helpers stay removed;
-source-native APIs remain valid on the source itself.
+Source-native APIs remain available on the source itself.
 
 - Discovery reads (`schema`, `commands`, `events`) do not acquire the source.
   Unknown schemas are `null`; command discovery may be unknown before real binding.
@@ -162,13 +161,10 @@ source-native APIs remain valid on the source itself.
   receipts. Application/server operation identities and receipt validation remain
   necessary. This small controller's receipt fields do not create a generic
   persistence or retry protocol.
-- Disposal is terminal and idempotent, including registered cores since beta.13. A pending
+- Disposal is terminal and idempotent, including registered cores. A pending
   `execute` cannot produce a new result after disposal, but already-returned
   direct command promises keep their ordinary outcome. Existing I/O may continue.
 
-A successfully registered beta.12 core rejects `dispose()` before teardown.
-The [published beta.13 correction](/ignite-element/migration/shared-readiness-terminal-disposal/)
-supports terminal registered-core disposal without adding a runtime-replacement API.
 [`ignite-element/react/web`](/ignite-element/handbook/views/)
 wraps actual registered elements; `ignite-element/actor-web/web` supplies a
 DOM-host factory boundary. Neither is a generic external-core binding.

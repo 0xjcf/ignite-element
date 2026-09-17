@@ -56,3 +56,24 @@ test("legacy Events sections preserve their corresponding handbook subjects", ()
 		);
 	}
 });
+
+test("retired beta notes lead to current contracts, preserving useful section links", () => {
+	assert.equal(currentRoute("migration/command-source"), "handbook/sources");
+	assert.equal(
+		currentRoute("migration/shared-readiness-terminal-disposal"),
+		"handbook/ownership",
+	);
+	assert.equal(currentRoute("api/testing-dsl"), "handbook/testing");
+	assert.equal(
+		routes.fragmentTargets["migration/command-source"][
+			"rename-the-callback-property"
+		],
+		"/ignite-element/handbook/sources/#command-target",
+	);
+	assert.equal(
+		routes.fragmentTargets["migration/command-source"][
+			"keep-the-same-source-ownership"
+		],
+		"/ignite-element/handbook/ownership/#shared-or-isolated",
+	);
+});

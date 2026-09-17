@@ -22,7 +22,10 @@
 		"api/define-ignite-config": "api/advanced-config",
 		"api/renderers": "handbook/views",
 		"guides/tooling": "api/advanced-config",
-		"2.x/contributing/shared-controller-validation": "2.x"
+		"2.x/contributing/shared-controller-validation": "2.x",
+		"migration/command-source": "handbook/sources",
+		"migration/shared-readiness-terminal-disposal": "handbook/ownership",
+		"api/testing-dsl": "handbook/testing"
 	},
 	"fragments": {
 		"overview/what-is-ignite-element": [
@@ -141,7 +144,15 @@
 		"api/define-ignite-config": [],
 		"api/renderers": [],
 		"guides/tooling": [],
-		"2.x/contributing/shared-controller-validation": []
+		"2.x/contributing/shared-controller-validation": [],
+		"migration/command-source": [
+			"rename-the-callback-property",
+			"keep-the-same-source-ownership",
+			"upgrade-after-publication",
+			"update-ignite"
+		],
+		"migration/shared-readiness-terminal-disposal": [],
+		"api/testing-dsl": []
 	},
 	"archive": [
 		"2.x",
@@ -294,6 +305,14 @@
 		"api/define-ignite-config": {},
 		"api/renderers": {},
 		"guides/tooling": {},
-		"2.x/contributing/shared-controller-validation": {}
+		"2.x/contributing/shared-controller-validation": {},
+		"migration/command-source": {
+			"rename-the-callback-property": "/ignite-element/handbook/sources/#command-target",
+			"keep-the-same-source-ownership": "/ignite-element/handbook/ownership/#shared-or-isolated",
+			"upgrade-after-publication": "/ignite-element/#install-v3-beta",
+			"update-ignite": "/ignite-element/#install-v3-beta"
+		},
+		"migration/shared-readiness-terminal-disposal": {},
+		"api/testing-dsl": {}
 	}
 }
