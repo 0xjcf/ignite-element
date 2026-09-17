@@ -42,7 +42,7 @@
 }
 
 /* Keep prose comfortable while code and reference tables can use the column. */
-.sl-markdown-content :is(p, ul, ol, blockquote, details) {
+.sl-markdown-content :is(p, ul, ol, blockquote) {
 	max-width: var(--docs-prose-width);
 }
 

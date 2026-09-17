@@ -449,6 +449,29 @@ async function main() {
 					"/2.x/api/ignite-core/",
 				]) {
 					await page.goto(`${origin}${path}`);
+					if (path === "/") {
+						const summaries = page.locator(
+							".sl-markdown-content details > summary",
+						);
+						for (let i = 0; i < (await summaries.count()); i++)
+							await summaries.nth(i).click();
+						const frames = await page.evaluate(() => {
+							const content = document.querySelector(".sl-markdown-content");
+							const right = content.getBoundingClientRect().right;
+							return [...content.querySelectorAll(".expressive-code")].map(
+								(frame) => ({
+									title: frame.querySelector("figcaption")?.textContent,
+									right: frame.getBoundingClientRect().right,
+									expected: right,
+								}),
+							);
+						});
+						for (const frame of frames)
+							assert.ok(
+								Math.abs(frame.right - frame.expected) <= 1,
+								`${theme} ${width}px ${frame.title}: code edge ${frame.right} differs from content edge ${frame.expected}`,
+							);
+					}
 					const layout = await page.evaluate(() => {
 						const rail = document.querySelector(".right-sidebar");
 						const divider =
@@ -492,6 +515,34 @@ async function main() {
 							path === "/"
 								? "getting-started"
 								: path.split("/").filter(Boolean).join("-");
+						if (path === "/" && SCREENSHOTS) {
+							await mkdir(SCREENSHOTS, { recursive: true });
+							await page.screenshot({
+								path: join(
+									SCREENSHOTS,
+									`getting-started-${theme}-${width}-expanded.png`,
+								),
+								fullPage: true,
+							});
+							for (const section of [
+								"install-v3-beta",
+								"build-a-component",
+								"2-add-the-styles",
+								"3-run-the-example",
+								"where-next",
+							]) {
+								await page
+									.locator(`[id="${section}"]`)
+									.scrollIntoViewIfNeeded();
+								await capture(
+									page,
+									`getting-started-${theme}-${width}-${section}`,
+								);
+							}
+							await page
+								.getByRole("heading", { name: "Getting started", exact: true })
+								.scrollIntoViewIfNeeded();
+						}
 						await capture(page, `starlight-${theme}-${width}-${name}`);
 					}
 					assert.ok(
