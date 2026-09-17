@@ -32,9 +32,11 @@ Call `core.get('states')` before a hook borrows that core.
 
 End a temporary observer when its consumer leaves.
 
-`useIgnite(core)` releases only its own subscription on unmount.
+`useIgnite(core)` automatically unsubscribes when a React or React Native component unmounts.
 
-It does not dispose the application-owned core or shut down a borrowed source.
+No cleanup `useEffect` is needed in that component.
+
+The core remains available for other views or a later mount.
 
 ### Element disconnect and reconnect
 
@@ -58,13 +60,66 @@ See [effect activation and timing](/ignite-element/handbook/events/#delivery-and
 
 ## Terminal disposal
 
-At final application shutdown, call `core.dispose()`.
+Call `core.dispose()` when you permanently discard that core.
 
-This is terminal even after successful custom-element registration.
+For example, a feature or signed-in session can own a core and dispose it when that lifetime ends.
+
+Disposal is terminal, including for cores with registered custom elements.
 
 It releases Ignite-owned observation, events, effects, projections, bindings, and command windows.
 
 Registered definitions remain; later connections are inert.
+
+### End a session
+
+Suppose the [shared counter](/ignite-element/handbook/views/#two-views-one-source) belongs to a signed-in session.
+
+Navigating away from its screen only unmounts the views.
+
+At sign-out, stop views from using that session's core before disposing it.
+
+Use the same module shown in Views:
+
+```ts title="Session owner imports"
+import { core, source } from './counter-core';
+```
+
+Place this code inside the session's existing end handler:
+
+```ts title="Inside the session-end handler"
+try {
+  core.dispose();
+} finally {
+  source.stop();
+}
+```
+
+Here the session created and exclusively owns the actor, so it also stops that actor.
+
+If another feature still needs the actor, dispose only this core and leave actor shutdown to its owner.
+
+For an Ignite-created private actor, `core.dispose()` also releases that actor.
+
+A later session creates a new core; a disposed core cannot be reused.
+
+### Navigation and backgrounding
+
+Leaving a screen does not necessarily end its session.
+
+Backgrounding a native app does not necessarily end its core's lifetime either.
+
+A core retained for the application's lifetime can stay available throughout normal navigation.
+
+Do not rely on a tab-close or process-termination callback for essential work.
+
+### Who releases what?
+
+| What ends? | Who handles cleanup? |
+| --- | --- |
+| One React or React Native component | `useIgnite` removes that component's subscription |
+| The feature or session that owns the core | Its existing lifecycle code calls `core.dispose()` |
+| An externally created XState actor | Its owner calls `actor.stop()` when nothing else needs it |
+| An Ignite-created private XState actor | Ignite stops it when the owning runtime is released, including core disposal |
 
 ### Cleanup failures
 

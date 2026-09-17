@@ -9,6 +9,5 @@ Use the current handbook as the API authority:
 - [Sources](https://0xjcf.github.io/ignite-element/handbook/sources/): supported source entrypoints and factory discriminators.
 - [Ownership and cleanup](https://0xjcf.github.io/ignite-element/handbook/ownership/): observation lifetime, terminal core disposal and borrowed sources.
 - [Events and effects](https://0xjcf.github.io/ignite-element/handbook/events/): native occurrences, declarations and queued delivery.
-- [Advanced configuration](https://0xjcf.github.io/ignite-element/api/advanced-config/): optional renderer configuration and public imports.
 
 Keep `states` and `commands` inline for inference and render through `ctx`.

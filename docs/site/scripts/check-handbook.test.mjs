@@ -88,3 +88,9 @@ test("deferred integration recipes redirect to the documented source choices", (
 		"handbook/testing",
 	);
 });
+
+test("legacy setup links lead to migration or JSX onboarding", () => {
+	assert.equal(currentRoute("concepts/configuration"), "migration/v3");
+	assert.equal(currentRoute("api/define-ignite-config"), "migration/v3");
+	assert.equal(currentRoute("guides/tooling"), "");
+});

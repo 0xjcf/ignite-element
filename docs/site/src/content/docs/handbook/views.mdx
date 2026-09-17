@@ -65,7 +65,17 @@ This is the [runnable React example](https://github.com/0xjcf/ignite-element/tre
 
 Both views observe the same count and label.
 
-Hook unmount releases its own subscription; final application shutdown belongs to the owner.
+`useIgnite(core)` automatically unsubscribes when the component unmounts.
+
+No cleanup `useEffect` is needed in the view.
+
+The core stays available for other views and later mounts.
+
+Call `core.dispose()` when you permanently discard that core, such as when its owning feature or session ends.
+
+If you supplied an external actor, its owner stops it when nothing else needs it.
+
+See the [session cleanup example](/ignite-element/handbook/ownership/#end-a-session).
 
 Shared cores need no preparation-only read.
 
@@ -157,9 +167,9 @@ Account for your application's CSP when using inline styles.
 
 Use native controls, labels, and keyboard behavior; see [accessibility](/ignite-element/guides/accessibility-first/).
 
-### Other renderers and resources
+<span id="other-renderers-and-resources"></span>
 
-The optional [Lit renderer and advanced configuration](/ignite-element/api/advanced-config/) require their declared dependencies.
+### Presentation resources
 
 Retained Canvas, WebGL, editor, map, and native view resources belong to presentation lifecycle facilities.
 

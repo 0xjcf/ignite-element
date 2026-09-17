@@ -1,24 +1,20 @@
 ---
-title: Advanced config
-description: Optional project-wide styles, renderer settings, and render-strategy primitives.
+title: Renderer compatibility
+description: Retained renderer settings and Lit support for existing applications.
 sidebar:
-  label: Advanced config
+  label: Renderer compatibility
   order: 5
 ---
 
-Use `defineIgniteConfig` from `@ignite-element/renderer` for project-wide settings.
+This reference is for existing applications that retain project-wide renderer settings or Lit templates.
 
-For ordinary components, follow [Getting started](/ignite-element/).
+For new v3 components, use [Ignite JSX](/ignite-element/handbook/views/#ignite-jsx) and [component-local styles](/ignite-element/handbook/views/#styling).
 
-Import from your source entrypoint, select Ignite JSX, and keep CSS local to the component.
+The current packages still export `defineIgniteConfig` and the optional Lit renderer.
 
-Reach for this page only when you need one of these advanced, project-wide capabilities:
+Keeping this compatibility reference does not make them part of the handbook's recommended setup.
 
-- Shared styles injected into every component shadow root.
-- Renderer/strategy diagnostics (`logging`).
-- Forcing one renderer project-wide, overriding per-view auto-detection.
-
-For Lit without project-wide settings, see [Renderer selection](#renderer-selection).
+For v2 applications, start with [Update configuration imports](/ignite-element/migration/v3/#update-configuration-imports).
 
 ## The `ignite.config.ts` file
 

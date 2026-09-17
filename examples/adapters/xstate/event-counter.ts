@@ -47,5 +47,6 @@ export const notifications: { type: string; count: number }[] = [];
 core.on("countChanged", (event) => notifications.push(event));
 core.on("counterReset", (event) => notifications.push(event));
 
-// At application shutdown: core.dispose(); counterActor.stop();
+// When this core is permanently discarded, dispose it.
+// The actor owner stops counterActor when nothing else needs it.
 // Terminal disposal owns the two subscriptions; no redundant unsubscribe pair.

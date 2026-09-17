@@ -23,13 +23,9 @@ component("ignite-counter", ({ count, increment }) => (
 
 The JSX renderer diffs ordinary rerenders by default, so stable nodes such as `<style>` tags are updated in place instead of being duplicated.
 
-## Lit and project-wide settings
+## More examples
 
-For Lit templates, import `@ignite-element/renderer/lit` before registering components.
-
-For shared shadow-root styles or renderer settings, use `defineIgniteConfig` from `@ignite-element/renderer`.
-
-See [Advanced configuration](https://0xjcf.github.io/ignite-element/api/advanced-config/) for dependencies and complete setup.
+See [Views](https://0xjcf.github.io/ignite-element/handbook/views/) for Ignite JSX, React and React Native examples.
 
 ## Diff vs. replace
 

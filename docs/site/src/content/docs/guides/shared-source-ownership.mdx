@@ -65,7 +65,11 @@ Navigation removes observers, not the feature's source.
 
 Source-native sign-in, sign-out and account reset can keep one core and its registrations.
 
-At final application shutdown, dispose the core and separately stop a borrowed actor:
+When a feature or session permanently discards its core, dispose the core.
+
+Stop a borrowed actor only if that owner also created the actor and nothing else needs it:
+
+This example shows the release order:
 
 ```ts
 import { createActor, createMachine } from 'xstate';

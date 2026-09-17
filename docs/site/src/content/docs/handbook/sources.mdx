@@ -173,6 +173,6 @@ Find these pages again in the sidebar's __Guides__ group.
 - [Views](/ignite-element/handbook/views/): render the values and commands exposed by your core.
 - [Ownership & cleanup](/ignite-element/handbook/ownership/): choose shared or isolated state and place cleanup at its owner boundary.
 
-At final application shutdown, call `core.dispose()` to release Ignite-owned resources.
+When the owning feature or session permanently discards a core, call `core.dispose()`.
 
-The application remains responsible for shutting down any source it created.
+An external source stays under its owner's control until nothing else needs it.

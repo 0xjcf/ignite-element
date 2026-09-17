@@ -119,7 +119,9 @@ Disconnecting or unsubscribing before delivery removes that recipient.
 
 Terminal core disposal discards pending evaluations and later emissions.
 
-### Disconnect and shutdown
+<span id="disconnect-and-shutdown"></span>
+
+### Disconnect and disposal
 
 A true element disconnect removes its forwarding subscription.
 
@@ -129,15 +131,15 @@ Isolated source instances remain separate.
 
 Disconnect never shuts down an application-owned source.
 
-At final application shutdown, call `core.dispose()` to release its resources.
+Call `core.dispose()` when the owning feature or session permanently discards the core.
 
-If the application owns `counterActor`, stop it when the application finishes using it.
+The owner of `counterActor` stops it when nothing else needs that actor.
 
 See [terminal disposal](/ignite-element/handbook/ownership/#terminal-disposal) for cleanup that preserves source shutdown if disposal throws.
 
 Unsubscribe an individual listener when its consumer ends before the core does.
 
-View unmount is not application shutdown.
+Unmounting a view does not necessarily end its owning feature or session.
 
 ### Example: one effect, two hosts
 

@@ -237,7 +237,7 @@ registerSharedXState("gradient-tally", ({ count }) => (
 ));
 ```
 
-For a stylesheet shared by every component shadow root, see [Advanced configuration](https://0xjcf.github.io/ignite-element/api/advanced-config/).
+To reuse a stylesheet, link it inside each component's shadow root as shown in [Getting started](https://0xjcf.github.io/ignite-element/#build-a-component).
 
 The example Vite config resolves workspace packages to local source files.
 
