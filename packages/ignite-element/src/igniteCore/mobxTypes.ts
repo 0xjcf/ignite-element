@@ -19,18 +19,5 @@ export type MobxConfig<
 		never,
 		FacadeCommandFunction
 	>,
-> = Omit<
-	StoreMobxConfig<State, Events, StatesResult, CommandsResult, unknown>,
-	"adapter" | "source"
-> &
-	(
-		| {
-				adapter: "mobx";
-				source: () => State;
-		  }
-		| {
-				adapter?: "mobx";
-				source: State extends (...args: unknown[]) => unknown ? never : State;
-		  }
-	) &
+> = StoreMobxConfig<State, Events, StatesResult, CommandsResult, unknown> &
 	DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>>;

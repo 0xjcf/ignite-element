@@ -6,6 +6,8 @@ description: Choose a source adapter, derive values, and send commands to your s
 import { Code } from '@astrojs/starlight/components';
 import redux from '../../../../../../scripts/__tests__/fixtures/handbook/redux.ts?raw';
 import mobx from '../../../../../../scripts/__tests__/fixtures/handbook/mobx.ts?raw';
+import reduxFactory from '../../../../../../scripts/__tests__/fixtures/handbook/redux-factory.ts?raw';
+import mobxFactory from '../../../../../../scripts/__tests__/fixtures/handbook/mobx-factory.ts?raw';
 
 Your source owns state and behavior.
 
@@ -86,6 +88,12 @@ Passing a store shares that store between views.
 
 Passing a Redux slice instead creates isolated state for each element.
 
+For a separate store per element, pass a factory through `ignite-element/redux`:
+
+<Code code={reduxFactory} lang="ts" title="redux-factory.ts" />
+
+The dedicated import selects the adapter; no `adapter` property is needed.
+
 ## MobX
 
 Install Ignite and MobX:
@@ -106,9 +114,11 @@ The `increment()` command calls `store.increment()` on the observable instance.
 
 Passing an observable instance shares it between views.
 
-For an isolated observable per element, use `source: () => new Counter()` with `adapter: "mobx"`.
+For a separate observable per element, pass a factory through `ignite-element/mobx`:
 
-The explicit adapter identifies the factory without calling it to guess its type.
+<Code code={mobxFactory} lang="ts" title="mobx-factory.ts" />
+
+The dedicated import selects the adapter; no `adapter` property is needed.
 
 <span id="optional-integrations"></span>
 

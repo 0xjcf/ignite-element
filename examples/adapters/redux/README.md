@@ -41,10 +41,13 @@ This example shows how ignite-element integrates with **Redux Toolkit**, **Ignit
 
 ## igniteCore Usage
 
-The example uses two kinds of sources:
+Choose a source based on the lifetime you need:
 
 - **Shared store instance** → reuse across every component registration.
 - **Slice definition** → create a fresh store per component (isolated scope).
+- **Store factory** → create a separate configured store per element. Pass
+  `source: counterStore` through `ignite-element/redux`; no `adapter` property is
+  needed. See the [checked factory example](../../../scripts/__tests__/fixtures/handbook/redux-factory.ts).
 
 ```tsx
 import { igniteCore } from "ignite-element/redux";

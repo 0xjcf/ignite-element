@@ -9,6 +9,49 @@ import type {
 import { createIgniteComponentFactory } from "./createIgniteComponentFactory";
 import type { IgniteCoreReturn, MobxConfig } from "./mobxTypes";
 
+// Keep inline makeAutoObservable(...) contextual inference on the instance path.
+export function igniteCoreMobx<
+	State extends object,
+	Events extends EventMap = EmptyEventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+>(
+	options: MobxConfig<State, Events, StatesResult, CommandsResult> & {
+		source: State extends (...args: unknown[]) => unknown ? never : State;
+	},
+): IgniteCoreReturn<
+	State,
+	MobxEvent<State>,
+	State,
+	StatesResult,
+	State,
+	CommandsResult,
+	Events
+>;
+
+export function igniteCoreMobx<
+	State extends object,
+	Events extends EventMap = EmptyEventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+>(
+	options: MobxConfig<State, Events, StatesResult, CommandsResult>,
+): IgniteCoreReturn<
+	State,
+	MobxEvent<State>,
+	State,
+	StatesResult,
+	State,
+	CommandsResult,
+	Events
+>;
+
 export function igniteCoreMobx<
 	State extends object,
 	Events extends EventMap = EmptyEventMap,
