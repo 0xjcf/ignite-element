@@ -2,6 +2,8 @@
 
 Status: awaiting review. Date: 2026-09-16. Next proposed page: Sources, only after Operator acceptance.
 
+This receipt records the original `c78e918b2312bb7861d1af119e95f350bb91da9c` candidate. Its presentation and theme validation are superseded by the [shared-theme correction](theme-correction.md). Getting started has not been accepted. The original checks below did not cover pagination hover or mobile close-icon contrast.
+
 ## Authority and custody
 
 The page-by-page refinement prompt authorizes this local Getting started slice and shared presentation corrections, validation, a task branch and normal commits. No push, PR, integration or deployment is part of this candidate.

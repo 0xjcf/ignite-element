@@ -1,37 +1,13 @@
 #!/usr/bin/env node
 
-/**
- * Docs theme contrast guardrail.
- *
- * Renders the BUILT docs site (docs/site/dist) in a headless Chromium, in both
- * the dark and light themes, and computes the WCAG contrast ratio for key chrome
- * (version/theme selects, search trigger) and content (sidebar, TOC, asides,
- * inline code, links) selectors. Fails when any element is below threshold:
- *   - UI controls:  >= 3:1
- *   - text/content: >= 4.5:1
- *
- * This codifies the manual audit from the version-picker dark-mode fix
- * (commit f2f61cb) and the token-driven theme refactor. It renders the real
- * page so it catches un-themed defaults and Astro-scoped component overrides
- * that a token-only check would miss (the version picker and search trigger
- * both broke that way).
- *
- * The contrast math composites alpha over the nearest opaque backdrop, so
- * translucent fills (inline code, asides) are measured against what actually
- * renders — a naive "ignore alpha" check false-positives on every inline code.
- *
- * It also runs a GEOMETRY guardrail: interactive controls (header selects,
- * search, hero buttons) must use the --radius-* scale and have non-zero
- * horizontal padding, catching un-tokenized geometry and the 0px-padding button
- * class of bug. Both checks share one render pass and one exit code.
- *
- * Usage:
- *   node scripts/check-contrast.mjs            # expects dist/ to exist
- *   npm run check:contrast    (build first)    # see package.json
+/** Rendered contrast, interaction, and responsive-layout checks.
+ * Starlight owns component styling. Geometry checks retain padding and radius
+ * coverage against native component dimensions instead of a custom CSS scale.
+ * Run after the site build; --interactions-only isolates theme regressions.
  */
 
 import assert from "node:assert/strict";
-import { readFile, stat } from "node:fs/promises";
+import { mkdir, readFile, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -54,6 +30,11 @@ const SELECTORS = {
 	pagination: { sel: ".pagination-links a span", min: TEXT },
 	inlineCode: { sel: ".sl-markdown-content code:not(pre code)", min: TEXT },
 	link: { sel: ".sl-markdown-content a", min: TEXT },
+	versionNotice: {
+		sel: 'aside[aria-label="Documentation version"] a',
+		min: TEXT,
+	},
+	footer: { sel: 'nav[aria-label="Support links"] a', min: TEXT },
 	aside: { sel: ".starlight-aside p", min: TEXT },
 };
 
@@ -62,30 +43,42 @@ const SELECTORS = {
 // alongside the beta (green) ramp on current pages.
 const PAGES = ["/", "/migration/v3/", "/2.x/getting-started/installation/"];
 const THEMES = ["dark", "light"];
+const SCREENSHOTS = process.env.DOCS_SCREENSHOT_DIR;
 
-// Geometry guardrail: interactive controls must use the radius scale and (where
-// text sits inside) have non-zero horizontal padding. This catches un-tokenized
-// geometry and the 0px-padding button class of bug. Geometry is theme-agnostic,
-// so it's checked once. `needPadX` is false for the select boxes because their
-// inner <select> carries the horizontal padding, not the label.
-const RADIUS_SCALE_VARS = ["--radius-sm", "--radius-md", "--radius-lg"];
+async function capture(page, name) {
+	if (!SCREENSHOTS) return;
+	await mkdir(SCREENSHOTS, { recursive: true });
+	await page.screenshot({ path: join(SCREENSHOTS, `${name}.png`) });
+}
+
+// Native dimensions from Starlight Select/Search and Expressive Code's copy
+// button. Keep checking every control; custom radii must not return silently.
 const GEOMETRY = [
+	{ path: "/", sel: ".version-select select", needPadX: true, radiusRem: 0 },
 	{
 		path: "/",
-		sel: ".version-select",
-		needPadX: false,
-	},
-	{
-		path: "/",
-		sel: "starlight-theme-select label",
-		needPadX: false,
-	},
-	{
-		path: "/",
-		sel: "site-search button",
+		sel: "starlight-theme-select select",
 		needPadX: true,
+		radiusRem: 0,
 	},
-	{ path: "/", sel: ".expressive-code .copy button", needPadX: false },
+	{
+		path: "/",
+		sel: "site-search button[data-open-modal]",
+		needPadX: true,
+		radiusRem: 0.5,
+	},
+	{
+		path: "/",
+		sel: "site-search button[data-close-modal]",
+		needPadX: true,
+		radiusRem: 0,
+	},
+	{
+		path: "/",
+		sel: ".expressive-code .copy button",
+		needPadX: false,
+		radiusRem: 0.2,
+	},
 ];
 
 const MIME = {
@@ -176,10 +169,10 @@ function auditInPage(selectorMap) {
 		}
 		return { r: 255, g: 255, b: 255 };
 	};
-	const ratio = (el) => {
+	const ratio = (el, property = "color") => {
 		const cs = getComputedStyle(el);
 		const back = solidBg(el);
-		const fg = over(parse(cs.color), back);
+		const fg = over(parse(cs[property]), back);
 		const ownBg = parse(cs.backgroundColor);
 		const effBg = ownBg.a < 1 ? over(ownBg, back) : ownBg;
 		const hi = Math.max(lum(fg), lum(effBg));
@@ -188,27 +181,131 @@ function auditInPage(selectorMap) {
 	};
 	const out = {};
 	for (const [key, sel] of Object.entries(selectorMap)) {
-		const el = document.querySelector(sel);
-		out[key] = el ? ratio(el) : null;
+		const el = document.querySelector(typeof sel === "string" ? sel : sel.sel);
+		out[key] = el ? ratio(el, sel.property) : null;
 	}
 	return out;
 }
 
 /** Runs in the page: radius + horizontal padding for every match of a selector. */
-function geometryInPage({ sel, scaleVars }) {
+function geometryInPage({ sel, radiusRem }) {
 	const root = getComputedStyle(document.documentElement);
-	const scale = scaleVars.map((v) => root.getPropertyValue(v).trim());
+	const expectedRadius = radiusRem * parseFloat(root.fontSize);
 	return [...document.querySelectorAll(sel)].map((el, idx) => {
 		const cs = getComputedStyle(el);
 		return {
 			idx,
 			label: (el.textContent || "").trim().slice(0, 22) || `#${idx}`,
 			radius: cs.borderTopLeftRadius,
-			radiusInScale: scale.includes(cs.borderTopLeftRadius),
+			radiusMatches:
+				Math.abs(parseFloat(cs.borderTopLeftRadius) - expectedRadius) < 0.01,
+			expectedRadius,
 			padL: parseFloat(cs.paddingLeft) || 0,
 			padR: parseFloat(cs.paddingRight) || 0,
 		};
 	});
+}
+
+/** Check the reported regressions through real pointer and keyboard input. */
+async function checkInteractions(browser, origin) {
+	for (const theme of THEMES) {
+		const context = await browser.newContext({
+			viewport: { width: 1440, height: 960 },
+		});
+		await context.addInitScript(
+			(value) => localStorage.setItem("starlight-theme", value),
+			theme,
+		);
+		const page = await context.newPage();
+		try {
+			for (const path of ["/", "/2.x/getting-started/installation/"]) {
+				await page.goto(`${origin}${path}`);
+				const label = `${theme} ${path}`;
+				const pagination = page.locator(".pagination-links a").first();
+				await pagination.scrollIntoViewIfNeeded();
+				await page.mouse.move(0, 0);
+				const border = {
+					border: { sel: ".pagination-links a", property: "borderTopColor" },
+				};
+				const normal = (await page.evaluate(auditInPage, border)).border;
+				await pagination.hover();
+				const hover = (await page.evaluate(auditInPage, border)).border;
+				assert.ok(
+					hover >= UI && hover > normal,
+					`${label}: pagination hover border ${hover}:1 must strengthen default ${normal}:1 and reach ${UI}:1`,
+				);
+				if (path === "/")
+					await capture(page, `starlight-${theme}-pagination-hover`);
+				await page.mouse.move(0, 0);
+				console.log(
+					`${label}: pagination border ${normal}:1 → ${hover}:1 on hover`,
+				);
+				// Tab into the link: focus must remain visible without a pointer hover.
+				await pagination.focus();
+				await page.keyboard.press("Shift+Tab");
+				await page.keyboard.press("Tab");
+				assert.ok(
+					await pagination.evaluate((e) => {
+						const s = getComputedStyle(e);
+						return (
+							e.matches(":focus-visible") &&
+							s.outlineStyle !== "none" &&
+							parseFloat(s.outlineWidth) > 0
+						);
+					}),
+					`${label}: pagination keyboard focus`,
+				);
+				const footer = page
+					.getByRole("navigation", { name: "Support links" })
+					.getByRole("link")
+					.first();
+				const contentLink = page.locator(".sl-markdown-content a").first();
+				await page.mouse.move(0, 0);
+				assert.equal(
+					await footer.evaluate((e) => getComputedStyle(e).color),
+					await contentLink.evaluate((e) => getComputedStyle(e).color),
+					`${label}: footer uses the content link theme`,
+				);
+				await footer.hover();
+				const footerHover = await footer.evaluate(
+					(e) => getComputedStyle(e).color,
+				);
+				await contentLink.hover();
+				assert.equal(
+					footerHover,
+					await contentLink.evaluate((e) => getComputedStyle(e).color),
+					`${label}: footer uses the content link hover theme`,
+				);
+			}
+			await page.setViewportSize({ width: 390, height: 844 });
+			for (const path of ["/", "/2.x/getting-started/installation/"]) {
+				await page.goto(`${origin}${path}`);
+				const menu = page.getByRole("button", { name: "Menu", exact: true });
+				for (const expanded of [false, true]) {
+					if (expanded) await menu.click();
+					if (expanded && path === "/")
+						await capture(page, `starlight-${theme}-mobile-menu`);
+					const contrast = await page.evaluate(auditInPage, {
+						menu: "starlight-menu-button button",
+					});
+					assert.ok(
+						contrast.menu >= UI,
+						`${theme} ${path}: ${expanded ? "expanded" : "closed"} mobile menu icon ${contrast.menu}:1`,
+					);
+				}
+				await menu.press("Escape");
+				await expect(page.locator("starlight-menu-button")).toHaveAttribute(
+					"aria-expanded",
+					"false",
+				);
+			}
+		} finally {
+			await context.close();
+		}
+	}
+	console.log(
+		"Shared interactions: beta/archive in both themes; pagination hover/focus, footer link states, and mobile menu open/close passed.",
+	);
 }
 
 async function main() {
@@ -228,6 +325,8 @@ async function main() {
 	const geomFailures = [];
 
 	try {
+		await checkInteractions(browser, origin);
+		if (process.argv.includes("--interactions-only")) return;
 		for (const theme of THEMES) {
 			const context = await browser.newContext();
 			// Set Starlight's theme before any page script runs.
@@ -313,6 +412,13 @@ async function main() {
 						};
 					});
 					const label = `${theme} ${width}px ${path}`;
+					if ([1440, 390].includes(width)) {
+						const name =
+							path === "/"
+								? "getting-started"
+								: path.split("/").filter(Boolean).join("-");
+						await capture(page, `starlight-${theme}-${width}-${name}`);
+					}
 					assert.ok(
 						layout.overflow <= 1,
 						`${label}: document overflow ${layout.overflow}px`,
@@ -380,18 +486,19 @@ async function main() {
 			await geomPage.goto(`${origin}${g.path}`, { waitUntil: "load" });
 			const items = await geomPage.evaluate(geometryInPage, {
 				sel: g.sel,
-				scaleVars: RADIUS_SCALE_VARS,
+				radiusRem: g.radiusRem,
 			});
+			assert.ok(items.length > 0, `Missing geometry target: ${g.sel}`);
 			for (const it of items) {
 				const padOk = !g.needPadX || (it.padL > 0 && it.padR > 0);
-				const ok = it.radiusInScale && padOk;
+				const ok = it.radiusMatches && padOk;
 				geomRows.push({ sel: g.sel, ...it, ok });
 				if (!ok) {
 					geomFailures.push({
 						sel: g.sel,
 						label: it.label,
-						reason: !it.radiusInScale
-							? `radius ${it.radius} is not in the --radius-* scale`
+						reason: !it.radiusMatches
+							? `radius ${it.radius} differs from the native ${it.expectedRadius}px`
 							: `horizontal padding ${it.padL}/${it.padR}px (needs non-zero)`,
 					});
 				}
@@ -439,11 +546,15 @@ async function main() {
 				await theme.evaluate((e) => e === document.activeElement),
 				"Tab moves from version to theme",
 			);
-			assert.notEqual(
-				await theme.evaluate(
-					(e) => getComputedStyle(e.closest("label")).boxShadow,
-				),
-				"none",
+			assert.ok(
+				await theme.evaluate((e) => {
+					const style = getComputedStyle(e);
+					return (
+						e.matches(":focus-visible") &&
+						style.outlineStyle !== "none" &&
+						parseFloat(style.outlineWidth) > 0
+					);
+				}),
 				"visible native select focus ring",
 			);
 			await page.keyboard.press("d");
@@ -508,7 +619,7 @@ async function main() {
 			);
 		}
 		console.error(
-			"\nDrive the element from the theme tokens (--sl-color-* / --control-*) so it inherits AA contrast in both themes.",
+			"\nCheck the element against Starlight theme tokens and its rendered background.",
 		);
 	}
 
@@ -519,14 +630,14 @@ async function main() {
 			console.error(`  - ${f.label} (${f.sel}): ${f.reason}`);
 		}
 		console.error(
-			"\nDrive control geometry from the tokens (--control-* / --button-* / --radius-*) so every control is sized consistently.",
+			"\nPreserve native Starlight/Expressive Code geometry and usable control padding.",
 		);
 	}
 
 	if (failed) process.exit(1);
 
 	console.log(
-		`\n✓ All ${rows.length} contrast checks pass AA in both themes, and all ${geomRows.length} controls use the geometry scale (radius + non-zero padding).`,
+		`\n✓ All ${rows.length} contrast checks pass AA in both themes, and all ${geomRows.length} controls retain native geometry (radius + non-zero padding).`,
 	);
 }
 
