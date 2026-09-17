@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { unzipSync, strFromU8 } from "fflate";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -88,7 +89,7 @@ assert.match(
 const repo = path.resolve(site, "../..");
 const canonical = fs
 	.readFileSync(
-		path.join(repo, "scripts/__tests__/fixtures/handbook/toggle.tsx"),
+		path.join(repo, "docs/site/src/examples/light-switch/src/light-switch.tsx"),
 		"utf8",
 	)
 	.replaceAll("\t", "  ")
@@ -128,4 +129,37 @@ for (const file of [
 }
 console.log(
 	`Handbook: ${html.size} routes, ${Object.keys(routes.redirects).length} legacy mappings, both version directions and mapped fragments passed.`,
+);
+
+const archive = unzipSync(
+	fs.readFileSync(path.join(dist, "examples/light-switch.zip")),
+);
+const example = path.join(site, "src/examples/light-switch");
+const expectedFiles = [
+	"package.json",
+	"index.html",
+	"src/light-switch.tsx",
+	"src/light-switch.css",
+];
+assert.deepEqual(Object.keys(archive).sort(), [...expectedFiles].sort());
+for (const file of expectedFiles) {
+	assert.equal(
+		strFromU8(archive[file]),
+		fs.readFileSync(path.join(example, file), "utf8"),
+		`download differs from canonical ${file}`,
+	);
+}
+assert.ok(
+	full.includes(
+		fs.readFileSync(path.join(example, "src/light-switch.tsx"), "utf8"),
+	),
+);
+assert.ok(
+	full.includes(
+		fs.readFileSync(path.join(example, "src/light-switch.css"), "utf8"),
+	),
+);
+assert.doesNotMatch(full, /<LightSwitchDemo/);
+console.log(
+	"Light switch download and agent export match the live example sources.",
 );

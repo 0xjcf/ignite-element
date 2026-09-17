@@ -22,6 +22,14 @@ const TEXT = 4.5; // WCAG AA for body text
 
 // selector -> { sel, min }. `min` is the threshold for that element class.
 const SELECTORS = {
+	lightSwitch: { root: "ignite-light-switch", sel: "button", min: TEXT },
+	lightCount: { root: "ignite-light-switch", sel: ".count", min: TEXT },
+	lightSwitchBorder: {
+		root: "ignite-light-switch",
+		sel: "button",
+		property: "borderTopColor",
+		min: UI,
+	},
 	versionPicker: { sel: ".version-select select", min: UI },
 	themeToggle: { sel: "starlight-theme-select select", min: UI },
 	search: { sel: "site-search button", min: UI },
@@ -96,6 +104,7 @@ const MIME = {
 	".ico": "image/x-icon",
 	".xml": "application/xml",
 	".txt": "text/plain",
+	".zip": "application/zip",
 };
 
 /** Minimal static file server for dist/, serving under the configured base. */
@@ -165,7 +174,7 @@ function auditInPage(selectorMap) {
 		while (n) {
 			const c = parse(getComputedStyle(n).backgroundColor);
 			if (c.a === 1) return c;
-			n = n.parentElement;
+			n = n.parentElement || n.getRootNode().host;
 		}
 		return { r: 255, g: 255, b: 255 };
 	};
@@ -181,7 +190,10 @@ function auditInPage(selectorMap) {
 	};
 	const out = {};
 	for (const [key, sel] of Object.entries(selectorMap)) {
-		const el = document.querySelector(typeof sel === "string" ? sel : sel.sel);
+		const root = sel.root
+			? document.querySelector(sel.root)?.shadowRoot
+			: document;
+		const el = root?.querySelector(typeof sel === "string" ? sel : sel.sel);
 		out[key] = el ? ratio(el, sel.property) : null;
 	}
 	return out;
@@ -223,15 +235,52 @@ async function checkInteractions(browser, origin) {
 				await page.goto(`${origin}${path}`);
 				const label = `${theme} ${path}`;
 				if (path === "/") {
+					const demo = page.locator("ignite-light-switch");
+					const light = demo.getByRole("switch", {
+						name: "Light",
+						exact: true,
+					});
+					await expect(light).toHaveAttribute("aria-checked", "false");
+					await expect(demo.locator(".state")).toHaveText("Off");
+					await expect(demo.locator(".count")).toHaveText("Toggled: 0");
+					await light.click();
+					await expect(light).toHaveAttribute("aria-checked", "true");
+					await expect(demo.locator(".state")).toHaveText("On");
+					await expect(demo.locator(".count")).toHaveText("Toggled: 1");
+					await light.press("Space");
+					await expect(light).toHaveAttribute("aria-checked", "false");
+					await expect(demo.locator(".count")).toHaveText("Toggled: 2");
+					await light.press("Enter");
+					await expect(light).toHaveAttribute("aria-checked", "true");
+					await expect(demo.locator(".count")).toHaveText("Toggled: 3");
+					await expect(light).toBeFocused();
+					await expect(light).toHaveCSS("outline-style", "solid");
+					await expect(demo.locator(".thumb")).toHaveCSS(
+						"transform",
+						"matrix(1, 0, 0, 1, 24, 0)",
+					);
+					await expect
+						.poll(() =>
+							demo
+								.locator(".bulb")
+								.evaluate((el) => getComputedStyle(el).width),
+						)
+						.toBe("80px");
+					for (const width of [1440, 390]) {
+						await page.setViewportSize({ width, height: 960 });
+						await light.scrollIntoViewIfNeeded();
+						await capture(page, `light-switch-${theme}-${width}-on`);
+					}
+					await page.setViewportSize({ width: 1440, height: 960 });
 					const expected = await readFile(
 						new URL(
-							"../../../scripts/__tests__/fixtures/handbook/toggle.tsx",
+							"../../../docs/site/src/examples/light-switch/src/light-switch.tsx",
 							import.meta.url,
 						),
 						"utf8",
 					);
 					await page
-						.getByRole("figure", { name: "src/toggle.tsx", exact: true })
+						.getByRole("figure", { name: "src/light-switch.tsx", exact: true })
 						.getByRole("button", { name: "Copy to clipboard", exact: true })
 						.click();
 					await expect
@@ -356,11 +405,20 @@ async function main() {
 
 			for (const path of PAGES) {
 				await page.goto(`${origin}${path}`, { waitUntil: "load" });
-				const got = await page.evaluate(auditInPage, {
-					...Object.fromEntries(
-						Object.entries(SELECTORS).map(([k, v]) => [k, v.sel]),
-					),
-				});
+				const got = await page.evaluate(auditInPage, SELECTORS);
+				if (path === "/") {
+					for (const key of [
+						"lightSwitch",
+						"lightCount",
+						"lightSwitchBorder",
+					]) {
+						assert.notEqual(
+							got[key],
+							null,
+							`${theme}: missing live demo contrast target ${key}`,
+						);
+					}
+				}
 				for (const [key, value] of Object.entries(got)) {
 					if (value == null) continue; // selector absent on this page
 					const min = SELECTORS[key].min;

@@ -52,7 +52,12 @@ function content(file) {
 		(_, id, lang, name) =>
 			`\n${name}\n\n\`\`\`${lang}\n${fs.readFileSync(imports.get(id), "utf8")}\`\`\`\n`,
 	);
-	return text.replaceAll("](/ignite-element/", `](${base}`);
+	return text
+		.replaceAll(
+			"<LightSwitchDemo />",
+			"[Try the live light switch](" + base + "#build-a-component)",
+		)
+		.replaceAll("](/ignite-element/", `](${base}`);
 }
 const heading =
 	"# Ignite Element\n\nVersion: v3 (beta), published beta.14.\nInstall ignite-element@beta. Stable policy: ignite-element@latest = 2.2.2.\n\n";

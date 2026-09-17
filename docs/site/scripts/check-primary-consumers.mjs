@@ -73,8 +73,12 @@ for (const lane of ["web", "native"]) {
 				"@testing-library/react": "16.3.0",
 			},
 		};
+		for (const name of ["light-switch.tsx", "light-switch.css"])
+			copyFileSync(
+				join(repo, "docs/site/src/examples/light-switch/src", name),
+				join(dir, name),
+			);
 		for (const name of [
-			"toggle.tsx",
 			"toggle.test.tsx",
 			"redux.ts",
 			"mobx.ts",
