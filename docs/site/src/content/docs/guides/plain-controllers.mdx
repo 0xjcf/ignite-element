@@ -6,8 +6,6 @@ sidebar:
   order: 20
 ---
 
-> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
-
 import { Code } from '@astrojs/starlight/components';
 import ownerCode from '../../../../../../examples/apps/shared-controller/src/owner.ts?raw';
 import sourceCode from '../../../../../../examples/apps/shared-controller/src/source.ts?raw';
@@ -20,11 +18,14 @@ not required for existing XState actors, Redux stores or MobX values. Translate 
 subscriptions and guarded methods into a supported structural source. No XState
 conversion, new adapter package or workflow rewrite is required.
 
-:::note[Published API, current release beta.14]
-The reviewed source-backed API and `useIgnite` are available in
-beta.12 and retained in `ignite-element@3.0.0-beta.14`. Install beta.14 with your application's
-React dependency; it includes beta.13's shared readiness and registered terminal disposal. Beta.11 does not supply this API. This remains a beta,
-not a claim of arbitrary Expo, Metro or device compatibility.
+:::note[Unreleased preview]
+The source-backed API and `useIgnite` shipped in beta.12.
+
+These examples also use the unreleased `commands({ source })` syntax, so run them from the candidate checkout below.
+
+Published beta.14 cannot run these examples unchanged.
+
+Native device compatibility still requires validation in your application.
 :::
 
 ## Run the complete example

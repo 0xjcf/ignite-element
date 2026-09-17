@@ -1,11 +1,17 @@
 ---
-title: Rename the command context to source
-description: Migrate the upcoming breaking beta command-context change without changing source ownership.
+title: "Unreleased beta: command context"
+description: Upgrade an existing v3 beta command callback from actor to source without changing ownership.
 ---
 
 This change is __unreleased__ and is not available in `ignite-element@3.0.0-beta.14`.
 
-The [published Getting started example](/ignite-element/) keeps beta.14's syntax until a supporting beta is published and verified.
+This note is for applications already using a v3 beta.
+
+The [Getting started preview](/ignite-element/) uses the new syntax with candidate packages.
+
+For a new project, follow Getting started; no rename is needed.
+
+For the broader upgrade from stable v2, see [v2 to v3 (beta)](/ignite-element/migration/v3/).
 
 ## Rename the callback property
 
@@ -46,16 +52,14 @@ Commands keep their argument types, results and return behavior.
 
 Effects and the `states` callback do not gain a new `source` property.
 
-For Feeling and other consumers, change the callback property while preserving source construction, subscriptions, command logic and cleanup.
+Change the callback property while preserving source construction, subscriptions, command logic and cleanup.
 
 Disposing an Ignite core still does not shut down a borrowed source.
 
 ## Upgrade after publication
 
-Review and integrate the API candidate through the normal protected workflow first.
+Wait for a supporting beta before updating a registry-installed application.
 
-Publish and verify a supporting beta before updating application dependencies or public installation instructions.
+Its version has not been selected yet.
 
-The next version will be determined during release preparation.
-
-The separate page-by-page documentation candidate must be reconciled and reviewed against that release before deployment.
+The package changelog will record the release version and this breaking change when it is released.

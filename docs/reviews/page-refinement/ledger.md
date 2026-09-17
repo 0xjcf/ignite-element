@@ -6,6 +6,10 @@ This ledger carries all A01–A12 and E01–E10 findings from the supplied audit
 
 Current slice: Getting started, reopened only for the command-source API and release reconciliation. The parked branch stays unchanged at `1cfc2310557e9ed602c6e7f9524e9827e45f4dbc`, tree `14689a7da715fa2cfde41745438f7485bbb34b5d`. Its original Getting started approval remains historical evidence. The local successor `fas/docs-getting-started-source` includes integrated beta `1787b4e9d4974ccbc425a4c5802dc7226a6bc410`; see the [Getting started source-API receipt](getting-started-source-api.md). Getting started now awaits re-review. Sources still awaits review and Views remains queued. The accepted shared presentation is preserved; no later-page editorial pass is authorized yet.
 
+## Command wording and beta-history audit — 2026-09-17
+
+The Operator requested another audit after finding stale MobX prose. The [audit receipt](command-wording-beta-history-audit.md) records narrow command-context and release-label corrections across Sources and its related references. These corrections do not accept Sources or advance the page review. Getting started remains awaiting re-review; Sources remains awaiting review; Views remains queued. The proposed separation of beta release notes from the v2-to-v3 upgrade guide is awaiting a product decision.
+
 ## Pages
 
 Source paths below are relative to `docs/site/src/content/docs/`. All pages inherit A06–A09 presentation validation; archive content retains its historical API.

@@ -12,7 +12,8 @@ Use an adapter entrypoint's `igniteCore(...)` for source-backed construction.
 The root source-free `const core = igniteCore()` remains registrar-only.
 The canonical flow is source → native snapshot → derived states → renderer view.
 
-This reference describes published beta.14 behavior. Beta.13 introduced automatic
+This reference includes the unreleased command-context rename described above.
+Its runtime behavior follows published beta.14. Beta.13 introduced automatic
 shared-source readiness and terminal registered-core disposal, covered in the
 [migration note](/ignite-element/migration/shared-readiness-terminal-disposal/).
 Beta.14 adds [native DOM forwarding and core-owned effects](/ignite-element/handbook/events/).

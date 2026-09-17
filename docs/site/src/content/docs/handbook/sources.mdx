@@ -3,7 +3,13 @@ title: Sources
 description: Choose a source adapter, derive values, and send commands to your source.
 ---
 
-> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
+:::note[Unreleased preview]
+These examples use `commands({ source })`, which is not available in published beta.14.
+
+Use the candidate checkout to try them.
+
+The commands below install only the source libraries; Ignite installation instructions will follow when the supporting beta is published.
+:::
 
 import { Code } from '@astrojs/starlight/components';
 import redux from '../../../../../../scripts/__tests__/fixtures/handbook/redux.ts?raw';
@@ -49,14 +55,14 @@ The callback receives the command target for the active instance, not necessaril
 
 Destructuring can give that target a local name: `{ source: actor }` for XState or `{ source: store }` for Redux and MobX.
 These aliases keep inference; they do not add properties to the command context.
-See the [migration note](/ignite-element/migration/command-source/) for the change from beta.14.
+If you already use a v3 beta, see the [unreleased beta upgrade note](/ignite-element/migration/command-source/).
 
 ## XState
 
-Install Ignite and XState:
+Install XState:
 
 ```sh title="Terminal"
-pnpm add ignite-element@3.0.0-beta.14 xstate
+pnpm add xstate
 ```
 
 The [Getting started light switch](/ignite-element/#build-a-component) passes a machine definition to `igniteCore`.
@@ -71,10 +77,10 @@ Keep guards, invoked services, cancellation, retries, and persistence in XState 
 
 ## Redux
 
-Install Ignite and Redux Toolkit:
+Install Redux Toolkit:
 
 ```sh title="Terminal"
-pnpm add ignite-element@3.0.0-beta.14 @reduxjs/toolkit
+pnpm add @reduxjs/toolkit
 ```
 
 Create `redux.ts` to connect a counter store:
@@ -93,10 +99,10 @@ Passing a Redux slice instead creates isolated state for each element.
 
 ## MobX
 
-Install Ignite and MobX:
+Install MobX:
 
 ```sh title="Terminal"
-pnpm add ignite-element@3.0.0-beta.14 mobx
+pnpm add mobx
 ```
 
 Create `mobx.ts` to connect an observable counter:
@@ -107,7 +113,7 @@ The `states` callback reads the observable data copied by `toJS`.
 
 Do not assume methods or computed getters are fields in that result.
 
-The `increment()` command calls the original store's action through `actor`.
+The `increment()` command calls `store.increment()` on the observable instance.
 
 Passing an observable instance shares it between views.
 
