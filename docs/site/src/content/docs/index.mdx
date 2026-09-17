@@ -17,13 +17,27 @@ Your source owns state and behavior. `states` selects values for the view;
 This guide uses __v3 beta.14__. For `ignite-element@latest` (v2.2.2), see the
 [stable v2 documentation](/ignite-element/2.x/).
 
-Start in an empty directory with Node 22.12+ and pnpm. Install Ignite, XState,
-and Vite for this TypeScript example:
+This example renders a Web Component. Use your existing TypeScript/JSX web
+project, or create one with the optional setup below.
+
+<details>
+<summary>Starting a new project? Set up Vite</summary>
+
+In an empty directory, with Node 22.12+ and pnpm installed, run:
 
 ```sh title="Terminal"
 pnpm init
-pnpm add ignite-element@3.0.0-beta.14 xstate
 pnpm add -D vite typescript
+```
+
+Vite builds and serves this example locally; Ignite does not require Vite.
+
+</details>
+
+Install Ignite and XState in your project:
+
+```sh title="Terminal"
+pnpm add ignite-element@3.0.0-beta.14 xstate
 ```
 
 ## Build a component
@@ -35,7 +49,13 @@ Create `src/toggle.tsx`. The first line selects Ignite JSX for this file.
 The XState actor owns `off` and `on`. `states` derives `isOn`, and the `toggle`
 command sends `TOGGLE` to the actor. The view uses both through `ctx`.
 
-Create `index.html` in the project root to mount the element and load its module:
+Load `src/toggle.tsx` from your app’s entry module and add
+`<ignite-toggle></ignite-toggle>` to the page.
+
+<details>
+<summary>Run the standalone Vite example</summary>
+
+Create `index.html` in the project root to load the module and mount the element:
 
 ```html title="index.html"
 <!doctype html>
@@ -58,9 +78,12 @@ Run Vite from the project root, then open the local URL it prints:
 pnpm exec vite
 ```
 
-Press the button to switch between __Off__ and __On__. The exported `dispose()`
-function belongs at final application shutdown: it releases the core and then
-stops the actor this application created.
+</details>
+
+Press the button to switch between __Off__ and __On__.
+
+This example keeps its core and source for the page’s lifetime. For application
+teardown, see [Ownership & cleanup](/ignite-element/handbook/ownership/#terminal-disposal).
 
 <details>
 <summary>Optional: configure JSX for the whole project</summary>

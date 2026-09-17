@@ -211,6 +211,7 @@ async function checkInteractions(browser, origin) {
 	for (const theme of THEMES) {
 		const context = await browser.newContext({
 			viewport: { width: 1440, height: 960 },
+			permissions: ["clipboard-read", "clipboard-write"],
 		});
 		await context.addInitScript(
 			(value) => localStorage.setItem("starlight-theme", value),
@@ -221,6 +222,22 @@ async function checkInteractions(browser, origin) {
 			for (const path of ["/", "/2.x/getting-started/installation/"]) {
 				await page.goto(`${origin}${path}`);
 				const label = `${theme} ${path}`;
+				if (path === "/") {
+					const expected = await readFile(
+						new URL(
+							"../../../scripts/__tests__/fixtures/handbook/toggle.tsx",
+							import.meta.url,
+						),
+						"utf8",
+					);
+					await page
+						.getByRole("figure", { name: "src/toggle.tsx", exact: true })
+						.getByRole("button", { name: "Copy to clipboard", exact: true })
+						.click();
+					await expect
+						.poll(() => page.evaluate(() => navigator.clipboard.readText()))
+						.toBe(expected.replaceAll("\t", "  ").trimEnd());
+				}
 				const pagination = page.locator(".pagination-links a").first();
 				await pagination.scrollIntoViewIfNeeded();
 				await page.mouse.move(0, 0);

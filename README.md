@@ -14,14 +14,14 @@ for stable applications.
 pnpm add ignite-element@beta xstate
 ```
 
-Save as `src/toggle.tsx` in a Vite/TypeScript project:
+Save as `src/toggle.tsx` in a web project with TypeScript/JSX support:
 
 ```tsx
 /** @jsxImportSource ignite-element/jsx */
 import { igniteCore } from "ignite-element/xstate";
 import { createActor, createMachine } from "xstate";
 
-const source = createActor(
+export const source = createActor(
   createMachine({
     initial: "off",
     states: {
@@ -46,14 +46,6 @@ core("ignite-toggle", (ctx) => (
     </button>
   </section>
 ));
-
-export function dispose() {
-  try {
-    core.dispose();
-  } finally {
-    source.stop();
-  }
-}
 ```
 
 Load that file from your HTML entry and add `<ignite-toggle></ignite-toggle>`.

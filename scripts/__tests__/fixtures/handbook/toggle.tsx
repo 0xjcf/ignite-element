@@ -2,7 +2,7 @@
 import { igniteCore } from "ignite-element/xstate";
 import { createActor, createMachine } from "xstate";
 
-const source = createActor(
+export const source = createActor(
 	createMachine({
 		initial: "off",
 		states: {
@@ -27,11 +27,3 @@ core("ignite-toggle", (ctx) => (
 		</button>
 	</section>
 ));
-
-export function dispose() {
-	try {
-		core.dispose();
-	} finally {
-		source.stop();
-	}
-}

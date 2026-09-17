@@ -1,7 +1,7 @@
 /** @jsxImportSource ignite-element/jsx */
 import { expect, it } from "vitest";
 import { within } from "@testing-library/dom";
-import { core, dispose } from "./toggle";
+import { core, source } from "./toggle";
 
 it("renders source-derived state and responds to a native control", async () => {
 	const host = document.createElement("ignite-toggle");
@@ -19,6 +19,10 @@ it("renders source-derived state and responds to a native control", async () => 
 		expect(core.get("states").isOn).toBe(false);
 	} finally {
 		host.remove();
-		dispose();
+		try {
+			core.dispose();
+		} finally {
+			source.stop();
+		}
 	}
 });
