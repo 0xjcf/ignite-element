@@ -95,18 +95,18 @@ const canonical = fs
 	)
 	.replaceAll("\t", "  ")
 	.trim();
-assert.match(canonical, /commands: \(\{ actor \}\)/);
+assert.match(canonical, /commands: \(\{ source \}\)/);
 assert.match(full, /NOT available in published beta\.14/);
-const candidate = fs.readFileSync(
-	path.join(repo, "scripts/__tests__/fixtures/handbook/toggle.tsx"),
+const historical = fs.readFileSync(
+	path.join(repo, "scripts/__tests__/fixtures/handbook/beta14-toggle.tsx"),
 	"utf8",
 );
-assert.match(candidate, /commands: \(\{ source \}\)/);
+assert.match(historical, /commands: \(\{ actor \}\)/);
 for (const file of ["README.md", "packages/ignite-element/README.md"]) {
 	const readme = fs.readFileSync(path.join(repo, file), "utf8");
 	assert.ok(
 		readme.includes(canonical),
-		`${file}: quickstart diverges from the checked published beta.14 example`,
+		`${file}: quickstart diverges from the checked candidate example`,
 	);
 }
 for (const file of [
@@ -144,6 +144,7 @@ const archive = unzipSync(
 );
 const example = path.join(site, "src/examples/light-switch");
 const expectedFiles = [
+	"README.md",
 	"package.json",
 	"index.html",
 	"src/light-switch.tsx",
@@ -170,4 +171,17 @@ assert.ok(
 assert.doesNotMatch(full, /<LightSwitchDemo/);
 console.log(
 	"Light switch download and agent export match the live example sources.",
+);
+
+const manifest = JSON.parse(
+	fs.readFileSync(path.join(example, "package.json"), "utf8"),
+);
+assert.equal(
+	manifest.dependencies["ignite-element"],
+	"workspace:*",
+	"preview must not silently install published beta.14",
+);
+assert.match(
+	strFromU8(archive["README.md"]),
+	/not a standalone public-package install/,
 );

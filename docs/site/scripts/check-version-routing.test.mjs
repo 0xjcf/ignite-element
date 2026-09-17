@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const site = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const installation = "src/content/docs/index.mdx";
+const historicalInstallation = "src/content/docs/api/compatibility.mdx";
 
 function checkFixture(mutate = () => {}) {
 	const directory = fs.mkdtempSync(
@@ -62,13 +63,13 @@ function rejects(mutate, reason) {
 	assert.match(result.output, reason);
 }
 
-test("published beta.14 pages pass without the old candidate disclaimers", () =>
+test("candidate preview and historical beta.14 pages pass together", () =>
 	passes());
 
 test("verified beta.14 publication and exact installation are permitted", () =>
 	passes(({ append }) =>
 		append(
-			installation,
+			historicalInstallation,
 			"3.0.0-beta.14 is published. Install with `pnpm add ignite-element@3.0.0-beta.14`.",
 		),
 	));
@@ -130,13 +131,7 @@ for (const selector of [
 	"3.0.0-beta.11",
 ]) {
 	test(`complete supported install selector ${selector} passes`, () =>
-		passes(({ replace, append }) => {
-			if (selector !== "3.0.0-beta.14")
-				replace(
-					installation,
-					/ignite-element@3\.0\.0-beta\.14/g,
-					`ignite-element@${selector}`,
-				);
+		passes(({ append }) => {
 			append(
 				"src/content/docs/api/compatibility.mdx",
 				`Verified public 3.0.0-beta.14; historical releases 3.0.0-beta.13, 3.0.0-beta.12 and 3.0.0-beta.11.\n\n\`npm install --save react "ignite-element@${selector}"\``,
@@ -159,7 +154,7 @@ for (const selector of [
 	test(`unsupported complete selector ${selector || "unqualified"} fails`, () =>
 		rejects(({ append }) => {
 			append(
-				installation,
+				historicalInstallation,
 				`\`npm install --save react ignite-element${selector ? `@${selector}` : ""}\``,
 			);
 		}, /unsupported v3 install/));
@@ -167,7 +162,8 @@ for (const selector of [
 
 test("an empty version selector fails visibly", () =>
 	rejects(
-		({ append }) => append(installation, "`pnpm add ignite-element@`"),
+		({ append }) =>
+			append(historicalInstallation, "`pnpm add ignite-element@`"),
 		/unsupported v3 install/,
 	));
 for (const quote of ['"', "'"]) {
@@ -184,7 +180,7 @@ for (const quote of ['"', "'"]) {
 			rejects(
 				({ append }) =>
 					append(
-						installation,
+						historicalInstallation,
 						`\`npm install ${quote}ignite-element@beta${suffix}${quote}\``,
 					),
 				/unsupported v3 install/,
@@ -193,19 +189,25 @@ for (const quote of ['"', "'"]) {
 }
 test("shell separators outside quoted selectors remain valid", () =>
 	passes(({ append }) =>
-		append(installation, '`npm install "ignite-element@beta"; echo done`'),
+		append(
+			historicalInstallation,
+			'`npm install "ignite-element@beta"; echo done`',
+		),
 	));
 test("concatenated quoted selector suffix is not discarded", () =>
 	rejects(
 		({ append }) =>
-			append(installation, '`npm install "ignite-element@beta"invalid`'),
+			append(
+				historicalInstallation,
+				'`npm install "ignite-element@beta"invalid`',
+			),
 		/unsupported v3 install/,
 	));
 test("an allowed selector elsewhere cannot hide an unsupported selector", () =>
 	rejects(
 		({ append }) =>
 			append(
-				installation,
+				historicalInstallation,
 				"`pnpm add ignite-element@beta ignite-element@3.0.0-beta.121`",
 			),
 		/unsupported v3 install/,
@@ -263,7 +265,7 @@ test("mutable main source links fail", () =>
 	rejects(
 		({ append }) =>
 			append(
-				installation,
+				historicalInstallation,
 				"https://github.com/0xjcf/ignite-element/tree/main/examples",
 			),
 		/mutable main link/,
@@ -289,7 +291,27 @@ for (const version of [
 test("other packages are not mistaken for the facade", () =>
 	passes(({ append }) =>
 		append(
-			installation,
+			historicalInstallation,
 			"`pnpm add ignite-element-helper @example/ignite-element`",
 		),
+	));
+
+test("preview cannot offer beta.14 or the moving beta tag", () => {
+	for (const selector of ["3.0.0-beta.14", "beta"]) {
+		rejects(
+			({ append }) =>
+				append(installation, `pnpm add ignite-element@${selector} xstate`),
+			/unreleased preview must not offer a public Ignite install/,
+		);
+	}
+});
+test("preview disclosure cannot be removed", () =>
+	rejects(
+		({ replace }) =>
+			replace(
+				installation,
+				":::note[Unreleased preview]",
+				":::note[Getting started]",
+			),
+		/must disclose its unreleased API/,
 	));

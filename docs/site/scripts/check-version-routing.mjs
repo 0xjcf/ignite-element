@@ -157,11 +157,20 @@ assert.ok(
 );
 
 const installation = fs.readFileSync(routeSource("index"), "utf8");
-assert.ok(
-	facadeInstalls(installation).some((selector) =>
-		supportedFacadeInstalls.has(selector),
-	),
-	`v3 install must select the beta channel or a verified release through ${verifiedRelease}`,
+// Temporary preview boundary: replace with a verified install identity at release.
+assert.match(
+	installation,
+	/:::note\[Unreleased preview\]/,
+	"Getting started must disclose its unreleased API",
+);
+assert.match(
+	installation,
+	/Published beta\.14 and the current `@beta` package do not support this syntax/,
+);
+assert.equal(
+	facadeInstalls(installation).length,
+	0,
+	"unreleased preview must not offer a public Ignite install",
 );
 assert.match(
 	installation,

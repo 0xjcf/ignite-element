@@ -1,5 +1,6 @@
 import { strToU8, zipSync } from "fflate";
 import manifest from "../../examples/light-switch/package.json?raw";
+import readme from "../../examples/light-switch/README.md?raw";
 import html from "../../examples/light-switch/index.html?raw";
 import source from "../../examples/light-switch/src/light-switch.tsx?raw";
 import styles from "../../examples/light-switch/src/light-switch.css?raw";
@@ -7,6 +8,7 @@ import styles from "../../examples/light-switch/src/light-switch.css?raw";
 export function GET() {
 	const files = {
 		"package.json": strToU8(manifest),
+		"README.md": strToU8(readme),
 		"index.html": strToU8(html),
 		"src/light-switch.tsx": strToU8(source),
 		"src/light-switch.css": strToU8(styles),

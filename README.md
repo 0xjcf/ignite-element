@@ -6,15 +6,13 @@ Connect a state source to Web Components, React, or headless consumers.
 
 This branch contains the **unreleased command-context rename** to `commands({ source })`.
 See the [migration note](docs/site/src/content/docs/migration/command-source.mdx) in the candidate docs.
-The quick start below deliberately uses **published beta.14** and its `{ actor }` syntax.
+The quick start below is an **unreleased preview**. Published beta.14 and the current `@beta` package do not support it.
 Stable `ignite-element@latest` is v2.2.2; use the [v2 archive](https://0xjcf.github.io/ignite-element/2.x/)
 for stable applications.
 
 ## Quick start
 
-```sh
-pnpm add ignite-element@3.0.0-beta.14 xstate
-```
+Installation instructions will follow when the supporting beta is published.
 
 Save as `src/light-switch.tsx` in a web project with TypeScript/JSX support:
 
@@ -46,8 +44,8 @@ export const core = igniteCore({
     label: snapshot.matches("on") ? "On" : "Off",
     count: snapshot.context.count,
   }),
-  commands: ({ actor }) => ({
-    toggle: () => actor.send({ type: "FLIP" }),
+  commands: ({ source }) => ({
+    toggle: () => source.send({ type: "FLIP" }),
   }),
 });
 
@@ -80,8 +78,8 @@ core("ignite-light-switch", (ctx) => (
 ```
 
 Load that file from your HTML entry and add `<ignite-light-switch></ignite-light-switch>`.
-The [Getting started handbook](https://0xjcf.github.io/ignite-element/) includes
-the matching `src/light-switch.css`, complete HTML, live demo and downloadable project. Inline `states` and `commands` preserve
+The [Getting started preview](docs/site/src/content/docs/index.mdx) includes
+the matching `src/light-switch.css`, complete HTML, live demo and preview source download. Inline `states` and `commands` preserve
 inference; the view uses `ctx`. Each element has its own state: Ignite creates
 and manages a private actor from `toggleMachine`.
 

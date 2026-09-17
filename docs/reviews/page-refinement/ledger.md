@@ -1,10 +1,10 @@
 # Documentation refinement ledger
 
-Started at beta `cd40ce117cf5a2a3be92415ba7e02bd99e45d969`, tree `632410b8b74284cd8588fbaca58d001c96d13014` (same as both 2026-09-16 audits). No intervening candidate changes.
+Started at beta `cd40ce117cf5a2a3be92415ba7e02bd99e45d969`, tree `632410b8b74284cd8588fbaca58d001c96d13014` (same as both 2026-09-16 audits). This is the historical audit baseline; the API reconciliation below records the current candidate.
 
 This ledger carries all A01–A12 and E01–E10 findings from the supplied audits. Findings outside the current slice are queued reports, not newly verified conclusions. Shared presentation affects all routes; it does not confer content acceptance. Getting started is accepted by the Operator at `7d8e37840bfacb2835bd2f99f2cab5b9e9558275`; no other page is accepted. Review order: Getting started, Sources, Views, Events, Ownership, Testing, API, Examples, then remaining destinations individually. Prior review records remain historical.
 
-Current slice: Sources and its direct guide-navigation references. Getting started was explicitly accepted by the Operator on 2026-09-17 after the [sentence-paragraph refinement](sentence-paragraphs.md), at commit `7d8e37840bfacb2835bd2f99f2cab5b9e9558275`, tree `3998a6b9a2338b416caf4e2b6336294ccbedf54e`. Its earlier receipts remain historical. Sources uses the same short sentences, single-idea paragraphs and native Starlight presentation. The new Guides sidebar group makes retained destinations discoverable without accepting their queued content. See the [Sources receipt](sources.md). Views remains queued until Sources is accepted.
+Current slice: Getting started, reopened only for the command-source API and release reconciliation. The parked branch stays unchanged at `1cfc2310557e9ed602c6e7f9524e9827e45f4dbc`, tree `14689a7da715fa2cfde41745438f7485bbb34b5d`. Its original Getting started approval remains historical evidence. The local successor `fas/docs-getting-started-source` includes integrated beta `1787b4e9d4974ccbc425a4c5802dc7226a6bc410`; see the [Getting started source-API receipt](getting-started-source-api.md). Getting started now awaits re-review. Sources still awaits review and Views remains queued. The accepted shared presentation is preserved; no later-page editorial pass is authorized yet.
 
 ## Pages
 
@@ -12,7 +12,7 @@ Source paths below are relative to `docs/site/src/content/docs/`. All pages inhe
 
 | Page / URL | Findings | Source | Status | Evidence / remaining work |
 | --- | --- | --- | --- | --- |
-| [Getting started](https://0xjcf.github.io/ignite-element/) | A01, A08, A10 | `index.mdx` | accepted | Operator approval on 2026-09-17 at `7d8e3784`; [sentence paragraphs](sentence-paragraphs.md) records the accepted final treatment. |
+| [Getting started](https://0xjcf.github.io/ignite-element/) | A01, A08, A10 | `index.mdx` | awaiting re-review | Original approval at `7d8e3784` preserved; narrow source-API and preview-status reconciliation in [receipt](getting-started-source-api.md). |
 | [Sources](https://0xjcf.github.io/ignite-element/handbook/sources/) | A01, A08 | `handbook/sources.mdx` | awaiting review | Adapter-specific states inputs, short paragraphs, installation blocks, checked Redux/MobX modules and discoverable guides; [receipt](sources.md). |
 | [Views](https://0xjcf.github.io/ignite-element/handbook/views/) | A08, A11 | `handbook/views.mdx` | queued | Show const ctx = useIgnite(core) and the small view first. Link the shared source definition rather than front-loading a 43-line setup. Clearly separate the neutral hook from browser custom-element interoperability. |
 | [Events & effects](https://0xjcf.github.io/ignite-element/handbook/events/) | A11 | `handbook/events.mdx` | queued | Lead with when to forward a source event and when to derive a notification. Keep one producer per event and core/source ownership explicit. Move detailed ordering, activation and error contracts to a reference section, preserving links. |
@@ -160,7 +160,7 @@ Reused from the prior handbook inventory; classifications below preserve its con
 | --- | --- | --- | --- | --- |
 | Header, rail, selectors, prose, tables | A06–A09 | `docs/site/src/styles/theme.css`, `components/Header.astro`, `components/ThemeSelect.astro`, `src/rehype-scrollable-tables.mjs` | awaiting review | All five viewport widths, both themes; representative tables, long code and v2. |
 | Eight handbook entries and retained Guides group | A11; Operator navigation request | `docs/site/astro.config.mjs` | awaiting review | Native collapsible guide group; primary order and separate archive navigation retained. |
-| Getting started light switch | A10 | `docs/site/src/examples/light-switch/`, `components/LightSwitchDemo.astro` | accepted | Operator accepted the displayed example, live demo and download with Getting started at `7d8e3784`; earlier toggle fixture remains historical validation material. |
+| Getting started light switch | A10 | `docs/site/src/examples/light-switch/`, `components/LightSwitchDemo.astro` | awaiting re-review | Same behavior and presentation; command target changed to source. Download is explicitly preview source pending the supporting release. Historical beta.14 fixture remains checked. |
 | Sources examples | A01, A08, A10 | `scripts/__tests__/fixtures/handbook/redux.ts`, `mobx.ts` | awaiting review | Unchanged source modules; strict packed consumer and fresh published-package execution verified for Sources. |
 | Current agent exports | A01, A08, A10 | `docs/site/scripts/generate-agent-docs.mjs` → `dist/llms-full.txt`, `llms.txt`, `llms-small.txt` | awaiting review | Getting started and Sources regenerated; other page findings remain queued in the same export. |
 | Historical agent export | A12 | generator → `dist/llms-v2.txt` | queued | Keep separate; no archival API edits in this slice. |

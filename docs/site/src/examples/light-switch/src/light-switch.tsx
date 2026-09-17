@@ -25,8 +25,8 @@ export const core = igniteCore({
 		label: snapshot.matches("on") ? "On" : "Off",
 		count: snapshot.context.count,
 	}),
-	commands: ({ actor }) => ({
-		toggle: () => actor.send({ type: "FLIP" }),
+	commands: ({ source }) => ({
+		toggle: () => source.send({ type: "FLIP" }),
 	}),
 });
 

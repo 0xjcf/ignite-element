@@ -61,7 +61,7 @@ function content(file) {
 		.replaceAll("](/ignite-element/", `](${base}`);
 }
 const heading =
-	"# Ignite Element\n\nVersion: v3 (beta), unreleased command-source candidate.\nCommands receive { source }; this change is NOT available in published beta.14. The explicitly labelled Getting started example retains beta.14 syntax and its pinned installation. Other candidate examples require this checkout until a supporting beta is published. Stable policy: ignite-element@latest = 2.2.2.\n\n";
+	"# Ignite Element\n\nVersion: v3 (beta), unreleased command-source candidate.\nCommands receive { source }; this change is NOT available in published beta.14. Getting started and its preview download require the integrated candidate packages. Installation instructions await a supporting published beta. Historical beta.14 fixtures are checked separately and are not the canonical example. Stable policy: ignite-element@latest = 2.2.2.\n\n";
 const index =
 	heading +
 	primary
