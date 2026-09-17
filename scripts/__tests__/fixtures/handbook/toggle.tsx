@@ -1,19 +1,17 @@
 /** @jsxImportSource ignite-element/jsx */
 import { igniteCore } from "ignite-element/xstate";
-import { createActor, createMachine } from "xstate";
+import { createMachine } from "xstate";
 
-export const source = createActor(
-	createMachine({
-		initial: "off",
-		states: {
-			off: { on: { TOGGLE: "on" } },
-			on: { on: { TOGGLE: "off" } },
-		},
-	}),
-).start();
+const toggleMachine = createMachine({
+	initial: "off",
+	states: {
+		off: { on: { TOGGLE: "on" } },
+		on: { on: { TOGGLE: "off" } },
+	},
+});
 
 export const core = igniteCore({
-	source,
+	source: toggleMachine,
 	states: (snapshot) => ({ isOn: snapshot.matches("on") }),
 	commands: ({ actor }) => ({
 		toggle: () => actor.send({ type: "TOGGLE" }),

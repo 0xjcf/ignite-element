@@ -46,8 +46,10 @@ Create `src/toggle.tsx`. The first line selects Ignite JSX for this file.
 
 <Code code={toggle} lang="tsx" title="src/toggle.tsx" />
 
-The XState actor owns `off` and `on`. `states` derives `isOn`, and the `toggle`
-command sends `TOGGLE` to the actor. The view uses both through `ctx`.
+`toggleMachine` defines `off` and `on`. Ignite creates a private actor for each
+`<ignite-toggle>`, so each element has its own state. `states` derives `isOn`,
+and the `toggle` command sends `TOGGLE` to that element’s actor. The view uses
+both through `ctx`.
 
 Load `src/toggle.tsx` from your app’s entry module and add
 `<ignite-toggle></ignite-toggle>` to the page.
@@ -82,8 +84,8 @@ pnpm exec vite
 
 Press the button to switch between __Off__ and __On__.
 
-This example keeps its core and source for the page’s lifetime. For application
-teardown, see [Ownership & cleanup](/ignite-element/handbook/ownership/#terminal-disposal).
+Ignite manages these private actors. The core stays available for the page’s
+lifetime; for application teardown, see [Ownership & cleanup](/ignite-element/handbook/ownership/#terminal-disposal).
 
 <details>
 <summary>Optional: configure JSX for the whole project</summary>

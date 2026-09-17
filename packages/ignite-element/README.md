@@ -19,20 +19,18 @@ Save as `src/toggle.tsx` in a web project with TypeScript/JSX support:
 ```tsx
 /** @jsxImportSource ignite-element/jsx */
 import { igniteCore } from "ignite-element/xstate";
-import { createActor, createMachine } from "xstate";
+import { createMachine } from "xstate";
 
-export const source = createActor(
-  createMachine({
-    initial: "off",
-    states: {
-      off: { on: { TOGGLE: "on" } },
-      on: { on: { TOGGLE: "off" } },
-    },
-  }),
-).start();
+const toggleMachine = createMachine({
+  initial: "off",
+  states: {
+    off: { on: { TOGGLE: "on" } },
+    on: { on: { TOGGLE: "off" } },
+  },
+});
 
 export const core = igniteCore({
-  source,
+  source: toggleMachine,
   states: (snapshot) => ({ isOn: snapshot.matches("on") }),
   commands: ({ actor }) => ({
     toggle: () => actor.send({ type: "TOGGLE" }),
@@ -51,7 +49,8 @@ core("ignite-toggle", (ctx) => (
 Load that file from your HTML entry and add `<ignite-toggle></ignite-toggle>`.
 The [Getting started handbook](https://0xjcf.github.io/ignite-element/) includes
 the complete HTML and run commands. Inline `states` and `commands` preserve
-inference; the view uses `ctx`. The application owns final source shutdown.
+inference; the view uses `ctx`. Each element has its own state: Ignite creates
+and manages a private actor from `toggleMachine`.
 
 ## React and React Native
 
