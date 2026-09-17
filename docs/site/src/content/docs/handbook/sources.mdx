@@ -4,6 +4,7 @@ description: Choose a source adapter, derive values, and send commands to your s
 ---
 
 import { Code } from '@astrojs/starlight/components';
+import reduxSlice from '../../../../../../scripts/__tests__/fixtures/handbook/redux-slice.ts?raw';
 import reduxFactory from '../../../../../../scripts/__tests__/fixtures/handbook/redux-factory.ts?raw';
 import mobxFactory from '../../../../../../scripts/__tests__/fixtures/handbook/mobx-factory.ts?raw';
 
@@ -25,6 +26,24 @@ An Ignite source adapter connects your source to Ignite's observation and comman
 
 Network requests, storage, timers, and other I/O stay in your source or application.
 
+## Create independent state per element
+
+Choose the input that creates a new source for each element:
+
+| Source library | Input to `igniteCore` | What each element gets |
+| --- | --- | --- |
+| XState | `source: toggleMachine` | A new actor created from the machine definition |
+| Redux | `source: slice` | A new store created from the slice |
+| MobX | `source: () => new Counter()` | A new observable returned by the function |
+
+The MobX function must create a new observable each time it is called.
+
+Returning the same existing observable would share its state.
+
+The complete modules below export a `core` with derived state and commands.
+
+Use that core to [register a view](/ignite-element/handbook/views/#ignite-jsx), as shown in Getting started.
+
 ## What `states` receives
 
 The callback input depends on the source adapter.
@@ -39,13 +58,13 @@ The name `snapshot` in the examples is a callback parameter, not a shared shape 
 
 ## Command target
 
-Use `commands: ({ source })` to access the resolved command interface.
+The configuration's `source` tells Ignite what to create or observe.
 
-Configuration `source` accepts the adapter's supported instance, factory, or definition.
+Inside `commands: ({ source })`, `source` provides commands for the active actor or store.
 
-The callback receives the command target for the active instance, not necessarily the original configuration object.
+For a machine, slice, or factory, the callback receives the created instance's command interface.
 
-Destructuring can give that target a local name: `{ source: actor }` for XState or `{ source: store }` for Redux and MobX.
+The examples use `{ source: store }` to name that callback value `store`.
 
 ## XState
 
@@ -75,17 +94,34 @@ pnpm add ignite-element@beta @reduxjs/toolkit
 
 ### Create a store per element
 
-Create `redux-factory.ts` with a factory that returns a new store:
+Save this complete module as `redux-slice.ts`:
 
-<Code code={reduxFactory} lang="ts" title="redux-factory.ts" />
+<Code code={reduxSlice} lang="ts" title="redux-slice.ts" />
 
-The `states` callback reads `snapshot.count` because this store uses the counter reducer directly.
+Pass the slice itself as `source`.
+
+Ignite creates a separate store for each element using this core.
+
+The `states` callback receives the slice state, so the count is `snapshot.count`.
 
 The `increment()` command dispatches the slice's action to the store.
 
-For a combined store, read its root shape, such as `snapshot.counter.count`.
+<details>
+<summary>Configure your own store</summary>
 
-Passing a Redux slice also creates isolated state for each element.
+Use a store factory when you need custom middleware or combined reducers.
+
+The factory must create a new store each time it is called.
+
+Save this alternative module as `redux-factory.ts`:
+
+<Code code={reduxFactory} lang="ts" title="redux-factory.ts" />
+
+Here `states` receives the store's full state.
+
+For a combined reducer, read its root shape, such as `snapshot.counter.count`.
+
+</details>
 
 <span id="share-a-redux-store"></span>
 
@@ -101,13 +137,21 @@ pnpm add ignite-element@beta mobx
 
 ### Create an observable per element
 
-Create `mobx-factory.ts` with a factory that returns a new observable:
+Save this complete module as `mobx-factory.ts`:
 
 <Code code={mobxFactory} lang="ts" title="mobx-factory.ts" />
 
+`makeAutoObservable(this)` makes each `Counter` instance observable.
+
+`source: () => new Counter()` lets Ignite create a new instance for each element.
+
+Incrementing one element changes only that element's counter.
+
 The `states` callback reads the observable data copied by `toJS`.
 
-Do not assume methods or computed getters are fields in that result.
+Use that snapshot for data fields such as `count`.
+
+Call actions on the observable received by `commands`, rather than on the snapshot.
 
 The `increment()` command calls `store.increment()` on the observable instance.
 

@@ -6,6 +6,10 @@ This ledger carries all A01–A12 and E01–E10 findings from the supplied audit
 
 Current slice: shared editorial consistency across current pages, with Getting started still the next acceptance checkpoint. The parked branch stays unchanged at `1cfc2310557e9ed602c6e7f9524e9827e45f4dbc`, tree `14689a7da715fa2cfde41745438f7485bbb34b5d`. Its original Getting started approval remains historical evidence. The local successor `fas/docs-getting-started-source` includes integrated beta `af0de5696b60922aacbbcc895879adcc72851357`; see the [factory reconciliation and Getting started re-review receipt](getting-started-factory-reconciliation.md). Getting started now awaits re-review. Sources still awaits review and Views remains queued. The accepted shared presentation is preserved. The Operator has authorized the shared prose pass below; individual page acceptance remains sequential.
 
+## Per-element source clarity — 2026-09-17
+
+The Operator requested copyable, unambiguous source examples. Sources now leads with the XState machine / Redux slice / fresh MobX observable factory mapping. The optional Redux factory remains available for custom store configuration. The [clarity receipt](source-input-clarity.md) records strict packed compilation and two-element independence checks for the actual displayed modules, including manual browser verification. Page approvals are unchanged.
+
 ## Shared examples moved out of Sources — 2026-09-17
 
 The Operator requested keeping full shared-source examples in the shared-source guide. Sources now focuses on per-element factories and links to each sharing example. The [relocation receipt](sources-shared-examples.md) records the preserved canonical modules, updated Testing link and validation. Page checkpoints remain unchanged.

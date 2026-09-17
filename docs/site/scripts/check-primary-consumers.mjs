@@ -126,6 +126,8 @@ for (const lane of ["web", "native"]) {
 			"mobx.ts",
 			"mobx-factory.ts",
 			"redux-factory.ts",
+			"redux-slice.ts",
+			"source-isolation.test.ts",
 			"source.test.ts",
 			"core.test.ts",
 		])
