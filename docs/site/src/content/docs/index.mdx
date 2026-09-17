@@ -12,12 +12,17 @@ import LightSwitchDemo from '../../components/LightSwitchDemo.astro';
 __source → states → view__
 
 Connect your state source to Web Components, React, or headless consumers.
-Your source owns state and behavior. Use `states` to derive values for the view
+
+Your source owns state and behavior.
+
+Use `states` to derive values for the view
 and `commands` to send actions to the source.
 
 ## Install v3 beta
 
-This guide uses __v3 beta.14__. For `ignite-element@latest` (v2.2.2), see the
+This guide uses __v3 beta.14__.
+
+For `ignite-element@latest` (v2.2.2), see the
 [stable v2 documentation](/ignite-element/2.x/).
 
 Use an existing TypeScript/JSX web project, or start a new one below.
@@ -32,7 +37,9 @@ pnpm init
 pnpm add -D vite typescript
 ```
 
-Vite builds and serves the example locally. Ignite also works with other
+Vite builds and serves the example locally.
+
+Ignite also works with other
 TypeScript/JSX web tooling.
 
 </details>
@@ -45,7 +52,9 @@ pnpm add ignite-element@3.0.0-beta.14 xstate
 
 ## Build a component
 
-This light switch is a Web Component. Try it: each flip changes the bulb and
+This light switch is a Web Component.
+
+Try it: each flip changes the bulb and
 increments the count.
 
 <LightSwitchDemo />
@@ -63,19 +72,29 @@ pnpm install
 pnpm exec vite
 ```
 
-Open the local URL printed in the terminal. The download contains the same
+Open the local URL printed in the terminal.
+
+The download contains the same
 component, styles, and HTML shown below.
 
 </details>
 
 ### 1. Create the component
 
-Create `src/light-switch.tsx`. The first line selects Ignite JSX for this file.
+Create `src/light-switch.tsx`.
+
+The first line selects Ignite JSX for this file.
 
 <Code code={toggle} lang="tsx" title="src/light-switch.tsx" />
 
-`toggleMachine` owns the on/off state and flip count. The `states` callback
-exposes `isOn`, `label`, and `count`; `commands` exposes `toggle()`. The view
+`toggleMachine` owns the on/off state and flip count.
+
+The `states` callback
+exposes `isOn`, `label`, and `count`.
+
+The `commands` callback exposes `toggle()`.
+
+The view
 reads these values and calls the command through `ctx`.
 
 Each `<ignite-light-switch>` gets its own actor, so its state is independent
@@ -83,7 +102,9 @@ of other light switches on the page.
 
 ### 2. Add the styles
 
-Create `src/light-switch.css` alongside the component. Its stylesheet loads
+Create `src/light-switch.css` alongside the component.
+
+Its stylesheet loads
 inside the element’s shadow root, keeping the bulb and switch styles local.
 
 <details>
@@ -113,7 +134,9 @@ pnpm exec vite
 
 </details>
 
-Ignite manages each element’s private actor. The core stays available for the
+Ignite manages each element’s private actor.
+
+The core stays available for the
 page’s lifetime; see [Ownership & cleanup](/ignite-element/handbook/ownership/#terminal-disposal)
 for application teardown.
 
@@ -121,7 +144,9 @@ for application teardown.
 <summary>Configure JSX for the project (optional)</summary>
 
 For a project using only Ignite JSX, add this `tsconfig.json` and remove the
-first-line pragma from `src/light-switch.tsx`. v3 uses native ES modules.
+first-line pragma from `src/light-switch.tsx`.
+
+v3 uses native ES modules.
 
 ```json title="tsconfig.json"
 {
