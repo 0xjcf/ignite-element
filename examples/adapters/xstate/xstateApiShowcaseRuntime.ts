@@ -57,7 +57,7 @@ export const apiShowcase = igniteCore({
 			isLimited: snapshot.matches("limited"),
 		};
 	},
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		increment: () =>
 			actor.send({ type: "ADD", amount: actor.getSnapshot().context.step }),
 		decrement: () => actor.send({ type: "DECREMENT" }),

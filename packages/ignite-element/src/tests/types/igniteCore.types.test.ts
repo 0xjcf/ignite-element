@@ -379,7 +379,7 @@ describe("igniteCore type inference", () => {
 				connected: snapshot.transport.state === "connected",
 				snapshotStatus: snapshot.context.status,
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				createShipment: (shipmentId: string) =>
 					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
 			}),
@@ -417,7 +417,7 @@ describe("igniteCore type inference", () => {
 			states: (snapshot) => ({
 				status: snapshot.context.status,
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				createShipment: (shipmentId: string) =>
 					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
 			}),
@@ -446,7 +446,7 @@ describe("igniteCore type inference", () => {
 				ready: snapshot.hasTag?.("ready") ?? false,
 				snapshotShipmentId: snapshot.context.shipmentId,
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				createShipment: (shipmentId: string) =>
 					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
 			}),
@@ -467,7 +467,7 @@ describe("igniteCore type inference", () => {
 		igniteCoreActorWebEntrypoint({
 			source: actorWebShipmentSource,
 			states: (snapshot) => ({ status: snapshot.context.status }),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				createShipment: (shipmentId: string) =>
 					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
 			}),
@@ -487,7 +487,7 @@ describe("igniteCore type inference", () => {
 				status: snapshot.context.status,
 				connected: snapshot.transport.state === "connected",
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				createShipment: (shipmentId: string) =>
 					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
 			}),
@@ -504,7 +504,7 @@ describe("igniteCore type inference", () => {
 				status: snapshot.context.status,
 				connected: snapshot.transport.state === "connected",
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				createShipment: (shipmentId: string) =>
 					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
 			}),
@@ -594,7 +594,7 @@ describe("igniteCore type inference", () => {
 			states: (snapshot: Snapshot) => ({
 				double: snapshot.context.count * 2,
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				increment: () => actor.send({ type: "INC" }),
 			}),
 		});
@@ -620,7 +620,7 @@ describe("igniteCore type inference", () => {
 			states: (snapshot: Snapshot) => ({
 				count: snapshot.context.count,
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				ping: () => actor.send({ type: "PING" }),
 			}),
 		});
@@ -646,7 +646,7 @@ describe("igniteCore type inference", () => {
 			events: (event) => ({
 				"checkout-submitted": event<{ email: string }>(),
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				submit: () => {
 					actor.send({ type: "PING" });
 				},
@@ -661,7 +661,7 @@ describe("igniteCore type inference", () => {
 
 		igniteCoreXState({
 			source: machine,
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				noop: () => {
 					void actor;
 				},
@@ -709,7 +709,7 @@ describe("igniteCore type inference", () => {
 
 		igniteCoreXState({
 			source: machine,
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				trigger: () => actor.send({ type: "PING" }),
 			}),
 			effects: ({ emit }) => {
@@ -753,7 +753,7 @@ describe("igniteCore type inference", () => {
 				leaderboard: snapshot.context.leaderboard,
 				sort: snapshot.context.sort,
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				trigger: () => {
 					actor.send({ type: "PING" });
 				},
@@ -787,7 +787,7 @@ describe("igniteCore type inference", () => {
 
 		igniteCoreXState({
 			source: machine,
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				trigger: () => actor.send({ type: "PING" }),
 			}),
 			effects: ({ emit }) => {
@@ -824,7 +824,7 @@ describe("igniteCore type inference", () => {
 			events: (event) => ({
 				"pinged-event": event<{ id: string }>(),
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				trigger: () => actor.send({ type: "PING" }),
 			}),
 			effects: ({ emit }) => {
@@ -875,7 +875,7 @@ describe("igniteCore type inference", () => {
 				}),
 				commands: (
 					// @ts-expect-error host has been removed from command context
-					{ actor, host },
+					{ source: actor, host },
 				) => ({
 					trigger: () => {
 						void actor;
@@ -898,7 +898,7 @@ describe("igniteCore type inference", () => {
 			states: (snapshot: StoreState) => ({
 				count: snapshot.counter.count,
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				increment: (amount: number) =>
 					actor.dispatch(counterSlice.actions.addByAmount(amount)),
 			}),
@@ -1084,7 +1084,7 @@ describe("igniteCore type inference", () => {
 				count: snapshot.context.count,
 				ready: snapshot.context.ready,
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				increment: () => {
 					actor.send({ type: "INCREMENT" });
 				},
@@ -1156,7 +1156,7 @@ describe("igniteCore type inference", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: counterStore(),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				addByAmount: (amount: number) =>
 					actor.dispatch(counterSlice.actions.addByAmount(amount)),
 			}),
@@ -1199,7 +1199,7 @@ describe("igniteCore type inference", () => {
 				expectTypeOf(snapshot.counter.count).toEqualTypeOf<number>();
 				return { canAdd: snapshot.counter.count > 0 };
 			},
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				addWhenNonzero: (amount: number) =>
 					actor.dispatch(counterSlice.actions.addByAmount(amount)),
 			}),
@@ -1218,7 +1218,7 @@ describe("igniteCore type inference", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: counterStore(),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				configureAlert: (payload: {
 					label: string;
 					enabled: boolean;
@@ -1277,7 +1277,7 @@ describe("igniteCore type inference", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: counterStore(),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				addPair: (first: number, second: number) =>
 					actor.dispatch(counterSlice.actions.addByAmount(first + second)),
 			}),
@@ -1305,7 +1305,7 @@ describe("igniteCore type inference", () => {
 		const viewCallback = (snapshot: SliceState) => ({
 			count: snapshot.count,
 		});
-		const commandsCallback = ({ actor }: { actor: SliceActor }) => ({
+		const commandsCallback = ({ source: actor }: { source: SliceActor }) => ({
 			increment: () => actor.dispatch(counterSlice.actions.increment()),
 		});
 
@@ -1330,7 +1330,7 @@ describe("igniteCore type inference", () => {
 		const sliceStates = (snapshot: SliceState) => ({
 			count: snapshot.count,
 		});
-		const sliceCommands = ({ actor }: SliceContext) => ({
+		const sliceCommands = ({ source: actor }: SliceContext) => ({
 			increment: () => actor.dispatch(counterSlice.actions.increment()),
 		});
 
@@ -1355,7 +1355,7 @@ describe("igniteCore type inference", () => {
 		const viewCallback = (snapshot: StoreState) => ({
 			count: snapshot.counter.count,
 		});
-		const commandsCallback = ({ actor }: { actor: StoreActor }) => ({
+		const commandsCallback = ({ source: actor }: { source: StoreActor }) => ({
 			increment: () => actor.dispatch(counterSlice.actions.increment()),
 		});
 
@@ -1379,7 +1379,7 @@ describe("igniteCore type inference", () => {
 		const storeStates = (snapshot: StoreState) => ({
 			count: snapshot.counter.count,
 		});
-		const storeCommands = ({ actor }: StoreContext) => ({
+		const storeCommands = ({ source: actor }: StoreContext) => ({
 			increment: () => actor.dispatch(counterSlice.actions.increment()),
 		});
 
@@ -1410,9 +1410,9 @@ describe("igniteCore type inference", () => {
 			count: snapshot.count,
 		});
 		const commandsCallback = ({
-			actor: storeInstance,
+			source: storeInstance,
 		}: {
-			actor: StoreState;
+			source: StoreState;
 		}) => ({
 			increment: () => storeInstance.increment(),
 		});
@@ -1443,7 +1443,7 @@ describe("igniteCore type inference", () => {
 		const sharedStates = (snapshot: SharedStore) => ({
 			count: snapshot.count,
 		});
-		const sharedCommands = ({ actor: storeInstance }: SharedContext) => ({
+		const sharedCommands = ({ source: storeInstance }: SharedContext) => ({
 			increment: () => storeInstance.increment(),
 		});
 

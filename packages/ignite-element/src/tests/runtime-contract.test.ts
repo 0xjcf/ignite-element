@@ -49,7 +49,7 @@ const createCounter = () => {
 	const core = redux.igniteCore({
 		source: store,
 		states: (snapshot) => ({ count: snapshot.counter.count, label: "Count" }),
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			increment: (amount: number) =>
 				actor.dispatch(counterSlice.actions.addByAmount(amount)),
 			maybeIncrement: (amount?: number) =>

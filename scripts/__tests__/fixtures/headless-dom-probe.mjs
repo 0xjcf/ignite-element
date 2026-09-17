@@ -131,7 +131,7 @@ if (scenario.includes("-live") || scenario.includes("-factory")) {
 		source,
 		states: (snapshot) => ({ count: read(snapshot) }),
 		events: (event) => ({ changed: event() }),
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			increment: () =>
 				kind === "redux"
 					? actor.dispatch({ type: "counter/inc" })

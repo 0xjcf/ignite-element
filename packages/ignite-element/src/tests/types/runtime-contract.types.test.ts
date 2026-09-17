@@ -8,7 +8,7 @@ it("retains command payload, native snapshot, state and discriminated event typi
 	const core = igniteCore({
 		source: store,
 		states: (snapshot) => ({ count: snapshot.counter.count, label: "Counter" }),
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			increment: (amount: number) =>
 				actor.dispatch(counterSlice.actions.addByAmount(amount)),
 			optional: (amount?: number) =>

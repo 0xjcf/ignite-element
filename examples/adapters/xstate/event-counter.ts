@@ -27,7 +27,7 @@ export const counterActor = createActor(counterMachine).start();
 export const core = igniteCore({
 	source: counterActor,
 	states: (snapshot) => ({ count: snapshot.context.count }),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		increment: () => actor.send({ type: "INCREMENT" }),
 		reset: () => actor.send({ type: "RESET" }),
 	}),

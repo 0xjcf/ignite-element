@@ -42,7 +42,7 @@ const stepper = igniteCore({
 		step: snapshot.step,
 		label: snapshot.label,
 	}),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		increment: () => actor.dispatch(stepperSlice.actions.increment()),
 		decrement: () => actor.dispatch(stepperSlice.actions.decrement()),
 		reset: () => actor.dispatch(stepperSlice.actions.reset()),

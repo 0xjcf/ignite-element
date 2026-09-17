@@ -78,7 +78,7 @@ function createCounter() {
 			count: snapshot.context.count,
 			canDecrement: snapshot.context.count > 0,
 		}),
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			increment: () => actor.send({ type: "INC" }),
 			decrement: () => actor.send({ type: "DEC" }),
 		}),

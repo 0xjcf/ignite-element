@@ -24,7 +24,7 @@ describe("igniteTools types", () => {
 		adapter: "xstate",
 		source: machine,
 		states: (snapshot) => ({ isOn: snapshot.matches("on") }),
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			toggle: () => actor.send({ type: "TOGGLE" }),
 		}),
 		events: (event) => ({

@@ -15,7 +15,7 @@ const mobxStates = (snapshot: CounterStoreInstance) => ({
 	count: snapshot.count,
 });
 
-const mobxCommands = ({ actor }: { actor: CounterStoreInstance }) => ({
+const mobxCommands = ({ source: actor }: { source: CounterStoreInstance }) => ({
 	decrement: () => actor.decrement(),
 	increment: () => actor.increment(),
 });

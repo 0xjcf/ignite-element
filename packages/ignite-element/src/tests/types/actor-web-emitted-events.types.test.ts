@@ -29,7 +29,7 @@ async function _typeAssertions() {
 		adapter: "actor-web",
 		source: shipmentSource,
 		states: (snapshot) => ({ id: snapshot.context.shipmentId }),
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			cancel: (shipmentId: string) =>
 				actor.send({ type: "shipment.cancel", shipmentId }),
 		}),

@@ -10,7 +10,9 @@ const source = makeAutoObservable({
 const core = igniteCore({
 	source,
 	states: (snapshot) => ({ count: snapshot.count }),
-	commands: ({ actor }) => ({ add: (amount: number) => actor.add(amount) }),
+	commands: ({ source: actor }) => ({
+		add: (amount: number) => actor.add(amount),
+	}),
 	events: (event) => ({ changed: event<{ count: number }>() }),
 });
 // @ts-expect-error Inferable state-command collision.

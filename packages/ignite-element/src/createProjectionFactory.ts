@@ -1,4 +1,4 @@
-import { StateScope, type IgniteAdapter } from "@ignite-element/core";
+import { type IgniteAdapter, StateScope } from "@ignite-element/core";
 import type { BaseRenderArgs, PublicFacadeRenderArgs } from "./types/render";
 
 export type { PublicFacadeRenderArgs } from "./types/render";
@@ -359,9 +359,9 @@ export function createProjectionFactory<
 				Host,
 				Snapshot
 			>;
-			const actor = resolveActor(adapter);
+			const source = resolveActor(adapter);
 			const commandResult = commandCallback({
-				actor,
+				source,
 			});
 			ensureFacadeResult(commandResult, "commands", errorPrefix);
 

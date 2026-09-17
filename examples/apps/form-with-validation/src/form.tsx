@@ -43,7 +43,7 @@ const registerForm = igniteCore({
 		status: snapshot.value as "editing" | "submitting" | "success",
 		canSubmit: isValid(snapshot.context.values),
 	}),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		// A single object payload (not two positional args) so the command is
 		// driveable through the headless runtime's `execute({ command, input })`. Named
 		// `updateField` rather than `setField` on purpose: a single-arg `setX`

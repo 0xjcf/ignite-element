@@ -4,14 +4,16 @@ Connect a state source to Web Components, React, or headless consumers.
 
 **source → source-native snapshot → states → view**
 
-This branch documents **v3 beta.14**. Install `ignite-element@beta` for this API.
+This branch contains the **unreleased command-context rename** to `commands({ source })`.
+See the [migration note](docs/site/src/content/docs/migration/command-source.mdx) in the candidate docs.
+The quick start below deliberately uses **published beta.14** and its `{ actor }` syntax.
 Stable `ignite-element@latest` is v2.2.2; use the [v2 archive](https://0xjcf.github.io/ignite-element/2.x/)
 for stable applications.
 
 ## Quick start
 
 ```sh
-pnpm add ignite-element@beta xstate
+pnpm add ignite-element@3.0.0-beta.14 xstate
 ```
 
 Save as `src/toggle.tsx` in a Vite/TypeScript project:

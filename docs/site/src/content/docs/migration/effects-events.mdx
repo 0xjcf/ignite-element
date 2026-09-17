@@ -3,6 +3,8 @@ title: Migrate command emission
 description: Preserve command input and choose a source occurrence or derived notification.
 ---
 
+> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
+
 ## Historical command emission
 
 This intentionally historical fragment illustrates the retired command `emit`
@@ -52,7 +54,7 @@ const machine = setup({
 const source = createActor(machine).start();
 export const core = igniteCore({
   source,
-  commands: ({ actor }) => ({
+  commands: ({ source: actor }) => ({
     toggle: (mode: 'user' | 'system') => actor.send({ type: 'TOGGLE', mode }),
   }),
   events: event => ({
@@ -75,7 +77,7 @@ in `effects` under a distinct name. The [event counter](/ignite-element/handbook
 shows both a native reset occurrence and a derived count change without duplicate
 producers. A repeated request is not equivalent to a changed value.
 
-Current commands receive `{ actor }`. Effects receive
+Current commands receive `{ source }`. Effects receive
 `{ snapshot, prevSnapshot, select, emit }` and return synchronous `void`.
 Extracted callbacks may have an ordinary `void` annotation; they do not need
 `return undefined`. Keep asynchronous work, retries, and cancellation in the source.

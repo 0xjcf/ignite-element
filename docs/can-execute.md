@@ -1,5 +1,7 @@
 # Command availability after helper retirement
 
+> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
+
 The earlier helper-metadata design is superseded in the published v3 beta.14 API.
 The public core `canExecute(name)` method, `command(fn, metadata)` helper and
 metadata/input-builder exports are removed without aliases.
@@ -13,7 +15,7 @@ states: snapshot => ({
   canSubmit: snapshot.can({ type: 'SUBMIT' }),
   commandAvailability: { submit: snapshot.can({ type: 'SUBMIT' }) },
 }),
-commands: ({ actor }) => ({
+commands: ({ source: actor }) => ({
   submit: () => actor.send({ type: 'SUBMIT' }),
 }),
 ```

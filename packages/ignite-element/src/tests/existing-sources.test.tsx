@@ -23,7 +23,9 @@ function session() {
 	const core = igniteCore({
 		source: actor,
 		states: (snapshot) => ({ count: snapshot.context.count }),
-		commands: ({ actor }) => ({ increment: () => actor.send({ type: "INC" }) }),
+		commands: ({ source: actor }) => ({
+			increment: () => actor.send({ type: "INC" }),
+		}),
 	});
 	return { core, actor, subscribe, stop };
 }

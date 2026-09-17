@@ -4,7 +4,7 @@ description: Connect a source, derive states, render a view, and call a command.
 ---
 
 import { Code } from '@astrojs/starlight/components';
-import toggle from '../../../../../scripts/__tests__/fixtures/handbook/toggle.tsx?raw';
+import toggle from '../../../../../scripts/__tests__/fixtures/handbook/beta14-toggle.tsx?raw';
 
 Ignite connects an existing state source to Web Components, React, or headless
 consumers. Your source owns behavior; Ignite observes it and provides derived
@@ -14,14 +14,17 @@ __source → source-native snapshot → states → view__
 
 ## Install v3 beta
 
-This handbook describes __v3 (beta), published beta.14__. Install the beta package
-and the source library you use:
+This Getting started example uses __published v3 beta.14__.
+
+The candidate handbook also documents the [upcoming command-context rename](/ignite-element/migration/command-source/).
+That change is not available in beta.14; this example retains its published syntax.
+
+Install this version and the source library you use:
 
 ```sh title="Terminal"
-pnpm add ignite-element@beta xstate
+pnpm add ignite-element@3.0.0-beta.14 xstate
 ```
 
-To pin this release, use `ignite-element@3.0.0-beta.14` instead of `@beta`.
 The stable facade policy is `ignite-element@latest = 2.2.2`;
 [stable v2 documentation](/ignite-element/2.x/) is separate.
 Use Node 22+ and a TypeScript/bundler project. v3 is native ESM-only.

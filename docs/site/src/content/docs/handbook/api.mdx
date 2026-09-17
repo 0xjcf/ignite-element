@@ -3,6 +3,8 @@ title: API reference
 description: Construction, configuration, bindings, and runtime return shapes.
 ---
 
+> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
+
 ## Construction and registration
 
 | Call | Return |
@@ -24,7 +26,7 @@ and execution do not. Opaque document/speech targets are separate from DOM eleme
 | --- | --- |
 | `source` | Existing source or supported isolated definition/factory; see [Sources](/ignite-element/handbook/sources/) |
 | `states(snapshot)` | Optional derived object from the native snapshot; omission yields a stable empty object |
-| `commands({ actor })` | Object of ordinary source-directed functions; no `command` helper or `emit` capability |
+| `commands({ source })` | Object of ordinary source-directed functions; no `command` helper or `emit` capability |
 | `events(event)` | Typed public event declarations, not runtime payload validation |
 | `effects({ snapshot, prevSnapshot, select, emit })` | Synchronous `void` callback; see [Events & effects](/ignite-element/handbook/events/) |
 | `cleanup` | Shared adapter observation teardown policy, not borrowed-source shutdown authority |

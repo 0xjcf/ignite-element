@@ -19,7 +19,7 @@ const makeRouter = () =>
 			id: snapshot.context.params.id ?? null,
 			authed: snapshot.context.authed,
 		}),
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			navigate: (to: string) => actor.send({ type: "NAVIGATE_REQUESTED", to }),
 			login: () => actor.send({ type: "LOGIN" }),
 			logout: () => actor.send({ type: "LOGOUT" }),

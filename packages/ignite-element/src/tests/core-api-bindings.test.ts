@@ -13,7 +13,9 @@ const makeCore = () =>
 	igniteCore({
 		source: machine,
 		states: (snapshot) => ({ count: snapshot.context.count }),
-		commands: ({ actor }) => ({ add: () => actor.send({ type: "ADD" }) }),
+		commands: ({ source: actor }) => ({
+			add: () => actor.send({ type: "ADD" }),
+		}),
 	});
 
 describe("owning core keyed API", () => {

@@ -75,7 +75,7 @@ export function eventContract() {
 	const instance = actorCore({
 		source,
 		states: (s) => ({ count: s.context.count }),
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			reset: () => actor.send({ type: "reset", count: 0 }),
 		}),
 	});

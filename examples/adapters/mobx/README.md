@@ -1,5 +1,7 @@
 # MobX + ignite-element Example
 
+> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
+
 This showcase combines **ignite-element**, **MobX**, and **lit-html** to build reactive custom elements with both shared and isolated state through the public `ignite-element/mobx` authoring surface.
 
 ---
@@ -55,7 +57,7 @@ const sharedStore = counterStore();
 export const registerSharedMobx = igniteCore({
   source: sharedStore, // shared observable instance
   states: (snapshot) => ({ count: snapshot.count }),
-  commands: ({ actor }) => ({
+  commands: ({ source: actor }) => ({
     decrement: () => actor.decrement(),
     increment: () => actor.increment(),
   }),
@@ -65,7 +67,7 @@ export const registerIsolatedMobx = igniteCore({
   adapter: "mobx",
   source: counterStore, // factory → new observable each time
   states: (snapshot) => ({ count: snapshot.count }),
-  commands: ({ actor }) => ({
+  commands: ({ source: actor }) => ({
     decrement: () => actor.decrement(),
     increment: () => actor.increment(),
   }),

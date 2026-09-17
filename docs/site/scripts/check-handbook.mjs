@@ -8,6 +8,7 @@ import {
 	routeUrl,
 	versionDestination,
 } from "../src/route-map.mjs";
+
 const site = fileURLToPath(new URL("..", import.meta.url));
 const dist = path.join(site, "dist");
 function walk(dir) {
@@ -88,16 +89,23 @@ assert.match(
 const repo = path.resolve(site, "../..");
 const canonical = fs
 	.readFileSync(
-		path.join(repo, "scripts/__tests__/fixtures/handbook/toggle.tsx"),
+		path.join(repo, "scripts/__tests__/fixtures/handbook/beta14-toggle.tsx"),
 		"utf8",
 	)
 	.replaceAll("\t", "  ")
 	.trim();
+assert.match(canonical, /commands: \(\{ actor \}\)/);
+assert.match(full, /NOT available in published beta\.14/);
+const candidate = fs.readFileSync(
+	path.join(repo, "scripts/__tests__/fixtures/handbook/toggle.tsx"),
+	"utf8",
+);
+assert.match(candidate, /commands: \(\{ source \}\)/);
 for (const file of ["README.md", "packages/ignite-element/README.md"]) {
 	const readme = fs.readFileSync(path.join(repo, file), "utf8");
 	assert.ok(
 		readme.includes(canonical),
-		`${file}: quickstart diverges from strict consumer`,
+		`${file}: quickstart diverges from the checked published beta.14 example`,
 	);
 }
 for (const file of [

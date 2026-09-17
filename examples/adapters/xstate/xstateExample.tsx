@@ -32,7 +32,7 @@ const xstateStates = (snapshot: MachineSnapshot) => {
 const registerSharedXState = igniteCore({
 	source: sharedActor,
 	states: xstateStates,
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		increment: () => actor.send({ type: "INC" }),
 		decrement: () => actor.send({ type: "DEC" }),
 		toggleDarkMode: () => actor.send({ type: "TOGGLE_DARK" }),
@@ -43,7 +43,7 @@ const registerSharedXState = igniteCore({
 const registerIsolatedXState = igniteCore({
 	source: advancedMachine,
 	states: xstateStates,
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		increment: () => actor.send({ type: "INC" }),
 		decrement: () => actor.send({ type: "DEC" }),
 	}),

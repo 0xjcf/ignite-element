@@ -31,7 +31,7 @@ export async function exerciseSessions() {
 			signedIn: snapshot.matches("active"),
 			unknown: snapshot.matches({ active: { saving: "unknown" } }),
 		}),
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			save: (value: string, generation: number) =>
 				actor.send({ type: "SAVE", value, generation }),
 		}),

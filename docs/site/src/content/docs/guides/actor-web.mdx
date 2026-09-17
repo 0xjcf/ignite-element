@@ -6,6 +6,8 @@ sidebar:
   order: 5
 ---
 
+> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
+
 Use `ignite-element/actor-web` when an **Actor-Web runtime already owns** orchestration, supervision, sequencing, transport, and source lifecycle. Ignite stays in the projection/read-model role: it preserves Actor-Web snapshots as native source truth, derives consumer-facing states, and exposes explicit commands without taking over the runtime. The registration renderer turns those states into the view.
 
 Source/application ownership also applies to XState, Redux and MobX: passing a
@@ -58,7 +60,7 @@ export const shipmentCard = igniteCore({
     etaLabel: snapshot.context.etaLabel,
     canCancel: snapshot.context.canCancel,
   }),
-  commands: ({ actor }) => ({
+  commands: ({ source: actor }) => ({
     refresh: (shipmentId: string) =>
       actor.send({ type: "shipment.refresh", shipmentId }),
     cancel: (shipmentId: string) =>
@@ -123,7 +125,7 @@ try {
   const home = igniteCore({
     source: commandSource,
     states: (snapshot) => ({ refreshCount: snapshot.context.refreshCount }),
-    commands: ({ actor }) => ({
+    commands: ({ source: actor }) => ({
       refresh: () => actor.send({ type: "home.refresh" }),
     }),
   });
@@ -181,7 +183,7 @@ declare const shipmentSource: ActorWebCommandSource<
 
 export const shipmentActions = igniteCore({
   source: shipmentSource,
-  commands: ({ actor }) => ({
+  commands: ({ source: actor }) => ({
     cancel: (shipmentId: string) =>
       actor.send({ type: "shipment.cancel", shipmentId }),
     requestLabel: (shipmentId: string) =>
@@ -260,7 +262,7 @@ declare const shipmentSource: ActorWebCommandSource<
 export const shipmentFeed = igniteCore({
   source: shipmentSource,
   states: (snapshot) => ({ status: snapshot.context.status }),
-  commands: ({ actor }) => ({
+  commands: ({ source: actor }) => ({
     cancel: (shipmentId: string) =>
       actor.send({ type: "shipment.cancel", shipmentId }),
   }),
