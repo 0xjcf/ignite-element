@@ -6,9 +6,19 @@ sidebar:
   order: 6
 ---
 
-Ignite Element v3 supports the versions below. The state libraries and `lit-html` are **optional** peer dependencies — install only the ones the adapter you import needs. npm/pnpm warn if an installed version is below the minimum.
+Ignite Element v3 supports the versions below.
 
-All four v3 packages are native ESM-only: `ignite-element`, `@ignite-element/core`, `@ignite-element/adapters`, and `@ignite-element/renderer`. Their public ESM entrypoints and declarations are supported; CommonJS `main` and `require` entrypoints are not.
+Install the state library your source entrypoint uses.
+
+Install `lit-html` only when using the Lit renderer.
+
+These are optional peer dependencies.
+
+Your package manager warns if an installed version is below the minimum.
+
+All four v3 packages are native ESM-only: `ignite-element`, `@ignite-element/core`, `@ignite-element/adapters`, and `@ignite-element/renderer`.
+
+Their public ESM entrypoints and declarations are supported; CommonJS `main` and `require` entrypoints are not.
 
 | Dependency | Required | Needed for |
 | --- | --- | --- |
@@ -20,10 +30,16 @@ All four v3 packages are native ESM-only: `ignite-element`, `@ignite-element/cor
 | `mobx` | `>=6.13.5` | `ignite-element/mobx` |
 | `lit-html` | `>=3.2.1` | the optional legacy `lit` renderer |
 
-The version ranges come from each package's `peerDependencies`; the Node and TypeScript rows reflect the toolchain the v3 types and packages are built and tested against.
+The library version ranges come from each package's `peerDependencies`.
+
+The Node and TypeScript rows describe the build and test toolchain.
 
 :::caution[v3 is in beta]
-v3 publishes under the `beta` dist-tag (the stable `latest` tag is still v2.2.x). Pin a known-good range in your own `package.json` until the stable release. See the [v2 → v3 migration guide](/ignite-element/migration/v3/).
+v3 publishes under the `beta` dist-tag (the stable `latest` tag is still v2.2.x).
+
+Pin a known-good range in your own `package.json` until the stable release.
+
+See the [v2 → v3 migration guide](/ignite-element/migration/v3/).
 :::
 
 ## Related
@@ -33,16 +49,44 @@ v3 publishes under the `beta` dist-tag (the stable `latest` tag is still v2.2.x)
 
 ## Node runtime versus declaration support
 
-The headless path is validated on Node 22.16.0, pnpm 10.33.0 and TypeScript 5.9.3. Native `EventTarget`, `Event` and `CustomEvent` provide the runtime event path; Ignite does not fabricate browser globals. Source-backed construction and execution need no DOM. Tag registration is synchronous and requires a browser. Other engines, workers and SSR/hydration are not established by this evidence.
+The headless path is validated on Node 22.16.0, pnpm 10.33.0 and TypeScript 5.9.3.
 
-Root/JSX optional-peer isolation, adapter inference with the selected peer, and compilation without `lib: DOM` are independent checks. The package separates the neutral source entrypoints and `ignite-element/react` from browser declarations. Genuine registration/JSX and the explicit `/react/web` consumers retain actual DOM types. Do not install ambient browser stubs to make a native lane pass.
+Native `EventTarget`, `Event` and `CustomEvent` provide the runtime event path; Ignite does not fabricate browser globals.
+
+Source-backed construction and execution need no DOM.
+
+Tag registration is synchronous and requires a browser.
+
+Other engines, workers and SSR/hydration are not established by this evidence.
+
+Root/JSX optional-peer isolation, adapter inference with the selected peer, and compilation without `lib: DOM` are independent checks.
+
+The package separates the neutral source entrypoints and `ignite-element/react` from browser declarations.
+
+Genuine registration/JSX and the explicit `/react/web` consumers retain actual DOM types.
+
+Do not install ambient browser stubs to make a native lane pass.
+
+### TypeScript module resolution
+
+The repository and strict packed-consumer profiles use TypeScript's `Bundler` module resolution.
+
+A separate NodeNext probe still reports extensionless declaration-import resolution failures; NodeNext support is not established or claimed by Bundler success.
+
+Native ESM runtime imports and strict no-DOM declaration consumption are distinct from that compiler-mode limitation.
 
 ### Owning-core lifetime
 
-The repository and strict packed-consumer profiles use TypeScript's `Bundler`
-module resolution. A separate NodeNext probe still reports extensionless
-declaration-import resolution failures; NodeNext support is not established or
-claimed by Bundler success. Native ESM runtime imports and strict no-DOM
-declaration consumption are distinct from that compiler-mode limitation.
+Source-backed owning cores expose terminal `dispose()` before and after successful custom-element registration.
 
-Source-backed owning cores expose terminal `dispose()` before and after successful custom-element registration. It releases all Ignite observations and stops only a private Ignite-created XState actor; borrowed sources remain application-owned. Disposed registered cores leave later connections inert. Handles and projection sessions remain independently releasable. Shared-source cores prepare during owner-controlled construction; the React hook needs no preparation-only read and never disposes its owner on unmount. SSR, framework commit barriers and native device execution are not implied. See [Ownership & cleanup](/ignite-element/handbook/ownership/).
+It releases all Ignite observations and stops only a private Ignite-created XState actor; borrowed sources remain application-owned.
+
+Disposed registered cores leave later connections inert.
+
+Handles and projection sessions remain independently releasable.
+
+Shared-source cores prepare during owner-controlled construction; the React hook needs no preparation-only read and never disposes its owner on unmount.
+
+SSR, framework commit barriers and native device execution are not implied.
+
+See [Ownership & cleanup](/ignite-element/handbook/ownership/).

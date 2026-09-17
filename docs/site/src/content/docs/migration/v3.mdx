@@ -32,8 +32,7 @@ State libraries and `lit-html` are optional peers in v3.
 
 The facade installs its internal `@ignite-element` packages automatically.
 
-Keep importing `igniteCore` from the entrypoint for your source, such as
-`ignite-element/xstate`.
+Keep importing `igniteCore` from the entrypoint for your source, such as `ignite-element/xstate`.
 
 ## Use ES modules
 
@@ -41,8 +40,7 @@ v3 is native ESM-only.
 
 Replace CommonJS `require` calls with ES module imports.
 
-See [Compatibility](/ignite-element/api/compatibility/) for supported toolchains
-and declaration-resolution limits.
+See [Compatibility](/ignite-element/api/compatibility/) for supported toolchains and declaration-resolution limits.
 
 ## Update command callbacks
 
@@ -60,43 +58,34 @@ For a callback that only sends an XState event, update it as follows:
   })
 ```
 
-Pass presentation-specific values as command arguments instead of reading
-`host` in the callback.
+Pass presentation-specific values as command arguments instead of reading `host` in the callback.
 
 Move outward event production out of commands.
 
-Use native source events for occurrences and effects for notifications derived
-from state changes.
+Use native source events for occurrences and effects for notifications derived from state changes.
 
-The [command emission guide](/ignite-element/migration/effects-events/) shows
-how to preserve command input and repeated occurrences.
+The [command emission guide](/ignite-element/migration/effects-events/) shows how to preserve command input and repeated occurrences.
 
 Keep `states` for derived values; v2 already supported this callback.
 
-See [Sources](/ignite-element/handbook/sources/) for each adapter's snapshot and
-command shapes.
+See [Sources](/ignite-element/handbook/sources/) for each adapter's snapshot and command shapes.
 
 ## Update configuration imports
 
-The v2 `ignite-element/config/*` and `ignite-element/renderers/*` entrypoints
-are not public v3 entrypoints.
+The v2 `ignite-element/config/*` and `ignite-element/renderers/*` entrypoints are not public v3 entrypoints.
 
 The default Ignite JSX path needs no configuration plugin or renderer import.
 
-If your application uses shared shadow styles or Lit, follow
-[Advanced configuration](/ignite-element/api/advanced-config/).
+If your application uses shared shadow styles or Lit, follow [Advanced configuration](/ignite-element/api/advanced-config/).
 
 ## Check behavior and ownership
 
 Run TypeScript checks and the application's behavior and DOM tests.
 
-Verify declared events, their payloads, and listeners using
-[Events & effects](/ignite-element/handbook/events/).
+Verify declared events, their payloads, and listeners using [Events & effects](/ignite-element/handbook/events/).
 
 Keep source construction and native shutdown at the application boundary.
 
-Use [Ownership & cleanup](/ignite-element/handbook/ownership/) to review
-shared sources, isolated instances, and terminal disposal.
+Use [Ownership & cleanup](/ignite-element/handbook/ownership/) to review shared sources, isolated instances, and terminal disposal.
 
-The [Testing guide](/ignite-element/handbook/testing/) shows source, core,
-and rendered-control assertions.
+The [Testing guide](/ignite-element/handbook/testing/) shows source, core, and rendered-control assertions.

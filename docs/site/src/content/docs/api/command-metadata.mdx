@@ -15,27 +15,37 @@ commands: ({ source: actor }) => ({
 });
 ```
 
-Direct calls retain their arguments, receiver, arity, return value, thrown value,
-and original promise. Retained command references reject after owning-core disposal.
-State and command names must be disjoint, including dynamic keys. Function-valued
-states remain states; they are not commands merely because they are callable.
+Direct calls retain their arguments, receiver, arity, return value, thrown value, and original promise.
+
+Retained command references reject after owning-core disposal.
+
+State and command names must be disjoint, including dynamic keys.
+
+Function-valued states remain states; they are not commands merely because they are callable.
 
 ## Discovery is not input validation
 
-After real command binding, `core.get("commands")` returns names with
-`{ input: null }`. It never returns executable functions. Before binding an
-existing commands callback it returns `null`; without a callback it returns
-`{}`. These are unknown and known-empty catalogues, respectively.
+After real command binding, `core.get("commands")` returns names with `{ input: null }`.
 
-`core.get("schema")` is immutable JSON-safe catalogue data, not a live snapshot or
-a formal JSON Schema document. It does not infer payload validation from
-TypeScript types or sample values. See [Headless runtime](/ignite-element/api/headless-runtime/#discovery).
+It never returns executable functions.
+
+Before binding an existing commands callback it returns `null`; without a callback it returns `{}`.
+
+These are unknown and known-empty catalogues, respectively.
+
+`core.get("schema")` is immutable JSON-safe catalogue data, not a live snapshot or a formal JSON Schema document.
+
+It does not infer payload validation from TypeScript types or sample values.
+
+See [Headless runtime](/ignite-element/api/headless-runtime/#discovery).
 
 ## Explicit tool schemas
 
-Keep descriptions and validation at the application/tool boundary. Ordinary core
-authors need no schema boilerplate. These examples preserve scalar constraints,
-enumerations and nested object/array validation without a command helper:
+Keep descriptions and validation at the application/tool boundary.
+
+Define these schemas when exposing commands as tools.
+
+These examples validate numbers, strings, enumerations, and nested objects and arrays:
 
 ```ts
 import { buildManifest, resolveCall } from 'ignite-element/tools';
@@ -70,36 +80,41 @@ const valid = resolveCall(manifest, 'setLimit', 6);
 const invalid = resolveCall(manifest, 'setLimit', 99);
 ```
 
-These definitions belong to the application; they are not automatically derived
-or attached to the core catalogue. Do not fabricate an empty-object input schema
-for an unknown function signature. Supply an actual contract before offering a
-command to a model.
+These definitions belong to the application; they are not automatically derived or attached to the core catalogue.
 
-`igniteTools(core, dialect, { schema: toolSchema, canExecute })` accepts the same
-explicit definitions and an independently supplied availability predicate.
-Metadata-free automatic construction fails clearly when required input schemas
-are absent, before executing any source command. Scalar provider wrapping and
-input validation remain in the tools boundary.
+Do not fabricate an empty-object input schema for an unknown function signature.
+
+Supply an actual contract before offering a command to a model.
+
+`igniteTools(core, dialect, { schema: toolSchema, canExecute })` accepts the same explicit definitions and an independently supplied availability predicate.
+
+Missing required input schemas cause tool construction to fail before any source command executes.
+
+Scalar provider wrapping and input validation remain in the tools boundary.
 
 ## Availability
 
-Project source-native capability into `states`, such as `canSubmit` or a
-`commandAvailability` map. A tool schema may explicitly set `gated: true` and
-provide `canExecute(name)` in tool options. The predicate reads the current
-application projection; it is not a method on the core.
+Project source-native capability into `states`, such as `canSubmit` or a `commandAvailability` map.
 
-Availability is a hint, not authorization. Keep guards, validation and asynchronous
-work in the source/application. Rebuild a provider's offered tool list when the
-application needs a fresh availability view; invocation still rechecks its
-supplied predicate.
+A tool schema may explicitly set `gated: true` and provide `canExecute(name)` in tool options.
+
+The predicate reads the current application projection; it is not a method on the core.
+
+Availability is a hint, not authorization.
+
+Keep guards, validation and asynchronous work in the source/application.
+
+Rebuild a provider's offered tool list when the application needs a fresh availability view; invocation still rechecks its supplied predicate.
 
 ## Execution boundary
 
-`execute({ command, input })` passes exactly one positional payload, including
-`undefined` when omitted. Arrays are not spread. Commands requiring multiple
-positional arguments remain directly callable but are not advertised as safe
-serialized calls by the strict types. Execution awaits the callback and queued
-observation window, not all downstream work.
+`execute({ command, input })` passes exactly one positional payload, including `undefined` when omitted.
+
+Arrays are not spread.
+
+Commands requiring multiple positional arguments remain directly callable but are not advertised as safe serialized calls by the strict types.
+
+Execution awaits the callback and queued observation window, not all downstream work.
 
 ## Related
 

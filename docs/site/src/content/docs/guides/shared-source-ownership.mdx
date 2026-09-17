@@ -9,23 +9,27 @@ import sourceCode from '../../../../../../examples/adapters/xstate/shared-sessio
 import viewCode from '../../../../../../examples/adapters/xstate/shared-session-view.tsx?raw';
 import reactCode from '../../../../../../examples/frameworks/react/shared-counter.tsx?raw';
 
-The flow is **source → native snapshot → states → renderer view**. One existing
-source can serve multiple views. No controller, source descriptor or mandatory
-shell is needed. Each application process owns its instances; sharing code does
-not synchronize devices.
+The flow is **source → native snapshot → states → renderer view**.
 
-For observation and terminal disposal, see
-[Ownership & cleanup](/ignite-element/handbook/ownership/).
-The examples below keep established public inputs and inline inferred callbacks.
+Pass the same source instance to a core to share its state across views.
+
+Each application process owns its instances.
+
+Sharing code does not synchronize devices.
+
+For observation and terminal disposal, see [Ownership & cleanup](/ignite-element/handbook/ownership/).
 
 ## Two JSX views, one source
 
 <Code code={counterCode} lang="tsx" title="shared-counter.tsx" />
 
 Run this complete example from `examples/adapters/xstate/shared-counter.html`.
+
 The core and source are created at application bootstrap, not in a renderer.
 
-## Ownership is explicit without another API
+<span id="ownership-is-explicit-without-another-api"></span>
+
+## Own the source lifetime
 
 | Source input | Ownership |
 | --- | --- |
@@ -35,9 +39,11 @@ The core and source are created at application bootstrap, not in a renderer.
 
 The root `igniteCore()` is source-free and registrar-only.
 
-Navigation removes observers, not the feature's source. Source-native sign-in,
-sign-out and account reset can keep one core and its registrations. At final
-application shutdown, dispose the core and separately stop a borrowed actor:
+Navigation removes observers, not the feature's source.
+
+Source-native sign-in, sign-out and account reset can keep one core and its registrations.
+
+At final application shutdown, dispose the core and separately stop a borrowed actor:
 
 ```ts
 import { createActor, createMachine } from 'xstate';
@@ -52,45 +58,64 @@ try {
 }
 ```
 
-This is two ownership operations, not an Ignite shutdown wrapper. Existing private
-acquisition paths keep their adapter's established release policy. Repeated core
-disposal does not repeatedly release resources. Application-owned observations
-are outside the core's custody.
+The core releases its observations; the application stops its actor.
+
+Repeated core disposal does not release resources again.
+
+The application must release any observations it created separately.
 
 ## React and React Native
 
 <Code code={reactCode} lang="tsx" title="React shared counter" />
 
-Shared cores are ready after owner-controlled construction. Unmounting a view
-releases its subscription, not the core. One effect evaluator per core/source
-instance starts on legitimate runtime use or committed subscription/element
-connection, establishes an initial baseline, and queues delivery after source
-processing. The activated shared evaluator survives zero-view intervals until
-core disposal; delivery does not guarantee a renderer update or framework commit.
-See [delivery and ownership](/ignite-element/handbook/events/#delivery-and-ownership)
-for the canonical activation, lifetime, disposal, synchronous-void and error rules.
+Shared cores are ready after owner-controlled construction.
+
+Unmounting a view releases its subscription, not the core.
+
+Each core/source instance has one effect evaluator.
+
+It starts on legitimate runtime use or a committed subscription or element connection.
+
+It establishes a baseline, then queues delivery after source processing.
+
+The activated shared evaluator remains active until core disposal, even with no connected views.
+
+Delivery does not guarantee a renderer update or framework commit.
+
+See [delivery and ownership](/ignite-element/handbook/events/#delivery-and-ownership) for the canonical activation, lifetime, disposal, synchronous-void and error rules.
 
 ## Source-owned account and receipt behavior
 
-The synthetic preference source owns account identity and a generation. Sign-out
-clears private state and exits its invocation; an old intent carries an old
-generation and is rejected. A new account uses the same actor/core, not rebinding.
+The synthetic preference source owns account identity and a generation.
+
+Sign-out clears private state and exits its invocation; an old intent carries an old generation and is rejected.
+
+A new account uses the same actor/core, not rebinding.
 
 <Code code={sourceCode} lang="ts" title="shared-session.ts" />
 
-The receipt actor lives above `pending` and `unknown`. A native XState deadline
-does not discard a later confirmation while that operation is live. Account and
-generation checks reject mismatched receipts. A transport error is unknown, not a
-confirmed rejection or permission to retry. Ending local observation or exiting
-a source state does not undo backend work already accepted.
+### Handle late confirmations
+
+The receipt actor lives above `pending` and `unknown`.
+
+A native XState deadline does not discard a later confirmation while that operation is live.
+
+Account and generation checks reject mismatched receipts.
+
+A transport error is unknown, not a confirmed rejection or permission to retry.
+
+Ending local observation or exiting a source state does not undo backend work already accepted.
 
 <Code code={viewCode} lang="tsx" title="shared-session-view.tsx" />
 
-The view sends one intent from `ctx`; it does not orchestrate completion or repeat
-projection logic. Generation is a genuine correlation fact, not a second command
-registry. Ports belong to the source's native actor input. Tests inject
-`SimulatedClock` directly, with no timer adapter.
+The view sends one intent from `ctx`; it does not orchestrate completion or repeat projection logic.
 
-Retain source-side business eligibility, authentication, receipt validation and
-remote cancellation in a real application. These synthetic rules are not Ignite
-authorization.
+The generation identifies the account session associated with each request.
+
+Pass application services through the source's native actor input.
+
+Tests inject `SimulatedClock` directly.
+
+Retain source-side business eligibility, authentication, receipt validation and remote cancellation in a real application.
+
+These synthetic rules are not Ignite authorization.

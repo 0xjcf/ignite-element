@@ -6,8 +6,10 @@ description: Preserve command input and choose a source occurrence or derived no
 ## Historical command emission
 
 This historical v2 fragment illustrates command-owned event emission.
-It is not current v3 code. The input describes the caller's
-intent and must survive migration.
+
+It is not current v3 code.
+
+The input describes the caller's intent and must survive migration.
 
 ```ts title="Historical command fragment" no-check
 commands: ({ actor, emit }) => ({
@@ -20,8 +22,9 @@ commands: ({ actor, emit }) => ({
 
 ## Current source occurrence
 
-Keep request occurrences in the source. This complete current module preserves
-`mode`, including repeated requests that do not change a projected value.
+Keep request occurrences in the source.
+
+This complete current module preserves `mode`, including repeated requests that do not change a projected value.
 
 ```ts title="toggle-events.ts"
 import { createActor, emit, setup } from 'xstate';
@@ -64,21 +67,27 @@ export function dispose() {
 }
 ```
 
-The source retains the toggle transition alongside the native emission. A declaration makes the occurrence public to DOM
-and React web callbacks; headless native listeners infer it from the source.
+The source retains the toggle transition alongside the native emission.
+
+A declaration makes the occurrence public to DOM and React web callbacks; headless native listeners infer it from the source.
+
 Do not add an effect that produces `toggleRequested` again.
 
 ## Derived notifications
 
-If the intended fact is a state change instead of a request, compare snapshots
-in `effects` under a distinct name. The [event counter](/ignite-element/handbook/events/)
-shows both a native reset occurrence and a derived count change without duplicate
-producers. A repeated request is not equivalent to a changed value.
+If the intended fact is a state change instead of a request, compare snapshots in `effects` under a distinct name.
 
-Current commands receive `{ source }`. Effects receive
-`{ snapshot, prevSnapshot, select, emit }` and return synchronous `void`.
-Extracted callbacks may have an ordinary `void` annotation; they do not need
-`return undefined`. Keep asynchronous work, retries, and cancellation in the source.
+The [event counter](/ignite-element/handbook/events/) shows both a native reset occurrence and a derived count change without duplicate producers.
+
+A repeated request is not equivalent to a changed value.
+
+Current commands receive `{ source }`.
+
+Effects receive `{ snapshot, prevSnapshot, select, emit }` and return synchronous `void`.
+
+Extracted callbacks may have an ordinary `void` annotation; they do not need `return undefined`.
+
+Keep asynchronous work, retries, and cancellation in the source.
 
 ## Scripted assist
 
@@ -88,6 +97,8 @@ From the repository root:
 node scripts/migrate-emit-to-effects.mjs
 ```
 
-The script reports candidate old emission patterns. Review each producer and
-input manually; it cannot decide whether an occurrence or comparison preserves
-application intent. Use `--report <path>` to save its report.
+The script reports candidate old emission patterns.
+
+Review each producer and input manually; it cannot decide whether an occurrence or comparison preserves application intent.
+
+Use `--report <path>` to save its report.

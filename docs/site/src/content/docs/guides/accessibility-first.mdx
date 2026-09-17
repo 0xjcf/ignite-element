@@ -6,18 +6,19 @@ sidebar:
   order: 6
 ---
 
-Ignite Element works best when accessibility is treated as part of the behavior
-contract, not as a late DOM patch. The same headless runtime that powers tests
-and agents already exposes the facts that accessible interfaces depend on:
-commands, command metadata, derived states, dynamic availability, and
-validated semantic projection state.
+Include accessibility in the component's behavior design.
 
-This guide shows how to start from those facts, keep the DOM native-first, and
-stay honest about what headless verification can and cannot prove.
+Expose labels, status, and command availability through the source and derived states.
+
+Render those values with native controls.
+
+Test behavior headlessly, then verify accessibility in the browser.
 
 :::note[Related docs]
 For exact runtime signatures, see [Headless runtime](/ignite-element/api/headless-runtime/).
+
 For the agent framing, see [Ignite Element for AI Agents](/ignite-element/guides/agent-runtime-v3/).
+
 For test workflows, see [Testing guide](/ignite-element/handbook/testing/).
 :::
 
@@ -148,14 +149,13 @@ const thermostatToolSchema = {
 };
 ```
 
-Pass this schema and a current availability predicate reading `canEditTarget` or
-`canSave` to `igniteTools`; unknown names are unavailable. The core catalogue has
-null input schemas and is not a substitute for these application definitions.
+Pass this schema and a current availability predicate reading `canEditTarget` or `canSave` to `igniteTools`; unknown names are unavailable.
 
-The application persistence service handles the `SAVE_TARGET` request and sends
-`SAVE_SUCCESS` or `SAVE_FAILURE` back to the actor. While the machine is in
-`saving`, neither draft edits nor another save transition are available, so
-`canEditTarget` and `canSave` disable their respective controls from actor facts.
+The core catalogue has null input schemas and is not a substitute for these application definitions.
+
+The application persistence service handles the `SAVE_TARGET` request and sends `SAVE_SUCCESS` or `SAVE_FAILURE` back to the actor.
+
+While the machine is in `saving`, neither draft edits nor another save transition are available, so `canEditTarget` and `canSave` disable their respective controls from actor facts.
 
 That single registration already supports three consumers:
 
@@ -165,8 +165,7 @@ That single registration already supports three consumers:
 
 ## Use native elements first
 
-Once the behavior contract is stable, render it with native controls before
-reaching for ARIA.
+Once the behavior contract is stable, render it with native controls before reaching for ARIA.
 
 This renderer fragment uses the thermostat core above.
 
@@ -217,21 +216,21 @@ thermostat("thermostat-panel", (ctx) => (
 ));
 ```
 
-Rendered validation must cover `SAVE_FAILURE` while focus remains on the
-triggering control and verify that the dedicated assertive error announcement is
-exposed to assistive technology.
+Rendered validation must cover `SAVE_FAILURE` while focus remains on the triggering control and verify that the dedicated assertive error announcement is exposed to assistive technology.
 
-The range value is actor-owned rather than a one-time DOM default. Active user
-edits call `setTargetDraft`, which sends `SET_TARGET_DRAFT` and re-renders the
-control from the resulting `target`. External integrations use the same command
-path, so their updates converge through the same actor state:
+The range value is actor-owned rather than a one-time DOM default.
+
+Active user edits call `setTargetDraft`, which sends `SET_TARGET_DRAFT` and re-renders the control from the resulting `target`.
+
+External integrations use the same command path, so their updates converge through the same actor state:
 
 ```ts no-check
 await thermostat.execute({ command: "setTargetDraft", input: 72 });
 ```
 
-The save handler still reads the synchronized native control. It does not own a
-second local draft that can drift from an external actor update.
+The save handler still reads the synchronized native control.
+
+It does not own a second local draft that can drift from an external actor update.
 
 The runtime contract already knew:
 
@@ -240,13 +239,11 @@ The runtime contract already knew:
 - what status text should be announced,
 - and whether an error exists.
 
-The DOM projection expresses those facts with native semantics instead of trying
-to reconstruct them later.
+The DOM projection expresses those facts with native semantics instead of trying to reconstruct them later.
 
 ## Use the existing headless APIs
 
-Ignite's current runtime APIs are already enough to verify most of the contract
-before any DOM assertion:
+Ignite's current runtime APIs are already enough to verify most of the contract before any DOM assertion:
 
 ```ts no-check
 const schema = thermostat.get("schema");
@@ -277,14 +274,11 @@ This is the right place to verify:
 - projected status summaries,
 - and post-command events.
 
-It is not the right place to claim that the browser computed the right
-accessible name or focus order.
+It is not the right place to claim that the browser computed the right accessible name or focus order.
 
 ## Use validated semantic documents for shared non-DOM output
 
-When multiple channels need more than the derived `states` read model, Ignite's accepted v3
-direction is to use actor-owned validated semantic documents rather than a
-public projection registry.
+When multiple channels need more than the derived `states` read model, Ignite's accepted v3 direction is to use actor-owned validated semantic documents rather than a public projection registry.
 
 That means:
 
@@ -293,14 +287,13 @@ That means:
 - command-backed actions resolve against existing commands,
 - DOM, text, terminal, and speech committers consume the same document.
 
-The document remains data, not executable UI. Ignite rejects raw JSX,
-JavaScript, imports, event handlers, DOM references, and arbitrary executable
-strings in this path.
+The document remains data, not executable UI.
+
+Ignite rejects raw JSX, JavaScript, imports, event handlers, DOM references, and arbitrary executable strings in this path.
 
 ## Speech is request-driven
 
-Speech and announcements need stricter lifecycle rules than ordinary DOM or text
-updates:
+Speech and announcements need stricter lifecycle rules than ordinary DOM or text updates:
 
 - DOM and text projections can be change-driven.
 - Speech should be request-driven.
@@ -313,8 +306,7 @@ This keeps announcement behavior explicit and testable.
 
 ## Voice and text share behavior, not browser machinery
 
-The [voice and text workbench example](https://github.com/0xjcf/ignite-element/tree/beta/examples/agents/voice-workbench)
-demonstrates the split in a complete agent-authored interface:
+The [voice and text workbench example](https://github.com/0xjcf/ignite-element/tree/beta/examples/agents/voice-workbench) demonstrates the split in a complete agent-authored interface:
 
 1. Typed input and a final browser speech transcript both become the same
    `submitPrompt` command with an explicit modality.
@@ -326,38 +318,37 @@ demonstrates the split in a complete agent-authored interface:
 5. Each speech request has stable identity and is acknowledged after the speech
    projection commits it.
 
-Microphone capture remains a capability-gated browser adapter. Permission
-denial, cancellation, unsupported recognition, and transcription errors are
-typed facts; they do not mutate the DOM or bypass the actor. The headless suite
-can therefore prove that speech and text converge on the behavior contract, but
-it cannot claim that a particular browser exposed the right permission prompt,
-accessible name, or assistive-technology announcement.
+Microphone capture remains a capability-gated browser adapter.
 
-The production parity harness was manually checked across all five states at
-1920×1080, 1440×900, 1280×800, 768×900, and 390×844: 25 combinations in total.
-Every combination had zero horizontal overflow, no browser warnings or errors,
-the expected state proof visible, and visible controls measuring at least 44px.
-Actor, voice, and active-panel state matched each fixture; microphone denial
-preserved the typed draft. These receipts prove responsive interaction geometry
-and runtime behavior. Browser accessibility-tree and assistive-technology checks
-remain separate rendered-DOM evidence.
+Permission denial, cancellation, unsupported recognition, and transcription errors are typed facts; they do not mutate the DOM or bypass the actor.
+
+The headless suite can therefore prove that speech and text converge on the behavior contract, but it cannot claim that a particular browser exposed the right permission prompt, accessible name, or assistive-technology announcement.
+
+### Recorded example validation
+
+The production parity harness was manually checked across all five states at 1920×1080, 1440×900, 1280×800, 768×900, and 390×844: 25 combinations in total.
+
+Every combination had zero horizontal overflow, no browser warnings or errors, the expected state proof visible, and visible controls measuring at least 44px.
+
+Actor, voice, and active-panel state matched each fixture; microphone denial preserved the typed draft.
+
+These receipts prove responsive interaction geometry and runtime behavior.
+
+Browser accessibility-tree and assistive-technology checks remain separate rendered-DOM evidence.
 
 ## Rejected alternatives
 
 ### A mandatory top-level accessibility callback
 
-Rejected because it duplicates `states`, command metadata, and semantic document
-state with a second authoring surface.
+Rejected because it duplicates `states`, command metadata, and semantic document state with a second authoring surface.
 
 ### Raw generated UI for agents
 
-Rejected because it bypasses the component contract and makes deterministic
-verification impossible.
+Rejected because it bypasses the component contract and makes deterministic verification impossible.
 
 ### Headless accessibility-tree proof
 
-Rejected because browser accessibility semantics, focus order, and assistive
-technology behavior must be verified in rendered DOM.
+Rejected because browser accessibility semantics, focus order, and assistive technology behavior must be verified in rendered DOM.
 
 ## Verification checklist
 
@@ -381,7 +372,3 @@ Use this split when you review an accessibility-first component.
 - live-region timing,
 - visual hiding and visibility behavior,
 - browser and assistive technology integration.
-
-Accessibility first in Ignite means the behavior contract comes first, the DOM
-stays native-first, and verification stays honest about the boundary between
-headless facts and browser truth.

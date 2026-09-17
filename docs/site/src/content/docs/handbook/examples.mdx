@@ -3,10 +3,17 @@ title: Examples
 description: Runnable examples organized by the problem they demonstrate.
 ---
 
-Run commands from the repository root unless a recipe says otherwise. Install
-workspace dependencies first with `pnpm install`; each standalone example has
-its own manifest and instructions. The repository examples exercise local source.
+## Run an example
+
+Run commands from the repository root unless a recipe says otherwise.
+
+Install workspace dependencies first with `pnpm install`; each standalone example has its own manifest and instructions.
+
+The repository examples exercise local source.
+
 For installed applications use public `ignite-element` entrypoints and beta packages.
+
+## Choose an example
 
 | Purpose | Canonical implementation |
 | --- | --- |
@@ -33,10 +40,10 @@ pnpm --dir examples/frameworks/react install \
 pnpm --dir examples/frameworks/react dev
 ```
 
-The first screen uses `useIgnite(core)` and source-derived state. Expand the
-custom-element section to inspect the separate `igniteReact(handle)` recipe.
+The first screen uses `useIgnite(core)` and source-derived state.
+
+Expand the custom-element section to inspect the separate `igniteReact(handle)` recipe.
 
 ## Focused recipes
 
-[Routing](/ignite-element/guides/routing/), [shared sources](/ignite-element/guides/shared-source-ownership/),
-and [agent/tool integration](/ignite-element/guides/agent-runtime-v3/) cover optional needs.
+[Routing](/ignite-element/guides/routing/), [shared sources](/ignite-element/guides/shared-source-ownership/), and [agent/tool integration](/ignite-element/guides/agent-runtime-v3/) cover optional needs.

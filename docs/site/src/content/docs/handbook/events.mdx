@@ -7,8 +7,12 @@ import { Code } from '@astrojs/starlight/components';
 import eventCounter from '../../../../../../examples/adapters/xstate/event-counter.ts?raw';
 
 Use notifications when something outside the view needs to observe an occurrence.
-An event declaration describes a public name and payload; it does not emit or
-validate anything at runtime. Choose one producer per event:
+
+An event declaration describes a public name and payload.
+
+It does not emit events or validate payloads at runtime.
+
+Choose one producer per event:
 
 - A native source event represents an occurrence, including reset-at-zero.
 - An effect derives a notification by comparing accepted source snapshots.
@@ -18,71 +22,136 @@ validate anything at runtime. Choose one producer per event:
 <Code code={eventCounter} lang="ts" title="event-counter.ts" />
 
 `counterReset` comes from the source; `countChanged` comes from a state comparison.
-Do not mirror native occurrences in effects. Headless listeners may infer native
-source emissions without declarations. DOM forwarding and React web callbacks
-expose declared public names. See the runnable
-[event counter view](https://github.com/0xjcf/ignite-element/blob/beta/examples/adapters/xstate/event-counter-view.tsx).
 
-DOM events use the public name and flat `detail`; React web callbacks receive
-that detail directly. Headless `core.on(name, handler)` receives `{ type, ...fields }`.
-`execute().events` is an observation window, not a durable or command-correlated
-business receipt.
+Do not mirror native occurrences in effects.
+
+Headless listeners may infer native source emissions without declarations.
+
+DOM forwarding and React web callbacks expose declared public names.
+
+See the runnable [event counter view](https://github.com/0xjcf/ignite-element/blob/beta/examples/adapters/xstate/event-counter-view.tsx).
+
+DOM events use the public name and flat `detail`; React web callbacks receive that detail directly.
+
+Headless `core.on(name, handler)` receives `{ type, ...fields }`.
+
+`execute().events` is an observation window, not a durable or command-correlated business receipt.
 
 ## Delivery and ownership
 
-- Effects run once **per delivered source update per core/source instance**,
-  not once per view. The initial activation establishes a baseline without an
-  effect call. Each later notification queues one synchronous, void-returning
-  callback; `select(...).changed` compares with `Object.is`. Intermediate
-  updates are not coalesced.
-- A shared evaluator starts on legitimate runtime use or committed subscription
-  / element connection, not constructor preparation or render-time reads.
-  Once started it observes through zero-view gaps until `core.dispose()`.
-  Reconnecting does not reset its baseline. Each isolated source instance has
-  its own evaluator and releases it with that instance; a fresh instance has a
-  fresh baseline. Independently configured cores remain independent even when
-  borrowing the same actor.
-- Delivery is queued after source processing, not a universal framework commit
-  barrier. Synchronous Ignite render updates can complete before that microtask;
-  React, React Native, Solid or Vue may not have committed yet. Core-owned
-  effect failures use the existing `console.error` fallback once per failed
-  evaluation, not the first element's `handleError` / `onError` hook. Invalid
-  async returns also report the synchronous-void violation and any rejection.
-- Native occurrences are forwarded as received, only for names declared in
-  that core's public map. `type` is the DOM event name; the remaining flat
-  payload becomes `detail`; `bubbles` and `composed` are true.
-- Headless native access still includes undeclared names. DOM forwarding does
-  not feed events back into `core.on` or execution capture. More views add
-  recipients, not source occurrences. Two identical native resets remain two.
-- Distinct hosts still bubble to a common ancestor, which can therefore receive
-  multiple notifications. There is no propagation suppression or deduplication.
-- Subscribe before work whose events matter. No replay, renderer barrier, or
-  cross-stream ordering is promised. In particular, an event emitted before a
-  React wrapper attaches listeners is not guaranteed to reach its callback.
-  Ignite does not restart a borrowed source to replay startup events.
-- Eligibility is checked when the queued effect emits: a listener subscribed
-  before that future emission can receive it. Subscribing after emission never
-  replays it. Disconnect/unsubscribe before delivery retires that recipient;
-  terminal disposal also discards pending evaluations and later emissions.
-- True disconnect removes the view's forwarding subscription; reconnect adds
-  one fresh subscription. Same-tick moves retain it. Isolated source instances
-  remain separate. Disconnect never shuts down an application-owned source.
+### Effect activation and lifetime
 
-At terminal application shutdown, call `core.dispose()` to release its owned
-subscriptions, then separately `counterActor.stop()` when the application is
-finished with the borrowed actor. Individual early unsubscribe remains useful;
-do not redundantly unsubscribe every listener immediately before disposal.
-View unmount is not application shutdown. Actual presentation resources use
-their framework lifecycle, not these effects. Future renderer refs, commit
-hooks, and keyed reconciliation are not implemented by this change.
+Effects evaluate once per delivered source update per core/source instance.
 
-For two connected `app-counter` elements sharing the core above, one increment
-evaluates the effect once and produces one `countChanged`. Each host dispatches
-its own DOM event, so a shared ancestor sees two deliveries. Each `core.on`
-registration receives one delivery, not an echo from those hosts. Adding a
-`useIgnite(core)` consumer does not add an evaluator. Without a headless
-listener the two DOM consumers work the same way; without DOM hosts a headless
-listener works alone.
+The initial activation establishes a baseline without calling the effect.
+
+Each later notification queues one synchronous callback that returns `void`.
+
+`select(...).changed` compares values with `Object.is`.
+
+Intermediate updates are not combined.
+
+A shared evaluator starts on legitimate runtime use or a committed subscription or element connection.
+
+Constructor preparation and render-time reads do not activate it.
+
+Once activated, it observes the source until `core.dispose()`, even with no connected views.
+
+Reconnecting a view does not reset the baseline.
+
+Each isolated source instance has its own evaluator and baseline, released with that instance.
+
+Separate cores remain independent even when they borrow the same actor.
+
+### Effect timing and errors
+
+Delivery is queued after source processing.
+
+It does not guarantee that a renderer update or framework commit has completed.
+
+Synchronous Ignite rendering can complete before the microtask runs.
+
+A framework view may still be waiting to commit.
+
+Core-owned effect failures use `console.error` once per failed evaluation.
+
+They do not use an element's `handleError` or `onError` hook.
+
+An asynchronous return reports the synchronous-void violation and any promise rejection.
+
+### Native event delivery
+
+DOM forwarding uses the names declared in the core's public event map.
+
+The event's `type` becomes the DOM event name.
+
+The remaining flat payload becomes `detail`, with `bubbles` and `composed` set to `true`.
+
+Headless listeners can also observe undeclared native names.
+
+Forwarding a DOM event does not feed it back into `core.on` or execution capture.
+
+Additional views receive the occurrence without producing another source event.
+
+Two identical native resets remain two occurrences.
+
+Events from different hosts can bubble to the same ancestor.
+
+Ignite does not suppress propagation or deduplicate those deliveries.
+
+### Subscribe before work starts
+
+Subscribe before starting work whose events matter.
+
+Events are not replayed, and ordering across separate event streams is not guaranteed.
+
+An event emitted before a React wrapper attaches its listeners may not reach the callback.
+
+Ignite does not restart a borrowed source to replay startup events.
+
+For a queued effect, listener eligibility is checked when the effect emits.
+
+A listener that subscribes before that emission can receive it.
+
+Subscribing after emission does not replay the event.
+
+Disconnecting or unsubscribing before delivery removes that recipient.
+
+Terminal core disposal discards pending evaluations and later emissions.
+
+### Disconnect and shutdown
+
+A true element disconnect removes its forwarding subscription.
+
+Reconnect creates a fresh subscription; a same-tick move retains the existing one.
+
+Isolated source instances remain separate.
+
+Disconnect never shuts down an application-owned source.
+
+At final application shutdown, call `core.dispose()` to release its resources.
+
+If the application owns `counterActor`, stop it when the application finishes using it.
+
+See [terminal disposal](/ignite-element/handbook/ownership/#terminal-disposal) for cleanup that preserves source shutdown if disposal throws.
+
+Unsubscribe an individual listener when its consumer ends before the core does.
+
+View unmount is not application shutdown.
+
+### Example: one effect, two hosts
+
+For two connected `app-counter` elements sharing the core above, one increment evaluates the effect once.
+
+That evaluation produces one `countChanged` occurrence.
+
+Each host dispatches its own DOM event, so a shared ancestor sees two deliveries.
+
+Each `core.on` registration receives one delivery.
+
+Adding a `useIgnite(core)` consumer does not add an evaluator.
+
+DOM consumers work without a headless listener, and headless listeners work without DOM hosts.
 
 <span id="migration-from-per-view-effects"></span>
 
@@ -94,26 +163,32 @@ Focus, layout, canvas and native view resources remain framework-owned.
 
 Persistence, retry and durable confirmation remain source/application-owned.
 
-Ignite effects derive notifications from source updates; they do not provide
-application-wide exactly-once business execution.
+Ignite effects derive notifications from source updates; they do not provide application-wide exactly-once business execution.
 
 ## One production rule per public event
 
-A precise native emitted union reserves its names: declaring `counterReset`
-is valid, but calling `effects.emit({ type: 'counterReset', ... })` is a type
-error. Public payload declarations must accept the actual native payload
-without its discriminator. Incoming command names alone are not reserved.
+A precise native emitted union reserves its names: declaring `counterReset` is valid, but calling `effects.emit({ type: 'counterReset', ... })` is a type error.
 
-Broad strings, erased generics, `any`, and missing channel evidence cannot
-provide complete static protection.
-Redux and MobX keep their concise state-derived events/effects without new
-middleware or wrappers; see [their examples](/ignite-element/handbook/sources/).
+Public payload declarations must accept the actual native payload without its discriminator.
 
-In development, observing the same name from both origins warns once for that
-core/source ownership lifetime. Separate isolated sources and unrelated cores,
-same-origin repeats, and multiple projection recipients do not conflict.
-Detection is best-effort: it needs both origins on active paths, adds no hidden
-source or monitoring subscription, and cannot prevent or retract earlier
-delivery. Warnings contain names/origins, not payloads or snapshots. Neither
-development nor production chooses a winner, throws, drops, or deduplicates
-events.
+Incoming command names alone are not reserved.
+
+Broad strings, erased generics, `any`, and missing channel evidence cannot provide complete static protection.
+
+See [Sources](/ignite-element/handbook/sources/) for Redux and MobX examples.
+
+### Duplicate producer warnings
+
+In development, observing the same name from both origins warns once for that core/source ownership lifetime.
+
+Separate isolated sources and unrelated cores, same-origin repeats, and multiple projection recipients do not conflict.
+
+Detection requires both producers to run while observation is active.
+
+It adds no source or monitoring subscription.
+
+It cannot prevent or retract earlier delivery.
+
+Warnings contain names/origins, not payloads or snapshots.
+
+Neither development nor production chooses a winner, throws, drops, or deduplicates events.

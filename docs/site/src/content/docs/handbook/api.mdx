@@ -13,12 +13,17 @@ description: Construction, configuration, bindings, and runtime return shapes.
 | Root `igniteCore()` | Source-free registrar only |
 | Root registrar `(tagName, renderer)` | Source-free registered component handle |
 
-The first row shows the common configuration shape, not a universal TypeScript
-overload: source-specific options retain their adapter types.
-The dedicated MobX and Redux imports accept factories without an `adapter` property.
-An explicit matching discriminator remains valid.
-Registration requires DOM; source-backed construction
-and execution do not. Opaque document/speech targets are separate from DOM elements.
+Import `igniteCore` from the entrypoint for your source library.
+
+The available configuration options depend on that source.
+
+See [Sources](/ignite-element/handbook/sources/) for complete examples.
+
+Registering a custom element requires the DOM.
+
+You can construct and execute a source-backed core without the DOM.
+
+Document and speech projections use non-DOM targets.
 
 ## Configuration
 
@@ -26,14 +31,18 @@ and execution do not. Opaque document/speech targets are separate from DOM eleme
 | --- | --- |
 | `source` | Existing source or supported isolated definition/factory; see [Sources](/ignite-element/handbook/sources/) |
 | `states(snapshot)` | Optional derived object from the native snapshot; omission yields a stable empty object |
-| `commands({ source })` | Object of ordinary source-directed functions; no `command` helper or `emit` capability |
+| `commands({ source })` | Object of functions that call the active source |
 | `events(event)` | Typed public event declarations, not runtime payload validation |
 | `effects({ snapshot, prevSnapshot, select, emit })` | Synchronous `void` callback; see [Events & effects](/ignite-element/handbook/events/) |
 | `cleanup` | Shared adapter observation teardown policy, not borrowed-source shutdown authority |
 
-Keep `states` and `commands` inline for inference. A renderer receives their
-values as `ctx`; its return value is the view. State/command name collisions are
-rejected. Host capabilities and environmental I/O are not callback inputs.
+Keep `states` and `commands` inline so TypeScript infers their types.
+
+A renderer receives their values as `ctx`; its return value is the view.
+
+State/command name collisions are rejected.
+
+Host capabilities and environmental I/O are not callback inputs.
 
 ## Runtime methods
 
@@ -49,24 +58,27 @@ rejected. Host capabilities and environmental I/O are not callback inputs.
 | `core.dispose()` | Terminal owning cleanup; registered cores included |
 
 `execute` passes exactly one input argument, including `undefined` when omitted.
-It does not spread arrays, return the command's ordinary value, or wait for all
-business I/O. Commands requiring multiple positional arguments are callable
-directly, not through serialized execution. Native snapshots come from the source;
-there is no raw-snapshot `get` key or zero-argument `get`.
 
-For detailed execution, error, catalogue, and disposal edge cases, see the
-[headless method reference](/ignite-element/api/headless-runtime/).
-This supporting page keeps the full contract without making the handbook lookup long.
+It does not spread arrays, return the command's ordinary value, or wait for all business I/O.
+
+Commands requiring multiple positional arguments are callable directly, not through serialized execution.
+
+Native snapshots come from the source; there is no raw-snapshot `get` key or zero-argument `get`.
+
+For detailed execution, error, catalogue, and disposal edge cases, see the [headless method reference](/ignite-element/api/headless-runtime/).
 
 ## Bindings
 
-`const ctx = useIgnite(core)` from `ignite-element/react` returns inferred derived
-states and stable callable commands. Direct calls preserve the original return
-value or promise. Hook unmount releases the subscription, not the owner.
+`const ctx = useIgnite(core)` from `ignite-element/react` returns inferred derived states and stable callable commands.
 
-`igniteReact(handle)` from `ignite-element/react/web` returns a React component
-for the actual registered custom element. `IgniteReactRef<typeof handle>` types
-its command ref; declared events become `on<Event>` callbacks receiving flat detail.
+Direct calls preserve the original return value or promise.
+
+Hook unmount releases the subscription, not the owner.
+
+`igniteReact(handle)` from `ignite-element/react/web` returns a React component for the actual registered custom element.
+
+`IgniteReactRef<typeof handle>` types its command ref; declared events become `on<Event>` callbacks receiving flat detail.
+
 See [Views](/ignite-element/handbook/views/) for the ordinary hook path and web interop.
 
 ## Further reference

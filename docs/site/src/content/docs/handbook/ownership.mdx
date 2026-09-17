@@ -12,52 +12,84 @@ description: Choose sharing deliberately and release resources at their owner bo
 | Redux store factory from `ignite-element/redux` | Isolated store per instance |
 | MobX factory from `ignite-element/mobx` | Isolated observable per instance |
 
-One core serves one source/runtime contract. Multiple registered names or hooks
-may intentionally share that contract. Create the source and core outside
-framework rendering. Shared cores are ready at construction without a
-preparation-only `get('states')` call. Reading state for actual use is valid.
-An isolated headless runtime still needs explicit acquisition outside rendering;
-`core.get('states')` can perform that acquisition before a hook borrows it.
+### Create the core outside rendering
+
+One core serves one source/runtime contract.
+
+Multiple registered names or hooks may intentionally share that contract.
+
+Create the source and core outside framework rendering.
+
+Shared cores are ready after construction.
+
+Acquire an isolated headless runtime outside rendering.
+
+Call `core.get('states')` before a hook borrows that core.
 
 ## Observation handles
 
-`watch(...)` and `on(...)` each return an independently idempotent
-`{ unsubscribe() }`. End a temporary observer when its consumer leaves.
-`useIgnite(core)` releases only its own subscription on unmount. It does not
-dispose the application-owned core or shut down a borrowed source.
+`watch(...)` and `on(...)` each return an independently idempotent `{ unsubscribe() }`.
 
-True element disconnect releases the view's forwarding subscription; reconnect
-acquires a fresh one. Same-tick moves retain it. A source update while no view is
-present does not become a replayed occurrence on reconnect.
+End a temporary observer when its consumer leaves.
 
-Shared adapters remain observed by default. `cleanup: true` permits shared
-adapter teardown when the last element and retained observation handle leave;
-it does not grant native source ownership. An activated shared effect evaluator
-retains observation through zero-view intervals until terminal core disposal,
-including with `cleanup: true`. See [effect activation and timing](/ignite-element/handbook/events/#delivery-and-ownership).
+`useIgnite(core)` releases only its own subscription on unmount.
+
+It does not dispose the application-owned core or shut down a borrowed source.
+
+### Element disconnect and reconnect
+
+True element disconnect releases the view's forwarding subscription; reconnect acquires a fresh one.
+
+Same-tick moves retain it.
+
+A source update while no view is present does not become a replayed occurrence on reconnect.
+
+### Shared observation
+
+Shared sources remain observed by default.
+
+`cleanup: true` permits Ignite to end shared observation after the last element and retained observation handle leave.
+
+It does not permit Ignite to shut down a borrowed source.
+
+An activated shared effect evaluator retains observation through zero-view intervals until terminal core disposal, including with `cleanup: true`.
+
+See [effect activation and timing](/ignite-element/handbook/events/#delivery-and-ownership).
 
 ## Terminal disposal
 
-At final application shutdown, call `core.dispose()`. This is terminal even after
-successful custom-element registration. It releases
-Ignite-owned observation, events, effects, projections, bindings, and command
-windows. Registered definitions remain; later connections are inert.
+At final application shutdown, call `core.dispose()`.
 
-Disposal prevents reacquisition, attempts every release, and rethrows the first
-exact cleanup error. Repeated disposal is inert even if the first call threw.
-Live reads, subscriptions, commands, and bindings reject afterward; catalogue
-reads remain available. Pending effect evaluations are discarded.
+This is terminal even after successful custom-element registration.
 
-Borrowed sources remain application-owned. For a started XState actor, the final
-owner can use this teardown fragment:
+It releases Ignite-owned observation, events, effects, projections, bindings, and command windows.
 
-Call `core.dispose()` inside `try`, and `source.stop()` in `finally` so source
-shutdown still runs if observation cleanup throws.
+Registered definitions remain; later connections are inert.
 
-An Ignite-created private XState actor is stopped exactly once after its
-observations drain; an unused core does not create one.
+### Cleanup failures
+
+Disposal prevents new resource acquisition.
+
+It attempts every release and rethrows the first exact cleanup error.
+
+Repeated disposal is inert even if the first call threw.
+
+Live reads, subscriptions, commands, and bindings reject afterward; catalogue reads remain available.
+
+Pending effect evaluations are discarded.
+
+### Stop sources you own
+
+Borrowed sources remain application-owned.
+
+For an application-owned XState actor, call `core.dispose()` inside `try` and `source.stop()` in `finally`.
+
+This stops the source even if observation cleanup throws.
+
+An Ignite-created private XState actor is stopped exactly once after its observations drain; an unused core does not create one.
 
 Disposal does not cancel entered business I/O or revoke a completed operation.
+
 Keep cancellation, persistence, freshness, and durable receipts with the source.
-For an application with ports and session lifetimes, see the
-[advanced shared-source recipe](/ignite-element/guides/shared-source-ownership/).
+
+For an application with ports and session lifetimes, see the [advanced shared-source recipe](/ignite-element/guides/shared-source-ownership/).

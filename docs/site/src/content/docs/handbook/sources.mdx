@@ -42,11 +42,12 @@ The name `snapshot` in the examples is a callback parameter, not a shared shape 
 ## Command target
 
 Use `commands: ({ source })` to access the resolved command interface.
+
 Configuration `source` accepts the adapter's supported instance, factory, or definition.
+
 The callback receives the command target for the active instance, not necessarily the original configuration object.
 
 Destructuring can give that target a local name: `{ source: actor }` for XState or `{ source: store }` for Redux and MobX.
-These aliases keep inference; they do not add properties to the command context.
 
 ## XState
 
@@ -74,6 +75,8 @@ Install Ignite and Redux Toolkit:
 pnpm add ignite-element@beta @reduxjs/toolkit
 ```
 
+### Share a Redux store
+
 Create `redux.ts` to connect a counter store:
 
 <Code code={redux} lang="ts" title="redux.ts" />
@@ -88,11 +91,11 @@ Passing a store shares that store between views.
 
 Passing a Redux slice instead creates isolated state for each element.
 
+### Create a store per element
+
 For a separate store per element, pass a factory through `ignite-element/redux`:
 
 <Code code={reduxFactory} lang="ts" title="redux-factory.ts" />
-
-The dedicated import selects the adapter; no `adapter` property is needed.
 
 ## MobX
 
@@ -101,6 +104,8 @@ Install Ignite and MobX:
 ```sh title="Terminal"
 pnpm add ignite-element@beta mobx
 ```
+
+### Share a MobX observable
 
 Create `mobx.ts` to connect an observable counter:
 
@@ -114,11 +119,11 @@ The `increment()` command calls `store.increment()` on the observable instance.
 
 Passing an observable instance shares it between views.
 
+### Create an observable per element
+
 For a separate observable per element, pass a factory through `ignite-element/mobx`:
 
 <Code code={mobxFactory} lang="ts" title="mobx-factory.ts" />
-
-The dedicated import selects the adapter; no `adapter` property is needed.
 
 <span id="optional-integrations"></span>
 
