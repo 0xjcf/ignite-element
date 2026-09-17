@@ -86,6 +86,16 @@
 	--sl-nav-height: 64px;
 	--sl-content-width: 1080px;
 	--sl-sidebar-width: 240px;
+	--docs-prose-width: 72ch;
+	--docs-rail-width: clamp(
+		20rem,
+		calc(
+			(100vw - var(--sl-sidebar-width) - var(--sl-content-width)) /
+			2 +
+			var(--sl-sidebar-width)
+		),
+		24rem
+	);
 
 	/* Buttons */
 	--button-bg: linear-gradient(
@@ -248,12 +258,36 @@ body {
    tokens so both themes inherit AA contrast; the rounded container uses the
    shared radius scale. Separate borders (not collapse) so the radius clips.
    ────────────────────────────────────────────────────────────────────────── */
-.sl-markdown-content table {
-	border-collapse: separate;
-	border-spacing: 0;
+.sl-markdown-content .table-scroll {
+	max-width: 100%;
+	overflow-x: auto;
 	border: 1px solid var(--sl-color-hairline);
 	border-radius: var(--radius-md);
-	overflow: hidden;
+}
+
+.sl-markdown-content .table-scroll:focus-visible {
+	outline: 2px solid var(--sl-color-accent);
+	outline-offset: 2px;
+}
+
+.sl-markdown-content table {
+	display: table;
+	width: 100%;
+	margin: 0;
+	border-collapse: separate;
+	border-spacing: 0;
+}
+
+.sl-markdown-content :is(p, ul, ol, blockquote, details) {
+	max-width: var(--docs-prose-width);
+}
+
+/* Keep a short identifier together when it fits; long paths still wrap
+   within the available line. Code blocks retain their own scrolling. */
+.sl-markdown-content :is(p, li) > code {
+	display: inline-block;
+	max-width: 100%;
+	overflow-wrap: anywhere;
 }
 
 .sl-markdown-content th,
@@ -385,43 +419,47 @@ body {
 	outline: none;
 }
 
-/* Both selects share one vertical rhythm and a min-width sized to the longest
-   label — one shared token instead of a per-component min-width on just the
-   version picker. Horizontal padding is left to Starlight: each select has an
-   absolutely-positioned leading icon (and the theme select a negative offset),
-   so a forced uniform inline padding clips the label text. */
-:root starlight-theme-select select,
-:root .version-select select {
-	box-sizing: border-box;
-	min-width: var(--control-select-min-width);
-	padding-top: var(--control-pad-y);
-	padding-bottom: var(--control-pad-y);
-}
-
-/* Inset the leading icon and the label content off the left border so the icon
-   isn't flush against the edge. The label padding shifts the select/text; the
-   icon is absolutely positioned, so it needs the same inset to move with it. */
+/* Native selects share one caret and geometry; the theme's leading icon
+   occupies its own inset without changing the control height. */
 :root starlight-theme-select label,
 :root .version-select {
-	padding-left: var(--control-pad-x);
+	position: relative;
+	padding: 0;
+	margin: 0;
 }
 
-/* Leading icon inset from the left, trailing caret inset from the right by the
-   same token, so both affordances are balanced against their borders. */
-:root starlight-theme-select label .label-icon,
-:root .version-select .label-icon {
+:root starlight-theme-select select,
+:root .version-select select {
+	appearance: none;
+	box-sizing: border-box;
+	width: var(--control-select-min-width);
+	height: calc(var(--control-height) - 2px);
+	margin: 0;
+	padding: var(--control-pad-y) 2.25rem var(--control-pad-y)
+		var(--control-pad-x);
+	border: 0;
+	border-radius: var(--radius-md);
+	background: transparent;
+	font: inherit;
+	cursor: pointer;
+}
+
+:root starlight-theme-select select {
+	padding-inline-start: 2rem;
+}
+
+:root starlight-theme-select label .label-icon {
 	inset-inline-start: var(--control-pad-x);
 }
 
 :root starlight-theme-select label .caret,
-:root .version-select .caret-icon {
+:root .version-select .caret {
+	position: absolute;
+	top: 50%;
+	transform: translateY(-50%);
 	inset-inline-end: var(--control-pad-x);
-}
-
-/* One deliberate gap between adjacent header controls. */
-:root starlight-theme-select,
-:root .version-select {
-	margin-left: var(--control-gap);
+	font-size: 1.25rem;
+	pointer-events: none;
 }
 
 /* Search trigger uses the shared horizontal control padding. */
@@ -595,38 +633,80 @@ mobile-starlight-toc a[aria-current="true"] {
 	background: var(--control-bg);
 }
 
-@media (min-width: 72rem) {
-	/* Extend the right-sidebar border up through the nav so the line aligns,
-	   and keep the sidebar inside the viewport at wider content widths. */
-	.right-sidebar {
-		position: sticky;
-		top: var(--sl-nav-height);
-		max-height: calc(100vh - var(--sl-nav-height));
-		overflow-y: auto;
-		width: 100%;
-		border-inline-start: none;
+.docs-header,
+.header-search,
+.header-preferences {
+	align-items: center;
+	gap: var(--control-gap);
+}
+
+.docs-header {
+	display: flex;
+	justify-content: space-between;
+	height: 100%;
+}
+
+.header-title {
+	min-width: 0;
+}
+
+.header-search {
+	display: flex;
+	justify-content: space-between;
+	min-width: 0;
+}
+
+.header-social {
+	padding-inline: 1rem;
+}
+
+@media (min-width: 50rem) {
+	.docs-header {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		gap: var(--sl-nav-gap);
 	}
 
-	.right-sidebar::before {
-		content: "";
-		position: absolute;
-		left: 0;
-		top: calc(-1 * var(--sl-nav-height));
-		bottom: 0;
+	.header-preferences {
 		border-inline-start: 1px solid var(--sl-color-hairline);
+		padding-inline-start: 1rem;
+	}
+}
+
+@media (min-width: 72rem) {
+	:root[data-has-sidebar][data-has-toc] .docs-header {
+		grid-template-columns:
+			minmax(
+				calc(var(--sl-sidebar-width) - var(--sl-nav-pad-x) - var(--sl-nav-gap)),
+				max-content
+			)
+			minmax(0, 1fr)
+			calc(var(--docs-rail-width) - var(--sl-nav-pad-x));
 	}
 
-	.right-sidebar-panel .sl-container {
-		width: 100%;
-		max-width: var(--sl-sidebar-width);
+	:root[data-has-sidebar][data-has-toc] .main-pane {
+		width: calc(100% - var(--docs-rail-width));
+		min-width: 0;
 	}
 
 	.right-sidebar-container {
-		width: clamp(
-			15rem,
-			22vw,
-			calc(var(--sl-sidebar-width) + (100% - var(--sl-content-width)) / 3)
-		);
+		width: var(--docs-rail-width);
+		flex-shrink: 0;
+	}
+
+	.right-sidebar {
+		position: sticky;
+		top: var(--sl-nav-height);
+		padding-top: 0;
+		max-height: calc(100vh - var(--sl-nav-height));
+		width: 100%;
+		height: auto;
+		min-height: calc(100vh - var(--sl-nav-height));
+		overflow-y: auto;
+	}
+
+	.right-sidebar-panel .sl-container {
+		max-width: 100%;
 	}
 }
 

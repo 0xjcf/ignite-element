@@ -3,6 +3,7 @@
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import remarkGfm from "remark-gfm";
+import scrollableTables from "./src/rehype-scrollable-tables.mjs";
 
 import starlightVersions from "starlight-versions";
 
@@ -15,6 +16,7 @@ export default defineConfig({
 	// Apply remark-gfm explicitly so `| … |` tables (and other GFM) render.
 	markdown: {
 		remarkPlugins: [remarkGfm],
+		rehypePlugins: [scrollableTables],
 	},
 	integrations: [
 		starlight({
@@ -37,6 +39,7 @@ export default defineConfig({
 			},
 			favicon: "/ignite-element-favicon.svg",
 			components: {
+				Header: "./src/components/Header.astro",
 				SiteTitle: "./src/components/SiteTitle.astro",
 				ThemeSelect: "./src/components/ThemeSelect.astro",
 				PageTitle: "./src/components/PageTitle.astro",
@@ -84,32 +87,6 @@ export default defineConfig({
 				{
 					label: "Examples",
 					slug: "handbook/examples",
-				},
-				{
-					label: "Migration",
-					collapsed: true,
-					items: [
-						{
-							label: "v2 to v3",
-							slug: "migration/v3",
-						},
-						{
-							label: "Events and effects",
-							slug: "migration/effects-events",
-						},
-						{
-							label: "Readiness and disposal",
-							slug: "migration/shared-readiness-terminal-disposal",
-						},
-						{
-							label: "Retired testing API",
-							slug: "api/testing-dsl",
-						},
-						{
-							label: "Historical v1 to v2",
-							slug: "migration/v2",
-						},
-					],
 				},
 			],
 		}),

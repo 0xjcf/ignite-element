@@ -35,7 +35,7 @@ import { readFile, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 
 const SITE_ROOT = fileURLToPath(new URL("..", import.meta.url)); // docs/site
 const DIST = join(SITE_ROOT, "dist");
@@ -256,6 +256,123 @@ async function main() {
 			await context.close();
 		}
 
+		// Shared layout: the divider must be the actual rail boundary, and tables
+		// must remain reachable without scrolling the document at narrow widths.
+		for (const theme of THEMES) {
+			const context = await browser.newContext();
+			await context.addInitScript(
+				(value) => localStorage.setItem("starlight-theme", value),
+				theme,
+			);
+			const page = await context.newPage();
+			for (const width of [1280, 1440, 1920, 768, 390]) {
+				await page.setViewportSize({ width, height: 960 });
+				for (const path of [
+					"/",
+					"/handbook/examples/",
+					"/handbook/api/",
+					"/guides/routing/",
+					"/2.x/api/ignite-core/",
+				]) {
+					await page.goto(`${origin}${path}`);
+					const layout = await page.evaluate(() => {
+						const rail = document.querySelector(".right-sidebar");
+						const divider =
+							document.querySelector(".header-preferences") ||
+							document.querySelector(".social-icons");
+						const selects = [...document.querySelectorAll("header select")];
+						return {
+							overflow: document.documentElement.scrollWidth - innerWidth,
+							rail: rail?.getBoundingClientRect().left,
+							divider:
+								divider?.getBoundingClientRect()[
+									divider.classList.contains("header-preferences")
+										? "left"
+										: "right"
+								],
+							titleFits: (() => {
+								const title = document.querySelector(".site-title span");
+								return title.scrollWidth <= title.clientWidth + 1;
+							})(),
+							selects: selects.map((e) => ({
+								appearance: getComputedStyle(e).appearance,
+								height: e.getBoundingClientRect().height,
+							})),
+							tables: [
+								...document.querySelectorAll(".sl-markdown-content table"),
+							].map((table) => {
+								const frame = table.closest(".table-scroll");
+								return {
+									grid: table.tBodies[0]?.getBoundingClientRect().width,
+									width: table.getBoundingClientRect().width,
+									scrollable:
+										frame && getComputedStyle(frame).overflowX === "auto",
+									focusable: frame?.tabIndex === 0,
+								};
+							}),
+						};
+					});
+					const label = `${theme} ${width}px ${path}`;
+					assert.ok(
+						layout.overflow <= 1,
+						`${label}: document overflow ${layout.overflow}px`,
+					);
+					if (width >= 1152) {
+						assert.ok(layout.titleFits, `${label}: clipped site title`);
+						assert.ok(
+							Math.abs(layout.rail - layout.divider) <= 1,
+							`${label}: divider ${layout.divider} != rail ${layout.rail}`,
+						);
+						assert.equal(
+							layout.selects[0].appearance,
+							layout.selects[1].appearance,
+							label,
+						);
+						assert.equal(
+							layout.selects[0].height,
+							layout.selects[1].height,
+							label,
+						);
+					}
+					for (const table of layout.tables) {
+						assert.ok(
+							Math.abs(table.width - table.grid) <= 2,
+							`${label}: empty strip inside table frame`,
+						);
+						assert.ok(
+							table.scrollable && table.focusable,
+							`${label}: table must support local keyboard scrolling`,
+						);
+					}
+					for (const frame of await page
+						.locator(".table-scroll, .expressive-code pre")
+						.all()) {
+						if (await frame.evaluate((e) => e.scrollWidth > e.clientWidth)) {
+							// Expressive Code assigns focusability after its resize observer runs.
+							await expect(frame).toHaveAttribute("tabindex", "0");
+							assert.ok(
+								await frame.evaluate(
+									(e) =>
+										e.tabIndex >= 0 &&
+										["auto", "scroll"].includes(getComputedStyle(e).overflowX),
+								),
+								`${label}: wide content must allow keyboard scrolling`,
+							);
+							await frame.focus();
+							await page.keyboard.press("ArrowRight");
+							await page.waitForFunction(
+								() => document.activeElement.scrollLeft > 0,
+							);
+						}
+					}
+				}
+			}
+			await context.close();
+		}
+		console.log(
+			"Shared layout: 50 page/theme/viewport cases; table grids and table/code keyboard scrolling passed.",
+		);
+
 		// Geometry guardrail (theme-agnostic — checked once).
 		const geomContext = await browser.newContext();
 		const geomPage = await geomContext.newPage();
@@ -303,6 +420,36 @@ async function main() {
 				.selectOption({ label: "v3 (beta)" });
 			await page.waitForURL(`${origin}/`);
 			assert.equal(await page.locator("h1").innerText(), "Getting started");
+			await page.goBack();
+			await page.waitForURL(`${origin}/2.x/`);
+			if (width < 800)
+				await page.getByRole("button", { name: "Menu", exact: true }).click();
+			const version = page.getByRole("combobox", {
+				name: "Select version",
+				exact: true,
+			});
+			assert.equal(await version.inputValue(), `${BASE}/2.x/`);
+			await version.focus();
+			await page.keyboard.press("Tab");
+			const theme = page.getByRole("combobox", {
+				name: "Select theme",
+				exact: true,
+			});
+			assert.ok(
+				await theme.evaluate((e) => e === document.activeElement),
+				"Tab moves from version to theme",
+			);
+			assert.notEqual(
+				await theme.evaluate(
+					(e) => getComputedStyle(e.closest("label")).boxShadow,
+				),
+				"none",
+				"visible native select focus ring",
+			);
+			await page.keyboard.press("d");
+			await page.keyboard.press("Enter");
+			assert.equal(await theme.inputValue(), "dark", "keyboard selects Dark");
+
 			for (const [fragment, title] of [
 				["one-counter-two-meanings", "One counter, two meanings"],
 				["delivery-and-ownership", "Delivery and ownership"],
@@ -319,7 +466,7 @@ async function main() {
 			await context.close();
 		}
 		console.log(
-			"Desktop/mobile version round trips and four preserved Events subjects passed.",
+			"Desktop/mobile version round trips, browser Back, keyboard selectors and four preserved Events subjects passed.",
 		);
 	} finally {
 		await browser.close();

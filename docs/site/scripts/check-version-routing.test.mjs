@@ -131,10 +131,10 @@ for (const selector of [
 ]) {
 	test(`complete supported install selector ${selector} passes`, () =>
 		passes(({ replace, append }) => {
-			if (selector !== "beta")
+			if (selector !== "3.0.0-beta.14")
 				replace(
 					installation,
-					/ignite-element@beta/g,
+					/ignite-element@3\.0\.0-beta\.14/g,
 					`ignite-element@${selector}`,
 				);
 			append(
@@ -215,7 +215,7 @@ test("stable facade policy drift fails", () =>
 		({ replace }) =>
 			replace(
 				installation,
-				"ignite-element@latest = 2.2.2",
+				/ignite-element@latest[^\n]*2\.2\.2/,
 				"ignite-element@latest = 3.0.0-beta.12",
 			),
 		/stable facade policy/,

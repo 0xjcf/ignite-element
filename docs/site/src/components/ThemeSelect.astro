@@ -1,4 +1,5 @@
 ---
+import { Icon } from "@astrojs/starlight/components";
 import Default from "@astrojs/starlight/components/ThemeSelect.astro";
 import { routeUrl, versionDestination } from "../route-map.mjs";
 const route = Astro.url.pathname
@@ -12,11 +13,10 @@ const archived = route === "2.x" || route.startsWith("2.x/");
     <option value={routeUrl(versionDestination(route, false))} selected={!archived}>v3 (beta)</option>
     <option value={routeUrl(versionDestination(route, true))} selected={archived}>2.x</option>
   </select>
+  <Icon name="down-caret" class="caret" />
 </label>
 <Default><slot /></Default>
-<style>
-  select { padding-inline: var(--control-pad-x); color: var(--control-text); background: transparent; border: 0; border-radius: var(--radius-md); }
-</style>
+
 <script>
   for (const select of document.querySelectorAll<HTMLSelectElement>('.version-select select')) {
     select.addEventListener('change', () => location.assign(select.value));
