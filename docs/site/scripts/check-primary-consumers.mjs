@@ -79,6 +79,8 @@ for (const lane of ["web", "native"]) {
 			"toggle.test.tsx",
 			"redux.ts",
 			"mobx.ts",
+			"mobx-factory.ts",
+			"redux-factory.ts",
 			"source.test.ts",
 			"core.test.ts",
 		])

@@ -22,18 +22,6 @@ export type { IgniteCoreReturn } from "./publicTypes";
 
 import type { DisjointBindings } from "./publicTypes";
 
-type AdapterConfigSource<Adapter extends "redux", Source> = Source extends (
-	...args: unknown[]
-) => unknown
-	? {
-			adapter: Adapter;
-			source: Source;
-		}
-	: {
-			adapter?: Adapter;
-			source: Source;
-		};
-
 export type ReduxBlueprintConfig<
 	Source extends ReduxBlueprintSource,
 	Events extends EventMap = EmptyEventMap,
@@ -42,17 +30,13 @@ export type ReduxBlueprintConfig<
 		never,
 		FacadeCommandFunction
 	>,
-> = Omit<
-	StoreReduxBlueprintConfig<
-		Source,
-		Events,
-		StatesResult,
-		CommandsResult,
-		unknown
-	>,
-	"adapter" | "source"
+> = StoreReduxBlueprintConfig<
+	Source,
+	Events,
+	StatesResult,
+	CommandsResult,
+	unknown
 > &
-	AdapterConfigSource<"redux", Source> &
 	DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>>;
 
 export type ReduxInstanceConfig<

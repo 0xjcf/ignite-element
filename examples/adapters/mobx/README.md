@@ -46,7 +46,8 @@ This showcase combines **ignite-element**, **MobX**, and **lit-html** to build r
 
 Keep `states` and `commands` inline for inferred types. Save this module beside
 [`mobxCounterStore.ts`](mobxCounterStore.ts) in this example. A live observable
-is shared; a factory requires `adapter: "mobx"` and creates isolated instances:
+is shared; a factory creates a separate observable per element.
+The dedicated `ignite-element/mobx` import selects the adapter:
 
 ```ts title="mobx-cores.ts"
 import { igniteCore } from "ignite-element/mobx";
@@ -57,19 +58,18 @@ const sharedStore = counterStore();
 export const registerSharedMobx = igniteCore({
   source: sharedStore, // shared observable instance
   states: (snapshot) => ({ count: snapshot.count }),
-  commands: ({ source: actor }) => ({
-    decrement: () => actor.decrement(),
-    increment: () => actor.increment(),
+  commands: ({ source: store }) => ({
+    decrement: () => store.decrement(),
+    increment: () => store.increment(),
   }),
 });
 
 export const registerIsolatedMobx = igniteCore({
-  adapter: "mobx",
   source: counterStore, // factory → new observable each time
   states: (snapshot) => ({ count: snapshot.count }),
-  commands: ({ source: actor }) => ({
-    decrement: () => actor.decrement(),
-    increment: () => actor.increment(),
+  commands: ({ source: store }) => ({
+    decrement: () => store.decrement(),
+    increment: () => store.increment(),
   }),
 });
 ```
