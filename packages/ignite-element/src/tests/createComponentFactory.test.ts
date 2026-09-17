@@ -109,7 +109,11 @@ describe("createComponentFactory", () => {
 			send: (event: CounterEvent) => void;
 			getState: () => CounterState;
 		};
-		const commandsCallback = ({ actor }: { actor: FallbackActor }) => ({
+		const commandsCallback = ({
+			source: actor,
+		}: {
+			source: FallbackActor;
+		}) => ({
 			increment: () => actor.send({ type: "INC" }),
 		});
 
@@ -180,9 +184,9 @@ describe("createComponentFactory", () => {
 			value: snapshot.value,
 		});
 		const commandsCallback = ({
-			actor: resolvedActor,
+			source: resolvedActor,
 		}: {
-			actor: CustomActor;
+			source: CustomActor;
 		}) => ({
 			invoke: () => resolvedActor.send("ping"),
 		});
@@ -235,9 +239,9 @@ describe("createComponentFactory", () => {
 			count: snapshot.count,
 		});
 		const commands = ({
-			actor,
+			source: actor,
 		}: {
-			actor: { send: (event: CounterEvent) => void };
+			source: { send: (event: CounterEvent) => void };
 		}) => ({
 			increment: (amount = 1) => {
 				seenAmounts.push(amount);

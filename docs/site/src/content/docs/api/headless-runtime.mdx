@@ -6,6 +6,8 @@ sidebar:
   order: 4
 ---
 
+> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
+
 Use an adapter entrypoint's `igniteCore(...)` for source-backed construction.
 The root source-free `const core = igniteCore()` remains registrar-only.
 The canonical flow is source → native snapshot → derived states → renderer view.
@@ -22,7 +24,7 @@ import { igniteCore } from 'ignite-element/xstate';
 const counter = igniteCore({
   source: counterMachine,
   states: (snapshot) => ({ isOn: snapshot.matches('on') }),
-  commands: ({ actor }) => ({ toggle: () => actor.send({ type: 'TOGGLE' }) }),
+  commands: ({ source: actor }) => ({ toggle: () => actor.send({ type: 'TOGGLE' }) }),
   events: (event) => ({ toggled: event<{ isOn: boolean }>() }),
   effects: ({ emit, select }) => {
     const isOn = select((snapshot) => snapshot.matches('on'));

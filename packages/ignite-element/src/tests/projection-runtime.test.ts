@@ -146,7 +146,7 @@ function createProjectionCore(onProjectStates: () => void = () => undefined) {
 				commandAvailability: { confirm: snapshot.context.allowConfirm },
 			};
 		},
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			upsertProjection: (document: ProjectionDocument) =>
 				actor.send({ type: "UPSERT_PROJECTION", document }),
 			patchProjection: (patch: ProjectionDocumentPatch) =>
@@ -3410,7 +3410,7 @@ describe("projection targets", () => {
 		const core = igniteCore({
 			source: malformedMachine,
 			states: () => ({}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				setDocuments: (documents: unknown[]) =>
 					actor.send({ type: "SET_DOCUMENTS", documents }),
 				setSpeech: (speech: unknown) =>

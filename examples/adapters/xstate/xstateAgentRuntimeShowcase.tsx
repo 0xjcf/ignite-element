@@ -409,7 +409,7 @@ const agentRuntimeShowcase = igniteCore({
 			snapshot.context.report.statesLog.length,
 		agentStepCount: snapshot.context.report.agentLog.length,
 	}),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		inspect: () => actor.send({ type: "INSPECT" }),
 		runIncrement: () => actor.send({ type: "RUN", command: "increment" }),
 		runIncrementToLimit: () =>

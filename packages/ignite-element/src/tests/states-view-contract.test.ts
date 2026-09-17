@@ -84,7 +84,7 @@ describe("v3 states/view public contract", () => {
 			source: actor,
 			events: (event) => ({ unused: event() }),
 			states,
-			commands: ({ actor: commandActor }) => ({
+			commands: ({ source: commandActor }) => ({
 				increment: () => commandActor.send({ type: "INC" }),
 			}),
 		});
@@ -128,7 +128,7 @@ describe("v3 states/view public contract", () => {
 		const counter = igniteXState({
 			source: actor,
 			states: (snapshot) => ({ count: snapshot.context.count }),
-			commands: ({ actor: commandActor }) => ({
+			commands: ({ source: commandActor }) => ({
 				increment: () => commandActor.send({ type: "INC" }),
 			}),
 		});
@@ -161,7 +161,7 @@ describe("v3 states/view public contract", () => {
 		const counter = igniteRedux({
 			source: store,
 			states: (snapshot) => ({ count: snapshot.count }),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				incrementLater: async () => {
 					await Promise.resolve();
 					actor.dispatch(slice.actions.increment());
@@ -208,7 +208,7 @@ describe("v3 states/view public contract", () => {
 		const counter = igniteXState({
 			source: counterMachine,
 			states: (snapshot) => ({ count: snapshot.context.count }),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				increment: () => actor.send({ type: "INC" }),
 			}),
 		});

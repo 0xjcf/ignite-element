@@ -21,7 +21,7 @@ function createRegister() {
 			count: snapshot.counter.count,
 			isEven: snapshot.counter.count % 2 === 0,
 		}),
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			increment: (amount = 1) =>
 				actor.dispatch(counterSlice.actions.addByAmount(amount)),
 		}),

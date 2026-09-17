@@ -13,7 +13,7 @@ const source = createActor(
 const core = igniteCore({
 	source,
 	states: (snapshot) => ({ count: snapshot.context.count }),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		add: (amount: number) => actor.send({ type: "ADD", amount }),
 		multi: (a: number, b: number) => a + b,
 	}),
@@ -68,3 +68,24 @@ igniteCore({ source: { create: () => source, dispose: () => source.stop() } });
 const registration = core("compile-only-counter", (ctx) => ctx.count);
 // @ts-expect-error Registration handles cannot rebind another runtime.
 registration.bind(core);
+
+// Compile-only migration guards: the removed property is not a compatibility API.
+function commandContextContract() {
+	igniteCore({
+		source,
+		// @ts-expect-error Commands expose source, not actor.
+		commands: ({ actor }) => ({
+			add: () => actor.send({ type: "ADD", amount: 1 }),
+		}),
+	});
+	igniteCore({
+		source,
+		commands: ({ source }) => ({
+			invalidMethod: () => {
+				// @ts-expect-error XState capabilities are unchanged by the rename.
+				source.dispatch({ type: "ADD", amount: 1 });
+			},
+		}),
+	});
+}
+void commandContextContract;

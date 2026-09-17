@@ -125,7 +125,7 @@ describe("igniteReact behavior", () => {
 				count: snapshot.context.count,
 				label: snapshot.context.label,
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				increment: () => actor.send({ type: "INC" }),
 			}),
 			events: (event) => ({
@@ -158,7 +158,7 @@ describe("igniteReact behavior", () => {
 		const Counter = igniteCore({
 			source: counterMachine,
 			states: (snapshot) => ({ count: snapshot.context.count }),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				increment: () => actor.send({ type: "INC" }),
 			}),
 			events: (event) => ({
@@ -194,7 +194,7 @@ describe("igniteReact behavior", () => {
 		const Counter = igniteCore({
 			source: counterMachine,
 			states: (snapshot) => ({ count: snapshot.context.count }),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				increment: () => {
 					incSpy();
 					actor.send({ type: "INC" });
@@ -220,7 +220,7 @@ describe("igniteReact behavior", () => {
 		const Counter = igniteCore({
 			source: counterMachine,
 			states: (snapshot) => ({ label: snapshot.context.label }),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				setLabel: (label: string) => {
 					setLabelSpy(label);
 					actor.send({ type: "SET_LABEL", label });

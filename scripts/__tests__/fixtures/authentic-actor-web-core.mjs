@@ -37,7 +37,7 @@ const source = createActorSource(actor);
 const core = igniteCore({
 	source,
 	states: (snapshot) => ({ count: snapshot.context.count }),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		add: (amount) => actor.send({ type: "add", amount }),
 	}),
 });

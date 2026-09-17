@@ -38,7 +38,7 @@ describe("igniteRedux", () => {
 				adapter: "redux",
 				source: () => sharedStore,
 				states: (snapshot) => ({ count: snapshot.counter.count }),
-				commands: ({ actor }) => ({
+				commands: ({ source: actor }) => ({
 					increment: () => actor.dispatch(increment()),
 				}),
 			});
@@ -97,7 +97,7 @@ describe("igniteRedux", () => {
 				adapter: "redux",
 				source: counterStore,
 				states: (snapshot) => ({ count: snapshot.counter.count }),
-				commands: ({ actor }) => ({
+				commands: ({ source: actor }) => ({
 					increment: () => actor.dispatch(increment()),
 				}),
 			});

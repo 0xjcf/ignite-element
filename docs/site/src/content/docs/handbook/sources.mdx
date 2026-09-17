@@ -3,6 +3,8 @@ title: Sources
 description: Choose a source adapter, derive values, and send commands to your source.
 ---
 
+> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
+
 import { Code } from '@astrojs/starlight/components';
 import redux from '../../../../../../scripts/__tests__/fixtures/handbook/redux.ts?raw';
 import mobx from '../../../../../../scripts/__tests__/fixtures/handbook/mobx.ts?raw';
@@ -38,6 +40,16 @@ The callback input depends on the source adapter.
 | Actor-Web | An extended state combining the source snapshot, its context fields, and transport status. |
 
 The name `snapshot` in the examples is a callback parameter, not a shared shape across all sources.
+
+## Command target
+
+Use `commands: ({ source })` to access the resolved command interface.
+Configuration `source` accepts the adapter's supported instance, factory, or definition.
+The callback receives the command target for the active instance, not necessarily the original configuration object.
+
+Destructuring can give that target a local name: `{ source: actor }` for XState or `{ source: store }` for Redux and MobX.
+These aliases keep inference; they do not add properties to the command context.
+See the [migration note](/ignite-element/migration/command-source/) for the change from beta.14.
 
 ## XState
 

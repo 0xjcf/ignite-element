@@ -1,11 +1,11 @@
-import { afterEach, expect, it, vi } from "vitest";
-import { assign, createActor, setup } from "xstate";
-import { igniteCore } from "../xstate";
-import { StateScope, type IgniteAdapter } from "@ignite-element/core";
-import { createIgniteComponentFactory } from "../igniteCore/createIgniteComponentFactory";
+import { type IgniteAdapter, StateScope } from "@ignite-element/core";
 import { act, renderHook } from "@testing-library/react";
 import { StrictMode } from "react";
+import { afterEach, expect, it, vi } from "vitest";
+import { assign, createActor, setup } from "xstate";
+import { createIgniteComponentFactory } from "../igniteCore/createIgniteComponentFactory";
 import { useIgnite } from "../react";
+import { igniteCore } from "../xstate";
 
 const machine = setup({
 	types: { context: {} as { count: number }, events: {} as { type: "INC" } },
@@ -33,7 +33,9 @@ function fixture(releaseOnDisconnect = false) {
 		source: actor,
 		cleanup: releaseOnDisconnect,
 		states: (s) => ({ count: s.context.count }),
-		commands: ({ actor }) => ({ increment: () => actor.send({ type: "INC" }) }),
+		commands: ({ source: actor }) => ({
+			increment: () => actor.send({ type: "INC" }),
+		}),
 		events: (e) => ({ changed: e<{ count: number }>() }),
 		effects: ({ select, emit }) => {
 			const count = select((s) => s.context.count);
@@ -157,7 +159,9 @@ it("retains separate isolated baselines and recreates only the disconnected inst
 	const evaluations = vi.fn();
 	const core = igniteCore({
 		source: machine,
-		commands: ({ actor }) => ({ increment: () => actor.send({ type: "INC" }) }),
+		commands: ({ source: actor }) => ({
+			increment: () => actor.send({ type: "INC" }),
+		}),
 		effects: ({ select }) => {
 			const count = select((s) => s.context.count);
 			evaluations(count.previous, count.current);

@@ -17,7 +17,7 @@ export const core = igniteCore({
 		count: snapshot.context.count,
 		canIncrement: snapshot.can({ type: "INCREMENT" }),
 	}),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		increment: () => actor.send({ type: "INCREMENT" }),
 	}),
 });

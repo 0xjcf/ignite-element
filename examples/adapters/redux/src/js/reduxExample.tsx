@@ -54,7 +54,7 @@ export const disposeSharedRedux = () => {
 export const registerSharedRedux = igniteCore({
 	source: sharedStore,
 	states: (snapshot) => resolveReduxView(snapshot),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		decrement: () => actor.dispatch(counterSlice.actions.decrement()),
 		increment: () => actor.dispatch(counterSlice.actions.increment()),
 		addByAmount: (value: number) =>
@@ -65,7 +65,7 @@ export const registerSharedRedux = igniteCore({
 export const registerIsolatedRedux = igniteCore({
 	source: counterSlice,
 	states: (snapshot) => resolveReduxSliceView(snapshot),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		decrement: () => actor.dispatch(counterSlice.actions.decrement()),
 		increment: () => actor.dispatch(counterSlice.actions.increment()),
 		addByAmount: (value: number) =>

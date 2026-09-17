@@ -58,7 +58,7 @@ const registerRouter = igniteCore({
 		route: snapshot.context.route,
 		path: snapshot.context.path,
 	}),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		navigate: (to: string) => actor.send({ type: "NAVIGATE_REQUESTED", to }),
 	}),
 });

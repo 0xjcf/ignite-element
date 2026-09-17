@@ -28,7 +28,7 @@ const defineDashboardWidget = igniteCore({
 		alerts: getVisibleAlerts(snapshot.context.dismissedAlertIds),
 		dismissedCount: snapshot.context.dismissedAlertIds.length,
 	}),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		selectTeam: (team: Team) => actor.send({ type: "SELECT_TEAM", team }),
 		selectRange: (range: Range) => actor.send({ type: "SELECT_RANGE", range }),
 		dismissAlert: (id: string) => actor.send({ type: "DISMISS_ALERT", id }),

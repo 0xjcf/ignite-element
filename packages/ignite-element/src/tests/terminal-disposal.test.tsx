@@ -25,7 +25,7 @@ it.each(["shared", "isolated"] as const)(
 		const core = igniteCore({
 			source: source ?? machine,
 			states: (snapshot) => ({ count: snapshot.context.count }),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				increment: () => actor.send({ type: "INC" }),
 			}),
 		});
@@ -133,7 +133,9 @@ it("drains headless watch and event handles without shutting down a borrowed sou
 	const core = igniteCore({
 		source,
 		events: (event) => ({ changed: event() }),
-		commands: ({ actor }) => ({ increment: () => actor.send({ type: "INC" }) }),
+		commands: ({ source: actor }) => ({
+			increment: () => actor.send({ type: "INC" }),
+		}),
 	});
 	const states = vi.fn(),
 		events = vi.fn();

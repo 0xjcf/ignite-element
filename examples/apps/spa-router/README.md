@@ -1,5 +1,7 @@
 # SPA Router + Ignite Element (v3) Example
 
+> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
+
 A tiny single-page app whose router is an application-owned XState source passed
 directly into Ignite Element. The URL is still state and navigation is still a
 command, but the browser boundary now lives in a local `NavigationPort` backed
@@ -74,7 +76,7 @@ where navigation lands.
 ```tsx
 const outlet = igniteCore({
   source: routerSource,
-  commands: ({ actor }) => ({
+  commands: ({ source: actor }) => ({
     navigate: (to: string) => actor.send({ type: "NAVIGATE_REQUESTED", to }),
   }),
 });

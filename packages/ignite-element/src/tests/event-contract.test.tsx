@@ -35,7 +35,7 @@ it("infers a real Actor-Web channel shared with command types and releases it", 
 	};
 	const core = actorCore({
 		source,
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			reset: () => actor.send({ type: "reset", count: 0 }),
 		}),
 	});

@@ -24,7 +24,7 @@ describe("v3 states/view contract types", () => {
 				expectTypeOf(snapshot).toEqualTypeOf<Snapshot>();
 				return { count: snapshot.context.count };
 			},
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				increment: () => actor.send({ type: "INC" }),
 			}),
 		});
@@ -73,7 +73,9 @@ describe("v3 states/view contract types", () => {
 
 		const commandsOnly = igniteXState({
 			source: machine,
-			commands: ({ actor }) => ({ ping: () => actor.send({ type: "PING" }) }),
+			commands: ({ source: actor }) => ({
+				ping: () => actor.send({ type: "PING" }),
+			}),
 		});
 		expectTypeOf(commandsOnly.get("states")).toEqualTypeOf<
 			Record<never, never>
@@ -118,7 +120,9 @@ describe("v3 states/view contract types", () => {
 		const component = igniteXState({
 			source: machine,
 			states: (snapshot) => ({ idle: snapshot.matches("idle") }),
-			commands: ({ actor }) => ({ ping: () => actor.send({ type: "PING" }) }),
+			commands: ({ source: actor }) => ({
+				ping: () => actor.send({ type: "PING" }),
+			}),
 		});
 
 		const tools = igniteTools(component, undefined, {

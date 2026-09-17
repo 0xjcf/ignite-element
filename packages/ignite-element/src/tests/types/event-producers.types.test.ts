@@ -1,9 +1,15 @@
-import { createActor, emit, setup } from "xstate";
-import { igniteCore } from "../../xstate";
-import { igniteCore as rootCore } from "../../IgniteCore";
 import { expect, it } from "vitest";
+import {
+	type AnyStateMachine,
+	createActor,
+	createMachine,
+	emit,
+	setup,
+} from "xstate";
 import { igniteCore as actorCore } from "../../actor-web";
-import { createMachine, type AnyStateMachine } from "xstate";
+import { igniteCore as rootCore } from "../../IgniteCore";
+import { igniteCore } from "../../xstate";
+
 const machine = setup({
 	types: {
 		context: {} as { count: number },
@@ -59,7 +65,9 @@ function check() {
 		const core = igniteCore({
 			source,
 			states: (s) => ({ count: s.context.count }),
-			commands: ({ actor }) => ({ reset: () => actor.send({ type: "RESET" }) }),
+			commands: ({ source: actor }) => ({
+				reset: () => actor.send({ type: "RESET" }),
+			}),
 			events: (e) => ({
 				counterReset: e<{ count: number }>(),
 				countChanged: e<{ count: number }>(),
@@ -93,7 +101,9 @@ function check() {
 		const root = rootCore({
 			source,
 			states: (snapshot) => ({ count: snapshot.context.count }),
-			commands: ({ actor }) => ({ reset: () => actor.send({ type: "RESET" }) }),
+			commands: ({ source: actor }) => ({
+				reset: () => actor.send({ type: "RESET" }),
+			}),
 			events: (event) => ({
 				counterReset: event<{ count: number }>(),
 				changed: event<{ count: number }>(),
@@ -119,11 +129,15 @@ function check() {
 	for (const core of [
 		igniteCore({
 			source: combined,
-			commands: ({ actor }) => ({ run: () => actor.send({ type: "RUN" }) }),
+			commands: ({ source: actor }) => ({
+				run: () => actor.send({ type: "RUN" }),
+			}),
 		}),
 		rootCore({
 			source: combined,
-			commands: ({ actor }) => ({ run: () => actor.send({ type: "RUN" }) }),
+			commands: ({ source: actor }) => ({
+				run: () => actor.send({ type: "RUN" }),
+			}),
 		}),
 	]) {
 		core.on("first", (event) => {

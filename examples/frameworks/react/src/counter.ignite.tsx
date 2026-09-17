@@ -40,7 +40,7 @@ const counterCore = igniteCore({
 		count: snapshot.context.count,
 		label: snapshot.context.label,
 	}),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		increment: () => actor.send({ type: "INC" }),
 		decrement: () => actor.send({ type: "DEC" }),
 		// Single-arg `setX` command -> exposed as the `label` attribute AND prop.
