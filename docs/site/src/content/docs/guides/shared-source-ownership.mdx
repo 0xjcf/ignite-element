@@ -4,12 +4,14 @@ description: Existing actors and stores feed views without another controller.
 ---
 
 import { Code } from '@astrojs/starlight/components';
+import redux from '../../../../../../scripts/__tests__/fixtures/handbook/redux.ts?raw';
+import mobx from '../../../../../../scripts/__tests__/fixtures/handbook/mobx.ts?raw';
 import counterCode from '../../../../../../examples/adapters/xstate/shared-counter.tsx?raw';
 import sourceCode from '../../../../../../examples/adapters/xstate/shared-session.ts?raw';
 import viewCode from '../../../../../../examples/adapters/xstate/shared-session-view.tsx?raw';
 import reactCode from '../../../../../../examples/frameworks/react/shared-counter.tsx?raw';
 
-The flow is **source → native snapshot → states → renderer view**.
+The flow is __source → native snapshot → states → renderer view__.
 
 Pass the same source instance to a core to share its state across views.
 
@@ -26,6 +28,26 @@ For observation and terminal disposal, see [Ownership & cleanup](/ignite-element
 Run this complete example from `examples/adapters/xstate/shared-counter.html`.
 
 The core and source are created at application bootstrap, not in a renderer.
+
+## Shared Redux store
+
+Create the store once and pass the instance to `igniteCore`.
+
+Save this complete example as `redux.ts`:
+
+<Code code={redux} lang="ts" title="redux.ts" />
+
+Views using this core observe the same store.
+
+## Shared MobX observable
+
+Create the observable once and pass the instance to `igniteCore`.
+
+Save this complete example as `mobx.ts`:
+
+<Code code={mobx} lang="ts" title="mobx.ts" />
+
+Views using this core observe the same counter.
 
 <span id="ownership-is-explicit-without-another-api"></span>
 

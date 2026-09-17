@@ -4,8 +4,6 @@ description: Choose a source adapter, derive values, and send commands to your s
 ---
 
 import { Code } from '@astrojs/starlight/components';
-import redux from '../../../../../../scripts/__tests__/fixtures/handbook/redux.ts?raw';
-import mobx from '../../../../../../scripts/__tests__/fixtures/handbook/mobx.ts?raw';
 import reduxFactory from '../../../../../../scripts/__tests__/fixtures/handbook/redux-factory.ts?raw';
 import mobxFactory from '../../../../../../scripts/__tests__/fixtures/handbook/mobx-factory.ts?raw';
 
@@ -61,7 +59,7 @@ The [Getting started light switch](/ignite-element/#build-a-component) passes a 
 
 Each mounted light switch gets its own actor.
 
-To share state between views, pass an existing started actor instead.
+For shared state, pass an existing started actor; see [Shared XState source](/ignite-element/guides/shared-source-ownership/#two-jsx-views-one-source).
 
 XState machine states describe behavior; Ignite's `states` callback derives values for views.
 
@@ -75,11 +73,11 @@ Install Ignite and Redux Toolkit:
 pnpm add ignite-element@beta @reduxjs/toolkit
 ```
 
-### Share a Redux store
+### Create a store per element
 
-Create `redux.ts` to connect a counter store:
+Create `redux-factory.ts` with a factory that returns a new store:
 
-<Code code={redux} lang="ts" title="redux.ts" />
+<Code code={reduxFactory} lang="ts" title="redux-factory.ts" />
 
 The `states` callback reads `snapshot.count` because this store uses the counter reducer directly.
 
@@ -87,15 +85,11 @@ The `increment()` command dispatches the slice's action to the store.
 
 For a combined store, read its root shape, such as `snapshot.counter.count`.
 
-Passing a store shares that store between views.
+Passing a Redux slice also creates isolated state for each element.
 
-Passing a Redux slice instead creates isolated state for each element.
+<span id="share-a-redux-store"></span>
 
-### Create a store per element
-
-For a separate store per element, pass a factory through `ignite-element/redux`:
-
-<Code code={reduxFactory} lang="ts" title="redux-factory.ts" />
+For shared state, pass an existing store; see [Shared Redux store](/ignite-element/guides/shared-source-ownership/#shared-redux-store).
 
 ## MobX
 
@@ -105,11 +99,11 @@ Install Ignite and MobX:
 pnpm add ignite-element@beta mobx
 ```
 
-### Share a MobX observable
+### Create an observable per element
 
-Create `mobx.ts` to connect an observable counter:
+Create `mobx-factory.ts` with a factory that returns a new observable:
 
-<Code code={mobx} lang="ts" title="mobx.ts" />
+<Code code={mobxFactory} lang="ts" title="mobx-factory.ts" />
 
 The `states` callback reads the observable data copied by `toJS`.
 
@@ -117,13 +111,9 @@ Do not assume methods or computed getters are fields in that result.
 
 The `increment()` command calls `store.increment()` on the observable instance.
 
-Passing an observable instance shares it between views.
+<span id="share-a-mobx-observable"></span>
 
-### Create an observable per element
-
-For a separate observable per element, pass a factory through `ignite-element/mobx`:
-
-<Code code={mobxFactory} lang="ts" title="mobx-factory.ts" />
+For shared state, pass an existing observable; see [Shared MobX observable](/ignite-element/guides/shared-source-ownership/#shared-mobx-observable).
 
 <span id="optional-integrations"></span>
 

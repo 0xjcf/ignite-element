@@ -6,6 +6,10 @@ This ledger carries all A01–A12 and E01–E10 findings from the supplied audit
 
 Current slice: shared editorial consistency across current pages, with Getting started still the next acceptance checkpoint. The parked branch stays unchanged at `1cfc2310557e9ed602c6e7f9524e9827e45f4dbc`, tree `14689a7da715fa2cfde41745438f7485bbb34b5d`. Its original Getting started approval remains historical evidence. The local successor `fas/docs-getting-started-source` includes integrated beta `af0de5696b60922aacbbcc895879adcc72851357`; see the [factory reconciliation and Getting started re-review receipt](getting-started-factory-reconciliation.md). Getting started now awaits re-review. Sources still awaits review and Views remains queued. The accepted shared presentation is preserved. The Operator has authorized the shared prose pass below; individual page acceptance remains sequential.
 
+## Shared examples moved out of Sources — 2026-09-17
+
+The Operator requested keeping full shared-source examples in the shared-source guide. Sources now focuses on per-element factories and links to each sharing example. The [relocation receipt](sources-shared-examples.md) records the preserved canonical modules, updated Testing link and validation. Page checkpoints remain unchanged.
+
 ## Shared editorial consistency — 2026-09-17
 
 The Operator requested short sentences, one idea per paragraph and scannable headings across current pages before continuing individual reviews. The [editorial receipt](editorial-consistency.md) records the 20-page prose pass, removal of unnecessary adapter-property explanations, preserved examples and anchors, and fresh documentation validation. This supersedes the earlier restriction on editing later-page prose for this bounded pass only. Getting started awaits re-review; Sources awaits review; Views remains queued. No page acceptance has advanced.
