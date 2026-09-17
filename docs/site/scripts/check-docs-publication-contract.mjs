@@ -390,6 +390,14 @@ export function inspectDocumentationWorkflow(
 	}
 	if (kind === "deploy") {
 		const { build, deploy } = data.jobs;
+		if (
+			data.concurrency?.group !==
+				"pages-${{ github.event_name }}-${{ github.ref }}" ||
+			data.concurrency?.["cancel-in-progress"] !== true
+		)
+			problems.push(
+				"Pages concurrency must isolate event and ref while retaining same-group cancellation",
+			);
 		if (build["continue-on-error"] || deploy["continue-on-error"])
 			problems.push("Pages jobs must not ignore failure");
 		if (deploy.needs !== "build" && !same(deploy.needs, ["build"]))

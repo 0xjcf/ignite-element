@@ -396,6 +396,23 @@ for (const kind of ["contrast", "deploy"]) {
 	});
 }
 const deploymentMutations = new Map([
+	["missing concurrency boundary", (d) => d.delete("concurrency")],
+	[
+		"shared push/dispatch concurrency",
+		(d) => d.setIn(["concurrency", "group"], "pages"),
+	],
+	[
+		"branch-only concurrency",
+		(d) => d.setIn(["concurrency", "group"], "pages-${{ github.ref }}"),
+	],
+	[
+		"event-only concurrency",
+		(d) => d.setIn(["concurrency", "group"], "pages-${{ github.event_name }}"),
+	],
+	[
+		"changed same-group cancellation",
+		(d) => d.setIn(["concurrency", "cancel-in-progress"], false),
+	],
 	[
 		"automatic push deployment",
 		(d) => d.setIn(["jobs", "deploy", "if"], "github.ref == 'refs/heads/beta'"),
@@ -777,4 +794,12 @@ test("deployment requires an explicit beta dispatch while pushes retain build ch
 		"github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/beta'",
 	);
 	assert.equal(doc.jobs.deploy.needs, "build");
+});
+
+test("pushes and off-branch dispatches cannot cancel a beta docs dispatch", () => {
+	const doc = parseDocument(deployment).toJSON();
+	assert.deepEqual(doc.concurrency, {
+		group: "pages-${{ github.event_name }}-${{ github.ref }}",
+		"cancel-in-progress": true,
+	});
 });
