@@ -58,6 +58,14 @@ function content(file) {
 			"<LightSwitchDemo />",
 			"[Try the live light switch](" + base + "#build-a-component)",
 		)
+		.replaceAll(
+			'<ReactCounterDemo kind="shared" />',
+			`[Try the live shared counters](${base}handbook/views/#two-views-one-source)`,
+		)
+		.replaceAll(
+			'<ReactCounterDemo kind="events" />',
+			`[Try the live custom-element events](${base}handbook/views/#react-to-an-emitted-event)`,
+		)
 		.replaceAll("](/ignite-element/", `](${base}`);
 }
 const heading =

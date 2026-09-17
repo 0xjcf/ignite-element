@@ -46,6 +46,12 @@ importers:
       ignite-element:
         specifier: workspace:*
         version: link:../../packages/ignite-element
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
       sharp:
         specifier: ^0.34.2
         version: 0.34.5
@@ -68,6 +74,12 @@ importers:
       '@testing-library/dom':
         specifier: 10.4.1
         version: 10.4.1
+      '@types/react':
+        specifier: 19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.17)
       fflate:
         specifier: 0.8.2
         version: 0.8.2

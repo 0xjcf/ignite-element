@@ -374,6 +374,136 @@ async function checkInteractions(browser, origin) {
 	);
 }
 
+async function checkCounterDemos(browser, origin) {
+	for (const theme of THEMES) {
+		for (const width of [1440, 390]) {
+			const context = await browser.newContext({
+				viewport: { width, height: 960 },
+			});
+			await context.addInitScript(
+				(value) => localStorage.setItem("starlight-theme", value),
+				theme,
+			);
+			const page = await context.newPage();
+			const errors = [];
+			page.on("pageerror", (error) => errors.push(error.message));
+			try {
+				await page.goto(`${origin}/handbook/views/`);
+				const shared = page.getByRole("region", {
+					name: "Live shared counters",
+					exact: true,
+				});
+				await expect(shared.getByLabel("Count", { exact: true })).toHaveText([
+					"0",
+					"0",
+				]);
+				await shared
+					.getByRole("button", { name: "Increment", exact: true })
+					.first()
+					.click();
+				await expect(shared.getByLabel("Count", { exact: true })).toHaveText([
+					"1",
+					"1",
+				]);
+				await shared
+					.getByRole("button", { name: "Decrement", exact: true })
+					.last()
+					.click();
+				await expect(shared.getByLabel("Count", { exact: true })).toHaveText([
+					"0",
+					"0",
+				]);
+				await shared
+					.getByLabel("Counter label", { exact: true })
+					.last()
+					.fill("Guests");
+				await expect(
+					shared.getByLabel("Counter label", { exact: true }).first(),
+				).toHaveValue("Guests");
+
+				await shared.scrollIntoViewIfNeeded();
+				await capture(page, `shared-counters-${theme}-${width}`);
+
+				const events = page.getByRole("region", {
+					name: "Live custom-element events",
+					exact: true,
+				});
+				const status = events.getByRole("status", {
+					name: "React event status",
+				});
+				await expect(status).toHaveText("Waiting for an event.");
+				let oddColor;
+				for (const [count, parity] of [
+					[1, "Odd"],
+					[2, "Even"],
+				]) {
+					await events
+						.getByRole("button", { name: "Increment", exact: true })
+						.click();
+					await expect(status).toHaveText(
+						`React received: ${count} — ${parity}`,
+					);
+					await expect(
+						events.getByLabel("Element count", { exact: true }),
+					).toHaveText(String(count));
+					const color = await status.evaluate(
+						(el) => getComputedStyle(el).color,
+					);
+					if (count === 1) oddColor = color;
+					else
+						assert.notEqual(
+							color,
+							oddColor,
+							"odd/even must have distinct colors",
+						);
+					const ratios = await page.evaluate(auditInPage, {
+						status: {
+							sel: '#react-counter-events [aria-label="React event status"]',
+						},
+						sharedCount: { sel: "#react-counter-shared output" },
+						input: { sel: "#react-counter-shared input" },
+						button: { root: "react-demo-counter", sel: "button" },
+						elementCount: { root: "react-demo-counter", sel: "output" },
+					});
+					for (const [name, ratio] of Object.entries(ratios)) {
+						assert.ok(
+							ratio >= TEXT,
+							`${theme}/${width}/${parity} ${name}: ${ratio}`,
+						);
+					}
+					assert.equal(
+						Object.keys(ratios).length,
+						5,
+						"all contrast targets must exist",
+					);
+				}
+				await events
+					.getByRole("button", { name: "Decrement", exact: true })
+					.focus();
+				await page.keyboard.press("Enter");
+				await expect(status).toHaveText("React received: 1 — Odd");
+				await expect(shared.getByLabel("Count", { exact: true })).toHaveText([
+					"0",
+					"0",
+				]);
+				assert.ok(
+					await page.evaluate(
+						() => document.documentElement.scrollWidth <= window.innerWidth,
+					),
+					"page must not overflow",
+				);
+				await capture(page, `counter-demos-${theme}-${width}`);
+				assert.deepEqual(errors, []);
+			} finally {
+				await context.close();
+			}
+		}
+	}
+	console.log(
+		"Live counter demos: shared updates, emitted events, keyboard input, dark/light contrast and mobile layout passed.",
+	);
+}
+
 async function main() {
 	if (!(await stat(DIST).catch(() => null))) {
 		console.error(
@@ -391,6 +521,8 @@ async function main() {
 	const geomFailures = [];
 
 	try {
+		await checkCounterDemos(browser, origin);
+		if (process.argv.includes("--counter-demos-only")) return;
 		await checkInteractions(browser, origin);
 		if (process.argv.includes("--interactions-only")) return;
 		for (const theme of THEMES) {

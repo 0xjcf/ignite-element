@@ -22,7 +22,8 @@ pnpm --dir examples/frameworks/react build
 - [shared-counter.tsx](shared-counter.tsx): canonical source, inline projection and commands, hook views.
 - [App.tsx](src/App.tsx): primary runnable screen.
 - [WebInterop.tsx](src/WebInterop.tsx): explicitly optional `igniteReact(handle)` demo
-  controlling an actual custom element. The ref and event mirror belong to that recipe.
+  listening to an actual custom element. Its emitted count updates a React-owned
+  odd/even status.
 
 React files use React JSX; element registration files use the Ignite JSX pragma.
 Repository aliases exercise local source. Installed applications use

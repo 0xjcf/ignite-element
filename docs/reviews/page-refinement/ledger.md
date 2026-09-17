@@ -6,6 +6,10 @@ This ledger carries all A01–A12 and E01–E10 findings from the supplied audit
 
 Current slice: shared editorial consistency across current pages, with Getting started still the next acceptance checkpoint. The parked branch stays unchanged at `1cfc2310557e9ed602c6e7f9524e9827e45f4dbc`, tree `14689a7da715fa2cfde41745438f7485bbb34b5d`. Its original Getting started approval remains historical evidence. The local successor `fas/docs-getting-started-source` includes integrated beta `af0de5696b60922aacbbcc895879adcc72851357`; see the [factory reconciliation and Getting started re-review receipt](getting-started-factory-reconciliation.md). Getting started now awaits re-review. Sources still awaits review and Views remains queued. The accepted shared presentation is preserved. The Operator has authorized the shared prose pass below; individual page acceptance remains sequential.
 
+## Views live examples — 2026-09-17
+
+The Operator approved two visual examples: shared React counters and a custom element whose emitted count updates React's odd/even status. The [live-example receipt](views-live-examples.md) records canonical code reuse, removed teardown comment, theme and keyboard checks, packed consumer evidence and documentation-only dependencies. This is a requested Views enhancement, not page acceptance. Getting started awaits re-review; Sources awaits review; Views remains queued for its page review.
+
 ## Code-block consistency — 2026-09-17
 
 The Operator requested a second code-block pass after spotting nested actor/machine creation in Views. The [code-block receipt](code-block-consistency.md) records the named-machine simplification in React, Testing and shared-source cleanup, plus strict packed consumer verification. Page checkpoints are unchanged.

@@ -140,6 +140,26 @@ for (const lane of ["web", "native"]) {
 			join(dir, "shared-counter.tsx"),
 		);
 		copyFileSync(
+			join(repo, "examples/frameworks/react/counters.css"),
+			join(dir, "counters.css"),
+		);
+		mkdirSync(join(dir, "src"));
+		for (const name of [
+			"WebInterop.tsx",
+			"counter.react.ts",
+			"counter.ignite.tsx",
+			"counter.css",
+			"env.d.ts",
+		])
+			copyFileSync(
+				join(repo, "examples/frameworks/react/src", name),
+				join(dir, "src", name),
+			);
+		copyFileSync(
+			join(repo, "scripts/__tests__/fixtures/handbook/interop.test.tsx"),
+			join(dir, "interop.test.tsx"),
+		);
+		copyFileSync(
 			join(repo, "examples/adapters/xstate/event-counter.ts"),
 			join(dir, "event-counter.ts"),
 		);
@@ -179,7 +199,7 @@ for (const lane of ["web", "native"]) {
 				lib: ["ES2022", "ESNext.Collection", "DOM", "DOM.Iterable"],
 				types: ["node"],
 			},
-			include: ["*.ts", "*.tsx"],
+			include: ["*.ts", "*.tsx", "src/**/*.ts", "src/**/*.tsx"],
 		});
 		writeFileSync(
 			join(dir, "vitest.config.ts"),

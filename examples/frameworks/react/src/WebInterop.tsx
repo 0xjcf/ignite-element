@@ -1,52 +1,29 @@
-import { useRef, useState } from "react";
-import { Counter, type CounterRef } from "./counter.react";
+/** @jsxImportSource react */
+import { useState } from "react";
+import { Counter } from "./counter.react";
+import "../counters.css";
 
 export function WebInterop() {
-	// `count` mirrors the element's outward event — App stays declarative.
-	const [count, setCount] = useState(0);
-	const [label, setLabel] = useState("Visitors");
-	// `CounterRef` (from counter.react) is `IgniteReactRef<typeof counterElement>`
-	// — the CommandHandle (increment/decrement/setLabel). No hand-written shape,
-	// no drift from the element's commands.
-	const counterRef = useRef<CounterRef>(null);
+	const [count, setCount] = useState<number | null>(null);
+	const parity = count === null ? undefined : count % 2 === 0 ? "even" : "odd";
 
 	return (
-		<section aria-label="Custom-element interoperability">
-			<h2>Custom-element interoperability</h2>
-			<p className="lede">
-				A single <code>igniteReact(handle)</code> call generates an idiomatic,
-				typed React component from the schema. Props go in, events come out,
-				commands run through the ref — all without hand-written glue.
-			</p>
-
-			{/* label -> setLabel attribute/command; onCountChanged <- emitted event */}
-			<Counter
-				ref={counterRef}
-				label={label}
-				onCountChanged={(event) => setCount(event.count)}
-			/>
-
-			<p className="mirror">
-				React mirror of the element's emitted count: <strong>{count}</strong>
-			</p>
-
-			<div className="controls">
-				<button type="button" onClick={() => counterRef.current?.decrement()}>
-					-
-				</button>
-				<button type="button" onClick={() => counterRef.current?.increment()}>
-					+
-				</button>
+		<section
+			className="ignite-counter-demo"
+			aria-label="Custom-element interoperability"
+		>
+			<div className="counter-grid">
+				<Counter onCountChanged={({ count }) => setCount(count)} />
+				<output
+					className="event-status"
+					aria-label="React event status"
+					data-parity={parity}
+				>
+					{count === null
+						? "Waiting for an event."
+						: `React received: ${count} — ${parity === "even" ? "Even" : "Odd"}`}
+				</output>
 			</div>
-
-			<label className="label-field">
-				Element label
-				<input
-					value={label}
-					onChange={(event) => setLabel(event.target.value)}
-					placeholder="Set the element label"
-				/>
-			</label>
 		</section>
 	);
 }

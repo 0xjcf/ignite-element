@@ -91,13 +91,27 @@ assert.doesNotMatch(
 assert.match(full, /Version: v3 \(beta\)/);
 assert.doesNotMatch(
 	full,
-	/You are reading the Ignite Element v2 docs|LegacyRoute|<Code code=/,
+	/You are reading the Ignite Element v2 docs|LegacyRoute|<ReactCounterDemo|<Code code=/,
 );
 assert.match(
 	fs.readFileSync(path.join(dist, "llms-v2.txt"), "utf8"),
 	/Historical v2\.2\.2 API only/,
 );
 const repo = path.resolve(site, "../..");
+for (const file of [
+	"examples/frameworks/react/shared-counter.tsx",
+	"examples/frameworks/react/src/WebInterop.tsx",
+	"examples/frameworks/react/src/counter.react.ts",
+	"examples/frameworks/react/src/counter.ignite.tsx",
+]) {
+	assert.ok(
+		full.includes(fs.readFileSync(path.join(repo, file), "utf8")),
+		`${file}: canonical demo code missing from agent export`,
+	);
+}
+assert.ok(full.includes("handbook/views/#two-views-one-source"));
+assert.ok(full.includes("handbook/views/#react-to-an-emitted-event"));
+
 const canonical = fs
 	.readFileSync(
 		path.join(repo, "docs/site/src/examples/light-switch/src/light-switch.tsx"),

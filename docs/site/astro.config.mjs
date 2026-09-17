@@ -11,6 +11,11 @@ import starlightVersions from "starlight-versions";
 export default defineConfig({
 	site: "https://0xjcf.github.io",
 	base: "/ignite-element",
+	// Live demos import the canonical example modules outside this site package.
+	// Resolve their public dependencies from the site and share one React runtime.
+	vite: {
+		resolve: { dedupe: ["react", "react-dom", "ignite-element", "xstate"] },
+	},
 	// Astro's built-in GFM isn't reaching the Starlight MDX pipeline in this
 	// Astro 6 / Starlight 0.39 setup, so GFM tables render as literal pipes.
 	// Apply remark-gfm explicitly so `| … |` tables (and other GFM) render.

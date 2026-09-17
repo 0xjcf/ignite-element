@@ -7,6 +7,12 @@ import nativeCounter from '../../../../../../scripts/__tests__/fixtures/handbook
 import { Code } from '@astrojs/starlight/components';
 import counterCore from '../../../../../../examples/frameworks/react/counter-core.ts?raw';
 import sharedCounter from '../../../../../../examples/frameworks/react/shared-counter.tsx?raw';
+import ReactCounterDemo from '../../../components/ReactCounterDemo.astro';
+import webInterop from '../../../../../../examples/frameworks/react/src/WebInterop.tsx?raw';
+import counterBinding from '../../../../../../examples/frameworks/react/src/counter.react.ts?raw';
+import counterElement from '../../../../../../examples/frameworks/react/src/counter.ignite.tsx?raw';
+import counterStyles from '../../../../../../examples/frameworks/react/counters.css?raw';
+import elementStyles from '../../../../../../examples/frameworks/react/src/counter.css?raw';
 
 The renderer turns source-derived values into a view.
 
@@ -26,11 +32,32 @@ Install `react` and `react-dom` for a web application.
 
 Use React's JSX runtime in React files and the Ignite pragma in files that register Ignite JSX components.
 
+### Two views, one source
+
+Increment either counter or edit its label.
+
+Both views update because they use the same core and source.
+
+<ReactCounterDemo kind="shared" />
+
+### Connect the views
+
 Create the shared core outside rendering, then call `const ctx = useIgnite(core)`.
+
+Save these modules together:
 
 <Code code={counterCore} lang="ts" title="counter-core.ts" />
 
 <Code code={sharedCounter} lang="tsx" title="shared-counter.tsx" />
+
+Render `<SharedCounters />` in your React application.
+
+<details>
+<summary>counters.css — styles for both demos</summary>
+
+<Code code={counterStyles} lang="css" title="counters.css" />
+
+</details>
 
 ### Shared state and cleanup
 
@@ -62,11 +89,44 @@ SSR/hydration and Solid/Vue headless bindings are not implemented.
 
 When React intentionally hosts a real element, use `igniteReact(handle)` from `ignite-element/react/web`.
 
-Its callback props receive flat event detail and its typed ref calls commands on that element.
+### React to an emitted event
 
-See the [separate interoperability demo](https://github.com/0xjcf/ignite-element/blob/beta/examples/frameworks/react/src/WebInterop.tsx).
+Use the custom element's buttons to change its count.
 
-Refs serve that recipe; ordinary shared-core views use `ctx`.
+React receives `countChanged` through `onCountChanged` and updates the status beside it.
+
+The odd/even label and color belong to the React view.
+
+<ReactCounterDemo kind="events" />
+
+### Listen in React
+
+`onCountChanged` receives the event's data directly: `{ count }`.
+
+<Code code={webInterop} lang="tsx" title="src/WebInterop.tsx" />
+
+Render `<WebInterop />` in your React application.
+
+### Wrap the custom element
+
+`igniteReact` creates the React component from the registered element handle.
+
+<Code code={counterBinding} lang="ts" title="src/counter.react.ts" />
+
+### Emit the count
+
+The element declares `countChanged` and emits it when the selected count changes.
+
+<Code code={counterElement} lang="tsx" title="src/counter.ignite.tsx" />
+
+<details>
+<summary>src/counter.css — styles inside the element</summary>
+
+<Code code={elementStyles} lang="css" title="src/counter.css" />
+
+</details>
+
+The live demos run these same modules from the [React example](https://github.com/0xjcf/ignite-element/tree/beta/examples/frameworks/react).
 
 Plain HTML, Vue, and Svelte can use the registered tag, attributes, native DOM events, and element commands.
 
