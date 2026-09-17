@@ -8,8 +8,7 @@ uses the accepted core-owned effect evaluator.
 
 ## Construction and reads
 
-Use the public source entrypoint (`ignite-element/xstate`, `/redux`, `/mobx`, or
-`/actor-web`). Root `const core = igniteCore()` remains source-free registrar-only.
+Use the public source entrypoint (`ignite-element/xstate`, `/redux`, or `/mobx`). Root `const core = igniteCore()` remains source-free registrar-only.
 Source-backed owners retain registration and opaque projection-target call forms.
 
 | Surface | Contract |
@@ -80,8 +79,7 @@ exception. Already-entered external work is not cancelled by Ignite.
 
 Borrowed sources are not stopped. A privately Ignite-created XState actor is
 stopped once after observation cleanup; an unused core creates none. Redux/MobX
-release subscriptions/autoruns, not application shutdown. Headless Actor-Web factories
-do not transfer native close authority, even for newly created handles.
+release subscriptions/autoruns, not application shutdown.
 
 Terminal disposal ends registered views, leaving later connections inert,
 retained commands rejected, and cached catalogues readable. Failed registration
@@ -111,18 +109,6 @@ activation, baseline, disposal, synchronous-void, and error rules.
 imperative refs and actual per-element command targets. It creates no hidden
 headless actor for discovery. Neutral core/hook imports and strict no-DOM consumers
 are separate from genuine web-host typing and browser execution.
-
-`ignite-element/actor-web/web` retains the actual `{ host?: HTMLElement }` factory
-context. Provisioning occurs per element; all headless acquisition routes reject
-before invoking that factory. Its existing per-element factory close is not awaited
-backing-runtime shutdown. Neutral `/actor-web` accepts source values and factories
-callable without a host context.
-
-Actor-Web is optional and separate. Neutral consumers must use its supported
-source declaration boundary and verify their actual installed graph; importing a
-runtime's aggregate root is not a substitute for a no-DOM consumer check. This
-task does not reopen the completed beta.12/Actor-Web publication work or grant
-Ignite authority over native runtime shutdown.
 
 The React Native fixture uses the real RN Jest host and standard native-module
 mocks, not jsdom or browser stubs. It is not device/simulator evidence. SSR, Solid,

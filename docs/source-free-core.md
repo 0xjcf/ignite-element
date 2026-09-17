@@ -47,7 +47,7 @@ is no attribute-driven rerendering.
 
 ## Source-backed views remain separate
 
-Use `igniteCore` from `ignite-element/xstate`, `/redux`, `/mobx` or `/actor-web`
+Use `igniteCore` from `ignite-element/xstate`, `/redux`, or `/mobx`
 when a source drives the view. Those entrypoints retain their existing contracts:
 
 `source → source-native snapshot → derived states → renderer view`

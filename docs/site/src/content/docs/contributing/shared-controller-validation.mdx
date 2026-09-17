@@ -1,36 +1,9 @@
 ---
-title: Validate the shared-controller recipe
-description: Contributor-only package, native and release-evidence boundaries.
+title: Moved documentation
+description: See the current handbook.
+pagefind: false
 ---
 
-Application authoring lives in the
-[advanced interoperability recipe](/ignite-element/guides/plain-controllers/).
-This page is for contributors reviewing the package boundary, not required setup
-for each application.
+import LegacyRoute from '../../../components/LegacyRoute.astro';
 
-## Local packed consumers
-
-Build the checked-out package family, then run:
-
-```sh
-pnpm --filter ignite-element... build
-node examples/apps/shared-controller/scripts/packed-consumers.mjs
-```
-
-The runner packs all four current packages, checks internal versions, records
-tarball SHA-256 values, installs explicit file dependencies and overrides, and
-verifies frozen installs. It retains a fresh external directory with source,
-logs and locks; no workspace fallback or private source aliases are allowed.
-
-The complete native component is checked with `skipLibCheck: false` without the
-DOM library and exercised with real React Native test-host components. The fixture
-uses React 19.1.0 and React Native 0.81.5, not arbitrary Expo, Metro or device
-support. The neutral lane must not resolve Actor-Web runtime, React DOM, Lit or
-unrelated source ecosystems. React is a legitimate hook dependency.
-
-## Release evidence is a separate boundary
-
-Local packing is neither publication nor proof of public provenance. Release
-operators must follow the repository's
-[staged-release procedure](https://github.com/0xjcf/ignite-element/blob/beta/docs/v3-beta-staged-release.md)
-under separate authorization.
+<LegacyRoute route="contributing/shared-controller-validation" />

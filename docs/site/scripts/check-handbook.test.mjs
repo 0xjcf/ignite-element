@@ -9,9 +9,7 @@ import {
 
 test("version selection falls back to the selected home when the archive has no counterpart", () => {
 	assert.equal(
-		routeUrl(
-			versionDestination("contributing/shared-controller-validation", true),
-		),
+		routeUrl(versionDestination("api/command-metadata", true)),
 		"/ignite-element/2.x/",
 	);
 });
@@ -75,5 +73,18 @@ test("retired beta notes lead to current contracts, preserving useful section li
 			"keep-the-same-source-ownership"
 		],
 		"/ignite-element/handbook/ownership/#shared-or-isolated",
+	);
+});
+
+test("deferred integration recipes redirect to the documented source choices", () => {
+	for (const route of ["guides/actor-web", "guides/plain-controllers"]) {
+		assert.equal(currentRoute(route), "handbook/sources");
+		for (const target of Object.values(routes.fragmentTargets[route])) {
+			assert.equal(target, "/ignite-element/handbook/sources/#_top");
+		}
+	}
+	assert.equal(
+		currentRoute("contributing/shared-controller-validation"),
+		"handbook/testing",
 	);
 });

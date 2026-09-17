@@ -102,7 +102,7 @@ and [Views](https://0xjcf.github.io/ignite-element/handbook/views/).
 - [API reference](https://0xjcf.github.io/ignite-element/handbook/api/)
 - [Examples](https://0xjcf.github.io/ignite-element/handbook/examples/)
 
-Events/effects and Actor-Web are optional. `core.dispose()` is terminal, including
+Events and effects are optional. `core.dispose()` is terminal, including
 after registration, and releases Ignite resources without shutting down borrowed
 sources. Root `igniteCore()` is the source-free registrar only.
 

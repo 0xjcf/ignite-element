@@ -92,8 +92,6 @@ export default defineConfig({
 					label: "Guides",
 					collapsed: true,
 					items: [
-						{ label: "Actor-Web adapter", slug: "guides/actor-web" },
-						{ label: "Plain controllers", slug: "guides/plain-controllers" },
 						{ label: "Shared sources", slug: "guides/shared-source-ownership" },
 						{ label: "Routing", slug: "guides/routing" },
 						{ label: "Accessibility", slug: "guides/accessibility-first" },

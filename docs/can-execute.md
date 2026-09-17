@@ -21,7 +21,7 @@ commands: ({ source: actor }) => ({
 ```
 
 XState uses its native snapshot capability. Redux/MobX derive application
-booleans from their native state; Actor-Web projects its existing source facts.
+booleans from their native state.
 Do not move guards, admission, authorization or transport authority into Ignite.
 Availability is descriptive preflight, never permission or proof of completion.
 

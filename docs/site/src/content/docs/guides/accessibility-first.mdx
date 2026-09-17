@@ -17,7 +17,6 @@ stay honest about what headless verification can and cannot prove.
 
 :::note[Related docs]
 For exact runtime signatures, see [Headless runtime](/ignite-element/api/headless-runtime/).
-For actor-web boundaries, see [Actor-Web](/ignite-element/guides/actor-web/).
 For the agent framing, see [Ignite Element for AI Agents](/ignite-element/guides/agent-runtime-v3/).
 For test workflows, see [Testing guide](/ignite-element/handbook/testing/).
 :::
@@ -342,18 +341,6 @@ Actor, voice, and active-panel state matched each fixture; microphone denial
 preserved the typed draft. These receipts prove responsive interaction geometry
 and runtime behavior. Browser accessibility-tree and assistive-technology checks
 remain separate rendered-DOM evidence.
-
-## Actor-Web boundary
-
-Projection design does not move Actor-Web ownership into Ignite.
-
-- Actor-Web owns topology, transport, supervision, and source lifecycle.
-- Ignite consumes the source snapshot, derives `states`, exposes commands, and
-  projects validated state to different targets.
-
-If a component is backed by `ignite-element/actor-web`, projection state still
-flows through the same read-model and command boundaries. It does not reach into
-transport or orchestration internals directly.
 
 ## Rejected alternatives
 

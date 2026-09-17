@@ -18,6 +18,10 @@ The Operator requested the wording readers will see after the supporting beta is
 
 The Operator approved removing beta-to-beta instructions and checking the other pages. The [cleanup receipt](current-api-without-beta-history.md) records current-contract wording, redirects for retired beta notes, and a stable-source-grounded v2 upgrade guide. Earlier proposed Release notes navigation is no longer planned; package changelogs retain release history. Page checkpoints remain unchanged.
 
+## Documented source scope — 2026-09-17
+
+The Operator deferred public Actor-Web guidance and examples. Current documentation now teaches XState, Redux, and MobX. The [scope receipt](three-source-documentation-scope.md) records removed guide promotion, the dependent plain-controller recipe, current-reference/README cleanup, and retained implementation/testing boundaries. Existing page-review checkpoints remain unchanged.
+
 ## Pages
 
 Source paths below are relative to `docs/site/src/content/docs/`. All pages inherit A06–A09 presentation validation; archive content retains its historical API.

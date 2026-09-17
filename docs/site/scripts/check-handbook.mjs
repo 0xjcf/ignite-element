@@ -78,6 +78,16 @@ assert.ok(
 	"canonical imports must survive agent export",
 );
 assert.doesNotMatch(full, /Effects retain post-Ignite-render timing/);
+assert.doesNotMatch(
+	full,
+	/actor[ -]?web/i,
+	"current public agent guidance must only teach the documented source integrations",
+);
+assert.doesNotMatch(
+	fs.readFileSync(path.join(site, "astro.config.mjs"), "utf8"),
+	/slug: "guides\/(?:actor-web|plain-controllers)"/,
+	"deferred integrations must not be promoted in navigation",
+);
 assert.match(full, /Version: v3 \(beta\)/);
 assert.doesNotMatch(
 	full,

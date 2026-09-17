@@ -10,7 +10,6 @@ description: Choose sharing deliberately and release resources at their owner bo
 | Existing XState actor, Redux store, MobX observable | Borrowed and shared; application owns native shutdown |
 | XState machine, Redux slice | Isolated runtime instances acquired when used |
 | MobX factory with `adapter: 'mobx'` | Isolated observable per instance |
-| Actor-Web source or headless factory | Application retains native close authority |
 
 One core serves one source/runtime contract. Multiple registered names or hooks
 may intentionally share that contract. Create the source and core outside
@@ -55,10 +54,7 @@ Call `core.dispose()` inside `try`, and `source.stop()` in `finally` so source
 shutdown still runs if observation cleanup throws.
 
 An Ignite-created private XState actor is stopped exactly once after its
-observations drain; an unused core does not create one. Headless Actor-Web
-factories do not transfer close authority. The explicit `/actor-web/web` host
-factory retains its per-element close behavior; asynchronous handle close is not
-awaited backing-runtime shutdown.
+observations drain; an unused core does not create one.
 
 Disposal does not cancel entered business I/O or revoke a completed operation.
 Keep cancellation, persistence, freshness, and durable receipts with the source.

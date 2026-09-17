@@ -72,8 +72,7 @@ const requiredCurrentRoutes = [
 	"api/advanced-config",
 	"api/compatibility",
 	"guides/routing",
-	"guides/actor-web",
-	"guides/plain-controllers",
+	"guides/shared-source-ownership",
 	"guides/accessibility-first",
 	"migration/v3",
 ];

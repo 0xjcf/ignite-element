@@ -105,8 +105,7 @@ error. Public payload declarations must accept the actual native payload
 without its discriminator. Incoming command names alone are not reserved.
 
 Broad strings, erased generics, `any`, and missing channel evidence cannot
-provide complete static protection. Actor-Web forwarding uses only a source's
-actual `subscribeEvent` capability; a generic type is not proof it exists.
+provide complete static protection.
 Redux and MobX keep their concise state-derived events/effects without new
 middleware or wrappers; see [their examples](/ignite-element/handbook/sources/).
 

@@ -624,8 +624,8 @@ async function main() {
 				);
 				const page = await context.newPage();
 				for (const [slug, label] of [
-					["actor-web", "Actor-Web adapter"],
-					["plain-controllers", "Plain controllers"],
+					["shared-source-ownership", "Shared sources"],
+					["routing", "Routing"],
 				]) {
 					await page.goto(`${origin}/handbook/sources/`);
 					await page.locator(`main a[href="${BASE}/guides/${slug}/"]`).click();
@@ -700,7 +700,7 @@ async function main() {
 				viewport: { width, height: 900 },
 			});
 			const page = await context.newPage();
-			await page.goto(`${origin}/contributing/shared-controller-validation/`);
+			await page.goto(`${origin}/api/command-metadata/`);
 			if (width < 800)
 				await page.getByRole("button", { name: "Menu", exact: true }).click();
 			await page
@@ -749,10 +749,14 @@ async function main() {
 			await page.keyboard.press("Enter");
 			assert.equal(await theme.inputValue(), "dark", "keyboard selects Dark");
 
-			for (const [fragment, title] of [
+			for (const [fragment, title, heading = fragment] of [
 				["one-counter-two-meanings", "One counter, two meanings"],
 				["delivery-and-ownership", "Delivery and ownership"],
-				["migration-from-per-view-effects", "Migration from per-view effects"],
+				[
+					"migration-from-per-view-effects",
+					"View-specific work",
+					"view-specific-work",
+				],
 				[
 					"one-production-rule-per-public-event",
 					"One production rule per public event",
@@ -760,7 +764,8 @@ async function main() {
 			]) {
 				await page.goto(`${origin}/guides/events/#${fragment}`);
 				await page.waitForURL(`${origin}/handbook/events/#${fragment}`);
-				assert.equal(await page.locator(`#${fragment}`).innerText(), title);
+				await expect(page.locator(`#${fragment}`)).toBeAttached();
+				assert.equal(await page.locator(`#${heading}`).innerText(), title);
 			}
 			await context.close();
 		}

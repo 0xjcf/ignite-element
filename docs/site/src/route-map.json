@@ -25,7 +25,10 @@
 		"2.x/contributing/shared-controller-validation": "2.x",
 		"migration/command-source": "handbook/sources",
 		"migration/shared-readiness-terminal-disposal": "handbook/ownership",
-		"api/testing-dsl": "handbook/testing"
+		"api/testing-dsl": "handbook/testing",
+		"guides/actor-web": "handbook/sources",
+		"guides/plain-controllers": "handbook/sources",
+		"contributing/shared-controller-validation": "handbook/testing"
 	},
 	"fragments": {
 		"overview/what-is-ignite-element": [
@@ -152,7 +155,29 @@
 			"update-ignite"
 		],
 		"migration/shared-readiness-terminal-disposal": [],
-		"api/testing-dsl": []
+		"api/testing-dsl": [],
+		"guides/actor-web": [
+			"read-only-vs-command-capable-sources",
+			"where-sources-come-from",
+			"one-source-surface",
+			"send-vs-ask",
+			"transport-status",
+			"emitted-events",
+			"when-to-use-which-entrypoint"
+		],
+		"guides/plain-controllers": [
+			"run-the-complete-example",
+			"keep-behavior-in-the-controller",
+			"adapt-the-public-structural-source",
+			"one-session-owner-many-borrowers",
+			"headless-and-imperative-observation",
+			"react-and-native-views",
+			"commands-observations-and-receipts"
+		],
+		"contributing/shared-controller-validation": [
+			"local-packed-consumers",
+			"release-evidence-is-a-separate-boundary"
+		]
 	},
 	"archive": [
 		"2.x",
@@ -313,6 +338,28 @@
 			"update-ignite": "/ignite-element/#install-v3-beta"
 		},
 		"migration/shared-readiness-terminal-disposal": {},
-		"api/testing-dsl": {}
+		"api/testing-dsl": {},
+		"guides/actor-web": {
+			"read-only-vs-command-capable-sources": "/ignite-element/handbook/sources/#_top",
+			"where-sources-come-from": "/ignite-element/handbook/sources/#_top",
+			"one-source-surface": "/ignite-element/handbook/sources/#_top",
+			"send-vs-ask": "/ignite-element/handbook/sources/#_top",
+			"transport-status": "/ignite-element/handbook/sources/#_top",
+			"emitted-events": "/ignite-element/handbook/sources/#_top",
+			"when-to-use-which-entrypoint": "/ignite-element/handbook/sources/#_top"
+		},
+		"guides/plain-controllers": {
+			"run-the-complete-example": "/ignite-element/handbook/sources/#_top",
+			"keep-behavior-in-the-controller": "/ignite-element/handbook/sources/#_top",
+			"adapt-the-public-structural-source": "/ignite-element/handbook/sources/#_top",
+			"one-session-owner-many-borrowers": "/ignite-element/handbook/sources/#_top",
+			"headless-and-imperative-observation": "/ignite-element/handbook/sources/#_top",
+			"react-and-native-views": "/ignite-element/handbook/sources/#_top",
+			"commands-observations-and-receipts": "/ignite-element/handbook/sources/#_top"
+		},
+		"contributing/shared-controller-validation": {
+			"local-packed-consumers": "/ignite-element/handbook/testing/#_top",
+			"release-evidence-is-a-separate-boundary": "/ignite-element/handbook/testing/#_top"
+		}
 	}
 }

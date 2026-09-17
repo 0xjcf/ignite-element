@@ -9,10 +9,10 @@ contract for people, tests, and agents:
 - inspect the agent-readable command surface,
 - execute commands headlessly in Node,
 - drive the same runtime from a terminal agent and browser UI,
-- optionally swap to actor-web and a local MLX/OpenAI-compatible model.
+- optionally use a local MLX/OpenAI-compatible model.
 
-The guaranteed recording path is the deterministic scripted model. MLX and
-actor-web are optional proof points, not prerequisites for the main take.
+The guaranteed recording path is the deterministic scripted model.
+A live MLX model is optional.
 
 ## Setup
 
@@ -30,13 +30,6 @@ For the guaranteed key-free demo:
 ```bash
 npm run mock
 npm run demo
-```
-
-For actor-web-backed dogfood:
-
-```bash
-SMART_HOME_RUNTIME=actor-web npm run mock
-SMART_HOME_RUNTIME=actor-web npm run demo
 ```
 
 For optional local MLX/OpenAI-compatible recording:
@@ -156,25 +149,6 @@ Narration:
 > The Node process owns one headless runtime. The terminal agent and the browser
 > bridge both use the same command/states contract, so changes made on either side
 > stay synchronized.
-
-### 3:20 - Optional actor-web runtime swap
-
-Stop the server and restart:
-
-```bash
-SMART_HOME_RUNTIME=actor-web npm run demo
-```
-
-Repeat one terminal command and one browser click.
-
-Narration:
-
-> The runtime can be XState-backed or actor-web-backed. Ignite still owns the
-> projection, schema, commands, and tool loop. Actor-Web owns the long-lived
-> runtime and emitted domain events.
-
-Keep this segment short. It is a proof of boundary alignment, not a deep
-actor-web walkthrough.
 
 ### 4:00 - Optional local MLX model
 

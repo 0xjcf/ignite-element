@@ -99,7 +99,7 @@ test("current lifetime guides retain the published registered-disposal contract"
 	for (const file of [
 		"handbook/ownership.mdx",
 		"handbook/testing.mdx",
-		"guides/actor-web.mdx",
+		"api/headless-runtime.mdx",
 	]) {
 		const content = fs.readFileSync(
 			path.join(site, "src/content/docs", file),

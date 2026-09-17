@@ -32,7 +32,6 @@ The core and source are created at application bootstrap, not in a renderer.
 | Existing XState actor | Application-owned; Ignite releases only its observation resources |
 | XState machine definition | Existing Ignite acquisition creates private isolated actors and owns their release |
 | Existing Redux store or MobX observable | Application-owned behavior, using `ignite-element/redux` or `ignite-element/mobx` and native operations |
-| Actor-Web source | Separate optional runtime; native authority stays with Actor-Web/application |
 
 The root `igniteCore()` is source-free and registrar-only.
 
@@ -94,5 +93,4 @@ registry. Ports belong to the source's native actor input. Tests inject
 
 Retain source-side business eligibility, authentication, receipt validation and
 remote cancellation in a real application. These synthetic rules are not Ignite
-authorization. Existing plain TypeScript controllers remain supported through the
-[advanced interoperability recipe](/ignite-element/guides/plain-controllers/).
+authorization.

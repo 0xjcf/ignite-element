@@ -22,7 +22,6 @@ An Ignite source adapter connects your source to Ignite's observation and comman
 | XState | `ignite-element/xstate` |
 | Redux | `ignite-element/redux` |
 | MobX | `ignite-element/mobx` |
-| Actor-Web | `ignite-element/actor-web` |
 
 Network requests, storage, timers, and other I/O stay in your source or application.
 
@@ -35,7 +34,6 @@ The callback input depends on the source adapter.
 | XState | The actor snapshot, including `context`, `matches(...)`, and `can(...)` for state machines. |
 | Redux | The store's `getState()` result, or the selected slice state when you pass a slice. |
 | MobX | The result of `toJS(store)`, rather than the observable instance itself. |
-| Actor-Web | An extended state combining the source snapshot, its context fields, and transport status. |
 
 The name `snapshot` in the examples is a callback parameter, not a shared shape across all sources.
 
@@ -112,14 +110,12 @@ For an isolated observable per element, use `source: () => new Counter()` with `
 
 The explicit adapter identifies the factory without calling it to guess its type.
 
-## Optional integrations
+<span id="optional-integrations"></span>
 
-These integrations are not required for XState, Redux, or MobX:
+## Related guides
 
-- [Actor-Web adapter](/ignite-element/guides/actor-web/): project an existing distributed runtime into a view.
-- [Plain-controller interoperability](/ignite-element/guides/plain-controllers/): adapt an existing TypeScript controller to the supported source protocol.
-
-Actor-Web retains ownership of admission, authorization, execution receipts, replay, transport, and shutdown.
+- [Shared sources](/ignite-element/guides/shared-source-ownership/): share state between views and own its lifetime.
+- [Routing](/ignite-element/guides/routing/): connect navigation to source behavior.
 
 Find these pages again in the sidebar's __Guides__ group.
 
