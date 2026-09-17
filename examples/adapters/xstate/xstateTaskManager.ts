@@ -30,7 +30,7 @@ const resolveTaskManagerStates = (
 const TaskManagerComponent = igniteCore({
 	source: taskManagerMachine,
 	states: resolveTaskManagerStates,
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		addTask: (name: string, priority: string) =>
 			actor.send({ type: "ADD", name, priority }),
 		toggleTask: (index: number) => actor.send({ type: "TOGGLE", index }),

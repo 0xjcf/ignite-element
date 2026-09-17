@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
 const root = fileURLToPath(new URL("..", import.meta.url));
 const docs = path.join(root, "src/content/docs");
 const base = "https://0xjcf.github.io/ignite-element/";
@@ -55,7 +56,7 @@ function content(file) {
 	return text.replaceAll("](/ignite-element/", `](${base}`);
 }
 const heading =
-	"# Ignite Element\n\nVersion: v3 (beta), published beta.14.\nInstall ignite-element@beta. Stable policy: ignite-element@latest = 2.2.2.\n\n";
+	"# Ignite Element\n\nVersion: v3 (beta), unreleased command-source candidate.\nCommands receive { source }; this change is NOT available in published beta.14. The explicitly labelled Getting started example retains beta.14 syntax and its pinned installation. Other candidate examples require this checkout until a supporting beta is published. Stable policy: ignite-element@latest = 2.2.2.\n\n";
 const index =
 	heading +
 	primary

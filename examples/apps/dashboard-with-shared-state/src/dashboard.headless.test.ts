@@ -12,7 +12,7 @@ const makeFiltersRuntime = (actor: ReturnType<typeof createSharedDashboard>) =>
 			team: snapshot.context.team,
 			range: snapshot.context.range,
 		}),
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			selectTeam: (team: "support" | "ops" | "success") =>
 				actor.send({ type: "SELECT_TEAM", team }),
 			selectRange: (range: "day" | "week") =>
@@ -31,7 +31,7 @@ const makeSummaryRuntime = (actor: ReturnType<typeof createSharedDashboard>) =>
 				snapshot.context.range,
 			),
 		}),
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			dismissAlert: (id: string) => actor.send({ type: "DISMISS_ALERT", id }),
 		}),
 	});

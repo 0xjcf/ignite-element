@@ -6,6 +6,8 @@ sidebar:
   order: 6
 ---
 
+> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
+
 Ignite Element works best when accessibility is treated as part of the behavior
 contract, not as a late DOM patch. The same headless runtime that powers tests
 and agents already exposes the facts that accessible interfaces depend on:
@@ -122,7 +124,7 @@ export const thermostat = igniteCore({
     }),
   }),
 
-  commands: ({ actor }) => ({
+  commands: ({ source: actor }) => ({
     setTargetDraft: (target: number) =>
       actor.send({ type: "SET_TARGET_DRAFT", target }),
     saveTarget: (target: number) => actor.send({ type: "SAVE_TARGET", target }),

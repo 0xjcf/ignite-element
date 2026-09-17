@@ -24,7 +24,7 @@ export const core = igniteCore({
 			generation: snapshot.context.generation,
 		}),
 	}),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		signIn: (account: string, initial: string) =>
 			actor.send({ type: "SIGN_IN", account, initial }),
 		signOut: () => actor.send({ type: "SIGN_OUT" }),

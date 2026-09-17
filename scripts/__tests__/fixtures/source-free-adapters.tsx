@@ -23,7 +23,7 @@ const source = createActor(machine).start();
 const xstate = igniteXState({
 	source,
 	states: (snapshot) => ({ count: snapshot.context.count }),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		set: (value: number) => actor.send({ type: "SET", value }),
 	}),
 	events: (event) => ({ changed: event<{ count: number }>() }),
@@ -48,7 +48,7 @@ const slice = createSlice({
 const redux = igniteRedux({
 	source: configureStore({ reducer: slice.reducer }),
 	states: (snapshot) => ({ count: snapshot.count }),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		set: (value: number) => actor.dispatch(slice.actions.set(value)),
 	}),
 	events: (event) => ({ changed: event<{ count: number }>() }),
@@ -64,7 +64,9 @@ const mobx = igniteMobx({
 		},
 	}),
 	states: (snapshot) => ({ count: snapshot.count }),
-	commands: ({ actor }) => ({ set: (value: number) => actor.set(value) }),
+	commands: ({ source: actor }) => ({
+		set: (value: number) => actor.set(value),
+	}),
 	events: (event) => ({ changed: event<{ count: number }>() }),
 });
 const mcount: number = (await mobx.execute({ command: "set", input: 2 }))
@@ -77,7 +79,7 @@ declare const actorSource: ActorWebCommandSource<
 const actorWeb = igniteActorWeb({
 	source: actorSource,
 	states: (snapshot) => ({ count: snapshot.context.count }),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		set: (value: number) => actor.send({ type: "SET", value }),
 	}),
 	events: (event) => ({ changed: event<{ count: number }>() }),
@@ -157,7 +159,7 @@ const hostCore = igniteActorWebHost({
 		return actorSource;
 	},
 	states: (snapshot) => ({ count: snapshot.context.count }),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		setCount: (value: number) => actor.send({ type: "SET", value }),
 		setOnline: (value: string) => value,
 		setLabel: (value: string) => value,

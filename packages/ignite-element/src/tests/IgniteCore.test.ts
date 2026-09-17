@@ -430,7 +430,7 @@ describe("igniteCore", () => {
 				connected: snapshot.transport.state === "connected",
 				snapshotStatus: snapshot.context.status,
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				createShipment: (shipmentId: string) =>
 					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
 				reset: () => actor.send({ type: "RESET_SHIPMENT" }),
@@ -491,7 +491,7 @@ describe("igniteCore", () => {
 			states: (snapshot) => ({
 				status: snapshot.context.status,
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				createShipment: (shipmentId: string) =>
 					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
 			}),
@@ -517,7 +517,7 @@ describe("igniteCore", () => {
 				shipmentId: snapshot.context.shipmentId,
 				connected: snapshot.transport.state === "connected",
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				createShipment: (shipmentId: string) =>
 					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
 				reset: () => actor.send({ type: "RESET_SHIPMENT" }),
@@ -612,7 +612,7 @@ describe("igniteCore", () => {
 		const viewCallback = (snapshot: Snapshot) => ({
 			double: snapshot.context.count * 2,
 		});
-		const commandsCallback = ({ actor }: { actor: MachineActor }) => ({
+		const commandsCallback = ({ source: actor }: { source: MachineActor }) => ({
 			increment: () => actor.send({ type: "INC" }),
 		});
 
@@ -656,7 +656,7 @@ describe("igniteCore", () => {
 		const viewCallback = (snapshot: SliceState) => ({
 			count: snapshot.count,
 		});
-		const commandsCallback = ({ actor }: { actor: SliceActor }) => ({
+		const commandsCallback = ({ source: actor }: { source: SliceActor }) => ({
 			increment: () => actor.dispatch(counterSlice.actions.increment()),
 		});
 
@@ -705,7 +705,7 @@ describe("igniteCore", () => {
 		type EventCommandContext = CommandContext<
 			ReduxStoreCommandActor<typeof store>
 		>;
-		const eventCommands = ({ actor }: EventCommandContext) => ({
+		const eventCommands = ({ source: actor }: EventCommandContext) => ({
 			increment: () => {
 				order.push("dispatch");
 				actor.dispatch(counterSlice.actions.increment());
@@ -793,7 +793,7 @@ describe("igniteCore", () => {
 			states: (snapshot: StoreState) => ({
 				count: snapshot.counter.count,
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				increment: () => actor.dispatch(counterSlice.actions.increment()),
 			}),
 			events: (event) => ({
@@ -853,7 +853,7 @@ describe("igniteCore", () => {
 			states: (snapshot: StoreState) => ({
 				count: snapshot.counter.count,
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				increment: () => {
 					order.push("dispatch");
 					actor.dispatch(counterSlice.actions.increment());
@@ -916,7 +916,7 @@ describe("igniteCore", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				increment: () => actor.dispatch(counterSlice.actions.increment()),
 			}),
 			effects: ({ snapshot, prevSnapshot }) => {
@@ -953,7 +953,7 @@ describe("igniteCore", () => {
 			states: (snapshot: StoreState) => ({
 				count: snapshot.counter.count,
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				increment: () => actor.dispatch(counterSlice.actions.increment()),
 			}),
 			effects: (({
@@ -1035,7 +1035,7 @@ describe("igniteCore", () => {
 				count: snapshot.counter.count,
 				isEven: snapshot.counter.count % 2 === 0,
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				increment: (amount = 1) =>
 					actor.dispatch(counterSlice.actions.addByAmount(amount)),
 			}),
@@ -1117,7 +1117,7 @@ describe("igniteCore", () => {
 		const register = igniteCore({
 			adapter: "redux",
 			source: store,
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				failSync: () => {
 					throw new Error("sync failed");
 				},
@@ -1172,7 +1172,7 @@ describe("igniteCore", () => {
 			states: (snapshot) => ({
 				count: snapshot.counter.count,
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				increment: () => actor.dispatch(counterSlice.actions.increment()),
 			}),
 			events: (event) => ({
@@ -1200,7 +1200,7 @@ describe("igniteCore", () => {
 			states: (snapshot) => ({
 				count: snapshot.counter.count,
 			}),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				increment: () => actor.dispatch(counterSlice.actions.increment()),
 			}),
 			events: (event) => ({
@@ -1232,7 +1232,7 @@ describe("igniteCore", () => {
 			adapter: "redux",
 			source: store,
 			states: (snapshot) => ({ count: snapshot.counter.count }),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				increment: () => actor.dispatch(counterSlice.actions.increment()),
 			}),
 		});
@@ -1267,7 +1267,7 @@ describe("igniteCore", () => {
 			adapter: "redux",
 			source: store,
 			states: (snapshot) => ({ count: snapshot.counter.count }),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				addByAmount: (amount: number) =>
 					actor.dispatch(counterSlice.actions.addByAmount(amount)),
 				increment: () => actor.dispatch(counterSlice.actions.increment()),
@@ -1311,7 +1311,7 @@ describe("igniteCore", () => {
 			adapter: "redux",
 			source: store,
 			states: (snapshot) => ({ count: snapshot.counter.count }),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				configureCounter: (payload: {
 					label: string;
 					enabled: boolean;
@@ -1481,7 +1481,7 @@ describe("igniteCore", () => {
 		const viewCallback = (snapshot: StoreState) => ({
 			count: snapshot.counter.count,
 		});
-		const commandsCallback = ({ actor }: { actor: StoreActor }) => ({
+		const commandsCallback = ({ source: actor }: { source: StoreActor }) => ({
 			increment: () => actor.dispatch(counterSlice.actions.increment()),
 		});
 
@@ -1551,9 +1551,9 @@ describe("igniteCore", () => {
 			count: snapshot.count,
 		});
 		const commandsCallback = ({
-			actor: storeInstance,
+			source: storeInstance,
 		}: {
-			actor: StoreState;
+			source: StoreState;
 		}) => ({
 			increment: () => storeInstance.increment(),
 		});
@@ -1649,7 +1649,7 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 		const register = igniteCore({
 			source,
 			states: (snapshot) => ({ status: snapshot.context.status }),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				createShipment: (shipmentId: string) =>
 					actor.send({ type: "CREATE_SHIPMENT", shipmentId }),
 			}),
@@ -1700,7 +1700,7 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 					shipmentId: snapshot.context.shipmentId ?? "",
 				});
 			},
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				createShipment: (shipmentId: string) => {
 					// Drives a source emit (subscribeEvents seam) and a state change (effects bus).
 					actor.send({ type: "CREATE_SHIPMENT", shipmentId });
@@ -1732,7 +1732,7 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 			adapter: "redux",
 			source: store,
 			states: (snapshot) => ({ count: snapshot.counter.count }),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				increment: () => actor.dispatch(counterSlice.actions.increment()),
 			}),
 		});
@@ -1780,7 +1780,7 @@ describe("igniteCore xstate emitted-event bridge", () => {
 		const register = igniteCore({
 			source: emittingCounterMachine,
 			states: (snapshot) => ({ count: snapshot.context.count }),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				increment: () => actor.send({ type: "INC" }),
 			}),
 		});
@@ -1803,7 +1803,7 @@ describe("igniteCore xstate emitted-event bridge", () => {
 		const register = igniteCore({
 			source: emittingCounterMachine,
 			states: (snapshot) => ({ count: snapshot.context.count }),
-			commands: ({ actor }) => ({
+			commands: ({ source: actor }) => ({
 				increment: () => actor.send({ type: "INC" }),
 			}),
 		});

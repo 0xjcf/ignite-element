@@ -15,8 +15,8 @@ const source = createActor(
 export const core = igniteCore({
 	source,
 	states: (snapshot) => ({ isOn: snapshot.matches("on") }),
-	commands: ({ source }) => ({
-		toggle: () => source.send({ type: "TOGGLE" }),
+	commands: ({ actor }) => ({
+		toggle: () => actor.send({ type: "TOGGLE" }),
 	}),
 });
 

@@ -1,10 +1,10 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { assign, createActor, emit, setup } from "xstate";
-import { igniteCore } from "../xstate";
 import { act } from "@testing-library/react";
 import { createElement } from "react";
 import { createRoot } from "react-dom/client";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { assign, createActor, emit, setup } from "xstate";
 import { igniteReact } from "../react/web";
+import { igniteCore } from "../xstate";
 
 const counter = setup({
 	types: {
@@ -44,7 +44,7 @@ function fixture() {
 	const core = igniteCore({
 		source: actor,
 		states: (s) => ({ count: s.context.count }),
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			increment: () => actor.send({ type: "INCREMENT" }),
 			reset: () => actor.send({ type: "RESET" }),
 		}),

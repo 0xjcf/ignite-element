@@ -65,7 +65,9 @@ describe("recoverable core setup", () => {
 					},
 				},
 				states: (s) => ({ count: s.context.count }),
-				commands: ({ actor }) => ({ add: () => actor.send({ type: "add" }) }),
+				commands: ({ source: actor }) => ({
+					add: () => actor.send({ type: "add" }),
+				}),
 			});
 		try {
 			construct();
@@ -102,7 +104,9 @@ describe("recoverable core setup", () => {
 					if (failWatch) throw reason;
 					return { count: s.context.count };
 				},
-				commands: ({ actor }) => ({ add: () => actor.send({ type: "ADD" }) }),
+				commands: ({ source: actor }) => ({
+					add: () => actor.send({ type: "ADD" }),
+				}),
 				events: (event) => ({ changed: event<{ count: number }>() }),
 			});
 			// The ready cache already holds the native adapter subscription. Fail
@@ -162,7 +166,9 @@ describe("recoverable core setup", () => {
 					if (fail && mode === "watch") throw reason;
 					return { count: s.context.count };
 				},
-				commands: ({ actor }) => ({ add: () => actor.send({ type: "add" }) }),
+				commands: ({ source: actor }) => ({
+					add: () => actor.send({ type: "add" }),
+				}),
 				events: (event) => ({ changed: event() }),
 			});
 			fail = true;
@@ -213,7 +219,9 @@ describe("recoverable core setup", () => {
 					if (fail) throw reason;
 					return { count: s.context.count };
 				},
-				commands: ({ actor }) => ({ add: () => actor.send({ type: "ADD" }) }),
+				commands: ({ source: actor }) => ({
+					add: () => actor.send({ type: "ADD" }),
+				}),
 			});
 		try {
 			construct();
@@ -249,7 +257,9 @@ describe("recoverable core setup", () => {
 					if (fail) throw reason;
 					return { count: s.context.count };
 				},
-				commands: ({ actor }) => ({ add: () => actor.send({ type: "add" }) }),
+				commands: ({ source: actor }) => ({
+					add: () => actor.send({ type: "add" }),
+				}),
 			});
 		try {
 			construct();
@@ -301,7 +311,7 @@ describe("web per-element acquisition rollback", () => {
 					return s.source;
 				},
 				states: (s) => ({ count: s.context.count }),
-				commands: ({ actor }) => ({
+				commands: ({ source: actor }) => ({
 					setLabel(value: string) {
 						setters(value);
 					},
@@ -360,7 +370,9 @@ describe("web per-element acquisition rollback", () => {
 				return fixture.source;
 			},
 			states: (): Record<string, number> => (fail ? { run: 0 } : {}),
-			commands: ({ actor }) => ({ run: () => actor.send({ type: "run" }) }),
+			commands: ({ source: actor }) => ({
+				run: () => actor.send({ type: "run" }),
+			}),
 		});
 		core("recovery-web-collision", () => null);
 		const element = document.createElement("recovery-web-collision");

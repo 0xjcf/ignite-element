@@ -1,5 +1,7 @@
 # Core API and bindings: beta.14
 
+> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
+
 Current API details are maintained in the [handbook reference](site/src/content/docs/handbook/api.mdx).
 Shared readiness and registered terminal disposal shipped in beta.13; beta.14
 uses the accepted core-owned effect evaluator.
@@ -46,7 +48,7 @@ Previously returned catalogues never mutate; the latest survives disposal.
 ## Commands and tools
 
 ```ts
-commands: ({ actor }) => ({
+commands: ({ source: actor }) => ({
   save: ({ title }: { title: string }) => actor.send({ type: 'SAVE', title }),
 }),
 ```

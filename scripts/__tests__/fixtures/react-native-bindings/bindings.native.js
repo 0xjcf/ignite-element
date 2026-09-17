@@ -20,7 +20,9 @@ test("a native host borrows the prepared packed public core without DOM or owner
 	const core = igniteCore({
 		source,
 		states: (snapshot) => ({ count: snapshot.context.count }),
-		commands: ({ actor }) => ({ add: () => actor.send({ type: "ADD" }) }),
+		commands: ({ source: actor }) => ({
+			add: () => actor.send({ type: "ADD" }),
+		}),
 	});
 	let savedCommand;
 	function Counter() {
@@ -75,7 +77,9 @@ test("two native views borrow one ready actor without acquiring it during render
 	const core = igniteCore({
 		source,
 		states: (snapshot) => ({ count: snapshot.context.count }),
-		commands: ({ actor }) => ({ add: () => actor.send({ type: "ADD" }) }),
+		commands: ({ source: actor }) => ({
+			add: () => actor.send({ type: "ADD" }),
+		}),
 		effects: ({ select }) => {
 			const count = select((snapshot) => snapshot.context.count);
 			evaluated(count.previous, count.current);

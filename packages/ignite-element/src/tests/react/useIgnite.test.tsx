@@ -21,7 +21,9 @@ function makeCore() {
 			nested: { count: snapshot.context.count },
 			functionState: () => "state",
 		}),
-		commands: ({ actor }) => ({ add: () => actor.send({ type: "ADD" }) }),
+		commands: ({ source: actor }) => ({
+			add: () => actor.send({ type: "ADD" }),
+		}),
 	});
 }
 describe("prepared useIgnite binding", () => {

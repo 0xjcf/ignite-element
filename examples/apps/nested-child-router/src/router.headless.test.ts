@@ -14,7 +14,7 @@ const makeRouter = () =>
 			path: snapshot.context.path,
 			label: snapshot.context.label,
 		}),
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			navigate: (to: string) => actor.send({ type: "NAVIGATE_REQUESTED", to }),
 			openDocSection: (section: "overview" | "api" | "examples") =>
 				actor.send({ type: "OPEN_DOC_SECTION", section }),

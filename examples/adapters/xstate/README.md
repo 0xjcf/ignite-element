@@ -1,5 +1,7 @@
 # XState + Ignite Element (v3) Example
 
+> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
+
 This is the Ignite JSX v3 example referenced in the docs. It pairs **ignite-element**, **XState**, and **TailwindCSS** to show shared vs. isolated actors through the public `ignite-element/xstate` authoring surface.
 
 The default path here is intentionally config-free:
@@ -78,7 +80,7 @@ const registerSharedXState = igniteCore({
   events: (event) => ({
     toggled: event<{ isDark: boolean }>(),
   }),
-  commands: ({ actor }) => ({
+  commands: ({ source: actor }) => ({
     increment: () => actor.send({ type: "INC" }),
     decrement: () => actor.send({ type: "DEC" }),
     toggleDarkMode: () => actor.send({ type: "TOGGLE_DARK" }),
@@ -94,7 +96,7 @@ const registerIsolatedXState = igniteCore({
   source: advancedMachine, // machine → isolated scope per element
   states: (snapshot) => ({ /* same mapping as shared */ }),
   events: (event) => ({ toggled: event<{ isDark: boolean }>() }),
-  commands: ({ actor }) => ({ /* same commands as shared */ }),
+  commands: ({ source: actor }) => ({ /* same commands as shared */ }),
   effects: ({ snapshot, prevSnapshot, emit }) => {
     /* same effects as shared */
   },
@@ -151,7 +153,7 @@ const apiShowcase = igniteCore({
       "Active",
     ),
   }),
-  commands: ({ actor }) => ({
+  commands: ({ source: actor }) => ({
     increment: () => actor.send({ type: "ADD", amount: 1 }),
     setLimit: (limit: number) => actor.send({ type: "SET_LIMIT", limit }),
   }),

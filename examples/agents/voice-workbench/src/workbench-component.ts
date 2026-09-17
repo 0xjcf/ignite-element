@@ -53,7 +53,7 @@ export const createVoiceWorkbenchComponent = (
 		}),
 		states: (snapshot) =>
 			projectVoiceWorkbenchView({ snapshot, blueprintCommands }),
-		commands: ({ actor }) => {
+		commands: ({ source: actor }) => {
 			const sendPresentationUpdate = (
 				envelope: WorkbenchPresentationEnvelope,
 			) => actor.send({ type: "PRESENTATION_UPDATED", envelope });

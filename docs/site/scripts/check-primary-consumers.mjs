@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import {
-	cpSync,
 	copyFileSync,
+	cpSync,
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
@@ -10,6 +10,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+
 const repo = fileURLToPath(new URL("../../..", import.meta.url));
 const output = mkdtempSync(join(tmpdir(), "ignite-handbook-consumers-"));
 const run = (cwd, command, args) =>
@@ -161,6 +162,35 @@ for (const lane of ["web", "native"]) {
 		run(dir, "pnpm", ["exec", "vitest", "run"]);
 	}
 }
+// The public quickstart stays on the published API until a supporting beta exists.
+// Compile and execute its exact source against registry packages, without candidate overrides.
+{
+	const dir = join(output, "published-beta14");
+	mkdirSync(dir);
+	copyFileSync(
+		join(repo, "scripts/__tests__/fixtures/handbook/beta14-toggle.tsx"),
+		join(dir, "toggle.tsx"),
+	);
+	copyFileSync(
+		join(repo, "scripts/__tests__/fixtures/handbook/toggle.test.tsx"),
+		join(dir, "toggle.test.tsx"),
+	);
+	for (const name of ["tsconfig.json", "vitest.config.ts"])
+		copyFileSync(join(output, "web", name), join(dir, name));
+	const manifest = JSON.parse(
+		readFileSync(join(output, "web/package.json"), "utf8"),
+	);
+	manifest.dependencies = {
+		"ignite-element": "3.0.0-beta.14",
+		xstate: "5.32.1",
+	};
+	delete manifest.pnpm;
+	json(join(dir, "package.json"), manifest);
+	writeFileSync(join(dir, ".npmrc"), "auto-install-peers=false\n");
+	run(dir, "pnpm", ["install"]);
+	run(dir, "pnpm", ["exec", "tsc", "-p", "tsconfig.json"]);
+	run(dir, "pnpm", ["exec", "vitest", "run"]);
+}
 console.log(
-	`Strict packed handbook consumers passed. Task-local evidence retained: ${output}`,
+	`Strict packed web/native consumers and published beta.14 quickstart passed. Task-local evidence retained: ${output}`,
 );

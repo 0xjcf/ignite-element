@@ -16,7 +16,7 @@ const makeForm = () =>
 			status: snapshot.value as "editing" | "submitting" | "success",
 			canSubmit: isValid(snapshot.context.values),
 		}),
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			updateField: (payload: { field: FormField; value: string }) =>
 				actor.send({ type: "SET_FIELD", ...payload }),
 			blurField: (field: FormField) =>

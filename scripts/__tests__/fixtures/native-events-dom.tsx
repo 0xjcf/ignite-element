@@ -1,6 +1,7 @@
 /** @jsxImportSource ignite-element/jsx */
-import { igniteCore as eventCore } from "ignite-element/xstate";
+
 import { igniteReact } from "ignite-element/react/web";
+import { igniteCore as eventCore } from "ignite-element/xstate";
 import { createElement as reactElement } from "react";
 import {
 	assign,
@@ -38,7 +39,7 @@ const eventSource = eventActor(eventMachine).start();
 const eventController = eventCore({
 	source: eventSource,
 	states: (s) => ({ count: s.context.count }),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		increment: () => actor.send({ type: "INCREMENT" }),
 		reset: () => actor.send({ type: "RESET" }),
 	}),
@@ -94,7 +95,9 @@ export function checkCombinedNativeMembers() {
 	}).createMachine({});
 	const core = eventCore({
 		source: machine,
-		commands: ({ actor }) => ({ run: () => actor.send({ type: "RUN" }) }),
+		commands: ({ source: actor }) => ({
+			run: () => actor.send({ type: "RUN" }),
+		}),
 	});
 	core.on("first", (event) => {
 		const type: "first" = event.type;

@@ -10,7 +10,7 @@ export function createCore(
 	const core = igniteCore({
 		source,
 		states: (snapshot) => ({ count: snapshot.context.count }),
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			add: (amount: number) => actor.send({ type: "add", amount }),
 		}),
 		events: (event) => ({ changed: event<{ count: number }>() }),

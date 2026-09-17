@@ -84,7 +84,7 @@ export type EmitFromEvents<Events extends EventMap> = <
 type Phantom<T> = Record<never, T>;
 
 export type CommandContext<Actor, Host = unknown, Snapshot = unknown> = {
-	actor: Actor;
+	source: Actor;
 } & Phantom<Host> &
 	Phantom<Snapshot>;
 

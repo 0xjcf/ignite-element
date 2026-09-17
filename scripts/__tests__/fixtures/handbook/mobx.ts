@@ -1,5 +1,5 @@
-import { makeAutoObservable } from "mobx";
 import { igniteCore } from "ignite-element/mobx";
+import { makeAutoObservable } from "mobx";
 
 class Counter {
 	count = 0;
@@ -14,5 +14,5 @@ export const source = new Counter();
 export const core = igniteCore({
 	source,
 	states: (snapshot) => ({ count: snapshot.count }),
-	commands: ({ actor }) => ({ increment: () => actor.increment() }),
+	commands: ({ source: store }) => ({ increment: () => store.increment() }),
 });

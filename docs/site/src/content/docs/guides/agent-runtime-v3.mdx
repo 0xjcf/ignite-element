@@ -6,6 +6,8 @@ sidebar:
   order: 3
 ---
 
+> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
+
 Ignite Element is behavior-first. A source-backed `igniteCore(...)` registration that creates a custom element also exposes a headless runtime, so agents and tests can inspect the contract, execute commands, observe events, and verify derived states before any DOM selector exists.
 
 The practical model is:
@@ -20,7 +22,7 @@ This guide is the narrative walkthrough. For exact signatures and return shapes,
 
 ## Behavior-first components
 
-Start by describing the state source, derived states, commands, events, and effects. `igniteCore(...)` infers `snapshot`, `prevSnapshot`, `emit`, `select`, and `actor` from the source and event builder. Environmental and host capabilities remain application-owned.
+Start by describing the state source, derived states, commands, events, and effects. `igniteCore(...)` infers the effect context and command `source` from the configured source and event builder. Environmental and host capabilities remain application-owned.
 
 ```ts no-check
 import { igniteCore } from 'ignite-element/xstate';
@@ -34,7 +36,7 @@ export const counter = igniteCore({
     isLimited: snapshot.matches('limited'),
   }),
 
-  commands: ({ actor }) => ({
+  commands: ({ source: actor }) => ({
     increment: () => actor.send({ type: 'INCREMENT' }),
 
     setLimit: (limit: number) => actor.send({ type: 'SET_LIMIT', limit }),

@@ -53,7 +53,7 @@ async function _typeAssertions() {
 	const register = igniteCore({
 		source: emittingMachine,
 		states: (snapshot) => ({ count: snapshot.context.count }),
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			increment: () => actor.send({ type: "INC" }),
 		}),
 	});
@@ -76,7 +76,7 @@ async function _typeAssertions() {
 	// EventObject default must not open the events map to arbitrary strings.
 	const plainRegister = igniteCore({
 		source: plainMachine,
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			increment: () => actor.send({ type: "INC" }),
 		}),
 	});
@@ -90,7 +90,7 @@ async function _typeAssertions() {
 	const subpathRegister = subpathIgniteCore({
 		source: emittingMachine,
 		states: (snapshot) => ({ count: snapshot.context.count }),
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			increment: () => actor.send({ type: "INC" }),
 		}),
 	});

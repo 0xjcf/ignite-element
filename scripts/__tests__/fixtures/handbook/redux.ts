@@ -14,7 +14,7 @@ export const source = configureStore({ reducer: slice.reducer });
 export const core = igniteCore({
 	source,
 	states: (snapshot) => ({ count: snapshot.count }),
-	commands: ({ actor }) => ({
-		increment: () => actor.dispatch(slice.actions.increment()),
+	commands: ({ source: store }) => ({
+		increment: () => store.dispatch(slice.actions.increment()),
 	}),
 });

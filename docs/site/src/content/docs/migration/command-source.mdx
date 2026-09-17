@@ -1,0 +1,61 @@
+---
+title: Rename the command context to source
+description: Migrate the upcoming breaking beta command-context change without changing source ownership.
+---
+
+This change is __unreleased__ and is not available in `ignite-element@3.0.0-beta.14`.
+
+The [published Getting started example](/ignite-element/) keeps beta.14's syntax until a supporting beta is published and verified.
+
+## Rename the callback property
+
+The command callback now receives `source` as its only command-target property.
+
+```diff
+- commands: ({ actor }) => ({
+-   increment: () => actor.send({ type: "INCREMENT" }),
++ commands: ({ source }) => ({
++   increment: () => source.send({ type: "INCREMENT" }),
+  })
+```
+
+To keep an existing local variable name, change only the destructuring:
+
+```diff
+- commands: ({ actor }) => ({
++ commands: ({ source: actor }) => ({
+    increment: () => actor.send({ type: "INCREMENT" }),
+  })
+```
+
+`{ source: store }` is the same local-alias pattern for Redux or MobX.
+
+There is no compatibility `actor` property, additional `store` property or configuration switch.
+
+## Keep the same source ownership
+
+Configuration `source` still accepts the adapter's supported instance, factory or definition.
+
+Callback `source` is the resolved command interface for the active instance.
+
+It is not necessarily the original configuration object, and the rename adds no methods or capabilities.
+
+Existing factories and definitions keep their acquisition rules and instance boundaries.
+
+Commands keep their argument types, results and return behavior.
+
+Effects and the `states` callback do not gain a new `source` property.
+
+For Feeling and other consumers, change the callback property while preserving source construction, subscriptions, command logic and cleanup.
+
+Disposing an Ignite core still does not shut down a borrowed source.
+
+## Upgrade after publication
+
+Review and integrate the API candidate through the normal protected workflow first.
+
+Publish and verify a supporting beta before updating application dependencies or public installation instructions.
+
+The next version will be determined during release preparation.
+
+The separate page-by-page documentation candidate must be reconciled and reviewed against that release before deployment.

@@ -1,6 +1,6 @@
-import { expect } from "vitest";
 import { configureStore, createSlice } from "@reduxjs/toolkit";
 import { igniteCore as igniteRedux } from "ignite-element/redux";
+import { expect } from "vitest";
 
 const counterSlice = createSlice({
 	name: "counter",
@@ -21,7 +21,7 @@ const recoveryCounter = igniteRedux({
 		count: snapshot.counter.count,
 		canDecrement: snapshot.counter.count > 0,
 	}),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		increment: (amount: number) =>
 			actor.dispatch(counterSlice.actions.add(amount)),
 		decrement: () => actor.dispatch(counterSlice.actions.decrement()),

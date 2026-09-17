@@ -36,7 +36,7 @@ const Counter = igniteCore({
 		count: snapshot.context.count,
 		label: snapshot.context.label,
 	}),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		increment: () => actor.send({ type: "INC" }),
 		decrement: () => actor.send({ type: "DEC" }),
 		setLabel: (label: string) => actor.send({ type: "SET_LABEL", label }),

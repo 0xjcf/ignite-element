@@ -34,7 +34,7 @@ export const core = igniteCore({
 		label: snapshot.context.label,
 		canIncrement: snapshot.can({ type: "INCREMENT" }),
 	}),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		increment: () => actor.send({ type: "INCREMENT" }),
 		decrement: () => actor.send({ type: "DECREMENT" }),
 		setLabel: (value: string) => actor.send({ type: "LABEL", value }),

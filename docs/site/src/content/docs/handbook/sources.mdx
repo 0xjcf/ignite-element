@@ -3,6 +3,8 @@ title: Sources
 description: Pass an existing source through its supported adapter entrypoint.
 ---
 
+> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
+
 import { Code } from '@astrojs/starlight/components';
 import redux from '../../../../../../scripts/__tests__/fixtures/handbook/redux.ts?raw';
 import mobx from '../../../../../../scripts/__tests__/fixtures/handbook/mobx.ts?raw';
@@ -14,10 +16,20 @@ other environmental capabilities to the source. These are different jobs.
 
 | Source | Import | Native snapshot | Commands use |
 | --- | --- | --- | --- |
-| XState actor or machine | `ignite-element/xstate` | XState snapshot | `actor.send(event)` |
-| Redux store or slice | `ignite-element/redux` | Store/slice state | `actor.dispatch(action)` |
+| XState actor or machine | `ignite-element/xstate` | XState snapshot | `source.send(event)` |
+| Redux store or slice | `ignite-element/redux` | Store/slice state | `source.dispatch(action)` |
 | MobX observable or factory | `ignite-element/mobx` | Observable value | Native actions |
 | Optional Actor-Web source | `ignite-element/actor-web` | Source snapshot | Source command interface |
+
+## Command target
+
+Use `commands: ({ source })` to access the resolved command interface.
+Configuration `source` accepts the adapter's supported instance, factory, or definition.
+The callback receives the command target for the active instance, not necessarily the original configuration object.
+
+Destructuring can give that target a local name: `{ source: actor }` for XState or `{ source: store }` for Redux and MobX.
+These aliases keep inference; they do not add properties to the command context.
+See the [migration note](/ignite-element/migration/command-source/) for the change from beta.14.
 
 ## XState
 

@@ -14,7 +14,7 @@ const source = createMachine({
 const core = igniteCore({
 	source,
 	states: (snapshot) => ({ count: snapshot.context.count }),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		add: ({ amount }: { amount: number }) =>
 			actor.send({ type: "ADD", amount }),
 	}),
@@ -38,7 +38,7 @@ export function Counter() {
 const borrowed = igniteCore({
 	source: createActor(source).start(),
 	states: (snapshot) => ({ count: snapshot.context.count }),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		add: (amount: number) => actor.send({ type: "ADD", amount }),
 	}),
 });
@@ -82,7 +82,7 @@ const counterActor = createActor(
 const eventCore = igniteCore({
 	source: counterActor,
 	states: (s) => ({ count: s.context.count }),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		increment: () => actor.send({ type: "INCREMENT" }),
 		reset: () => actor.send({ type: "RESET" }),
 	}),
@@ -118,3 +118,24 @@ eventCore.on("counterReset", (event) => {
 // Terminal application shutdown, separately from native view unmount:
 eventCore.dispose();
 counterActor.stop();
+
+// Compile-only migration guards: the removed property is not a compatibility API.
+function commandContextContract() {
+	igniteCore({
+		source,
+		// @ts-expect-error Commands expose source, not actor.
+		commands: ({ actor }) => ({
+			add: () => actor.send({ type: "ADD", amount: 1 }),
+		}),
+	});
+	igniteCore({
+		source,
+		commands: ({ source }) => ({
+			invalidMethod: () => {
+				// @ts-expect-error XState capabilities are unchanged by the rename.
+				source.dispatch({ type: "ADD", amount: 1 });
+			},
+		}),
+	});
+}
+void commandContextContract;

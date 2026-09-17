@@ -9,7 +9,7 @@ it("real registered controls retain accessible names, interaction and observatio
 	const core = igniteCore({
 		source: store,
 		states: (snapshot) => ({ count: snapshot.counter.count }),
-		commands: ({ actor }) => ({
+		commands: ({ source: actor }) => ({
 			increment: (amount: number) =>
 				actor.dispatch(counterSlice.actions.addByAmount(amount)),
 		}),

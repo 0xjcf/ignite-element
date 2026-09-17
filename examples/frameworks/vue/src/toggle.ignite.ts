@@ -30,7 +30,7 @@ const toggle = igniteCore({
 		on: snapshot.context.on,
 		label: snapshot.context.label,
 	}),
-	commands: ({ actor }) => ({
+	commands: ({ source: actor }) => ({
 		toggle: () => actor.send({ type: "TOGGLE" }),
 		// Single-arg `setX` command -> exposed as the `label` string attribute.
 		setLabel: (label: string) => actor.send({ type: "SET_LABEL", label }),

@@ -419,7 +419,7 @@ function createHomeFromSource(source: typeof homeMachine | HomeActor) {
 			"security-changed": event<{ allDoorsLocked: boolean }>(),
 		}),
 		states: (snapshot) => projectHomeView(snapshot.context),
-		commands: ({ actor }) =>
+		commands: ({ source: actor }) =>
 			createHomeCommands((message) => actor.send(message)),
 		effects: ({ emit, select }) => {
 			const lights = select((state) => state.context.lights);

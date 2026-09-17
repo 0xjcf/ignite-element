@@ -114,7 +114,7 @@ const thermostat = igniteCore({
       ? null
       : "Connect to the thermostat before saving.",
   }),
-  commands: ({ actor }) => ({
+  commands: ({ source: actor }) => ({
     saveTarget: (target: number) => actor.send({ type: "SAVE_TARGET", target }),
   }),
 });

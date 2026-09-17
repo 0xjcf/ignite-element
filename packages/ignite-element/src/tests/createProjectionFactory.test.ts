@@ -59,7 +59,7 @@ describe("createProjectionFactory", () => {
 			resolveStateSnapshot: (): Snapshot => ({ label: "override" }),
 			resolveCommandActor: (): CommandActor => overrideActor,
 			states: (snapshot) => ({ label: snapshot.label }),
-			commands: ({ actor }) => ({ publish: () => actor.publish() }),
+			commands: ({ source: actor }) => ({ publish: () => actor.publish() }),
 		});
 
 		expect(projection.resolveInspection(adapter)).toEqual({
