@@ -20,14 +20,6 @@ and `commands` to send actions to the source.
 
 ## Install v3 beta
 
-:::note[Unreleased preview]
-This example uses `commands({ source })` from the upcoming beta.
-
-Published beta.14 and the current `@beta` package do not support this syntax.
-
-Installation instructions will follow when the supporting beta is published.
-:::
-
 For `ignite-element@latest` (v2.2.2), see the
 [stable v2 documentation](/ignite-element/2.x/).
 
@@ -50,7 +42,11 @@ TypeScript/JSX web tooling.
 
 </details>
 
-The example requires Ignite and XState.
+Install Ignite and XState:
+
+```sh title="Terminal"
+pnpm add ignite-element@beta xstate
+```
 
 ## Build a component
 
@@ -61,12 +57,12 @@ increments the count.
 
 <LightSwitchDemo />
 
-[Download the preview source](/ignite-element/examples/light-switch.zip), or
+[Download the complete example](/ignite-element/examples/light-switch.zip), or
 read the three steps below.
 
 The download contains the same component, styles, and HTML shown below.
 
-It requires the unreleased candidate packages; it is not yet a standalone install.
+Unzip it, then run `pnpm install` and `pnpm dev` from its directory.
 
 ### 1. Create the component
 

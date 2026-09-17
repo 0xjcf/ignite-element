@@ -1,7 +1,5 @@
 # Redux + ignite-element Example
 
-> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
-
 This example shows how ignite-element integrates with **Redux Toolkit**, **Ignite JSX**, and **Bootstrap** to drive both shared and isolated counters through the public `ignite-element/redux` authoring surface.
 
 ---

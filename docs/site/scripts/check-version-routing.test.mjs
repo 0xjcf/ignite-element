@@ -63,7 +63,7 @@ function rejects(mutate, reason) {
 	assert.match(result.output, reason);
 }
 
-test("candidate preview and historical beta.14 pages pass together", () =>
+test("publication copy and historical beta.14 pages pass together", () =>
 	passes());
 
 test("verified beta.14 publication and exact installation are permitted", () =>
@@ -296,22 +296,28 @@ test("other packages are not mistaken for the facade", () =>
 		),
 	));
 
-test("preview cannot offer beta.14 or the moving beta tag", () => {
-	for (const selector of ["3.0.0-beta.14", "beta"]) {
-		rejects(
-			({ append }) =>
-				append(installation, `pnpm add ignite-element@${selector} xstate`),
-			/unreleased preview must not offer a public Ignite install/,
-		);
-	}
-});
-test("preview disclosure cannot be removed", () =>
+test("Getting started cannot install historical beta.14", () =>
 	rejects(
 		({ replace }) =>
 			replace(
 				installation,
-				":::note[Unreleased preview]",
-				":::note[Getting started]",
+				"pnpm add ignite-element@beta xstate",
+				"pnpm add ignite-element@3.0.0-beta.14 xstate",
 			),
-		/must disclose its unreleased API/,
+		/must install the beta channel/,
+	));
+test("Getting started must include the beta install command", () =>
+	rejects(
+		({ replace }) =>
+			replace(
+				installation,
+				"pnpm add ignite-element@beta xstate",
+				"pnpm add xstate",
+			),
+		/must install the beta channel/,
+	));
+test("publication copy cannot regain internal release instructions", () =>
+	rejects(
+		({ append }) => append(installation, "Use the candidate checkout."),
+		/must show publication copy/,
 	));

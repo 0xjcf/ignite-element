@@ -96,7 +96,11 @@ const canonical = fs
 	.replaceAll("\t", "  ")
 	.trim();
 assert.match(canonical, /commands: \(\{ source \}\)/);
-assert.match(full, /NOT available in published beta\.14/);
+assert.match(full, /Commands receive \{ source \}/);
+assert.doesNotMatch(
+	full,
+	/Unreleased preview|unreleased command-context|candidate checkout|candidate packages/i,
+);
 const historical = fs.readFileSync(
 	path.join(repo, "scripts/__tests__/fixtures/handbook/beta14-toggle.tsx"),
 	"utf8",
@@ -178,10 +182,7 @@ const manifest = JSON.parse(
 );
 assert.equal(
 	manifest.dependencies["ignite-element"],
-	"workspace:*",
-	"preview must not silently install published beta.14",
+	"beta",
+	"download must use the same beta channel as the published guide",
 );
-assert.match(
-	strFromU8(archive["README.md"]),
-	/not a standalone public-package install/,
-);
+assert.match(strFromU8(archive["README.md"]), /pnpm install\s+pnpm dev/);

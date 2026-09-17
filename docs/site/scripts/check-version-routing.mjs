@@ -157,20 +157,16 @@ assert.ok(
 );
 
 const installation = fs.readFileSync(routeSource("index"), "utf8");
-// Temporary preview boundary: replace with a verified install identity at release.
-assert.match(
-	installation,
-	/:::note\[Unreleased preview\]/,
-	"Getting started must disclose its unreleased API",
+// Operator-approved publication copy; package verification remains a release prerequisite.
+assert.deepEqual(
+	facadeInstalls(installation),
+	["ignite-element@beta"],
+	"Getting started must install the beta channel, not a historical package",
 );
-assert.match(
+assert.doesNotMatch(
 	installation,
-	/Published beta\.14 and the current `@beta` package do not support this syntax/,
-);
-assert.equal(
-	facadeInstalls(installation).length,
-	0,
-	"unreleased preview must not offer a public Ignite install",
+	/Unreleased preview|candidate checkout|candidate packages|Installation instructions will follow/i,
+	"Getting started must show publication copy without internal release instructions",
 );
 assert.match(
 	installation,

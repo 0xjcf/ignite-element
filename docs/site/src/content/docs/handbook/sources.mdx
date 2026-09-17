@@ -3,14 +3,6 @@ title: Sources
 description: Choose a source adapter, derive values, and send commands to your source.
 ---
 
-:::note[Unreleased preview]
-These examples use `commands({ source })`, which is not available in published beta.14.
-
-Use the candidate checkout to try them.
-
-The commands below install only the source libraries; Ignite installation instructions will follow when the supporting beta is published.
-:::
-
 import { Code } from '@astrojs/starlight/components';
 import redux from '../../../../../../scripts/__tests__/fixtures/handbook/redux.ts?raw';
 import mobx from '../../../../../../scripts/__tests__/fixtures/handbook/mobx.ts?raw';
@@ -55,14 +47,14 @@ The callback receives the command target for the active instance, not necessaril
 
 Destructuring can give that target a local name: `{ source: actor }` for XState or `{ source: store }` for Redux and MobX.
 These aliases keep inference; they do not add properties to the command context.
-If you already use a v3 beta, see the [unreleased beta upgrade note](/ignite-element/migration/command-source/).
+If you already use a v3 beta, see the [beta upgrade note](/ignite-element/migration/command-source/).
 
 ## XState
 
-Install XState:
+Install Ignite and XState:
 
 ```sh title="Terminal"
-pnpm add xstate
+pnpm add ignite-element@beta xstate
 ```
 
 The [Getting started light switch](/ignite-element/#build-a-component) passes a machine definition to `igniteCore`.
@@ -77,10 +69,10 @@ Keep guards, invoked services, cancellation, retries, and persistence in XState 
 
 ## Redux
 
-Install Redux Toolkit:
+Install Ignite and Redux Toolkit:
 
 ```sh title="Terminal"
-pnpm add @reduxjs/toolkit
+pnpm add ignite-element@beta @reduxjs/toolkit
 ```
 
 Create `redux.ts` to connect a counter store:
@@ -99,10 +91,10 @@ Passing a Redux slice instead creates isolated state for each element.
 
 ## MobX
 
-Install MobX:
+Install Ignite and MobX:
 
 ```sh title="Terminal"
-pnpm add mobx
+pnpm add ignite-element@beta mobx
 ```
 
 Create `mobx.ts` to connect an observable counter:

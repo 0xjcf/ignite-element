@@ -7,7 +7,7 @@
 		"build": "vite build"
 	},
 	"dependencies": {
-		"ignite-element": "workspace:*",
+		"ignite-element": "beta",
 		"xstate": "5.33.2"
 	},
 	"devDependencies": {

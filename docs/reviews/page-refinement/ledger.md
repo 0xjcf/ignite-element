@@ -10,6 +10,10 @@ Current slice: Getting started, reopened only for the command-source API and rel
 
 The Operator requested another audit after finding stale MobX prose. The [audit receipt](command-wording-beta-history-audit.md) records narrow command-context and release-label corrections across Sources and its related references. These corrections do not accept Sources or advance the page review. Getting started remains awaiting re-review; Sources remains awaiting review; Views remains queued. The proposed separation of beta release notes from the v2-to-v3 upgrade guide is awaiting a product decision.
 
+## Publication-copy preview — 2026-09-17
+
+The Operator requested the wording readers will see after the supporting beta is released. This supersedes temporary unreleased notices in the learner-facing candidate. The [publication-copy receipt](publication-copy-preview.md) records the beta install/download changes and remaining release verification. This local preview does not establish publication or authorize deployment. Getting started awaits re-review; Sources awaits review; Views remains queued.
+
 ## Pages
 
 Source paths below are relative to `docs/site/src/content/docs/`. All pages inherit A06–A09 presentation validation; archive content retains its historical API.

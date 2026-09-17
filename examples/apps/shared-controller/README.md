@@ -20,9 +20,7 @@ pnpm --dir examples/apps/shared-controller dev
 
 The `ignite-element` dependency links the checked-out package's real built
 exports. Vite deduplicates React across this local link; no private source aliases
-are used. These examples use the unreleased `commands({ source })` syntax.
-Published beta.14 and earlier releases do not support that syntax.
-Use the checkout commands above until a supporting beta is published.
+are used. Use the checkout commands above to run the complete example.
 
 Click Load, then Return comfortable query in the demo's fake-transport controls.
 Choose compact; both views show pending while the old value remains confirmed.
