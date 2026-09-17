@@ -8,7 +8,6 @@
 
 	--sl-content-width: 1080px;
 	--sl-sidebar-width: 240px;
-	--docs-prose-width: 72ch;
 	--docs-rail-width: clamp(
 		20rem,
 		calc(
@@ -39,11 +38,6 @@
 	--sl-color-accent-low: #d7f7e2;
 	--sl-color-accent: #0b7a3e;
 	--sl-color-accent-high: #045c2c;
-}
-
-/* Keep prose comfortable while code and reference tables can use the column. */
-.sl-markdown-content :is(p, ul, ol, blockquote) {
-	max-width: var(--docs-prose-width);
 }
 
 .sl-markdown-content :is(p, li) > code {
