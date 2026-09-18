@@ -179,5 +179,5 @@ export function igniteCoreRedux(
 		ReduxActor,
 		FacadeCommandResult,
 		EventMap
-	>(createAdapter, componentOptions);
+	>(createAdapter, componentOptions, createAdapter);
 }

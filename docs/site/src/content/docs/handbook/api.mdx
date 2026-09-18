@@ -64,7 +64,11 @@ This supporting page keeps the full contract without making the handbook lookup 
 
 `const ctx = useIgnite(core)` from `ignite-element/react` returns inferred derived
 states and stable callable commands. Direct calls preserve the original return
-value or promise. Hook unmount releases the subscription, not the owner.
+value or promise. In the local lifecycle candidate, definition/fresh-factory
+inputs provide a private runtime per hook, released automatically on unmount.
+Existing-source hooks remain shared and release only their subscription. Neither
+form disposes the reusable core. Explicit headless methods retain their separate
+runtime for independent inputs. See [construction safety](/ignite-element/handbook/ownership/).
 
 `igniteReact(handle)` from `ignite-element/react/web` returns a React component
 for the actual registered custom element. `IgniteReactRef<typeof handle>` types

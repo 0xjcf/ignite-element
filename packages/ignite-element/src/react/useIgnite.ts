@@ -1,11 +1,13 @@
-import { useMemo, useSyncExternalStore } from "react";
-import { requireBindingStore } from "../runtime/bindings";
+import { useLayoutEffect, useMemo, useSyncExternalStore } from "react";
+import { acquireBindingStore } from "../runtime/bindings";
 
-/** Borrow a prepared core; only this component's subscription is released. */
+/** Definitions/factories own a private runtime; existing sources remain shared. */
 export function useIgnite<Values extends Record<string, unknown>>(core: {
 	readonly __igniteRenderArgs?: Values;
 }): Readonly<Values> {
-	const store = useMemo(() => requireBindingStore(core), [core]);
+	const store = useMemo(() => acquireBindingStore(core), [core]);
+	// Activate private sources before consumer layout effects can issue commands.
+	useLayoutEffect(() => store.commit?.(), [store]);
 	// No server snapshot: SSR is not part of this binding's contract.
 	return useSyncExternalStore(store.subscribe, store.read) as Readonly<Values>;
 }

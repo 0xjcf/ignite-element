@@ -319,6 +319,14 @@ The canonical flow is:
 - Ignite owns observation, derived projections, commands, outward events,
   rendering coordination, and cleanup of its own observation handles.
 - Ignite observation cleanup does not imply caller-owned source shutdown.
+- XState machines, Redux slices/fresh-store factories, and MobX fresh-observable
+  factories provide independent element and React/React Native hook runtimes.
+  Existing instances remain borrowed and shared; explicit headless operations
+  use a separate runtime for independent inputs.
+- Independent hook construction and initialization must be safe to repeat and
+  discard without external work or resources requiring cleanup. Ignite activates
+  observation and owned actors on committed subscription, and releases the
+  private runtime on unmount while keeping its reusable core alive.
 - Commands express source-directed semantic intent.
 - Routing remains separate from source behavior and projection.
 - Environmental I/O belongs in application/source ports, native actions,

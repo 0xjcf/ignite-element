@@ -1105,7 +1105,7 @@ export default function igniteElementFactory<
 		}
 	};
 	Object.assign(register, agentRuntime);
-	registerBindingStore(register, bindingStore);
+	registerBindingStore(register, bindingStore, lifetime);
 
 	return register;
 

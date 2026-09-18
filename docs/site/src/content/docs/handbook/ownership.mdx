@@ -17,15 +17,26 @@ One core serves one source/runtime contract. Multiple registered names or hooks
 may intentionally share that contract. Create the source and core outside
 framework rendering. Shared cores are ready at construction without a
 preparation-only `get('states')` call. Reading state for actual use is valid.
-An isolated headless runtime still needs explicit acquisition outside rendering;
-`core.get('states')` can perform that acquisition before a hook borrows it.
+In the local lifecycle candidate, machine/slice/fresh-factory inputs create a
+private runtime per element or React/React Native hook. The synchronous hook
+needs no preparation-only read. Explicit `get/watch/on/execute` operations use a
+separate headless runtime, never an arbitrary hook's state.
+
+Independent factories and initialization must be safe to repeat and discard
+without external work or resources requiring cleanup. This includes XState
+context initialization, Redux reducer/middleware/enhancer initialization, MobX
+construction, projections and command setup. A factory returning a singleton is
+not independent. Ignite starts owned actors, observation and effects only when
+a hook subscription commits.
 
 ## Observation handles
 
 `watch(...)` and `on(...)` each return an independently idempotent
 `{ unsubscribe() }`. End a temporary observer when its consumer leaves.
-`useIgnite(core)` releases only its own subscription on unmount. It does not
-dispose the application-owned core or shut down a borrowed source.
+An independent `useIgnite(core)` releases its private runtime automatically on
+unmount. A genuine new mount starts fresh; synchronous Strict Mode replay keeps
+the live runtime. A shared hook releases only its own subscription. Neither
+unmount disposes the reusable core or shuts down a borrowed source.
 
 True element disconnect releases the view's forwarding subscription; reconnect
 acquires a fresh one. Same-tick moves retain it. A source update while no view is

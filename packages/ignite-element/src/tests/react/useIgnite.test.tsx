@@ -15,7 +15,7 @@ const machine = createMachine({
 });
 function makeCore() {
 	return igniteCore({
-		source: machine,
+		source: createActor(machine).start(),
 		states: (snapshot) => ({
 			count: snapshot.context.count,
 			nested: { count: snapshot.context.count },
@@ -103,11 +103,12 @@ describe("prepared useIgnite binding", () => {
 		expect(getter).not.toHaveBeenCalled();
 		accessors.dispose();
 	});
-	it("fails unprepared without constructing a runtime", () => {
+	it("constructs a private synchronous binding without headless preparation", async () => {
 		const commands = vi.fn(() => ({}));
 		const core = igniteCore({ source: machine, commands });
-		expect(() => renderHook(() => useIgnite(core))).toThrow(/unprepared/i);
-		expect(commands).not.toHaveBeenCalled();
+		const hook = renderHook(() => useIgnite(core));
+		expect(commands).toHaveBeenCalledTimes(1);
+		await act(async () => hook.unmount());
 		core.dispose();
 	});
 	it("borrows through StrictMode and multiple consumers without disposing the owner", () => {

@@ -82,7 +82,7 @@ export function igniteCoreMobx<
 		State,
 		CommandsResult,
 		Events
-	>(createAdapter, options) as IgniteCoreReturn<
+	>(createAdapter, options, createAdapter) as IgniteCoreReturn<
 		State,
 		MobxEvent<State>,
 		State,

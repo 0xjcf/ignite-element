@@ -2,15 +2,14 @@
 
 ## Disposition
 
-Slice A is implemented in this local candidate. Slice B's independent hook
-runtimes remain unimplemented pending the specific construction-safety decision
-below. This is not a release or acceptance receipt.
+Slices A and B are implemented in this local candidate. The Operator explicitly
+accepted construction safety on 2026-09-18 while preserving synchronous `ctx`
+and the existing public API. This is not a release or acceptance receipt.
 
 Authority: the Operator's 2026-09-18 lifecycle spike/implementation prompt,
 using beta commit `af0de5696b60922aacbbcc895879adcc72851357`
 (tree `59c9d85da7bda8bb5cceb1765f7aeb57727da3ad`) as the verified baseline.
-The prompt explicitly permits completing the independently safe slice if a
-material public-contract decision blocks private hooks.
+The subsequent instruction authorizes continuing slice B with that requirement.
 
 ## A. Remove optional shared teardown
 
@@ -30,8 +29,7 @@ There is no hidden replacement flag.
 Shared element disconnect releases only that view's handles. Application-level
 observation and activated effects survive zero-view intervals until terminal
 core disposal. Native ownership is unchanged. Independent custom elements keep
-their existing move-safe true-disconnect cleanup. Headless operations and hooks
-keep their existing runtime selection. Actor-Web neutral factories still do not
+their existing move-safe true-disconnect cleanup. Explicit headless operations retain their own runtime. Actor-Web neutral factories still do not
 grant native close authority; its host-owned factory remains distinct.
 
 The original unsupported-configuration reproduction is retained in the external
@@ -39,45 +37,70 @@ review packet, with its historical failing result. It is not rerun as a passing
 candidate test. Candidate tests use supported configuration and separately
 verify the migration error.
 
-## B. Decision needed before private hook implementation
+## B. Accepted construction safety and private hooks
 
 A synchronous initial `ctx` requires construction of the private source during
 render. An executable spike verifies:
 
 - `createActor(machine)` provides an initial snapshot before `start()`, but
   already runs the machine's context initializer.
-- Actor invocation and entry actions begin at `start()`, and invocation cleanup
+- Actor invocation and deferred entry actions begin at `start()`, and invocation cleanup
   runs at `stop()`.
 - Redux construction can run reducer initialization immediately.
 - A MobX factory can install an `autorun` immediately. Deferring Ignite's own
   observation does not undo a user constructor's external effects.
 
-Required caller-facing restriction: independent hook construction must be safe
-to repeat and discard without cleanup. Factories, context initializers,
-projections and command setup must not perform I/O, install external
-subscriptions, or create resources requiring release during render. A factory
-must return a fresh source, not a singleton. This restriction has been presented
-to the Operator; it has not been silently treated as approved.
+Accepted caller-facing restriction: independent hook construction must be safe
+to repeat and discard without cleanup. Factories, context initializers, reducer
+initialization, projections and command setup must not perform external work,
+install external subscriptions, or acquire resources requiring release during
+render. A factory must return a fresh source, not a singleton.
 
-If approved, the proposed internal mechanism is a private binding per hook,
-with construction/read separated from activation at committed subscription.
-Committed runtimes would register with the reusable core's terminal lifetime;
-abandoned inert allocations would not become owned active runtimes. A bounded
-internal release deferral could distinguish synchronous Strict Mode subscription
-replay from genuine detachment. Genuine remount would create a fresh binding,
-while retained commands would remain bound to the old runtime and reject after
-its release. Core argument replacement would release the old binding, not
-retarget it. The explicit headless runtime would remain separate.
+Redux Toolkit 2.12.0 `configureStore` invokes the middleware configuration
+callback, builds the enhancer chain, and calls Redux 5.0.1 `createStore` during
+construction. Redux runs its initialization dispatch; `applyMiddleware` calls
+each middleware initializer with the store API. Enhancer construction therefore
+also falls under the accepted restriction. These callbacks are not deferred by
+Ignite. Instrumented tests establish that middleware/enhancer construction may
+repeat in abandoned renders, with no Ignite subscription or command dispatch;
+committed commands still use enhanced dispatch. Unsafe factory-created external
+work is an application contract violation, not something Ignite can undo.
 
-That mechanism is design only. Strict Mode replay, suspended/abandoned private
-renders, private command identity, startup races, per-runtime effects, terminal
-release of all private hooks, and React Native independent lifecycle are not
-implemented or proven by this candidate. Existing shared-hook/native-host tests
-do not establish those properties.
+Each hook memoizes a private binding keyed by core identity. It allocates an
+inactive source, projection, commands and immutable snapshot during render.
+Those allocations have no root-owned retention or source subscription. A fresh
+projection owner per binding keeps abandoned effect bookkeeping collectible.
 
-The alternative is to defer private hooks while preserving the synchronous
-shared-source hook. Loading/null/Suspense, new caller wrappers, or a lifecycle
-flag would change the approved target and are not introduced here.
+XState's private path constructs an unstarted actor, reads its initial snapshot,
+and delegates to the existing XState adapter when subscription commits. That
+adapter borrows this actor; the private binding separately owns actor shutdown.
+This preserves ordinary adapter, element and explicit headless acquisition.
+Redux and MobX use their existing lazy-observation adapters unchanged.
 
-Classification: `blocking_public_contract` for proceeding with slice B without
-that decision. It does not block review of the independently safe slice A.
+A private layout-phase subscription activates before consumer layout effects can
+issue source commands. React's external-store subscription then observes the
+same binding; neither lease acquires a second runtime. Committed bindings
+register cleanup with the reusable core's terminal lifetime. Synchronous Strict Mode subscription replay reclaims the same live
+runtime before an internal microtask release. No stopped actor is restarted.
+Genuine unmount drains observation/effects and stops the owned XState actor;
+Redux/MobX release their observation without inventing native shutdown methods.
+An actual new mount gets fresh state. Commands remain bound to their original
+runtime and reject while unmounted and after disposal. Core replacement never
+retargets retained commands. Cleanup failures still attempt every release.
+
+The binding caches snapshots between notifications. Subscribe-time replay closes
+the render-to-subscribe race. Independent queued effects are suppressed after
+unsubscription; effects keep their existing post-source-processing microtask
+timing, with no React commit or exactly-once business-work guarantee. Native and
+effect events observed through core `on`/`execute` belong to the separate
+headless runtime, not an aggregate of mounted hooks.
+
+Shared hooks keep their existing prepared store and subscription-only unmount.
+Actor-Web does not opt into the new private-hook mechanism. The public hook
+signature, source entrypoints and source-free root remain unchanged. The added
+private binding registry and deferred release exist only to reconcile
+synchronous snapshots, abandoned renders, replay and terminal ownership.
+
+See `validation.md` and the external candidate receipt for executable evidence,
+versions, limitations and exact candidate identity. Navigator review remains
+pending; the construction-safety architecture decision is accepted.

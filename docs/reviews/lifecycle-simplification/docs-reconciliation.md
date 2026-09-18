@@ -10,15 +10,15 @@ not edited or rebased:
 - Getting started awaits re-review; Sources awaits review; Views remains queued
   for page acceptance. Newer demos do not constitute acceptance.
 
-After Navigator reviews slice A, reconcile the following paragraphs onto the
+After Navigator reviews the combined candidate, reconcile the following paragraphs onto the
 newer editorial candidates without replacing whole pages:
 
 | Page | Reconciliation |
 | --- | --- |
-| Getting started | Remove `cleanup` from candidate configurations. Preserve the published beta.14 example and its historical command-context spelling. Do not teach private hooks yet. |
-| Sources | Explain definitions/fresh factories versus existing instances once. Preserve per-element independence and existing-source sharing. Mark per-hook independence as pending implementation and the factory-safety decision. |
-| Views | Preserve current shared `const ctx = useIgnite(core)` examples. Do not remove machine-backed headless preparation or claim independent hook lifetimes until slice B is implemented. |
-| Ownership | Apply shared retention until `core.dispose()` and rejection of every explicit `cleanup` value. Separate view unsubscription, core resource disposal and application-owned native shutdown. |
+| Getting started | Remove `cleanup` from candidate configurations. Preserve the published beta.14 example and its historical command-context spelling. Teach independent hooks only as the local candidate until publication. |
+| Sources | Explain definitions/fresh factories versus existing instances once. Preserve per-element independence and existing-source sharing. Apply per-hook independence to XState machines, Redux slices/fresh factories and MobX fresh factories. State the accepted repeatable/discardable construction requirement, including middleware and enhancers. |
+| Views | Preserve current shared `const ctx = useIgnite(core)` examples. Add a short independent example with the same synchronous hook. Remove preparation-only reads from machine-backed hook examples; supply an existing source when sharing is intended. |
+| Ownership | Apply shared retention until `core.dispose()` and rejection of every explicit `cleanup` value. Separate automatic independent runtime cleanup, shared view unsubscription, core disposal and application-owned native shutdown. Explicit headless access stays separate from independent views. |
 | API/reference | Remove `cleanup?` from the current candidate signature/table and link the candidate migration note. Do not add a replacement lifecycle property. |
 | Examples | Remove `cleanup: false` from smart-home's browser component and `cleanup: true` from voice-workbench's component. Retain their existing shutdown callers and verify their lifecycle tests. |
 

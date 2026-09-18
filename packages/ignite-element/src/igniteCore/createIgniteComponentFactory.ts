@@ -10,8 +10,13 @@ import type {
 } from "@ignite-element/core";
 import { event, StateScope } from "@ignite-element/core";
 import { createComponentFactory } from "../createComponentFactory";
+import { createProjectionFactory } from "../createProjectionFactory";
 import { assertSupportedSourceOptions } from "../internal/assertSupportedSourceOptions";
-import { requireBindingStore } from "../runtime/bindings";
+import {
+	registerIndependentBinding,
+	requireBindingStore,
+} from "../runtime/bindings";
+import { createIndependentBinding } from "../runtime/independentBinding";
 import type { IgniteCoreReturn } from "./publicTypes";
 
 export type IgniteComponentAdapterFactory<
@@ -76,6 +81,12 @@ export function createIgniteComponentFactory<
 		CommandsResult,
 		Events
 	>,
+	bindingAdapter?: IgniteComponentAdapterFactory<
+		State,
+		Event,
+		Snapshot,
+		CommandActor
+	>,
 ): IgniteCoreReturn<
 	State,
 	Event,
@@ -96,6 +107,7 @@ export function createIgniteComponentFactory<
 			"[igniteCore] Config `view` was removed; use `states` with a bare native snapshot callback.",
 		);
 	}
+	const eventDefinitions = options.events?.(event);
 	const core = createComponentFactory<
 		State,
 		Event,
@@ -110,7 +122,7 @@ export function createIgniteComponentFactory<
 		states: options.states,
 		commands: options.commands,
 		effects: options.effects,
-		events: options.events?.(event),
+		events: eventDefinitions,
 	}) as unknown as IgniteCoreReturn<
 		State,
 		Event,
@@ -136,6 +148,36 @@ export function createIgniteComponentFactory<
 			}
 			throw error;
 		}
+	}
+	if (bindingAdapter && createAdapter.scope === StateScope.Isolated) {
+		registerIndependentBinding(core, (owner) =>
+			createIndependentBinding<State, Event>(owner, (isSubscribed) => {
+				const projection = createProjectionFactory(bindingAdapter, {
+					...options,
+					events: eventDefinitions,
+					effects: options.effects
+						? (context) => {
+								if (isSubscribed()) return options.effects?.(context);
+							}
+						: undefined,
+				});
+				return {
+					createAdapter: bindingAdapter,
+					createArgs: (adapter, host) =>
+						projection.createAdditionalArgs(
+							adapter,
+							host as HTMLElement,
+							(emitted) => {
+								const { type, ...detail } = emitted;
+								host.dispatchEvent(new CustomEvent(type, { detail }));
+							},
+						),
+					states: projection.resolveStates,
+					delivered: projection.resolveDeliveredStates,
+					dispose: projection.disposeEffects,
+				};
+			}),
+		);
 	}
 	return core;
 }
