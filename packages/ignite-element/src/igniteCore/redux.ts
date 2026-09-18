@@ -13,6 +13,7 @@ import type {
 	StateScope,
 } from "@ignite-element/core";
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
+import { assertSupportedSourceOptions } from "../internal/assertSupportedSourceOptions";
 import {
 	createIgniteComponentFactory,
 	type IgniteComponentFactoryOptions,
@@ -122,6 +123,7 @@ export function igniteCoreRedux<
 // Keep internal union-source dispatch without an unchecked public escape hatch.
 export function igniteCoreRedux<Config extends ReduxConfig>(
 	options: Config &
+		("cleanup" extends keyof Config ? never : unknown) &
 		DisjointBindings<
 			NoInfer<
 				Config extends {
@@ -159,6 +161,7 @@ export function igniteCoreRedux(
 	FacadeCommandResult,
 	EventMap
 > {
+	assertSupportedSourceOptions(options);
 	const createAdapter = createReduxAdapterFactory(options.source);
 	const componentOptions = options as unknown as IgniteComponentFactoryOptions<
 		ReduxState,

@@ -26,6 +26,7 @@ import type {
 	ActorWebRuntimeEvents,
 	DisjointBindings,
 } from "../igniteCore/publicTypes";
+import { assertSupportedSourceOptions } from "../internal/assertSupportedSourceOptions";
 
 export type ActorWebHostFactory<
 	Context extends object,
@@ -71,7 +72,6 @@ export function igniteCore<
 			Events &
 				CompatibleEvents<NoInfer<Events>, ChannelEmitted<NoInfer<Source>>>
 		>;
-		cleanup?: boolean;
 		effects?: FacadeEffectsObjectCallback<
 			ActorWebExtendedState<NoInfer<Context>>,
 			ActorWebCommandActor<
@@ -92,6 +92,7 @@ export function igniteCore<
 	ActorWebRuntimeEvents<Events, Source, Emitted, Message>,
 	Events
 > {
+	assertSupportedSourceOptions(options);
 	const factory = createActorWebAdapter<Context, Message, Emitted, HTMLElement>(
 		(context = {}) => options.source(context),
 		{ ownsFactorySource: true },

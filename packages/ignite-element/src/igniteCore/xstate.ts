@@ -12,6 +12,7 @@ import type {
 	EventFrom,
 	StateFrom,
 } from "xstate";
+import { assertSupportedSourceOptions } from "../internal/assertSupportedSourceOptions";
 import type { IgniteComponentFactoryOptions } from "./createIgniteComponentFactory";
 import { createIgniteComponentFactory } from "./createIgniteComponentFactory";
 import type {
@@ -40,6 +41,7 @@ export function igniteCoreXState<
 	WithEmittedEvents<Events, EmittedFrom<Machine>, never>,
 	Events
 > {
+	assertSupportedSourceOptions(options);
 	const createAdapter = createXStateAdapter(options.source);
 	// The machine's emitted union widens the static events map only; the
 	// runtime's declared eventTypes stay driven by the `events:` config (the

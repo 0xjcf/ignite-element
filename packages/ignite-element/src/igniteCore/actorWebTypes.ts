@@ -68,7 +68,6 @@ export type ActorWebConfig<
 	 * not create. An activated shared effect evaluator retains observation until
 	 * core disposal, regardless of this option.
 	 */
-	cleanup?: boolean;
 	effects?: FacadeEffectsObjectCallback<
 		ActorWebExtendedState<Context>,
 		ActorWebCommandActor<Context, Message, Emitted>,

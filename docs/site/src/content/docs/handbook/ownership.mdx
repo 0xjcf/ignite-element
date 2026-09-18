@@ -31,11 +31,14 @@ True element disconnect releases the view's forwarding subscription; reconnect
 acquires a fresh one. Same-tick moves retain it. A source update while no view is
 present does not become a replayed occurrence on reconnect.
 
-Shared adapters remain observed by default. `cleanup: true` permits shared
-adapter teardown when the last element and retained observation handle leave;
-it does not grant native source ownership. An activated shared effect evaluator
-retains observation through zero-view intervals until terminal core disposal,
-including with `cleanup: true`. See [effect activation and timing](/ignite-element/handbook/events/#delivery-and-ownership).
+Shared adapters and activated effects remain observed through zero-view intervals
+until terminal core disposal. Disconnecting a view releases its subscriptions
+without ending application-level observation or granting native source ownership.
+The local lifecycle candidate removes `cleanup`; supplying it, including `false`
+or `undefined`, is an error. Published beta.14 still exposes that option and has
+a reconnect defect in its optional early-teardown path. See the
+[candidate migration note](/ignite-element/migration/remove-cleanup/) and
+[effect activation and timing](/ignite-element/handbook/events/#delivery-and-ownership).
 
 ## Terminal disposal
 

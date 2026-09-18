@@ -7,7 +7,7 @@ import igniteElementFactory from "../IgniteElementFactory";
 import { createProjectionDocumentTarget } from "../index";
 import * as strategyResolution from "../renderers/resolveConfiguredRenderStrategy";
 import { facadeCleanupSymbol } from "../runtime/effects";
-import type { IgniteAgentRuntime, ProjectionDocument } from "../types/agent";
+import type { ProjectionDocument } from "../types/agent";
 import MinimalMockAdapter from "./MockAdapter";
 
 it("selects configured rendering at registration, and never with an override", () => {
@@ -31,7 +31,7 @@ const flushMicrotasks = () =>
 	new Promise<void>((resolve) => queueMicrotask(resolve));
 
 describe("igniteElementFactory", () => {
-	it("balances shared runtime access when watcher setup fails", async () => {
+	it("preserves the shared adapter after watcher setup fails", async () => {
 		const document: ProjectionDocument = {
 			id: "shared-panel",
 			revision: "1",
@@ -73,7 +73,6 @@ describe("igniteElementFactory", () => {
 		const core = createComponentFactory(createAdapter, {
 			states: () => ({}),
 			commands: () => ({}),
-			cleanup: true,
 			createRenderStrategy: () => ({
 				attach: () => undefined,
 				render: () => undefined,
@@ -97,6 +96,8 @@ describe("igniteElementFactory", () => {
 		await flushMicrotasks();
 		expect(ghostCommit).not.toHaveBeenCalled();
 		expect(acquireAdapter).toHaveBeenCalledOnce();
+		expect(stop).not.toHaveBeenCalled();
+		Reflect.get(core, "dispose")();
 		expect(acquireAdapter.mock.results[0]?.value.stop).toHaveBeenCalledOnce();
 		expect(stop).toHaveBeenCalledOnce();
 	});
@@ -258,7 +259,7 @@ describe("igniteElementFactory", () => {
 		);
 	});
 
-	it("keeps the shared (consumer-owned) adapter alive when the last element disconnects (default cleanup)", () => {
+	it("keeps the shared (consumer-owned) adapter alive when the last element disconnects until terminal disposal", () => {
 		// Repro for the SPA-router outlet-swap footgun: one core registered under
 		// multiple element names shares ONE adapter. Swapping pages drives the
 		// refcount transiently to zero, which previously stopped the shared adapter
@@ -284,25 +285,7 @@ describe("igniteElementFactory", () => {
 		expect(adapter.stop).not.toHaveBeenCalled();
 	});
 
-	it("still releases the shared adapter on last disconnect when cleanup:true is explicit", async () => {
-		const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
-
-		const component = igniteElementFactory(() => adapter, {
-			scope: StateScope.Shared,
-			cleanup: true,
-		});
-		const name = `ignite-shared-cleanup-${crypto.randomUUID()}`;
-		component(name, () => html`<div></div>`);
-
-		const element = document.createElement(name);
-		document.body.appendChild(element);
-		element.remove();
-		await flushMicrotasks();
-
-		expect(adapter.stop).toHaveBeenCalledTimes(1);
-	});
-
-	it("releases shared cleanup after direct runtime access and last disconnect", async () => {
+	it("retains shared headless resources across element disconnect and releases them on disposal", async () => {
 		const adapters: MinimalMockAdapter<
 			typeof initialState,
 			{ type: string }
@@ -319,7 +302,6 @@ describe("igniteElementFactory", () => {
 		const cleanupAdditionalArgs = vi.fn();
 		const component = igniteElementFactory(createAdapter, {
 			scope: StateScope.Shared,
-			cleanup: true,
 			createAdditionalArgs: (adapter) =>
 				({
 					reportAdapter: () => {
@@ -351,18 +333,20 @@ describe("igniteElementFactory", () => {
 		await flushMicrotasks();
 
 		expect(createAdapter).toHaveBeenCalledTimes(1);
-		expect(adapters[0]?.stop).toHaveBeenCalledTimes(1);
-		expect(cleanupAdditionalArgs).toHaveBeenCalledTimes(2);
+		expect(adapters[0]?.stop).not.toHaveBeenCalled();
+		expect(cleanupAdditionalArgs).toHaveBeenCalledTimes(1);
 
 		await runtime.execute({ command: "reportAdapter" });
 
-		expect(createAdapter).toHaveBeenCalledTimes(2);
-		expect(reportedAdapters).toHaveLength(2);
-		expect(reportedAdapters[0]).toBe(adapters[0]);
-		expect(reportedAdapters[1]).toBe(adapters[1]);
+		expect(createAdapter).toHaveBeenCalledTimes(1);
+		expect(reportedAdapters).toEqual([adapters[0], adapters[0]]);
+		Reflect.get(component, "dispose")();
+		Reflect.get(component, "dispose")();
+		expect(adapters[0]?.stop).toHaveBeenCalledOnce();
+		expect(cleanupAdditionalArgs).toHaveBeenCalledTimes(2);
 	});
 
-	it("resets shared runtime bookkeeping when runtime facade cleanup throws", async () => {
+	it("attempts shared adapter release when terminal facade cleanup throws", async () => {
 		const cleanupError = new Error("runtime facade cleanup failed");
 		const adapters: MinimalMockAdapter<
 			typeof initialState,
@@ -379,7 +363,6 @@ describe("igniteElementFactory", () => {
 		});
 		const component = igniteElementFactory(createAdapter, {
 			scope: StateScope.Shared,
-			cleanup: true,
 			createAdditionalArgs: (adapter) =>
 				({
 					reportAdapter: () => {
@@ -408,7 +391,7 @@ describe("igniteElementFactory", () => {
 		element.remove();
 		await flushMicrotasks();
 
-		expect(adapters[0]?.stop).toHaveBeenCalledTimes(1);
+		expect(adapters[0]?.stop).not.toHaveBeenCalled();
 		expect(errorSpy).toHaveBeenCalledWith(
 			"[IgniteElement] Deferred disconnect cleanup failed.",
 			cleanupError,
@@ -416,47 +399,13 @@ describe("igniteElementFactory", () => {
 
 		await runtime.execute({ command: "reportAdapter" });
 
-		expect(createAdapter).toHaveBeenCalledTimes(2);
+		expect(createAdapter).toHaveBeenCalledTimes(1);
 		expect(reportedAdapters).toHaveLength(2);
 		expect(reportedAdapters[0]).toBe(adapters[0]);
-		expect(reportedAdapters[1]).toBe(adapters[1]);
-	});
-
-	it("logs deferred shared cleanup failures when unsubscribe releases runtime access", async () => {
-		const cleanupError = new Error("runtime cleanup failed");
-		const adapter = new MinimalMockAdapter(initialState, StateScope.Shared);
-		const component = igniteElementFactory(() => adapter, {
-			scope: StateScope.Shared,
-			cleanup: true,
-			createAdditionalArgs: () =>
-				({
-					[facadeCleanupSymbol]: () => {
-						throw cleanupError;
-					},
-				}) as never,
-		});
-		const name = `ignite-runtime-deferred-cleanup-error-${crypto.randomUUID()}`;
-		component(name, () => html`<div></div>`);
-		// The low-level factory's public return type is registration-only; its
-		// assembled runtime is exercised here without widening that internal type.
-		const watch: unknown = Reflect.get(component, "watch");
-		if (typeof watch !== "function")
-			throw new Error("Expected runtime watcher");
-		const subscription: ReturnType<IgniteAgentRuntime<unknown>["watch"]> =
-			watch(() => {});
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-		const element = document.createElement(name);
-		document.body.appendChild(element);
-		element.remove();
-		await flushMicrotasks();
-
-		expect(() => subscription.unsubscribe()).not.toThrow();
-		expect(adapter.stop).toHaveBeenCalledTimes(1);
-		expect(errorSpy).toHaveBeenCalledWith(
-			"[IgniteElement] Deferred disconnect cleanup failed.",
-			cleanupError,
-		);
+		expect(reportedAdapters[1]).toBe(adapters[0]);
+		expect(() => Reflect.get(component, "dispose")()).toThrow(cleanupError);
+		expect(adapters[0]?.stop).toHaveBeenCalledOnce();
+		expect(() => Reflect.get(component, "dispose")()).not.toThrow();
 	});
 
 	it("clears isolated adapter bookkeeping before additional args cleanup can fail", async () => {

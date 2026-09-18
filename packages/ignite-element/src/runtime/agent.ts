@@ -83,8 +83,6 @@ type AgentRuntimeOptions<
 	lifetime: Lifetime;
 	dispose: () => void;
 	resolveRuntime: () => RuntimeResources<State, Event, AdditionalArgs>;
-	retainRuntimeAccess?: () => void;
-	releaseRuntimeAccess?: () => void;
 	resolveInspection?: (adapter: IgniteAdapter<State, Event>) => {
 		snapshot: unknown;
 		states: States;
@@ -104,8 +102,6 @@ export function createAgentRuntime<
 	hasCommands,
 	lifetime,
 	dispose,
-	retainRuntimeAccess,
-	releaseRuntimeAccess,
 	resolveInspection,
 	resolveRuntime,
 	resolveDeliveredStates,
@@ -162,32 +158,20 @@ export function createAgentRuntime<
 	}
 	let prepared = false;
 	let preparing = false;
-	let releasePreparation: (() => void) | undefined;
 	let preparedHost: EventTarget | undefined;
 	let currentStates: States;
 	let snapshot: Readonly<Record<string, unknown>>;
 	const bindingListeners = new Set<() => void>();
-	const retainLease = () => {
-		retainRuntimeAccess?.();
-		let held = true;
-		return () => {
-			if (!held) return;
-			held = false;
-			releaseRuntimeAccess?.();
-		};
-	};
 	const prepare = (effects = true) => {
 		lifetime.assertActive();
 		if (prepared) return currentStates;
 		if (preparing)
 			throw new Error("[igniteCore] Reentrant runtime preparation.");
 		preparing = true;
-		let releaseLease = () => {};
 		let release: (() => void) | undefined;
 		let rollback: (() => void) | undefined;
 		let observing = true;
 		try {
-			releaseLease = retainLease();
 			const resources = resolveRuntime();
 			rollback = resources.rollback;
 			const { adapter, additionalArgs } = resources;
@@ -220,10 +204,8 @@ export function createAgentRuntime<
 				observing = false;
 				prepared = false;
 				preparedHost = undefined;
-				releasePreparation = undefined;
 				subscription.unsubscribe();
 			});
-			releasePreparation = release;
 			lifetime.assertActive();
 			publishCatalogue(additionalArgs);
 			prepared = true;
@@ -234,7 +216,7 @@ export function createAgentRuntime<
 		} catch (error) {
 			observing = false;
 			try {
-				releaseAll([release ?? releaseLease, () => rollback?.()]);
+				releaseAll([() => release?.(), () => rollback?.()]);
 			} catch (cleanupError) {
 				console.error(
 					"[igniteCore] Preparation rollback failed.",
@@ -244,7 +226,6 @@ export function createAgentRuntime<
 			throw error;
 		} finally {
 			preparing = false;
-			releaseLease();
 		}
 	};
 	const bindingStore: BindingStore = {
@@ -264,11 +245,9 @@ export function createAgentRuntime<
 			// Framework subscription runs after rendering and only activates an
 			// already-acquired host; it never creates an actor or runtime facade.
 			if (preparedHost) activateHostEffects(preparedHost);
-			const releaseLease = retainLease();
 			bindingListeners.add(listener);
 			return lifetime.own(() => {
 				bindingListeners.delete(listener);
-				releaseLease();
 			});
 		},
 	};
@@ -286,7 +265,6 @@ export function createAgentRuntime<
 		handler: (next: Value, previous: Value) => void,
 	): IgniteAgentSubscription => {
 		lifetime.assertActive();
-		const releaseLease = retainLease();
 		let active = true;
 		let rollback: (() => void) | undefined;
 		try {
@@ -310,13 +288,13 @@ export function createAgentRuntime<
 			installing = false;
 			const unsubscribe = lifetime.own(() => {
 				active = false;
-				releaseAll([() => subscription.unsubscribe(), releaseLease]);
+				subscription.unsubscribe();
 			});
 			return { unsubscribe };
 		} catch (error) {
 			active = false;
 			try {
-				releaseAll([releaseLease, () => rollback?.()]);
+				rollback?.();
 			} catch (cleanupError) {
 				console.error("[igniteCore] Watch rollback failed.", cleanupError);
 			}
@@ -336,7 +314,6 @@ export function createAgentRuntime<
 		allSourceEvents = false,
 	): IgniteAgentSubscription => {
 		lifetime.assertActive();
-		const releaseLease = retainLease();
 		let active = true;
 		const releases: (() => void)[] = [];
 		let rollback: (() => void) | undefined;
@@ -382,7 +359,6 @@ export function createAgentRuntime<
 						() => subscription.unsubscribe(),
 					),
 				);
-			releases.push(releaseLease);
 			return {
 				unsubscribe: lifetime.own(() => {
 					active = false;
@@ -392,7 +368,7 @@ export function createAgentRuntime<
 		} catch (error) {
 			active = false;
 			try {
-				releaseAll([...releases, releaseLease, () => rollback?.()]);
+				releaseAll([...releases, () => rollback?.()]);
 			} catch (cleanupError) {
 				console.error("[igniteCore] Listener rollback failed.", cleanupError);
 			}
@@ -473,7 +449,6 @@ export function createAgentRuntime<
 	};
 	return {
 		runtime,
-		releasePreparation: () => releasePreparation?.(),
 		bindingStore,
 		watchSnapshot,
 		publishCatalogue,

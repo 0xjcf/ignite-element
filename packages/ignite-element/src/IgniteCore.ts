@@ -45,6 +45,7 @@ import type {
 	XStateConfig,
 } from "./igniteCore/types";
 import { igniteCoreXState } from "./igniteCore/xstate";
+import { assertSupportedSourceOptions } from "./internal/assertSupportedSourceOptions";
 import type {
 	EmptyEventMap,
 	EventMap,
@@ -346,6 +347,7 @@ export function igniteCore<
 export function igniteCore(
 	options?: IgniteCoreConfig | { adapter?: ResolvedAdapter; source: unknown },
 ) {
+	assertSupportedSourceOptions(options);
 	if (typeof options === "undefined") {
 		type StaticState = Record<string, never>;
 		const staticState: StaticState = {};

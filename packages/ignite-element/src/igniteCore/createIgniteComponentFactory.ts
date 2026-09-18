@@ -10,6 +10,7 @@ import type {
 } from "@ignite-element/core";
 import { event, StateScope } from "@ignite-element/core";
 import { createComponentFactory } from "../createComponentFactory";
+import { assertSupportedSourceOptions } from "../internal/assertSupportedSourceOptions";
 import { requireBindingStore } from "../runtime/bindings";
 import type { IgniteCoreReturn } from "./publicTypes";
 
@@ -45,22 +46,6 @@ export type IgniteComponentFactoryOptions<
 		HTMLElement
 	>;
 	events?: ((builder: typeof event) => Events) | undefined;
-	/**
-	 * Controls element-lifecycle teardown of the *shared* adapter.
-	 *
-	 * - **Isolated cores** (you pass a machine/store/factory that ignite
-	 *   instantiates per element): defaults to `true` — each element's adapter is
-	 *   stopped on disconnect. `cleanup` has no effect here.
-	 * - **Shared cores** (you pass an already-live, consumer-owned source — a
-	 *   started actor, store, observable, or actor-web source): defaults to
-	 *   `false`. The source is yours and lives for the core's lifetime, so ignite
-	 *   keeps the shared adapter alive across element disconnects (an outlet
-	 *   swapping pages won't freeze it). Set `cleanup: true` to opt back into
-	 *   element-refcount teardown of the adapter; ignite still never stops or
-	 *   closes a source it did not create. An activated shared effect evaluator
-	 *   retains observation until core disposal, regardless of this option.
-	 */
-	cleanup?: boolean;
 };
 
 export function createIgniteComponentFactory<
@@ -100,6 +85,7 @@ export function createIgniteComponentFactory<
 	CommandsResult,
 	Events
 > {
+	assertSupportedSourceOptions(options);
 	if (
 		Object.getOwnPropertyDescriptor(
 			options as unknown as Record<string, unknown>,
@@ -125,7 +111,6 @@ export function createIgniteComponentFactory<
 		commands: options.commands,
 		effects: options.effects,
 		events: options.events?.(event),
-		cleanup: options.cleanup,
 	}) as unknown as IgniteCoreReturn<
 		State,
 		Event,

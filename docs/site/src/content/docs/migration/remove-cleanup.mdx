@@ -1,0 +1,41 @@
+---
+title: Remove cleanup configuration
+description: Migrate the local lifecycle candidate away from optional shared-adapter teardown.
+---
+
+This is an unreleased local candidate change. Published beta.14 still exposes
+`cleanup` and can reuse a stopped shared adapter after `cleanup: true` disconnects
+its final view without an activated effect evaluator.
+
+Remove the `cleanup` key from source-backed configuration. This includes
+`cleanup: false` and explicitly supplied `cleanup: undefined`. Dedicated source
+entrypoints reject the key before acquiring the source, including JavaScript and
+prebuilt configurations. There is no replacement flag.
+
+```ts
+import { igniteCore } from "ignite-element/xstate";
+
+// actor is an existing application-owned source.
+const counter = igniteCore({
+  source: actor,
+  states: snapshot => ({ count: snapshot.context.count }),
+  commands: ({ source }) => ({
+    increment: () => source.send({ type: "INCREMENT" }),
+  }),
+});
+```
+
+An independent custom element releases its private runtime on true disconnect;
+a same-turn move preserves it. A shared view releases its own observation handles
+on disconnect. Its core retains application-level observation and activated
+effects, including while no views are connected. At final application shutdown,
+call `counter.dispose()`, then perform any application-owned native shutdown.
+Disposal is terminal; a shorter session needs a newly created source/core for
+its next session. Do not reconnect a disposed singleton.
+
+This slice does not change `useIgnite`: existing sources remain shared and
+unmounting a hook does not dispose its core. Private per-hook runtimes for
+machine, slice, and fresh-factory sources are an approved target with a pending
+construction-safety decision; they are not implemented by this slice. Do not
+teach the target as published or remove existing machine-backed hook preparation
+until that follow-up is implemented and validated.

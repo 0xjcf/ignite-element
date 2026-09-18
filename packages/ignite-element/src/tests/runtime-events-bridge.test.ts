@@ -135,7 +135,7 @@ describe("Actor-Web observation rollback", () => {
 
 describe("runtime handle custody", () => {
 	function handles() {
-		let leases = 0;
+		const host = new EventTarget();
 		const listeners = new Set<(state: number) => void>();
 		const getSnapshot = vi.fn(() => 0);
 		const unsubscribe = vi.fn();
@@ -153,19 +153,12 @@ describe("runtime handle custody", () => {
 				};
 			},
 		};
-		const release = vi.fn(() => {
-			leases -= 1;
-		});
 		const runtime = createAgentRuntime({
 			eventTypes: [],
-			retainRuntimeAccess: () => {
-				leases += 1;
-			},
-			releaseRuntimeAccess: release,
 			resolveRuntime: () => ({
 				adapter,
 				additionalArgs: {},
-				host: new EventTarget(),
+				host,
 			}),
 			resolveStates: () => ({}),
 		});
@@ -173,28 +166,28 @@ describe("runtime handle custody", () => {
 			runtime,
 			getSnapshot,
 			unsubscribe,
-			release,
-			leases: () => leases,
+			host,
+			activeSubscriptions: () => listeners.size,
 			deliver: () => {
 				for (const listener of listeners) listener(1);
 			},
 		};
 	}
-	it("a second unsubscribe never releases another consumer's lease", () => {
+	it("a second unsubscribe never releases another consumer's subscription", () => {
 		const h = handles();
 		const received = vi.fn();
 		const first = h.runtime.watchSnapshot(() => {});
 		const second = h.runtime.watchSnapshot(received);
 		first.unsubscribe();
 		first.unsubscribe();
-		expect(h.leases()).toBe(1);
+		expect(h.activeSubscriptions()).toBe(1);
 		h.deliver();
 		expect(received).toHaveBeenCalledWith(1, 0);
 		second.unsubscribe();
-		expect(h.leases()).toBe(0);
+		expect(h.activeSubscriptions()).toBe(0);
 		expect(h.unsubscribe).toHaveBeenCalledTimes(2);
 	});
-	it("setup failure releases its lease once and permits later observation", () => {
+	it("setup failure leaves existing subscriptions intact and permits later observation", () => {
 		const h = handles();
 		const failure = new Error("initial read failed");
 		h.getSnapshot.mockImplementationOnce(() => {
@@ -202,14 +195,14 @@ describe("runtime handle custody", () => {
 		});
 		const states = h.runtime.watch(() => {});
 		// watchStates does not read the native snapshot in this fixture.
-		const baseline = h.leases();
+		const baseline = h.activeSubscriptions();
 		expect(() => h.runtime.watchSnapshot(() => {})).toThrow(failure);
-		expect(h.leases()).toBe(baseline);
+		expect(h.activeSubscriptions()).toBe(baseline);
 		const next = h.runtime.watchSnapshot(() => {});
 		next.unsubscribe();
-		expect(h.leases()).toBe(baseline);
+		expect(h.activeSubscriptions()).toBe(baseline);
 		states.unsubscribe();
-		expect(h.leases()).toBe(0);
+		expect(h.activeSubscriptions()).toBe(0);
 	});
 	it("unsubscribe failure preserves the primary error and still releases once", () => {
 		const h = handles();
@@ -219,31 +212,22 @@ describe("runtime handle custody", () => {
 		});
 		const handle = h.runtime.watchSnapshot(() => {});
 		expect(() => handle.unsubscribe()).toThrow(failure);
-		expect(h.leases()).toBe(0);
+		expect(h.activeSubscriptions()).toBe(0);
 		expect(() => handle.unsubscribe()).not.toThrow();
-		expect(h.release).toHaveBeenCalledTimes(1);
+		expect(h.unsubscribe).toHaveBeenCalledTimes(1);
 	});
 	it("event unsubscribe is idempotent with two live consumers", () => {
 		const h = handles();
+		const received = vi.fn();
 		const a = h.runtime.on("fact", () => {});
-		const b = h.runtime.on("fact", () => {});
+		const b = h.runtime.on("fact", received);
 		a.unsubscribe();
 		a.unsubscribe();
-		expect(h.leases()).toBe(1);
+		h.host.dispatchEvent(new Event("fact"));
+		expect(received).toHaveBeenCalledOnce();
 		b.unsubscribe();
-		expect(h.leases()).toBe(0);
-	});
-	it("preserves a watcher release error after successful subscription cleanup", () => {
-		const h = handles();
-		const failure = new Error("release failed");
-		h.release.mockImplementationOnce(() => {
-			throw failure;
-		});
-		const handle = h.runtime.watchSnapshot(() => {});
-		expect(() => handle.unsubscribe()).toThrow(failure);
-		expect(h.unsubscribe).toHaveBeenCalledTimes(1);
-		expect(() => handle.unsubscribe()).not.toThrow();
-		expect(h.release).toHaveBeenCalledTimes(1);
+		h.host.dispatchEvent(new Event("fact"));
+		expect(received).toHaveBeenCalledOnce();
 	});
 });
 
@@ -433,12 +417,11 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 		);
 	});
 
-	it("cleans on() listeners and runtime access when source event subscription setup throws", () => {
+	it("cleans on() listeners when source event subscription setup throws", () => {
 		const host = document.createElement("div");
 		const removeEventListener = vi.spyOn(host, "removeEventListener");
 		const setupError = new Error("subscribe failed");
 		const state = { count: 0 };
-		let releaseCount = 0;
 		const adapter: IgniteAdapter<typeof state, { type: string }> = {
 			subscribeSnapshots: () => ({ unsubscribe() {} }),
 			subscribeEvents: () => {
@@ -455,9 +438,6 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 			Record<string, unknown>
 		>({
 			eventTypes: [],
-			releaseRuntimeAccess: () => {
-				releaseCount += 1;
-			},
 			resolveRuntime: () => ({
 				adapter,
 				additionalArgs: {},
@@ -471,7 +451,6 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 			"ui-event",
 			expect.any(Function),
 		);
-		expect(releaseCount).toBe(1);
 	});
 
 	it("does not let command source cleanup failures mask successful execution", async () => {
@@ -525,14 +504,13 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 		}
 	});
 
-	it("releases runtime access when on() source cleanup throws", () => {
+	it("logs on() source cleanup failures without throwing", () => {
 		const cleanupError = new Error("unsubscribe failed");
 		const consoleError = vi
 			.spyOn(console, "error")
 			.mockImplementation(() => {});
 		const host = document.createElement("div");
 		const state = { count: 1 };
-		let releaseCount = 0;
 		const adapter: IgniteAdapter<typeof state, { type: string }> = {
 			subscribeSnapshots: () => ({ unsubscribe() {} }),
 			subscribeEvents: () => ({
@@ -551,9 +529,6 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 			Record<string, unknown>
 		>({
 			eventTypes: [],
-			releaseRuntimeAccess: () => {
-				releaseCount += 1;
-			},
 			resolveRuntime: () => ({
 				adapter,
 				additionalArgs: {},
@@ -565,7 +540,6 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 		try {
 			const subscription = runtime.on("ui-event", () => {});
 			expect(() => subscription.unsubscribe()).not.toThrow();
-			expect(releaseCount).toBe(1);
 			expect(consoleError).toHaveBeenCalledWith(
 				"[igniteCore] Source event subscription cleanup failed.",
 				cleanupError,

@@ -26,12 +26,11 @@ const flush = async () => {
 	await Promise.resolve();
 	await Promise.resolve();
 };
-function fixture(releaseOnDisconnect = false) {
+function fixture() {
 	const actor = createActor(machine).start(),
 		evaluated = vi.fn();
 	const core = igniteCore({
 		source: actor,
-		cleanup: releaseOnDisconnect,
 		states: (s) => ({ count: s.context.count }),
 		commands: ({ source: actor }) => ({
 			increment: () => actor.send({ type: "INC" }),
@@ -68,37 +67,34 @@ it("evaluates once for two DOM hosts and mixed headless recipients", async () =>
 	expect(dom).toHaveBeenCalledTimes(2);
 	expect(head).toHaveBeenCalledTimes(2);
 });
-it.each([false, true])(
-	"keeps the shared baseline through a zero-view gap without replay (cleanup: %s)",
-	async (releaseOnDisconnect) => {
-		const f = fixture(releaseOnDisconnect),
-			a = f.element(),
-			received = vi.fn();
-		a.addEventListener("changed", received);
-		f.actor.send({ type: "INC" });
-		await flush();
-		expect(f.evaluated).not.toHaveBeenCalled();
-		document.body.append(a);
-		await flush();
-		expect(f.evaluated).not.toHaveBeenCalled();
-		f.actor.send({ type: "INC" });
-		await flush();
-		a.remove();
-		await flush();
-		f.actor.send({ type: "INC" });
-		await flush();
-		document.body.append(a);
-		await flush();
-		f.actor.send({ type: "INC" });
-		await flush();
-		expect(f.evaluated.mock.calls).toEqual([
-			[1, 2],
-			[2, 3],
-			[3, 4],
-		]);
-		expect(received).toHaveBeenCalledTimes(2);
-	},
-);
+it("keeps the shared baseline through a zero-view gap without replay", async () => {
+	const f = fixture(),
+		a = f.element(),
+		received = vi.fn();
+	a.addEventListener("changed", received);
+	f.actor.send({ type: "INC" });
+	await flush();
+	expect(f.evaluated).not.toHaveBeenCalled();
+	document.body.append(a);
+	await flush();
+	expect(f.evaluated).not.toHaveBeenCalled();
+	f.actor.send({ type: "INC" });
+	await flush();
+	a.remove();
+	await flush();
+	f.actor.send({ type: "INC" });
+	await flush();
+	document.body.append(a);
+	await flush();
+	f.actor.send({ type: "INC" });
+	await flush();
+	expect(f.evaluated.mock.calls).toEqual([
+		[1, 2],
+		[2, 3],
+		[3, 4],
+	]);
+	expect(received).toHaveBeenCalledTimes(2);
+});
 it("does not collapse rapid notifications and uses eligibility at future emission", async () => {
 	const f = fixture(),
 		a = f.element(),

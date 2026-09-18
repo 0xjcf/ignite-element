@@ -332,8 +332,9 @@ Effects evaluate once per delivered source notification per core/source
 instance after an initial baseline, not once per view. They activate on
 legitimate runtime use or committed subscription/element connection, not
 constructor preparation or render-time reads. A shared evaluator and baseline
-survive zero-view intervals until core disposal, including `cleanup: true`;
-isolated instances retain independent lifetimes. Consumers are recipients, not
+survive zero-view intervals until core disposal;
+the removed `cleanup` configuration cannot opt into early shared teardown.
+Isolated instances retain independent lifetimes. Consumers are recipients, not
 additional evaluators. Queued delivery follows source processing without a
 universal framework commit barrier. Callbacks are synchronous, return `void`,
 and may emit outward facts. Core-owned failures use the existing console
