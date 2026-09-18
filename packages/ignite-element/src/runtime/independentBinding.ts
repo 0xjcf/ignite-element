@@ -31,26 +31,31 @@ export function createIndependentBinding<State, Event>(
 	owner.assertActive();
 	const lifetime = createLifetime();
 	const listeners = new Set<() => void>();
+	let attached = false;
 	const projection = createProjection(
-		() => lifetime.active && listeners.size > 0,
+		() => lifetime.active && attached && listeners.size > 0,
 	);
 	const adapter = projection.createAdapter();
 	adapter.scope = StateScope.Isolated;
 	const host = new EventTarget();
 	const args = projection.createArgs(adapter, host);
-	let committed = false;
+	let activated = false;
 	let releaseOwner: (() => void) | undefined;
 	let generation = 0;
 	const assertActive = () => {
 		owner.assertActive();
 		lifetime.assertActive();
 	};
-	setCommandOwner(args, () => {
+	const assertAttached = () => {
 		assertActive();
-		if (!listeners.size)
+		if (!attached)
 			throw new Error(
 				"[useIgnite] Independent runtime is unmounted or not committed.",
 			);
+	};
+	setCommandOwner(args, () => {
+		assertAttached();
+		activate();
 	});
 	const snapshotOf = (states: Record<string, unknown>) => {
 		assertNoCollisions(states, args);
@@ -70,7 +75,58 @@ export function createIndependentBinding<State, Event>(
 			]),
 		);
 	};
+	// Activation may be requested by a descendant layout effect or callback ref,
+	// before this hook's own layout effect. Attachment itself performs no I/O.
+	const activate = () => {
+		if (!activated) {
+			activated = true;
+			try {
+				const subscription = adapter.subscribeSnapshots((value) => {
+					if (!owner.active || !lifetime.active) return;
+					snapshot = snapshotOf(projection.delivered(value));
+					for (const notify of [...listeners]) {
+						if (owner.active && lifetime.active && listeners.has(notify))
+							notify();
+					}
+				});
+				lifetime.own(() => subscription.unsubscribe());
+				assertActive();
+				activateHostEffects(host);
+			} catch (error) {
+				try {
+					releaseOwner?.();
+				} catch (cleanupError) {
+					console.error(
+						"[useIgnite] Independent activation rollback failed.",
+						cleanupError,
+					);
+				}
+				throw error;
+			}
+		}
+	};
 	const store: BindingStore = {
+		attach() {
+			assertActive();
+			attached = true;
+			generation++;
+			releaseOwner ??= owner.own(dispose);
+			return () => {
+				attached = false;
+				const detachedGeneration = ++generation;
+				// Insertion cleanup distinguishes removal/replacement from Activity's
+				// temporary effect disconnection. Defer external teardown out of the
+				// insertion phase; this is not a subscription-grace-period heuristic.
+				queueMicrotask(() => {
+					if (attached || generation !== detachedGeneration) return;
+					try {
+						releaseOwner?.();
+					} catch (error) {
+						console.error("[useIgnite] Independent cleanup failed.", error);
+					}
+				});
+			};
+		},
 		commit: () => store.subscribe(() => {}),
 		prepare: assertActive,
 		read: () => {
@@ -78,53 +134,11 @@ export function createIndependentBinding<State, Event>(
 			return snapshot;
 		},
 		subscribe(listener) {
-			assertActive();
-			generation++;
+			assertAttached();
 			listeners.add(listener);
-			if (!committed) {
-				committed = true;
-				releaseOwner = owner.own(dispose);
-				try {
-					const subscription = adapter.subscribeSnapshots((value) => {
-						if (!owner.active || !lifetime.active) return;
-						snapshot = snapshotOf(projection.delivered(value));
-						for (const notify of [...listeners]) {
-							if (owner.active && lifetime.active && listeners.has(notify))
-								notify();
-						}
-					});
-					lifetime.own(() => subscription.unsubscribe());
-					assertActive();
-					activateHostEffects(host);
-				} catch (error) {
-					try {
-						releaseOwner();
-					} catch (cleanupError) {
-						console.error(
-							"[useIgnite] Independent activation rollback failed.",
-							cleanupError,
-						);
-					}
-					throw error;
-				}
-			}
-			let subscribed = true;
+			activate();
 			return () => {
-				if (!subscribed) return;
-				subscribed = false;
 				listeners.delete(listener);
-				if (listeners.size) return;
-				const releasedGeneration = ++generation;
-				// React's synchronous subscription replay reclaims this live runtime. A
-				// genuine unmount ends it; retained commands never point at a replacement.
-				queueMicrotask(() => {
-					if (generation !== releasedGeneration || listeners.size) return;
-					try {
-						releaseOwner?.();
-					} catch (error) {
-						console.error("[useIgnite] Independent cleanup failed.", error);
-					}
-				});
 			};
 		},
 	};

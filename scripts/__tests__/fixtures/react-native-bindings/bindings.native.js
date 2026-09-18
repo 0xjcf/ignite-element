@@ -290,6 +290,42 @@ for (const kind of ["xstate", "redux", "mobx"]) {
 		expect(
 			root.root.findByProps({ testID: "first-count" }).props.children,
 		).toBe(0);
+		await act(async () => root.unmount());
+		for (const phase of ["layout", "ref"]) {
+			function Child({ add }) {
+				React.useLayoutEffect(() => {
+					if (phase === "layout") add();
+				}, [add]);
+				const ref = React.useCallback(
+					(node) => {
+						if (node && phase === "ref") add();
+					},
+					[add],
+				);
+				return <View ref={ref} />;
+			}
+			function Parent() {
+				const ctx = useIgnite(core);
+				React.useInsertionEffect(() => {
+					expect(active).toBe(0);
+				}, []);
+				return (
+					<View>
+						<Text testID="commit-count">{ctx.count}</Text>
+						<Child add={ctx.add} />
+					</View>
+				);
+			}
+			await act(async () => {
+				root = create(<Parent />, { createNodeMock: () => ({}) });
+			});
+			expect(
+				root.root.findByProps({ testID: "commit-count" }).props.children,
+			).toBe(1);
+			expect(active).toBe(1);
+			await act(async () => root.unmount());
+			expect(active).toBe(0);
+		}
 		core.dispose();
 		core.dispose();
 		replacement.dispose();

@@ -27,7 +27,8 @@ without external work or resources requiring cleanup. This includes XState
 context initialization, Redux reducer/middleware/enhancer initialization, MobX
 construction, projections and command setup. A factory returning a singleton is
 not independent. Ignite starts owned actors, observation and effects only when
-a hook subscription commits.
+a hook commits, through observation or a command issued from a layout effect or
+callback ref. Construction alone starts none of them.
 
 ## Observation handles
 
@@ -35,7 +36,10 @@ a hook subscription commits.
 `{ unsubscribe() }`. End a temporary observer when its consumer leaves.
 An independent `useIgnite(core)` releases its private runtime automatically on
 unmount. A genuine new mount starts fresh; synchronous Strict Mode replay keeps
-the live runtime. A shared hook releases only its own subscription. Neither
+the live runtime. Activity hiding retains state, commands and already-active
+source resources; view subscriptions and independent projection effects pause.
+Removal or core replacement releases the retained runtime, and terminal core
+disposal also drains hidden runtimes. A shared hook releases only its own subscription. Neither
 unmount disposes the reusable core or shuts down a borrowed source.
 
 True element disconnect releases the view's forwarding subscription; reconnect

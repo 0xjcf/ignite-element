@@ -325,7 +325,8 @@ The canonical flow is:
   use a separate runtime for independent inputs.
 - Independent hook construction and initialization must be safe to repeat and
   discard without external work or resources requiring cleanup. Ignite activates
-  observation and owned actors on committed subscription, and releases the
+  observation and owned actors on committed subscription or command use, retains
+  hidden Activity runtimes while view delivery is disconnected, and releases the
   private runtime on unmount while keeping its reusable core alive.
 - Commands express source-directed semantic intent.
 - Routing remains separate from source behavior and projection.

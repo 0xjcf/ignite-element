@@ -52,7 +52,7 @@ discardable construction for independent hooks and authorized completion of slic
 | Package build, declarations and export verification | All four packages pass |
 | Strict package/source/test type checks | Pass |
 | Packed public consumers | All configured ESM, strict declaration, optional-peer, bundling and runtime-import lanes pass; includes removed-option controls and aliased Redux command inference |
-| Package suite with coverage | 74 files / 823 tests pass; 88.45% statements, 84.71% branches |
+| Package suite with coverage | 74 files / 838 tests pass; 88.43% statements, 84.62% branches |
 | Script suite | 148 tests pass with actual Node/npm and pnpm 10.33 executables plus canonical temporary directory |
 | Example runtime tests | All 10 discovered groups pass |
 | Example type checks | All 13 groups pass |
@@ -72,7 +72,7 @@ duplicates, two cores borrowing one source, no late delivery and idempotent
 terminal disposal. Existing suites retain isolated element, native event,
 rollback, terminal-failure and shared React coverage.
 
-The new 31-test binding matrix covers actual XState machines, Redux slices and
+The 46-test binding matrix covers actual XState machines, Redux slices and
 fresh-store factories, and MobX fresh-observable factories: independent pairs,
 immutable snapshot identity, command identity, synchronous replay, fresh remount,
 abandoned renders, core replacement, per-runtime effects, queued cancellation,
@@ -86,7 +86,41 @@ enhanced dispatch. Source observation counts distinguish two Redux subscriptions
 when effects are enabled from the single underlying MobX reaction/XState actor;
 all return to zero at the owning boundary. Native tests independently cover
 abandonment, Strict Mode, replacement, remount and automatic cleanup for all
-three runtimes, alongside the two existing borrowed-XState cases.
+three runtimes, alongside the two existing borrowed-XState cases. Each independent
+native case also checks descendant layout and host callback-ref commands, with
+no activation during insertion bookkeeping.
+
+## Navigator correction: LC-01 and LC-02
+
+The reviewed combined candidate was `f09c9d45f266715d9ba1d147319c9a7a5b0b0737`,
+tree `20ae4740747725c41f6d8dc721c36dceb011239d`. The supplied Navigator review
+identified two `blocking_correctness` findings. Twelve added tests against that
+unchanged runtime produced 9 failures / 34 passes: Activity retention failed for
+all three adapters, as did descendant layout commands and callback-ref commands.
+The exact failing test snapshot and log are retained in the successor packet.
+
+The correction separates component retention from layout/passive subscriptions.
+Insertion effects record attachment without source activation or React updates.
+Commands can activate after attachment, including before the parent's layout
+effect. Subscription disconnection no longer schedules terminal disposal.
+Activity retains state, command identity and active source resources while view
+listeners and projection effects disconnect; actual removal/replacement releases
+them. Core disposal remains terminal for hidden retained bindings as well.
+
+Fifteen LC regressions now pass through the public XState/Redux/MobX entrypoints:
+retained hide/reveal across microtasks, initially hidden inertness and hidden
+deletion, hidden replacement/terminal disposal, descendant layout and callback
+refs. They also assert insertion bookkeeping starts no resources. Ordinary
+unmount, fresh mount, Strict Mode, abandoned renders, middleware/enhancers,
+shared-source ownership and separate headless behavior remain covered.
+
+The successor refreshed every gate in the table above. The web Activity lane uses
+React/ReactDOM 19.2.7. The isolated packed native lane uses React/test-renderer
+19.1.0 and React Native 0.81.5; its five tests include six new layout/ref scenarios.
+It does not claim native Activity or physical-device acceptance. Implementation
+uses `useInsertionEffect` beyond React's recommended CSS-in-JS audience, only for
+bookkeeping; source activation/teardown stay outside its execution phase. The
+rationale and primary React references are recorded in `spike.md`.
 
 ## Limits and friction
 
@@ -124,3 +158,12 @@ was introduced. The layout-phase correction required refreshing the build,
 strict checks, package suite, packed consumers and native fixture. Earlier
 attempts remain in the external evidence directory; final receipts identify
 which inputs were validated. No approval question interrupted slice B.
+
+For the Navigator correction, focused red/green each took under one second;
+package coverage took 6.29 seconds, scripts 15.30 seconds, Chromium 2.5 seconds,
+and the packed native Jest run 1.44 seconds (excluding installation and packing).
+The Activity test's initial `createElement` form required a JSX correction for
+strict React children types; no assertion, public type or runtime was weakened.
+Root dependencies were reused as before; packed/native and example runners used
+isolated installs. No approval interruption occurred. All task-generated output
+is removed at final custody; raw evidence and the review packet remain external.

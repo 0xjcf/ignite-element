@@ -72,21 +72,43 @@ Those allocations have no root-owned retention or source subscription. A fresh
 projection owner per binding keeps abandoned effect bookkeeping collectible.
 
 XState's private path constructs an unstarted actor, reads its initial snapshot,
-and delegates to the existing XState adapter when subscription commits. That
+and delegates to the existing XState adapter on committed activation. That
 adapter borrows this actor; the private binding separately owns actor shutdown.
 This preserves ordinary adapter, element and explicit headless acquisition.
 Redux and MobX use their existing lazy-observation adapters unchanged.
 
-A private layout-phase subscription activates before consumer layout effects can
-issue source commands. React's external-store subscription then observes the
-same binding; neither lease acquires a second runtime. Committed bindings
-register cleanup with the reusable core's terminal lifetime. Synchronous Strict Mode subscription replay reclaims the same live
-runtime before an internal microtask release. No stopped actor is restarted.
-Genuine unmount drains observation/effects and stops the owned XState actor;
-Redux/MobX release their observation without inventing native shutdown methods.
-An actual new mount gets fresh state. Commands remain bound to their original
-runtime and reject while unmounted and after disposal. Core replacement never
-retargets retained commands. Cleanup failures still attempt every release.
+Component retention is recorded in `useInsertionEffect`, before descendant
+layout effects and callback refs. This hook only records ownership and marks
+attachment; it does not activate sources, read the DOM or schedule React updates.
+Layout/external-store subscriptions activate observation, or a command called
+from a descendant layout effect/ref activates it on first use after attachment.
+Neither path acquires a second runtime.
+
+Activity hiding disconnects layout/passive subscriptions but retains component
+ownership, source state and command identity. Already-active source resources
+(including XState invocations) continue while hidden; React recipients disconnect
+and independent projection effects are suppressed. Initially hidden content is
+constructed inertly until visible subscription or explicit committed command use.
+This deliberately preserves opaque source state without snapshot cloning or
+restarting a stopped actor. Strict Mode effect replay retains the same runtime.
+
+Actual insertion cleanup on removal/core replacement marks commands unavailable
+immediately and queues resource release outside the insertion phase. The
+microtask defers teardown; absence of subscriptions is no longer evidence of
+removal. Genuine unmount drains observation/effects and stops the owned XState
+actor; Redux/MobX release observation without invented native shutdown methods.
+A new mount starts fresh. Core disposal drains retained hidden bindings too and
+remains terminal. Retained commands never target a replacement runtime. Cleanup
+failures still attempt every release.
+
+This is a deliberate library-level use of `useInsertionEffect` for retention
+bookkeeping. React recommends it for CSS-in-JS libraries; its prohibition on
+state updates is preserved here. The React 19.2.7 implementation and public
+adapter regressions distinguish insertion cleanup on deletion from Activity's
+layout/passive disconnection. The packed native host separately verifies commit
+ordering and ordinary lifecycle on React 19.1.0; it does not establish native
+Activity or physical-device support. See [React Activity](https://react.dev/reference/react/Activity)
+and [useInsertionEffect](https://react.dev/reference/react/useInsertionEffect).
 
 The binding caches snapshots between notifications. Subscribe-time replay closes
 the render-to-subscribe race. Independent queued effects are suppressed after
@@ -102,5 +124,5 @@ private binding registry and deferred release exist only to reconcile
 synchronous snapshots, abandoned renders, replay and terminal ownership.
 
 See `validation.md` and the external candidate receipt for executable evidence,
-versions, limitations and exact candidate identity. Navigator review remains
-pending; the construction-safety architecture decision is accepted.
+versions, limitations and exact candidate identity. Navigator identified LC-01/LC-02 in the first combined candidate;
+this successor corrects them and awaits re-review; the construction-safety architecture decision is accepted.

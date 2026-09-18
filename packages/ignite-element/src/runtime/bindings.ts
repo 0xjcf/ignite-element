@@ -4,7 +4,9 @@ import type { Lifetime } from "./lifetime";
 export type BindingStore = {
 	/** Headless/shared bootstrap; independent bindings are constructed inertly. */
 	prepare(): void;
-	/** Private view lease acquired during the committed layout phase. */
+	/** Component retention, recorded without source activation during insertion. */
+	attach?(): () => void;
+	/** Visible view lease acquired during the committed layout phase. */
 	commit?(): () => void;
 	read(): Readonly<Record<string, unknown>>;
 	subscribe(listener: () => void): () => void;

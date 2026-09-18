@@ -1,3 +1,4 @@
+/** @jsxImportSource react */
 import {
 	configureStore,
 	createSlice,
@@ -5,16 +6,16 @@ import {
 	type StoreEnhancer,
 } from "@reduxjs/toolkit";
 import { act, cleanup, render, renderHook } from "@testing-library/react";
+import { igniteCore as mobxCore } from "ignite-element/mobx";
+import { useIgnite } from "ignite-element/react";
+import { igniteCore as reduxCore } from "ignite-element/redux";
+import { igniteCore as xstateCore } from "ignite-element/xstate";
 import { makeAutoObservable, onBecomeObserved, onBecomeUnobserved } from "mobx";
 import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { assign, createMachine, emit, fromCallback, setup } from "xstate";
 import { jsx } from "../../jsx/jsx-runtime";
-import { igniteCore as mobxCore } from "../../mobx";
-import { useIgnite } from "../../react";
-import { igniteCore as reduxCore } from "../../redux";
 import { acquireBindingStore } from "../../runtime/bindings";
-import { igniteCore as xstateCore } from "../../xstate";
 
 const slice = createSlice({
 	name: "counter",
@@ -165,6 +166,7 @@ for (const kind of ["xstate", "redux", "slice", "mobx"] as const) {
 			if (typeof add !== "function") throw Error("missing command");
 			expect(() => add()).toThrow(/not committed/);
 			const notify = vi.fn();
+			const detach = binding.attach?.();
 			const first = binding.subscribe(notify);
 			const constructed = counts.constructed;
 			add();
@@ -172,7 +174,7 @@ for (const kind of ["xstate", "redux", "slice", "mobx"] as const) {
 			const changed = binding.read();
 			expect(binding.read()).toBe(changed);
 			first();
-			expect(() => add()).toThrow(/unmounted/);
+			// Observation disconnection alone does not end component retention.
 			const replay = binding.subscribe(notify);
 			await Promise.resolve();
 			expect(binding.read()).toBe(changed);
@@ -181,6 +183,8 @@ for (const kind of ["xstate", "redux", "slice", "mobx"] as const) {
 			expect(binding.read().count).toBe(2);
 			replay();
 			replay();
+			detach?.();
+			expect(() => add()).toThrow(/unmounted/);
 			await Promise.resolve();
 			expect(counts.active).toBe(0);
 			expect(() => binding.read()).toThrow(/disposed/);
@@ -580,3 +584,143 @@ it("allows source commands in committed layout effects without render-time activ
 	expect(counts.active).toBe(0);
 	core.dispose();
 });
+
+for (const kind of ["xstate", "redux", "mobx"] as const) {
+	it(`LC-01 ${kind}: retains state and commands through Activity hide/reveal`, async () => {
+		const { core, counts, effects } = fixture(kind);
+		let ctx: { count: number; add: () => void } | undefined;
+		function Counter() {
+			ctx = useIgnite(core);
+			return React.createElement("output", null, ctx.count);
+		}
+		const view = (mode: "visible" | "hidden") => (
+			<React.Activity mode={mode}>
+				<Counter />
+			</React.Activity>
+		);
+		const root = render(view("visible"));
+		if (!ctx) throw Error("missing ctx");
+		const retained = ctx;
+		await act(async () => retained.add());
+		expect(root.container.textContent).toBe("1");
+		const constructed = counts.constructed;
+		await act(async () => root.rerender(view("hidden")));
+		await Promise.resolve();
+		// Hiding retains the source, including owned actor invocations. Visible
+		// recipients detach; no independent projection effect runs while hidden.
+		expect(counts.active).toBe(kind === "redux" ? 2 : 1);
+		expect(counts.released).toBe(0);
+		const evaluated = effects.mock.calls.length;
+		await act(async () => retained.add());
+		expect(effects).toHaveBeenCalledTimes(evaluated);
+		await act(async () => root.rerender(view("visible")));
+		expect(root.container.textContent).toBe("2");
+		expect(ctx.add).toBe(retained.add);
+		expect(counts.constructed).toBe(constructed);
+		await act(async () => ctx?.add());
+		expect(root.container.textContent).toBe("3");
+		await act(async () => root.unmount());
+		expect(counts.active).toBe(0);
+		expect(() => retained.add()).toThrow(/disposed|unmounted/);
+		const fresh = render(view("visible"));
+		expect(fresh.container.textContent).toBe("0");
+		await act(async () => fresh.unmount());
+		core.dispose();
+	});
+	it(`LC-01 ${kind}: initially hidden content is inert and hidden deletion releases the runtime`, async () => {
+		const { core, counts } = fixture(kind);
+		function Counter() {
+			const ctx = useIgnite(core);
+			return React.createElement("output", null, ctx.count);
+		}
+		const view = (mode: "visible" | "hidden") => (
+			<React.Activity mode={mode}>
+				<Counter />
+			</React.Activity>
+		);
+		const root = render(view("hidden"));
+		expect(counts.constructed).toBeGreaterThan(0);
+		expect(counts.active).toBe(0);
+		await act(async () => root.rerender(view("visible")));
+		expect(root.container.textContent).toBe("0");
+		await act(async () => root.rerender(view("hidden")));
+		await act(async () => root.unmount());
+		expect(counts.active).toBe(0);
+		core.dispose();
+	});
+	for (const phase of ["descendant layout", "callback ref"] as const) {
+		it(`LC-02 ${kind}: commands are ready in ${phase}`, async () => {
+			const { core, counts } = fixture(kind);
+			function Child({ add }: { add: () => void }) {
+				React.useLayoutEffect(() => {
+					if (phase === "descendant layout") add();
+				}, [add]);
+				const ref = React.useCallback(
+					(node: HTMLSpanElement | null) => {
+						if (node && phase === "callback ref") add();
+					},
+					[add],
+				);
+				return React.createElement("span", { ref });
+			}
+			function Counter() {
+				const ctx = useIgnite(core);
+				React.useInsertionEffect(() => {
+					expect(counts.active).toBe(0);
+				}, []);
+				return React.createElement(
+					"div",
+					null,
+					React.createElement("output", null, ctx.count),
+					React.createElement(Child, { add: ctx.add }),
+				);
+			}
+			const root = render(React.createElement(Counter));
+			expect(root.container.querySelector("output")?.textContent).toBe("1");
+			expect(counts.active).toBe(kind === "redux" ? 2 : 1);
+			await act(async () => root.unmount());
+			expect(counts.active).toBe(0);
+			core.dispose();
+		});
+	}
+}
+
+for (const kind of ["xstate", "redux", "mobx"] as const) {
+	it(`LC-01 ${kind}: replacement and terminal disposal release hidden retained bindings`, async () => {
+		const first = fixture(kind),
+			second = fixture(kind);
+		let command: (() => void) | undefined;
+		function Counter({ core }: { core: typeof first.core }) {
+			const ctx = useIgnite(core);
+			command = ctx.add;
+			return React.createElement("output", null, ctx.count);
+		}
+		const view = (core: typeof first.core, mode: "visible" | "hidden") => (
+			<React.Activity mode={mode}>
+				<Counter core={core} />
+			</React.Activity>
+		);
+		const root = render(view(first.core, "visible"));
+		if (!command) throw Error("missing command");
+		const old = command;
+		await act(async () => old());
+		await act(async () => root.rerender(view(first.core, "hidden")));
+		await act(async () => root.rerender(view(second.core, "hidden")));
+		expect(first.counts.active).toBe(0);
+		expect(() => old()).toThrow(/disposed|unmounted/);
+		expect(second.counts.active).toBe(0);
+		await act(async () => root.rerender(view(second.core, "visible")));
+		expect(root.container.textContent).toBe("0");
+		await act(async () => root.rerender(view(second.core, "hidden")));
+		const retained = command;
+		second.core.dispose();
+		second.core.dispose();
+		expect(second.counts.active).toBe(0);
+		expect(() => retained()).toThrow(/disposed/);
+		expect(() => root.rerender(view(second.core, "visible"))).toThrow(
+			/disposed/,
+		);
+		await act(async () => root.unmount());
+		first.core.dispose();
+	});
+}
