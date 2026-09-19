@@ -123,9 +123,13 @@ test("public documentation preserves core-owned queued effects without a commit 
 
 	assert.doesNotMatch(model, /effects attach before the render subscription/i);
 	assert.match(model, /per delivered source update per core\/source instance/i);
+	assert.match(model, /Delivery is queued after source processing\./i);
 	assert.match(
 		model,
-		/queued after source processing, not a universal framework commit/i,
+		/does not guarantee that a renderer update or framework commit has completed/i,
 	);
-	assert.match(model, /zero-view gaps until `core.dispose\(\)`/);
+	assert.match(
+		model,
+		/observes the source until `core.dispose\(\)`, even with no connected views/,
+	);
 });

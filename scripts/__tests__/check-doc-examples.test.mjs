@@ -18,23 +18,14 @@ const options = {
 	moduleResolution: ts.ModuleResolutionKind.Bundler,
 };
 
-function example(file, marker) {
-	const content = fs.readFileSync(
-		path.join(site, "src/content/docs", file),
-		"utf8",
-	);
-	const code = [...content.matchAll(/```(?:ts|tsx)\n([\s\S]*?)\n```/g)]
-		.map((match) => match[1])
-		.find((block) => block.includes(marker));
-	assert.ok(code, `Missing substantive documentation example: ${file}`);
-	return code;
-}
-
 const redux = fs.readFileSync(
 	path.join(repo, "scripts/__tests__/fixtures/docs-check-redux.ts"),
 	"utf8",
 );
-const actorWeb = example("guides/actor-web.mdx", "const homeTopology =");
+const actorWeb = fs.readFileSync(
+	path.join(repo, "scripts/__tests__/fixtures/docs-check-actor-web.ts"),
+	"utf8",
+);
 
 function check(codes, { missing } = {}) {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "ignite-doc-check-"));
@@ -62,6 +53,12 @@ function check(codes, { missing } = {}) {
 		fs.writeFileSync(
 			path.join(fixtureSite, "scripts/check-doc-examples.mjs"),
 			checker,
+		);
+		fs.mkdirSync(path.join(fixtureSite, "node_modules"), { recursive: true });
+		fs.symlinkSync(
+			path.join(site, "node_modules/ignite-element"),
+			path.join(fixtureSite, "node_modules/ignite-element"),
+			"dir",
 		);
 		for (const [name, version] of [
 			["@reduxjs/toolkit", "2.12.0"],
