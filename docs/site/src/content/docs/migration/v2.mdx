@@ -8,7 +8,9 @@ sidebar:
 
 Ignite Element v2 introduces the default Ignite JSX renderer, diff-based JSX updates, and an optional `ignite.config.ts` compatibility layer for shared styles, diagnostics, or `lit`. Use this guide to upgrade from v1.x.
 
-If you are upgrading from v2 to v3, continue with [Migrate command emission](/ignite-element/migration/effects-events/).
+This page describes historical v2.2.2 behavior, not the current v3 beta.
+
+If you are upgrading from v2 to v3, use [Migrate from v2 to v3](/ignite-element/migration/v3/).
 
 ## TL;DR
 
@@ -16,7 +18,7 @@ If you are upgrading from v2 to v3, continue with [Migrate command emission](/ig
 2. Set `"jsxImportSource": "ignite-element/jsx"` (or add the pragma per file).
 3. Move component CSS into ordinary `<style>` tags or imported CSS text.
 4. Add `ignite.config.ts` only if you need shared shadow-root styles, diagnostics, or `renderer: "lit"`.
-5. Verify shared-adapter lifetime: a consumer-owned shared adapter remains observed until terminal core disposal. The local lifecycle candidate removes `cleanup`; see the [migration note](/ignite-element/migration/remove-cleanup/).
+5. Verify v2 shared-adapter teardown; `cleanup: false` retains observation across element disconnects.
 
 ## 1) Install
 
@@ -49,7 +51,9 @@ Or add a file-level pragma:
 
 For the default v2 path, keep styles next to the JSX that uses them:
 
-```tsx
+This styling fragment assumes `component` is your v2 source-backed registrar with a `title` state.
+
+```tsx title="v2 styling (fragment)"
 const cardStyles = `
   :host { display: block; }
   .card { padding: 1rem; }
@@ -68,7 +72,7 @@ If your bundler supports CSS-as-text imports, you can import that string instead
 ## 4) Add `ignite.config.ts` only for shared defaults
 
 ```ts
-import { defineIgniteConfig } from 'ignite-renderer';
+import { defineIgniteConfig } from 'ignite-element';
 
 export default defineIgniteConfig({
   styles: new URL('./styles.css', import.meta.url).href,
@@ -77,7 +81,7 @@ export default defineIgniteConfig({
 });
 ```
 
-Keep the config/plugins path for advanced compatibility only. If you already maintain legacy config auto-loading, preserve that wiring yourself; it is no longer part of the stable `ignite-element` public API.
+Load the config before registering components. A v2 application can retain its existing config-loader plugin; v3 configuration changes are covered in the [v2-to-v3 guide](/ignite-element/migration/v3/#update-configuration-imports).
 
 ## 5) Update renderers
 
@@ -86,14 +90,15 @@ Keep the config/plugins path for advanced compatibility only. If you already mai
 
 ## 6) Shared Adapter Teardown
 
-A consumer-owned shared source (a started actor/store/observable you pass) is kept alive for the core's lifetime — element disconnects don't release its adapter, and Ignite never stops a source it didn't create. Isolated sources Ignite creates (e.g., a bare XState machine) still get a per-element adapter stopped on disconnect.
-The local lifecycle candidate rejects any explicitly supplied `cleanup` key. Published beta.14 still exposes the option; its early-teardown path can freeze reconnects.
+In v2.2.2, shared adapters are reference-counted and release their observation after the last element disconnects by default. `cleanup: false` retains that observation. Borrowed actors remain application-owned.
+
+The following fragment assumes your application supplies `machine`, the `states` projection and `Renderer`.
 
 ```ts
 const actor = createActor(machine);
 actor.start();
 
-const shared = igniteCore({ source: actor, view: /* ... */ });
+const shared = igniteCore({ source: actor, cleanup: false, states: /* ... */ });
 shared('shared-counter', Renderer);
 // later: actor.stop();
 ```

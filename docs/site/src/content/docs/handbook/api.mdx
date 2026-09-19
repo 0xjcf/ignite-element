@@ -34,7 +34,7 @@ Document and speech projections use non-DOM targets.
 | `commands({ source })` | Object of functions that call the active source |
 | `events(event)` | Typed public event declarations, not runtime payload validation |
 | `effects({ snapshot, prevSnapshot, select, emit })` | Synchronous `void` callback; see [Events & effects](/ignite-element/handbook/events/) |
-| Removed `cleanup` | The local candidate rejects explicit use; published beta.14 still exposes it. See the [migration note](/ignite-element/migration/remove-cleanup/). |
+| Removed `cleanup` | Explicit use is rejected. See the [migration note](/ignite-element/migration/remove-cleanup/). |
 
 Keep `states` and `commands` inline so TypeScript infers their types.
 
@@ -73,7 +73,7 @@ For detailed execution, error, catalogue, and disposal edge cases, see the [head
 
 Direct calls preserve the original return value or promise.
 
-In the local lifecycle candidate, definition/fresh-factory inputs provide a private runtime per hook, released automatically on unmount.
+Definition/fresh-factory inputs provide a private runtime per hook, released automatically on unmount.
 
 Existing-source hooks remain shared and release only their subscription.
 

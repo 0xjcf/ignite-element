@@ -151,7 +151,9 @@ async function findDocs(dir) {
 	for (const entry of await readdir(dir, { withFileTypes: true })) {
 		const full = join(dir, entry.name);
 		const rel = relative(DOCS_DIR, full).split(sep).join("/");
-		if (ARCHIVE.test(rel)) continue;
+		// The v1-to-v2 guide is historical even in the current navigation shell.
+		// Its config import is validated against public v2 by check:primary.
+		if (ARCHIVE.test(rel) || rel === "migration/v2.mdx") continue;
 		if (entry.isDirectory()) out.push(...(await findDocs(full)));
 		else if (/\.mdx?$/.test(entry.name)) out.push(full);
 	}

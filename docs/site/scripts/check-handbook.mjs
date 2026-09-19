@@ -121,11 +121,9 @@ const canonical = fs
 	.trim();
 assert.match(canonical, /commands: \(\{ source \}\)/);
 assert.match(full, /Commands receive \{ source \}/);
-assert.doesNotMatch(full, /candidate checkout|candidate packages/i);
-assert.match(full, /Unreleased preview/);
-assert.match(
+assert.doesNotMatch(
 	full,
-	/Published beta\.14 does not support the `\{ source \}` command context/,
+	/Unreleased preview|local (?:lifecycle )?candidate|upcoming release|candidate checkout|candidate packages/i,
 );
 const historical = fs.readFileSync(
 	path.join(repo, "scripts/__tests__/fixtures/handbook/beta14-toggle.tsx"),

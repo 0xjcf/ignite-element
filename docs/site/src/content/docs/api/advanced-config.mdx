@@ -109,7 +109,9 @@ Because this path imports a scoped renderer directly, `@ignite-element/renderer`
 
 Normal facade/JSX consumers do not need to install scoped packages explicitly.
 
-```ts no-check
+This fragment assumes `component` is your source-backed core with `isOn` and `toggle`, as in [Getting started](/ignite-element/#build-a-component).
+
+```ts no-check title="Lit renderer (fragment)"
 import '@ignite-element/renderer/lit';
 import { html } from 'lit-html';
 

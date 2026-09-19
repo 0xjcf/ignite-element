@@ -4,7 +4,11 @@ Started at beta `cd40ce117cf5a2a3be92415ba7e02bd99e45d969`, tree `632410b8b74284
 
 This ledger carries all A01–A12 and E01–E10 findings from the supplied audits. Findings outside the current slice are queued reports, not newly verified conclusions. Shared presentation affects all routes; it does not confer content acceptance. Getting started is accepted by the Operator at `7d8e37840bfacb2835bd2f99f2cab5b9e9558275`; no other page is accepted. Review order: Getting started, Sources, Views, Events, Ownership, Testing, API, Examples, then remaining destinations individually. Prior review records remain historical.
 
-Current slice: Getting started re-review against merged lifecycle beta `4e1441ead1f91d4f6de60ab0f4187bcee59c9a21`. The recoverable successor is `task/docs-getting-started-lifecycle`; both parked branches remain unchanged. See the [lifecycle reconciliation checkpoint](getting-started-lifecycle-reconciliation.md). Getting started awaits acceptance; Sources awaits review; Views is queued. Stop after this page. Shared presentation remains preserved and does not confer content acceptance.
+Current checkpoint: the complete local documentation release set awaits Navigator review against merged lifecycle beta `4e1441ead1f91d4f6de60ab0f4187bcee59c9a21`. The recoverable candidate is `task/docs-release-reconciliation`; both parked branches and the earlier checkpoint remain preserved. See the [release-set reconciliation](local-docs-release-reconciliation.md). Getting started awaits re-review; Sources awaits review; Views is queued. Shared compatibility verification does not confer page acceptance.
+
+## Complete release-set reconciliation — 2026-09-19
+
+The updated Operator prompt supersedes the page-only release hold and preview-banner requirement in the historical entry below. The unpublished candidate now uses final learner-facing copy. Narrow corrections cover hook/headless ownership, explicit tool-schema descriptions, complete linked examples, historical v2 configuration, prerequisites and the screencast link. The full eight-page handbook, supporting routes, generated exports and download were checked against candidate packages. Broader editorial work remains queued; deployment still waits for release-set acceptance and verified public packages.
 
 ## Lifecycle reconciliation and unreleased preview — 2026-09-19
 

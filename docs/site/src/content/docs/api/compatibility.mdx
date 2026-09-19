@@ -87,13 +87,17 @@ Handles and projection sessions remain independently releasable.
 
 With an existing actor, store or observable, the core is ready at construction and needs no preparation read before `useIgnite(core)`.
 
-In the local lifecycle candidate, machine, slice and fresh-factory inputs also work directly with `useIgnite(core)`, with a private runtime per hook and no preparation read.
+Machine, slice and fresh-factory inputs also work directly with `useIgnite(core)`, with a private runtime per hook and no preparation read.
 
 Explicit headless access uses a [separate runtime](/ignite-element/handbook/ownership/#isolated-headless-cores).
 
 Web Activity behavior was verified with React DOM 19.2.7.
 
 Native host checks use React 19.1.0 and React Native 0.81.5; they do not establish native Activity or device acceptance.
+
+Independent runtime retention uses `useInsertionEffect` internally for bookkeeping, beyond React's recommended CSS-in-JS use. Source activation and teardown occur outside that effect.
+
+React DOM and the React Native test renderer have different commit ordering; passing the native Jest host does not establish every custom renderer's lifecycle behavior.
 
 The hook never disposes its owning core on unmount.
 

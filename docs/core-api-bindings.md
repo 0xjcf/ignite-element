@@ -90,7 +90,8 @@ There is no registration rebinding, replacement overload or new source form.
 ## Framework and platform boundaries
 
 Shared cores prepare during owner-controlled construction, without a preparation-only
-read. Isolated headless acquisition remains explicit outside rendering.
+read. Independent hooks acquire a private runtime automatically; explicit
+headless methods use a separate runtime outside rendering.
 `useIgnite(core)` from
 `ignite-element/react` borrows inferred states
 and stable commands through a shared private capability. Reads are cached and

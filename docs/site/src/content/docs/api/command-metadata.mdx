@@ -8,7 +8,9 @@ sidebar:
 
 Commands are ordinary typed functions.
 
-```ts
+This configuration fragment assumes the source accepts `RESET` and `RENAME_PRESET`.
+
+```ts title="Command configuration (fragment)"
 commands: ({ source: actor }) => ({
   reset: () => actor.send({ type: 'RESET' }),
   renamePreset: (label: string) => actor.send({ type: 'RENAME_PRESET', label }),

@@ -63,7 +63,7 @@ function rejects(mutate, reason) {
 	assert.match(result.output, reason);
 }
 
-test("unreleased preview and historical beta.14 pages pass together", () =>
+test("final release copy and historical beta.14 pages pass together", () =>
 	passes());
 
 test("verified beta.14 publication and exact installation are permitted", () =>
@@ -326,36 +326,17 @@ test("quickstart cannot regain internal release instructions", () =>
 		/without internal release instructions/,
 	));
 
-test("Getting started cannot lose the preview notice", () =>
-	rejects(
-		({ replace }) =>
-			replace(
-				installation,
-				":::note[Unreleased preview]",
-				":::note[Current release]",
-			),
-		/must retain the unreleased preview notice/,
-	));
-test("Getting started cannot claim the candidate API is in beta.14", () =>
-	rejects(
-		({ replace }) =>
-			replace(
-				installation,
-				"Published beta.14 does not support",
-				"Published beta.14 supports",
-			),
-		/must distinguish the candidate API/,
-	));
-test("Getting started cannot present the download as currently installable", () =>
-	rejects(
-		({ replace }) =>
-			replace(
-				installation,
-				"instructions below require the upcoming release",
-				"instructions below work today",
-			),
-		/must qualify installation and downloads/,
-	));
+for (const text of [
+	":::note[Unreleased preview]",
+	"The local candidate uses new APIs.",
+	"Wait for the upcoming release.",
+]) {
+	test(`Getting started rejects release administration: ${text}`, () =>
+		rejects(
+			({ append }) => append(installation, text),
+			/without internal release instructions/,
+		));
+}
 
 test("stable migration guidance does not teach early-beta APIs as v2", () => {
 	const content = fs.readFileSync(

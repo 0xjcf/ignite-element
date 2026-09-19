@@ -70,7 +70,7 @@ function exclusionMechanism(block) {
 function inspectCurrentDocs() {
 	const files = walk(docsRoot).filter((file) => {
 		const relative = path.relative(docsRoot, file).split(path.sep).join("/");
-		return !ARCHIVE.test(relative);
+		return !ARCHIVE.test(relative) && relative !== "migration/v2.mdx";
 	});
 	const exclusions = [];
 	let total = 0;

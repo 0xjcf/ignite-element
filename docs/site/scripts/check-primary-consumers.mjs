@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
 	copyFileSync,
 	cpSync,
@@ -115,6 +115,48 @@ for (const lane of ["web", "native"]) {
 				"@testing-library/react": "16.3.0",
 			},
 		};
+		// Compile and exercise the actual supporting guide modules, without source aliases.
+		for (const [page, names] of [
+			[
+				"guides/accessibility-first.mdx",
+				[
+					"thermostat.ts",
+					"thermostat-tools.ts",
+					"thermostat-view.tsx",
+					"thermostat-headless.ts",
+				],
+			],
+			[
+				"guides/agent-runtime-v3.mdx",
+				[
+					"agent-counter.ts",
+					"agent-counter-view.tsx",
+					"agent-counter-tools.ts",
+				],
+			],
+			["api/headless-runtime.mdx", ["headless-toggle.ts"]],
+		]) {
+			const content = readFileSync(
+				join(repo, "docs/site/src/content/docs", page),
+				"utf8",
+			);
+			for (const name of names) {
+				const marker = `title="${name}"`;
+				const block = [
+					...content.matchAll(/^```(?:ts|tsx)([^\n]*)\n([\s\S]*?)^```/gm),
+				].find((match) => match[1].includes(marker));
+				if (!block) throw new Error(`Missing guide module: ${page} ${name}`);
+				writeFileSync(join(dir, name), block[2]);
+			}
+		}
+		copyFileSync(
+			join(repo, "examples/adapters/xstate/apiShowcaseMachine.ts"),
+			join(dir, "apiShowcaseMachine.ts"),
+		);
+		copyFileSync(
+			join(repo, "scripts/__tests__/fixtures/handbook/guides.test.tsx"),
+			join(dir, "guides.test.tsx"),
+		);
 		for (const name of ["light-switch.tsx", "light-switch.css"])
 			copyFileSync(
 				join(repo, "docs/site/src/examples/light-switch/src", name),
@@ -292,6 +334,38 @@ for (const lane of ["web", "native"]) {
 	run(dir, "pnpm", ["install"]);
 	run(dir, "pnpm", ["exec", "tsc", "-p", "tsconfig.json"]);
 	run(dir, "pnpm", ["exec", "vitest", "run"]);
+}
+// Historical v2 config is checked against v2, never the candidate's source types.
+{
+	const dir = join(output, "published-v2");
+	mkdirSync(dir);
+	const page = readFileSync(
+		join(repo, "docs/site/src/content/docs/migration/v2.mdx"),
+		"utf8",
+	);
+	const config = [...page.matchAll(/^```ts\n([\s\S]*?)^```/gm)].find((block) =>
+		block[1].includes("defineIgniteConfig"),
+	);
+	if (!config) throw new Error("Historical v2 configuration example missing");
+	writeFileSync(join(dir, "config.ts"), config[1]);
+	copyFileSync(join(output, "web/tsconfig.json"), join(dir, "tsconfig.json"));
+	json(join(dir, "package.json"), {
+		private: true,
+		type: "module",
+		// v2 declares all of these peers as required; v3 isolation remains separate.
+		dependencies: {
+			"ignite-element": "2.2.2",
+			xstate: "5.32.1",
+			"@reduxjs/toolkit": "2.12.0",
+			redux: "5.0.1",
+			mobx: "6.16.1",
+			"lit-html": "3.3.1",
+		},
+		devDependencies: { typescript: "5.9.3", "@types/node": "25.0.3" },
+	});
+	writeFileSync(join(dir, ".npmrc"), "auto-install-peers=false\n");
+	run(dir, "pnpm", ["install"]);
+	run(dir, "pnpm", ["exec", "tsc", "-p", "tsconfig.json"]);
 }
 console.log(
 	`Strict packed web/native consumers plus candidate preview and historical beta.14 fixture passed. Task-local evidence retained: ${output}`,

@@ -38,9 +38,11 @@ Choose the input that creates a new source for each element:
 
 The MobX function must create a new observable each time it is called.
 
-Returning the same existing observable would share its state.
+For shared state, pass the existing observable directly instead of returning a singleton from a factory.
 
 The complete modules below export a `core` with derived state and commands.
+
+Definitions and fresh factories also provide a private runtime per `useIgnite(core)` call. Existing actor, store or observable instances share state instead.
 
 Use that core to [register a view](/ignite-element/handbook/views/#ignite-jsx), as shown in Getting started.
 
@@ -113,7 +115,7 @@ Use a store factory when you need custom middleware or combined reducers.
 
 The factory must create a new store each time it is called.
 
-In the local lifecycle candidate, independent hook construction, including factory middleware/enhancers, must be safe to repeat and discard without cleanup; see [ownership](/ignite-element/handbook/ownership/).
+Independent hook construction, including factory middleware/enhancers, must be safe to repeat and discard without cleanup; see [ownership](/ignite-element/handbook/ownership/).
 
 Save this alternative module as `redux-factory.ts`:
 
@@ -145,7 +147,7 @@ Save this complete module as `mobx-factory.ts`:
 
 `makeAutoObservable(this)` makes each `Counter` instance observable.
 
-`source: () => new Counter()` lets Ignite create a new instance for each element, or each hook in the local lifecycle candidate.
+`source: () => new Counter()` lets Ignite create a new instance for each element, or each hook.
 
 Existing instances remain shared.
 

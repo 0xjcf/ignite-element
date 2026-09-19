@@ -30,7 +30,7 @@ See the [shared React example](/ignite-element/handbook/views/#two-views-one-sou
 
 ### Isolated headless cores
 
-In the local lifecycle candidate, machine/slice/fresh-factory inputs create a private runtime per element or React/React Native hook.
+Machine/slice/fresh-factory inputs create a private runtime per element or React/React Native hook.
 
 The synchronous hook needs no preparation-only read.
 
@@ -84,11 +84,9 @@ Shared adapters and activated effects remain observed through zero-view interval
 
 Disconnecting a view releases its subscriptions without ending application-level observation or granting native source ownership.
 
-The local lifecycle candidate removes `cleanup`; supplying it, including `false` or `undefined`, is an error.
+The `cleanup` option is removed; supplying it, including `false` or `undefined`, is an error.
 
-Published beta.14 still exposes that option and has a reconnect defect in its optional early-teardown path.
-
-See the [candidate migration note](/ignite-element/migration/remove-cleanup/) and [effect activation and timing](/ignite-element/handbook/events/#delivery-and-ownership).
+See the [migration note](/ignite-element/migration/remove-cleanup/) and [effect activation and timing](/ignite-element/handbook/events/#delivery-and-ownership).
 
 ## Terminal disposal
 

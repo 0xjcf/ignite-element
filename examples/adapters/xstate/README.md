@@ -207,7 +207,7 @@ runtime.get("states");
 
 ---
 
-The development candidate no longer records stories or lifecycle histories. The bounded loop belongs to this application; asynchronous report work and shutdown remain source/application-owned. Test real controls by role and accessible name, independently of headless state assertions. Terminal `core.dispose()` also releases registered cores. It does not stop borrowed sources; the application owns their shutdown.
+The v3 runtime does not record stories or lifecycle histories. The bounded loop belongs to this application; asynchronous report work and shutdown remain source/application-owned. Test real controls by role and accessible name, independently of headless state assertions. Terminal `core.dispose()` also releases registered cores. It does not stop borrowed sources; the application owns their shutdown.
 
 `apiShowcaseCommandDefinitions` keeps the application's tool descriptions and input schemas separate from these ordinary commands. For example, `setLimit` retains description "Set maximum count" and `{ type: "number", minimum: 3, maximum: 12 }`. Core discovery reports the name with `input: null`; it does not infer or validate that schema.
 

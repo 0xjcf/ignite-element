@@ -35,9 +35,9 @@ An accessible component usually needs the same facts regardless of channel:
 
 Those facts belong in the runtime contract before they are styled in the DOM.
 
-```ts no-check
+```ts title="thermostat.ts"
 import { igniteCore } from "ignite-element/xstate";
-import { assign, setup } from "xstate";
+import { assign, createActor, setup } from "xstate";
 
 type ThermostatContext = {
   target: number;
@@ -103,8 +103,10 @@ const thermostatMachine = setup({
   },
 });
 
+export const source = createActor(thermostatMachine).start();
+
 export const thermostat = igniteCore({
-  source: thermostatMachine,
+  source,
 
   states: (snapshot) => ({
     target: snapshot.context.target,
@@ -132,8 +134,8 @@ export const thermostat = igniteCore({
 
 Tool consumers preserve their explicit constraints separately from ordinary commands:
 
-```ts
-const thermostatToolSchema = {
+```ts title="thermostat-tools.ts"
+export const thermostatToolSchema = {
   commands: {
     setTargetDraft: {
       description: "Synchronize the actor-owned target draft.",
@@ -157,7 +159,11 @@ The application persistence service handles the `SAVE_TARGET` request and sends 
 
 While the machine is in `saving`, neither draft edits nor another save transition are available, so `canEditTarget` and `canSave` disable their respective controls from actor facts.
 
-That single registration already supports three consumers:
+The existing actor is shared between the rendered controls and explicit headless access.
+
+At the end of its application-owned lifetime, call `thermostat.dispose()` in `try` and `source.stop()` in `finally`. Individual view unmounts do not stop this source.
+
+That core supports three consumers:
 
 1. A browser UI can render labels, hints, and disabled states.
 2. A headless test can assert `get('states')`, including `canSave`, and the minimal `get('schema')` catalogue.
@@ -167,9 +173,11 @@ That single registration already supports three consumers:
 
 Once the behavior contract is stable, render it with native controls before reaching for ARIA.
 
-This renderer fragment uses the thermostat core above.
+Save this view beside `thermostat.ts` above.
 
-```tsx no-check title="thermostat-view.tsx (fragment)"
+```tsx title="thermostat-view.tsx"
+/** @jsxImportSource ignite-element/jsx */
+import { thermostat } from './thermostat';
 thermostat("thermostat-panel", (ctx) => (
   <form aria-describedby="thermostat-hint thermostat-status">
     <label for="thermostat-target">{ctx.targetLabel}</label>
@@ -180,7 +188,11 @@ thermostat("thermostat-panel", (ctx) => (
       min={58}
       max={82}
       value={ctx.target}
-      onInput={(event) => ctx.setTargetDraft(Number(event.currentTarget.value))}
+      onInput={(event: Event) => {
+        if (event.currentTarget instanceof HTMLInputElement) {
+          ctx.setTargetDraft(Number(event.currentTarget.value));
+        }
+      }}
       disabled={!ctx.canEditTarget}
       aria-invalid={ctx.errorText ? "true" : undefined}
       aria-describedby={
@@ -203,7 +215,8 @@ thermostat("thermostat-panel", (ctx) => (
     <button
       type="button"
       disabled={!ctx.canSave}
-      onClick={(event) => {
+      onClick={(event: MouseEvent) => {
+        if (!(event.currentTarget instanceof HTMLButtonElement)) return;
         const draft = event.currentTarget.form?.elements.namedItem("target");
         if (draft instanceof HTMLInputElement) {
           ctx.saveTarget(Number(draft.value));
@@ -224,7 +237,8 @@ Active user edits call `setTargetDraft`, which sends `SET_TARGET_DRAFT` and re-r
 
 External integrations use the same command path, so their updates converge through the same actor state:
 
-```ts no-check
+```ts title="External update (fragment)"
+// After importing thermostat from ./thermostat:
 await thermostat.execute({ command: "setTargetDraft", input: 72 });
 ```
 
@@ -245,7 +259,10 @@ The DOM projection expresses those facts with native semantics instead of trying
 
 Ignite's current runtime APIs are already enough to verify most of the contract before any DOM assertion:
 
-```ts no-check
+```ts title="thermostat-headless.ts"
+import { thermostat } from './thermostat';
+import { thermostatToolSchema } from './thermostat-tools';
+
 const schema = thermostat.get("schema");
 const states = thermostat.get("states");
 const canSave = states.canSave;
@@ -258,18 +275,20 @@ if (canSave) {
     });
     console.log(result.snapshot, result.events);
   } catch (error) {
-    // Availability can change after preflight; execute remains authoritative.
+    // Availability can change; source guards enforce behavior.
+    // Fulfillment alone does not confirm that persistence succeeded.
     console.error("Saving the target was rejected or failed.", error);
   }
 }
 
-console.log(schema.commands.saveTarget.description);
+console.log(thermostatToolSchema.commands.saveTarget.description);
+console.log(schema.commands); // names and unknown input schemas, not descriptions
 console.log(states.statusLabel);
 ```
 
 This is the right place to verify:
 
-- command descriptions and input shapes,
+- separately supplied tool descriptions and input schemas,
 - dynamic availability,
 - projected status summaries,
 - and post-command events.
@@ -356,7 +375,7 @@ Use this split when you review an accessibility-first component.
 
 ### Headless runtime can verify
 
-- `get('schema')` exposes the right commands and input metadata.
+- `get('schema')` exposes command names with unknown input schemas; the explicit tool schema supplies descriptions and validation.
 - Derived availability matches the source's current rules; it is a hint, not authorization.
 - `get('states')` exposes labels, status summaries, errors, and disabled reasons.
 - Validated semantic documents reject unsafe content and keep stable ids.

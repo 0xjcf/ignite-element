@@ -16,8 +16,17 @@ Shared-source cores prepare during construction and support terminal disposal af
 
 See [Events & effects](/ignite-element/handbook/events/) for native event forwarding and effect delivery.
 
-```ts
+```ts title="headless-toggle.ts"
+import { createMachine } from 'xstate';
 import { igniteCore } from 'ignite-element/xstate';
+
+const counterMachine = createMachine({
+  initial: 'off',
+  states: {
+    off: { on: { TOGGLE: 'on' } },
+    on: { on: { TOGGLE: 'off' } },
+  },
+});
 
 const counter = igniteCore({
   source: counterMachine,
@@ -65,7 +74,7 @@ There is no zero-argument form, raw-snapshot key, path language or function look
 
 Existing-source cores are ready at construction and need no preparation read before `useIgnite(core)`.
 
-For isolated cores, acquire the headless runtime outside framework rendering before using the hook.
+Independent hooks also work directly, without a preparation read. Explicit headless access acquires a separate runtime; it does not inspect a mounted hook's private state.
 
 See [isolated headless cores](/ignite-element/handbook/ownership/#isolated-headless-cores).
 
@@ -210,13 +219,13 @@ Project availability into public states while preserving source enforcement; ava
 
 With an existing actor, store or observable, pass the core directly to the hook without a preparation read.
 
-For a machine, slice or source factory, [acquire the isolated headless runtime](/ignite-element/handbook/ownership/#isolated-headless-cores) outside rendering first.
+A machine, slice or fresh source factory gives each hook a private runtime.
 
-Multiple hooks using the same core share its headless runtime.
+Existing actor, store or observable instances share state. Explicit headless operations on independent cores use a [separate runtime](/ignite-element/handbook/ownership/#isolated-headless-cores).
 
 The hook returns inferred derived states and stable callable commands.
 
-It uses pure cached reads and releases only its own subscription on unmount.
+It uses cached reads. Unmount releases the private runtime for independent inputs, or only the view subscription for shared inputs. Neither unmount disposes the core or stops a borrowed source.
 
 Snapshot values must be suitable immutable projections: nested plain data is detached without freezing the source; arbitrary class instances and accessors are not serialized.
 
