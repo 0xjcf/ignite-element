@@ -214,7 +214,11 @@ for (const lane of ["web", "native"]) {
 		join(repo, "examples/frameworks/react/counter-core.ts"),
 		join(dir, "counter-core.ts"),
 	);
-	manifest.dependencies = { ...dependencies, xstate: "5.32.1" };
+	manifest.dependencies = {
+		...manifest.dependencies,
+		...dependencies,
+		xstate: "5.32.1",
+	};
 	manifest.pnpm = { overrides: dependencies };
 	json(join(dir, "package.json"), manifest);
 	writeFileSync(

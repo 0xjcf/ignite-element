@@ -40,7 +40,6 @@ type XStateConfigBase<
 		StateFrom<Machine>
 	>;
 	events?: EventsDefinition<Events>;
-	cleanup?: boolean;
 };
 
 type XStateEffectsOptions<

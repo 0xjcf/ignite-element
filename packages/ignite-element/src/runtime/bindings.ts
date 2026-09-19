@@ -1,13 +1,25 @@
 import type { FacadeCommandFunction } from "@ignite-element/core";
+import type { Lifetime } from "./lifetime";
 
 export type BindingStore = {
-	/** Owner-only bootstrap; read and subscribe never acquire a source. */
+	/** Headless/shared bootstrap; independent bindings are constructed inertly. */
 	prepare(): void;
+	/** Component retention, recorded without source activation during insertion. */
+	attach?(): () => void;
+	/** Visible view lease acquired during the committed layout phase. */
+	commit?(): () => void;
 	read(): Readonly<Record<string, unknown>>;
 	subscribe(listener: () => void): () => void;
 };
 // One private shared module in the multi-entry package build. No global registry.
-const stores = new WeakMap<object, BindingStore>();
+const stores = new WeakMap<
+	object,
+	{
+		store: BindingStore;
+		lifetime: Lifetime;
+		independent?: (owner: Lifetime) => BindingStore;
+	}
+>();
 const elementCommands = new WeakMap<object, readonly string[]>();
 export function registerElementCommands(
 	element: object,
@@ -43,15 +55,31 @@ export function createCommandOwner(commands: object): {
 export const registerBindingStore = (
 	core: object,
 	store: BindingStore,
+	lifetime: Lifetime,
 ): void => {
-	stores.set(core, store);
+	stores.set(core, { store, lifetime });
 };
 export const requireBindingStore = (core: object): BindingStore => {
 	const store = stores.get(core);
 	if (!store)
 		throw new Error("[useIgnite] Expected a source-backed Ignite core.");
-	return store;
+	return store.store;
 };
+
+export function registerIndependentBinding(
+	core: object,
+	create: (owner: Lifetime) => BindingStore,
+): void {
+	const record = stores.get(core);
+	if (!record) throw new Error("[useIgnite] Missing core binding.");
+	record.independent = create;
+}
+export function acquireBindingStore(core: object): BindingStore {
+	const record = stores.get(core);
+	if (!record) return requireBindingStore(core);
+	record.lifetime.assertActive();
+	return record.independent?.(record.lifetime) ?? record.store;
+}
 
 export function guardCommand<Command extends FacadeCommandFunction>(
 	command: Command,

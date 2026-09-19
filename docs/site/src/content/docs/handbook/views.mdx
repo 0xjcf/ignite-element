@@ -79,7 +79,11 @@ See the [session cleanup example](/ignite-element/handbook/ownership/#end-a-sess
 
 This example passes an existing actor, so the core is ready for `useIgnite(core)` without a preparation read.
 
-For a machine, slice or source factory, see [isolated headless cores](/ignite-element/handbook/ownership/#isolated-headless-cores).
+In the local lifecycle candidate, passing a machine, slice or fresh factory instead gives each hook private state with automatic runtime cleanup on unmount and fresh state on a genuine new mount.
+
+The same synchronous `ctx` works in React Native.
+
+Construction safety and the separate explicit headless runtime are described in [ownership](/ignite-element/handbook/ownership/#isolated-headless-cores).
 
 ## React Native
 

@@ -16,7 +16,7 @@ If you are upgrading from v2 to v3, continue with [Migrate command emission](/ig
 2. Set `"jsxImportSource": "ignite-element/jsx"` (or add the pragma per file).
 3. Move component CSS into ordinary `<style>` tags or imported CSS text.
 4. Add `ignite.config.ts` only if you need shared shadow-root styles, diagnostics, or `renderer: "lit"`.
-5. Verify shared-adapter lifetime: a consumer-owned shared adapter is kept alive for the core's lifetime by default (set `cleanup: true` to opt into reference-counted teardown when the last element disconnects).
+5. Verify shared-adapter lifetime: a consumer-owned shared adapter remains observed until terminal core disposal. The local lifecycle candidate removes `cleanup`; see the [migration note](/ignite-element/migration/remove-cleanup/).
 
 ## 1) Install
 
@@ -86,8 +86,8 @@ Keep the config/plugins path for advanced compatibility only. If you already mai
 
 ## 6) Shared Adapter Teardown
 
-A consumer-owned shared source (a started actor/store/observable you pass) is kept alive for the core's lifetime — element disconnects don't release its adapter, and Ignite never stops a source it didn't create. Isolated sources Ignite creates (e.g., a bare XState machine) still get a per-element adapter stopped on disconnect. Set `cleanup: true` on a shared core only to opt back into reference-counted teardown of the adapter.
-Most projects should not need to touch `cleanup`; treat it as a shared-adapter teardown override.
+A consumer-owned shared source (a started actor/store/observable you pass) is kept alive for the core's lifetime — element disconnects don't release its adapter, and Ignite never stops a source it didn't create. Isolated sources Ignite creates (e.g., a bare XState machine) still get a per-element adapter stopped on disconnect.
+The local lifecycle candidate rejects any explicitly supplied `cleanup` key. Published beta.14 still exposes the option; its early-teardown path can freeze reconnects.
 
 ```ts
 const actor = createActor(machine);

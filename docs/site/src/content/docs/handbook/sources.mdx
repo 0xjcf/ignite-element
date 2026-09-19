@@ -113,6 +113,8 @@ Use a store factory when you need custom middleware or combined reducers.
 
 The factory must create a new store each time it is called.
 
+In the local lifecycle candidate, independent hook construction, including factory middleware/enhancers, must be safe to repeat and discard without cleanup; see [ownership](/ignite-element/handbook/ownership/).
+
 Save this alternative module as `redux-factory.ts`:
 
 <Code code={reduxFactory} lang="ts" title="redux-factory.ts" />
@@ -143,7 +145,11 @@ Save this complete module as `mobx-factory.ts`:
 
 `makeAutoObservable(this)` makes each `Counter` instance observable.
 
-`source: () => new Counter()` lets Ignite create a new instance for each element.
+`source: () => new Counter()` lets Ignite create a new instance for each element, or each hook in the local lifecycle candidate.
+
+Existing instances remain shared.
+
+Independent views release their runtime automatically; call `core.dispose()` when the core's owner ends.
 
 Incrementing one element changes only that element's counter.
 

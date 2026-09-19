@@ -29,7 +29,6 @@ export const createVoiceWorkbenchComponent = (
 		voiceWorkbenchCommandDefinitions;
 	const component = igniteCore({
 		source: actor,
-		cleanup: true,
 		events: (event) => ({
 			"prompt-submitted": event<{
 				turnId: string;

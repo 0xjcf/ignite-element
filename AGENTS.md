@@ -319,6 +319,15 @@ The canonical flow is:
 - Ignite owns observation, derived projections, commands, outward events,
   rendering coordination, and cleanup of its own observation handles.
 - Ignite observation cleanup does not imply caller-owned source shutdown.
+- XState machines, Redux slices/fresh-store factories, and MobX fresh-observable
+  factories provide independent element and React/React Native hook runtimes.
+  Existing instances remain borrowed and shared; explicit headless operations
+  use a separate runtime for independent inputs.
+- Independent hook construction and initialization must be safe to repeat and
+  discard without external work or resources requiring cleanup. Ignite activates
+  observation and owned actors on committed subscription or command use, retains
+  hidden Activity runtimes while view delivery is disconnected, and releases the
+  private runtime on unmount while keeping its reusable core alive.
 - Commands express source-directed semantic intent.
 - Routing remains separate from source behavior and projection.
 - Environmental I/O belongs in application/source ports, native actions,
@@ -332,8 +341,9 @@ Effects evaluate once per delivered source notification per core/source
 instance after an initial baseline, not once per view. They activate on
 legitimate runtime use or committed subscription/element connection, not
 constructor preparation or render-time reads. A shared evaluator and baseline
-survive zero-view intervals until core disposal, including `cleanup: true`;
-isolated instances retain independent lifetimes. Consumers are recipients, not
+survive zero-view intervals until core disposal;
+the removed `cleanup` configuration cannot opt into early shared teardown.
+Isolated instances retain independent lifetimes. Consumers are recipients, not
 additional evaluators. Queued delivery follows source processing without a
 universal framework commit barrier. Callbacks are synchronous, return `void`,
 and may emit outward facts. Core-owned failures use the existing console

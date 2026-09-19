@@ -372,7 +372,6 @@ function sendCommand(command: string, input?: unknown): void {
 
 const registerHomeBridge = igniteCore({
 	source: bridgeActor,
-	cleanup: false,
 	states: (snapshot: { context: HomeBridgeState }) => snapshot.context,
 	commands: () => ({
 		toggleLight: ({ room, on }: { room: Room; on: boolean }) =>

@@ -1,0 +1,66 @@
+---
+title: Lifecycle and independent-hook migration
+description: Remove cleanup and choose independent or shared hook state in the local candidate.
+---
+
+This is an unreleased local candidate change. Published beta.14 still exposes
+`cleanup` and can reuse a stopped shared adapter after `cleanup: true` disconnects
+its final view without an activated effect evaluator.
+
+Remove the `cleanup` key from source-backed configuration. This includes
+`cleanup: false` and explicitly supplied `cleanup: undefined`. Dedicated source
+entrypoints reject the key before acquiring the source, including JavaScript and
+prebuilt configurations. There is no replacement flag.
+
+```ts
+import { igniteCore } from "ignite-element/xstate";
+
+// actor is an existing application-owned source.
+const counter = igniteCore({
+  source: actor,
+  states: snapshot => ({ count: snapshot.context.count }),
+  commands: ({ source }) => ({
+    increment: () => source.send({ type: "INCREMENT" }),
+  }),
+});
+```
+
+An independent custom element releases its private runtime on true disconnect;
+a same-turn move preserves it. A shared view releases its own observation handles
+on disconnect. Its core retains application-level observation and activated
+effects, including while no views are connected. At final application shutdown,
+call `counter.dispose()`, then perform any application-owned native shutdown.
+Disposal is terminal; a shorter session needs a newly created source/core for
+its next session. Do not reconnect a disposed singleton.
+
+The candidate also changes `useIgnite(core)` for XState machines, Redux slices
+and factories returning fresh Redux stores or MobX observables. Each hook now
+owns private state and releases it automatically on unmount. A genuine remount
+starts fresh. Existing-source hooks remain shared and release only their view
+subscription; they do not dispose the core.
+
+```ts
+// With the XState machine from your behavior module:
+const independentCounter = igniteCore({
+  source: machine,
+  states: snapshot => ({ count: snapshot.context.count }),
+  commands: ({ source }) => ({
+    increment: () => source.send({ type: "INCREMENT" }),
+  }),
+});
+// Each component calls: const ctx = useIgnite(independentCounter)
+```
+
+Remove preparation-only `core.get("states")` from independent hook setup.
+Preparing a machine-backed headless runtime no longer makes hooks share it.
+When sharing is intended, construct an existing source outside rendering and
+pass that instance, as in the first example. Explicit headless operations stay
+attached to their own runtime for independent inputs.
+
+Independent factories and initialization must be safe to repeat and discard
+without external work or resources requiring cleanup. This includes context and
+reducer initialization, Redux middleware/enhancer setup, observable construction,
+projections and command setup. Ignite defers its own activation, not arbitrary
+work performed by a factory. Return a fresh source, not the same singleton.
+The hook remains synchronous; no Provider, loading value or cleanup hook is added.
+These are local candidate behaviors, not published beta.14 behavior.

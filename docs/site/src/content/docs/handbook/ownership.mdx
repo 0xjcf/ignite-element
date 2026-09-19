@@ -30,17 +30,21 @@ See the [shared React example](/ignite-element/handbook/views/#two-views-one-sou
 
 ### Isolated headless cores
 
-Passing an XState machine, Redux slice or source factory leaves the headless runtime uncreated until it is first used.
+In the local lifecycle candidate, machine/slice/fresh-factory inputs create a private runtime per element or React/React Native hook.
 
-Before passing that core to `useIgnite(core)`, acquire its headless runtime outside framework rendering by calling `core.get('states')`.
+The synchronous hook needs no preparation-only read.
 
-The hook rejects an isolated core whose headless runtime has not been acquired.
+Explicit `get/watch/on/execute` operations use a separate headless runtime, never an arbitrary hook's state.
 
-Multiple hooks borrowing that core share its one headless runtime.
+Independent factories and initialization must be safe to repeat and discard without external work or resources requiring cleanup.
 
-Mounting another hook does not create another actor or store.
+This includes XState context initialization, Redux reducer/middleware/enhancer initialization, MobX construction, projections and command setup.
 
-This differs from registered custom elements, where each element gets its own isolated source instance.
+A factory returning a singleton is not independent.
+
+Ignite starts owned actors, observation and effects only when a hook commits, through observation or a command issued from a layout effect or callback ref.
+
+Construction alone starts none of them.
 
 ## Observation handles
 
@@ -48,7 +52,17 @@ This differs from registered custom elements, where each element gets its own is
 
 End a temporary observer when its consumer leaves.
 
-`useIgnite(core)` automatically unsubscribes when a React or React Native component unmounts.
+An independent `useIgnite(core)` releases its private runtime automatically on unmount.
+
+A genuine new mount starts fresh; synchronous Strict Mode replay keeps the live runtime.
+
+Activity hiding retains state, commands and already-active source resources; view subscriptions and independent projection effects pause.
+
+Removal or core replacement releases the retained runtime, and terminal core disposal also drains hidden runtimes.
+
+A shared hook releases only its own subscription.
+
+Neither unmount disposes the reusable core or shuts down a borrowed source.
 
 No cleanup `useEffect` is needed in that component.
 
@@ -64,15 +78,15 @@ A source update while no view is present does not become a replayed occurrence o
 
 ### Shared observation
 
-Shared sources remain observed by default.
+Shared adapters and activated effects remain observed through zero-view intervals until terminal core disposal.
 
-`cleanup: true` permits Ignite to end shared observation after the last element and retained observation handle leave.
+Disconnecting a view releases its subscriptions without ending application-level observation or granting native source ownership.
 
-It does not permit Ignite to shut down a borrowed source.
+The local lifecycle candidate removes `cleanup`; supplying it, including `false` or `undefined`, is an error.
 
-An activated shared effect evaluator retains observation through zero-view intervals until terminal core disposal, including with `cleanup: true`.
+Published beta.14 still exposes that option and has a reconnect defect in its optional early-teardown path.
 
-See [effect activation and timing](/ignite-element/handbook/events/#delivery-and-ownership).
+See the [candidate migration note](/ignite-element/migration/remove-cleanup/) and [effect activation and timing](/ignite-element/handbook/events/#delivery-and-ownership).
 
 ## Terminal disposal
 

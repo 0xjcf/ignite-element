@@ -6,6 +6,7 @@ import {
 	getIgniteElementClasses,
 	rollbackElementSetup,
 } from "./IgniteElement";
+import { assertSupportedSourceOptions } from "./internal/assertSupportedSourceOptions";
 import {
 	commitProjectionDocumentTarget,
 	commitProjectionSpeechTarget,
@@ -30,8 +31,8 @@ import {
 } from "./runtime/bindings";
 import { activateHostEffects, facadeCleanupSymbol } from "./runtime/effects";
 import { createEventOrigins } from "./runtime/eventOrigins";
-import { forwardNativeEvents } from "./runtime/nativeEvents";
 import { createLifetime, releaseAll } from "./runtime/lifetime";
+import { forwardNativeEvents } from "./runtime/nativeEvents";
 import { resolveProjectionTarget } from "./runtime/projectionTargets";
 import { toInspectableSchemaValue } from "./runtime/schema";
 import type {
@@ -101,7 +102,6 @@ type FactoryOptions<
 	eventTypes?: readonly string[];
 	hasCommands?: boolean;
 	disposeEffects?: () => void;
-	hasActiveEffects?: (adapter: IgniteAdapter<State, Event>) => boolean;
 	createAdditionalArgs?: (
 		adapter: IgniteAdapter<State, Event>,
 		host?: EventTarget,
@@ -119,7 +119,6 @@ type FactoryOptions<
 		additionalArgs: AdditionalRenderArgs<State, Event, RenderArgs>,
 	) => RenderArgs;
 	createRenderStrategy?: RenderStrategyFactory<View>;
-	cleanup?: boolean;
 };
 
 function getAdditionalArg(
@@ -262,6 +261,7 @@ export default function igniteElementFactory<
 	createAdapter: (host?: HTMLElement) => IgniteAdapter<State, Event>,
 	options?: FactoryOptions<State, Event, RenderArgs, RuntimeView, View>,
 ): ComponentFactory<State, Event, RenderArgs, View> {
+	assertSupportedSourceOptions(options);
 	type RuntimeAdditionalArgs = AdditionalRenderArgs<State, Event, RenderArgs>;
 	const lifetime = createLifetime();
 	lifetime.own(() => options?.disposeEffects?.());
@@ -274,10 +274,6 @@ export default function igniteElementFactory<
 	let runtimeAdapter: IgniteAdapter<State, Event> | null = null;
 	let runtimeAdditionalArgs: RuntimeAdditionalArgs | null = null;
 	let runtimeHost: EventTarget | null = null;
-	let releaseRuntimeArgs: (() => void) | undefined;
-	let connectedViews = 0;
-	let runtimeUsers = 0;
-	let cleanupRequested = false;
 
 	const createAdditionalArgs: (
 		adapter: IgniteAdapter<State, Event>,
@@ -379,25 +375,6 @@ export default function igniteElementFactory<
 		runtimeHost = null;
 		adapter?.stop();
 	};
-	// Only explicit element cleanup may release a shared adapter early. A
-	// prepared cache is not a permanent lease; actual framework/watch/on users are.
-	const releaseUnusedSharedAdapter = () => {
-		if (sharedAdapter && options?.hasActiveEffects?.(sharedAdapter)) return;
-		if (!lifetime.active || !cleanupRequested || connectedViews || runtimeUsers)
-			return;
-		const adapter = sharedAdapter,
-			releaseArgs = releaseRuntimeArgs;
-		sharedAdapter = null;
-		runtimeAdditionalArgs = null;
-		runtimeHost = null;
-		releaseRuntimeArgs = undefined;
-		cleanupRequested = false;
-		releaseAll([
-			releasePreparation,
-			() => releaseArgs?.(),
-			() => adapter?.stop(),
-		]);
-	};
 	const rollbackNewAdapter = () => {
 		// Shared factories cache a reusable wrapper over a borrowed source. Its
 		// stop is terminal, not a release of this acquisition's observation handles.
@@ -424,7 +401,6 @@ export default function igniteElementFactory<
 				const args = createAdditionalArgs(adapter, runtimeHost);
 				setCommandOwner(args, lifetime.assertActive);
 				const releaseArgs = lifetime.own(() => cleanupAdditionalArgs(args));
-				releaseRuntimeArgs = releaseArgs;
 				let rolledBack = false;
 				rollback = () => {
 					if (rolledBack) return;
@@ -665,7 +641,6 @@ export default function igniteElementFactory<
 		bindingStore,
 		publishCatalogue,
 		readCatalogue,
-		releasePreparation,
 	} = createAgentRuntime<
 		State,
 		Event,
@@ -682,20 +657,6 @@ export default function igniteElementFactory<
 			eventOrigins.observe(adapter, name, "native"),
 		resolveDeliveredStates,
 		resolveStates,
-		retainRuntimeAccess: () => {
-			runtimeUsers++;
-		},
-		releaseRuntimeAccess: () => {
-			runtimeUsers--;
-			try {
-				releaseUnusedSharedAdapter();
-			} catch (error) {
-				console.error(
-					"[IgniteElement] Deferred disconnect cleanup failed.",
-					error,
-				);
-			}
-		},
 	});
 
 	const bindProjectionTarget = (target: unknown): IgniteProjectionSession => {
@@ -881,7 +842,6 @@ export default function igniteElementFactory<
 				private additionalArgs: RuntimeAdditionalArgs | undefined;
 				private releaseCommands: (() => void) | undefined;
 				private releaseOwner: (() => void) | undefined;
-				private counted = false;
 				private disconnectAttrObserver: (() => void) | undefined;
 				private releaseNativeEvents: (() => void) | undefined;
 				constructor() {
@@ -941,10 +901,6 @@ export default function igniteElementFactory<
 							}
 							this.releaseNativeEvents = release;
 						}
-						if (!this.counted) {
-							this.counted = true;
-							connectedViews++;
-						}
 						this.disconnectAttrObserver ??= setupAttributeObservation(this);
 						super.connectedCallback();
 						activateHostEffects(this);
@@ -974,19 +930,12 @@ export default function igniteElementFactory<
 					this.releaseCommands = undefined;
 					this.disconnectAttrObserver = undefined;
 					this.releaseOwner = undefined;
-					if (this.counted) {
-						this.counted = false;
-						connectedViews--;
-						if (options?.cleanup && connectedViews === 0)
-							cleanupRequested = true;
-					}
 					releaseAll([
 						() => nativeEvents?.(),
 						() => observer?.(),
 						() => commands?.(),
 						() => cleanupAdditionalArgs(args),
 						() => owner?.(),
-						releaseUnusedSharedAdapter,
 					]);
 				}
 				renderView(): View {
@@ -1156,7 +1105,7 @@ export default function igniteElementFactory<
 		}
 	};
 	Object.assign(register, agentRuntime);
-	registerBindingStore(register, bindingStore);
+	registerBindingStore(register, bindingStore, lifetime);
 
 	return register;
 

@@ -1,4 +1,5 @@
 import { type IgniteAdapter, StateScope } from "@ignite-element/core";
+import { assertSupportedSourceOptions } from "./internal/assertSupportedSourceOptions";
 import type { BaseRenderArgs, PublicFacadeRenderArgs } from "./types/render";
 
 export type { PublicFacadeRenderArgs } from "./types/render";
@@ -85,7 +86,6 @@ export type ProjectionFactoryOptions<
 		host?: Host,
 	) => Additional;
 	events?: Events;
-	cleanup?: boolean;
 	debugName?: string;
 };
 
@@ -116,11 +116,9 @@ export type ProjectionFactory<
 > = {
 	createAdapter: AdapterCreator<State, Event, Host>;
 	scope?: StateScope;
-	cleanup?: boolean;
 	eventTypes: readonly (keyof Events & string)[];
 	hasCommands: boolean;
 	disposeEffects: () => void;
-	hasActiveEffects: (adapter: IgniteAdapter<State, Event>) => boolean;
 	resolveInspection: (adapter: IgniteAdapter<State, Event>) => {
 		snapshot: unknown;
 		states: FacadeStateResult<StatesResult>;
@@ -231,6 +229,7 @@ export function createProjectionFactory<
 	Events,
 	StatesResult
 > {
+	assertSupportedSourceOptions(options);
 	if (
 		options &&
 		Object.getOwnPropertyDescriptor(
@@ -251,7 +250,6 @@ export function createProjectionFactory<
 		resolveCommandActor,
 		createAdditionalArgs,
 		events,
-		cleanup,
 		debugName,
 	} = options ?? {};
 	const errorPrefix = debugName ?? "createProjectionFactory";
@@ -477,7 +475,6 @@ export function createProjectionFactory<
 	return {
 		createAdapter,
 		scope: scope ?? createAdapter.scope,
-		cleanup,
 		eventTypes: Object.keys(eventDefinitions) as Array<keyof Events & string>,
 		hasCommands: commands !== undefined,
 		disposeEffects: () => {
@@ -486,7 +483,6 @@ export function createProjectionFactory<
 			owners.clear();
 			releaseAll(owned.map((owner) => () => owner.lifetime.dispose()));
 		},
-		hasActiveEffects: (adapter) => owners.get(adapter)?.active === true,
 		resolveInspection,
 		resolveStates,
 		resolveDeliveredStates,

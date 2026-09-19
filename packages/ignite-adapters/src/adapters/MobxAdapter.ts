@@ -269,7 +269,6 @@ type MobxBaseConfig<
 	states?: FacadeStatesCallback<State, StatesResult>;
 	commands?: FacadeCommandsCallback<State, CommandsResult, Host, State>;
 	events?: EventsDefinition<Events>;
-	cleanup?: boolean;
 };
 
 type MobxEffectsConfig<State extends object, Events extends EventMap, Host> = {

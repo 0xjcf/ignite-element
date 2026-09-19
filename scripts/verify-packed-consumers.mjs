@@ -414,6 +414,16 @@ assert.throws(() => require.resolve("lit-html"), { code: "MODULE_NOT_FOUND" });`
 	}
 	if (lane.name === "adapters") {
 		writeFileSync(
+			join(consumerDirectory, "cleanup-removed.ts"),
+			readFileSync(
+				join(
+					repositoryRoot,
+					"packages/ignite-element/src/tests/types/cleanup-removed.ts",
+				),
+				"utf8",
+			),
+		);
+		writeFileSync(
 			join(consumerDirectory, "event-contract.tsx"),
 			readFileSync(
 				join(repositoryRoot, "scripts/__tests__/fixtures/event-contract.tsx"),

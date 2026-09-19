@@ -34,7 +34,7 @@ Document and speech projections use non-DOM targets.
 | `commands({ source })` | Object of functions that call the active source |
 | `events(event)` | Typed public event declarations, not runtime payload validation |
 | `effects({ snapshot, prevSnapshot, select, emit })` | Synchronous `void` callback; see [Events & effects](/ignite-element/handbook/events/) |
-| `cleanup` | Shared adapter observation teardown policy, not borrowed-source shutdown authority |
+| Removed `cleanup` | The local candidate rejects explicit use; published beta.14 still exposes it. See the [migration note](/ignite-element/migration/remove-cleanup/). |
 
 Keep `states` and `commands` inline so TypeScript infers their types.
 
@@ -73,7 +73,15 @@ For detailed execution, error, catalogue, and disposal edge cases, see the [head
 
 Direct calls preserve the original return value or promise.
 
-Hook unmount releases the subscription, not the owner.
+In the local lifecycle candidate, definition/fresh-factory inputs provide a private runtime per hook, released automatically on unmount.
+
+Existing-source hooks remain shared and release only their subscription.
+
+Neither form disposes the reusable core.
+
+Explicit headless methods retain their separate runtime for independent inputs.
+
+See [construction safety](/ignite-element/handbook/ownership/).
 
 `igniteReact(handle)` from `ignite-element/react/web` returns a React component for the actual registered custom element.
 

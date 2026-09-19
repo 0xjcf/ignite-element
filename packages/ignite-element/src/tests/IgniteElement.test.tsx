@@ -274,7 +274,7 @@ describe("IgniteElement", () => {
 		);
 	});
 
-	it("stops shared adapters on last disconnect when cleanup:true is set", async () => {
+	it("releases the shared adapter only at terminal disposal", async () => {
 		const sharedAdapter = new MockAdapter(initialState, StateScope.Shared);
 		const createSharedAdapter = Object.assign(
 			vi.fn(() => sharedAdapter),
@@ -282,9 +282,7 @@ describe("IgniteElement", () => {
 				scope: StateScope.Shared as const,
 			},
 		);
-		const sharedComponent = igniteElementFactory(createSharedAdapter, {
-			cleanup: true,
-		});
+		const sharedComponent = igniteElementFactory(createSharedAdapter, {});
 		const sharedName = `ignite-shared-element-${crypto.randomUUID()}`;
 
 		sharedComponent(sharedName, ({ state }) => (
@@ -298,11 +296,14 @@ describe("IgniteElement", () => {
 		sharedElement.remove();
 
 		await flushMicrotasks();
+		expect(sharedAdapter.stop).not.toHaveBeenCalled();
+		Reflect.get(sharedComponent, "dispose")();
+		Reflect.get(sharedComponent, "dispose")();
 		expect(sharedAdapter.stop).toHaveBeenCalledTimes(1);
 		expect(sharedAdapter.unsubscribe).toHaveBeenCalledTimes(1);
 	});
 
-	it("does not stop shared adapters while other instances remain connected (cleanup:true)", async () => {
+	it("retains one shared adapter after both instances disconnect", async () => {
 		const sharedAdapter = new MockAdapter(initialState, StateScope.Shared);
 		const createSharedAdapter = Object.assign(
 			vi.fn(() => sharedAdapter),
@@ -310,9 +311,7 @@ describe("IgniteElement", () => {
 				scope: StateScope.Shared as const,
 			},
 		);
-		const sharedComponent = igniteElementFactory(createSharedAdapter, {
-			cleanup: true,
-		});
+		const sharedComponent = igniteElementFactory(createSharedAdapter, {});
 		const sharedName = `ignite-shared-multi-${crypto.randomUUID()}`;
 
 		sharedComponent(sharedName, ({ state }) => (
@@ -334,7 +333,9 @@ describe("IgniteElement", () => {
 		secondElement.remove();
 		await flushMicrotasks();
 		expect(createSharedAdapter).toHaveBeenCalledTimes(1);
-		expect(sharedAdapter.stop).toHaveBeenCalledTimes(1);
+		expect(sharedAdapter.stop).not.toHaveBeenCalled();
+		Reflect.get(sharedComponent, "dispose")();
+		expect(sharedAdapter.stop).toHaveBeenCalledOnce();
 	});
 
 	it("keeps shared (consumer-owned) adapters alive on disconnect by default", async () => {
@@ -359,36 +360,8 @@ describe("IgniteElement", () => {
 		sharedElement.remove();
 
 		await flushMicrotasks();
-		// Default cleanup for shared (consumer-owned) sources is now false: the
+		// Shared adapters retain application-level observation: the
 		// adapter lives for the core's lifetime and must not be stopped here.
-		expect(sharedAdapter.stop).not.toHaveBeenCalled();
-		expect(sharedAdapter.unsubscribe).toHaveBeenCalledTimes(1);
-	});
-
-	it("allows opting out of shared lifecycle management", async () => {
-		const sharedAdapter = new MockAdapter(initialState, StateScope.Shared);
-		const createSharedAdapter = Object.assign(
-			vi.fn(() => sharedAdapter),
-			{
-				scope: StateScope.Shared as const,
-			},
-		);
-		const sharedComponent = igniteElementFactory(createSharedAdapter, {
-			cleanup: false,
-		});
-		const sharedName = `ignite-shared-manual-${crypto.randomUUID()}`;
-
-		sharedComponent(sharedName, ({ state }) => (
-			<div>Count: {state?.count}</div>
-		));
-
-		const sharedElement = document.createElement(sharedName);
-		assertIgniteElement<State, Event>(sharedElement);
-		document.body.appendChild(sharedElement);
-
-		sharedElement.remove();
-
-		await flushMicrotasks();
 		expect(sharedAdapter.stop).not.toHaveBeenCalled();
 		expect(sharedAdapter.unsubscribe).toHaveBeenCalledTimes(1);
 	});

@@ -7,13 +7,16 @@ for (const name of [
 	"lit-html",
 	"solid-js",
 	"vue",
-	"mobx",
-	"@reduxjs/toolkit",
 	"@actor-web/runtime",
 ]) {
 	assert.throws(() => require.resolve(name), { code: "MODULE_NOT_FOUND" });
 }
-for (const name of ["ignite-element/xstate", "ignite-element/react"]) {
+for (const name of [
+	"ignite-element/xstate",
+	"ignite-element/redux",
+	"ignite-element/mobx",
+	"ignite-element/react",
+]) {
 	assert.ok(
 		import.meta
 			.resolve(name)

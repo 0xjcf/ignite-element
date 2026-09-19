@@ -6,6 +6,7 @@ import type {
 	FacadeCommandFunction,
 	FacadeCommandResult,
 } from "@ignite-element/core";
+import { assertSupportedSourceOptions } from "../internal/assertSupportedSourceOptions";
 import { createIgniteComponentFactory } from "./createIgniteComponentFactory";
 import type { IgniteCoreReturn, MobxConfig } from "./mobxTypes";
 
@@ -71,6 +72,7 @@ export function igniteCoreMobx<
 	CommandsResult,
 	Events
 > {
+	assertSupportedSourceOptions(options);
 	const createAdapter = createMobXAdapter(options.source);
 	return createIgniteComponentFactory<
 		State,
@@ -80,7 +82,7 @@ export function igniteCoreMobx<
 		State,
 		CommandsResult,
 		Events
-	>(createAdapter, options) as IgniteCoreReturn<
+	>(createAdapter, options, createAdapter) as IgniteCoreReturn<
 		State,
 		MobxEvent<State>,
 		State,

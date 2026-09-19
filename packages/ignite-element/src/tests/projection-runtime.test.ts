@@ -1640,8 +1640,6 @@ describe("projection targets", () => {
 			let current: Snapshot = { value: 0 };
 			let notify: (() => void) | undefined;
 			const unsubscribe = vi.fn();
-			const retainRuntimeAccess = vi.fn();
-			const releaseRuntimeAccess = vi.fn();
 			const adapter: IgniteAdapter<Snapshot, InspectionEvent> = {
 				scope: StateScope.Isolated,
 				subscribeSnapshots: (listener) => {
@@ -1664,8 +1662,6 @@ describe("projection targets", () => {
 				lifetime,
 				dispose: () => lifetime.dispose(),
 				eventTypes: [],
-				retainRuntimeAccess,
-				releaseRuntimeAccess,
 				resolveRuntime: () => ({
 					adapter,
 					additionalArgs: {},
@@ -1685,11 +1681,9 @@ describe("projection targets", () => {
 
 			expect(handler).toHaveBeenNthCalledWith(1, { value: 10 }, lastSeed);
 			expect(handler).toHaveBeenNthCalledWith(2, { value: 11 }, { value: 10 });
-			expect(retainRuntimeAccess).toHaveBeenCalledOnce();
 
 			subscription.unsubscribe();
 			expect(unsubscribe).toHaveBeenCalledOnce();
-			expect(releaseRuntimeAccess).toHaveBeenCalledOnce();
 		}
 	});
 

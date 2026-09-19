@@ -10,6 +10,7 @@
 		"./xstate-agent-runtime.spec.ts",
 		"./source-free-core.spec.ts",
 		"./factory-entrypoints.spec.ts",
+		"./shared-lifecycle.spec.ts",
 		"../../../examples/adapters/xstate/xstateApiShowcaseRuntime.ts"
 	],
 	"exclude": []
