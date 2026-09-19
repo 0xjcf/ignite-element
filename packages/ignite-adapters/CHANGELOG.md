@@ -1,5 +1,20 @@
 # ignite-adapters
 
+## 3.0.0-beta.15
+
+### Major Changes
+
+- 4971409: BREAKING (beta): Command callbacks receive the resolved command target as `source`, replacing `actor` across all adapters. Replace `commands: ({ actor }) => ...` with `commands: ({ source: actor }) => ...`, or use `source` directly. The old property is removed without a compatibility alias. Source acquisition, command capabilities and native ownership are unchanged.
+
+### Minor Changes
+
+- 05ee0a8: Remove the beta `cleanup` source-configuration option. Explicit values (including false and undefined) now throw before source acquisition. Shared cores retain application-level observation and activated effects across zero-consumer intervals until terminal disposal. Independent custom-element teardown and borrowed native-source ownership are unchanged.
+
+### Patch Changes
+
+- Updated dependencies [4971409]
+  - @ignite-element/core@3.0.0-beta.15
+
 ## 3.0.0-beta.14
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # ignite-core
 
+## 3.0.0-beta.15
+
+### Major Changes
+
+- 4971409: BREAKING (beta): Command callbacks receive the resolved command target as `source`, replacing `actor` across all adapters. Replace `commands: ({ actor }) => ...` with `commands: ({ source: actor }) => ...`, or use `source` directly. The old property is removed without a compatibility alias. Source acquisition, command capabilities and native ownership are unchanged.
+
 ## 3.0.0-beta.14
 
 ## 3.0.0-beta.13
