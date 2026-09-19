@@ -9,7 +9,7 @@ description: Construction, configuration, bindings, and runtime return shapes.
 
 | Call | Return |
 | --- | --- |
-| `igniteCore({ source, states?, commands?, events?, effects?, cleanup? })` from a source entrypoint | Callable core plus `get`, `watch`, `on`, `execute`, `dispose` |
+| `igniteCore({ source, states?, commands?, events?, effects? })` from a source entrypoint | Callable core plus `get`, `watch`, `on`, `execute`, `dispose` |
 | `core(tagName, renderer)` | Registered component handle with `tagName` and discovery reads |
 | `core(projectionTarget)` | Disposable non-DOM projection session |
 | Root `igniteCore()` | Source-free registrar only |
@@ -31,7 +31,7 @@ and execution do not. Opaque document/speech targets are separate from DOM eleme
 | `commands({ source })` | Object of ordinary source-directed functions; no `command` helper or `emit` capability |
 | `events(event)` | Typed public event declarations, not runtime payload validation |
 | `effects({ snapshot, prevSnapshot, select, emit })` | Synchronous `void` callback; see [Events & effects](/ignite-element/handbook/events/) |
-| `cleanup` | Shared adapter observation teardown policy, not borrowed-source shutdown authority |
+| Removed `cleanup` | The local candidate rejects explicit use; published beta.14 still exposes it. See the [migration note](/ignite-element/migration/remove-cleanup/). |
 
 Keep `states` and `commands` inline for inference. A renderer receives their
 values as `ctx`; its return value is the view. State/command name collisions are
@@ -64,7 +64,11 @@ This supporting page keeps the full contract without making the handbook lookup 
 
 `const ctx = useIgnite(core)` from `ignite-element/react` returns inferred derived
 states and stable callable commands. Direct calls preserve the original return
-value or promise. Hook unmount releases the subscription, not the owner.
+value or promise. In the local lifecycle candidate, definition/fresh-factory
+inputs provide a private runtime per hook, released automatically on unmount.
+Existing-source hooks remain shared and release only their subscription. Neither
+form disposes the reusable core. Explicit headless methods retain their separate
+runtime for independent inputs. See [construction safety](/ignite-element/handbook/ownership/).
 
 `igniteReact(handle)` from `ignite-element/react/web` returns a React component
 for the actual registered custom element. `IgniteReactRef<typeof handle>` types

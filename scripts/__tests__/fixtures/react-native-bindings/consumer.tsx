@@ -1,5 +1,9 @@
+import { configureStore, createSlice } from "@reduxjs/toolkit";
+import { igniteCore as mobxCore } from "ignite-element/mobx";
 import { useIgnite } from "ignite-element/react";
+import { igniteCore as reduxCore } from "ignite-element/redux";
 import { igniteCore } from "ignite-element/xstate";
+import { makeAutoObservable } from "mobx";
 import * as React from "react";
 import { Pressable, Text, View } from "react-native";
 import { assign, createActor, createMachine, emit, setup } from "xstate";
@@ -19,7 +23,6 @@ const core = igniteCore({
 			actor.send({ type: "ADD", amount }),
 	}),
 });
-core.get("states");
 export function Counter() {
 	const ctx = useIgnite(core);
 	const value: number = ctx.count;
@@ -139,3 +142,52 @@ function commandContextContract() {
 	});
 }
 void commandContextContract;
+
+const slice = createSlice({
+	name: "count",
+	initialState: { count: 0 },
+	reducers: {
+		add: (state) => {
+			state.count++;
+		},
+	},
+});
+const independentRedux = reduxCore({
+	source: () => configureStore({ reducer: slice.reducer }),
+	states: (s) => ({ count: s.count }),
+	commands: ({ source: store }) => ({
+		add: () => store.dispatch(slice.actions.add()),
+	}),
+});
+const independentMobx = mobxCore({
+	source: () =>
+		makeAutoObservable({
+			count: 0,
+			add(amount: number) {
+				this.count += amount;
+			},
+		}),
+	states: (s) => ({ count: s.count }),
+	commands: ({ source: store }) => ({
+		add: (amount: number) => store.add(amount),
+	}),
+});
+export function FactoryCounters() {
+	const redux = useIgnite(independentRedux),
+		mobx = useIgnite(independentMobx);
+	const value: number = redux.count + mobx.count;
+	// @ts-expect-error Aliased MobX commands preserve numeric input.
+	mobx.add("bad");
+	// @ts-expect-error Redux action creator command remains argument-free.
+	redux.add(1);
+	return (
+		<Text
+			onPress={() => {
+				redux.add();
+				mobx.add(2);
+			}}
+		>
+			{value}
+		</Text>
+	);
+}

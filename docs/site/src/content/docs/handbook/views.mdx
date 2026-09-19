@@ -34,7 +34,11 @@ Create the shared core outside rendering, then call `const ctx = useIgnite(core)
 This is the [runnable React example](https://github.com/0xjcf/ignite-element/tree/beta/examples/frameworks/react).
 Both views observe the same count and label. Hook unmount releases its own
 subscription; final application shutdown belongs to the owner. Shared cores
-need no preparation-only read. Isolated runtime acquisition is described in
+need no preparation-only read. In the local lifecycle candidate, passing a
+machine, slice or fresh factory instead gives each hook private state with
+automatic runtime cleanup on unmount and fresh state on a genuine new mount.
+The same synchronous `ctx` works in React Native. Construction safety and the
+separate explicit headless runtime are described in
 [ownership](/ignite-element/handbook/ownership/).
 
 ## React Native

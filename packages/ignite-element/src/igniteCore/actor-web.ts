@@ -15,6 +15,7 @@ import type {
 	FacadeEffectsObjectCallback,
 	FacadeStatesCallback,
 } from "@ignite-element/core";
+import { assertSupportedSourceOptions } from "../internal/assertSupportedSourceOptions";
 import type { IgniteCoreReturn } from "./actorWebTypes";
 import {
 	createIgniteComponentFactory,
@@ -57,7 +58,6 @@ type ActorWebSubpathConfig<
 		unknown,
 		ActorWebExtendedState<Context>
 	>;
-	cleanup?: boolean;
 	events?: EventsDefinition<
 		Events & CompatibleEvents<NoInfer<Events>, ChannelEmitted<NoInfer<Source>>>
 	>;
@@ -115,6 +115,7 @@ export function igniteCoreActorWeb<
 > {
 	// Actor-Web remains the runtime owner; Ignite only adapts projection snapshots
 	// and command access into the headless component contract.
+	assertSupportedSourceOptions(options);
 	const createAdapter = createActorWebAdapter(options.source, {
 		ownsFactorySource: false,
 	});

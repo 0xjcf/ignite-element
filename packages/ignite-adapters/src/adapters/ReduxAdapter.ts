@@ -373,7 +373,6 @@ type ReduxBlueprintBaseConfig<
 		InferStateAndEvent<Source>["State"]
 	>;
 	events?: EventsDefinition<Events>;
-	cleanup?: boolean;
 };
 
 type ReduxBlueprintEffectsConfig<
@@ -428,7 +427,6 @@ type ReduxInstanceBaseConfig<
 		InferStateAndEvent<StoreInstance>["State"]
 	>;
 	events?: EventsDefinition<Events>;
-	cleanup?: boolean;
 };
 
 type ReduxInstanceEffectsConfig<

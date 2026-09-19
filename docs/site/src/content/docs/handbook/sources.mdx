@@ -47,7 +47,7 @@ Keep invocation, cancellation, guards, retries, and persistence in the source.
 A combined store uses its root shape, for example `snapshot.counter.count`.
 A Redux slice passed directly creates isolated state; the snapshot is the slice
 state.
-For a separate store per element, pass a factory through `ignite-element/redux`:
+For a separate store per element or hook in the local lifecycle candidate, pass a factory through `ignite-element/redux`:
 
 <Code code={reduxFactory} lang="ts" title="redux-factory.ts" />
 
@@ -58,13 +58,16 @@ See [ownership](/ignite-element/handbook/ownership/).
 
 <Code code={mobx} lang="ts" title="mobx.ts" />
 
-For a separate observable per element, pass a factory through `ignite-element/mobx`:
+For a separate observable per element or hook in the local lifecycle candidate, pass a factory through `ignite-element/mobx`:
 
 <Code code={mobxFactory} lang="ts" title="mobx-factory.ts" />
 
 The dedicated import selects the adapter; no `adapter` property is needed.
 Both examples keep `states` and `commands` inline so their types are inferred.
-Call `core.dispose()` when its application owner ends.
+Existing instances remain shared. Independent hook construction, including
+factory middleware/enhancers, must be safe to repeat and discard without cleanup;
+see [ownership](/ignite-element/handbook/ownership/). Independent views release
+their runtime automatically; call `core.dispose()` when the core's owner ends.
 
 ## Optional integrations
 

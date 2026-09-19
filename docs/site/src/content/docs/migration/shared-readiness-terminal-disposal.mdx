@@ -31,7 +31,10 @@ catalogues remain readable. Old executable bindings reject further work. Browser
 tag definitions remain registered, inert and unavailable for replacement; disposal
 does not unregister them or permit a new core to take over.
 
-The correction preserves ordinary reconnect behavior and `cleanup: true`.
+The beta.13 correction retained the `cleanup: true` option. Later investigation
+reproduced a frozen reconnect after optional early shared teardown without active
+effects. The local lifecycle candidate removes that option; see the
+[candidate migration note](/ignite-element/migration/remove-cleanup/).
 Readiness cannot keep a permanent bookkeeping lease that defeats explicit shared
 adapter teardown. Source-free root registration retains its existing surface.
 
