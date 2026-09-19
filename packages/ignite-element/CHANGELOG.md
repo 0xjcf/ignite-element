@@ -1,5 +1,30 @@
 # Changelog
 
+## 3.0.0-beta.15
+
+### Major Changes
+
+- 4971409: BREAKING (beta): Command callbacks receive the resolved command target as `source`, replacing `actor` across all adapters. Replace `commands: ({ actor }) => ...` with `commands: ({ source: actor }) => ...`, or use `source` directly. The old property is removed without a compatibility alias. Source acquisition, command capabilities and native ownership are unchanged.
+
+### Minor Changes
+
+- f09c9d4: Give each React and React Native hook its own runtime for XState machines, Redux slices or fresh-store factories, and MobX fresh-observable factories. Keep synchronous inferred ctx, shared existing-source ownership, and separate explicit headless operations. Independent unmount now releases its owned runtime automatically; core disposal drains every committed runtime. Factories and initialization, including middleware/enhancers, must be safe to repeat and discard without external work or cleanup obligations.
+
+  Retain independent state and active source resources through Activity hiding while view delivery is disconnected. Descendant layout effects and callback refs may issue commands after attachment; actual removal and core replacement release the old runtime.
+
+- 05ee0a8: Remove the beta `cleanup` source-configuration option. Explicit values (including false and undefined) now throw before source acquisition. Shared cores retain application-level observation and activated effects across zero-consumer intervals until terminal disposal. Independent custom-element teardown and borrowed native-source ownership are unchanged.
+
+### Patch Changes
+
+- 89b9d98: Allow MobX and Redux factory sources to omit `adapter` when using their dedicated
+  entrypoints. Preserve inferred states and commands, explicit matching adapters,
+  and existing source acquisition and cleanup. The public root remains source-free.
+- Updated dependencies [4971409]
+- Updated dependencies [05ee0a8]
+  - @ignite-element/core@3.0.0-beta.15
+  - @ignite-element/adapters@3.0.0-beta.15
+  - @ignite-element/renderer@3.0.0-beta.15
+
 ## 3.0.0-beta.14
 
 ### Minor Changes
