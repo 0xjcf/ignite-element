@@ -21,12 +21,6 @@ if (
 		execFileSync("pnpm", args, { cwd, stdio: "inherit" });
 	const manifest = JSON.parse(readFileSync(join(here, "package.json"), "utf8"));
 	const hashes = {};
-	manifest.dependencies = {
-		xstate: "5.32.1",
-		"@reduxjs/toolkit": "2.12.0",
-		redux: "5.0.1",
-		mobx: "6.16.1",
-	};
 	manifest.pnpm = { overrides: {} };
 	for (const name of [
 		"ignite-core",
