@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const site = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const installation = "src/content/docs/index.mdx";
+const historicalInstallation = "src/content/docs/api/compatibility.mdx";
 
 function checkFixture(mutate = () => {}) {
 	const directory = fs.mkdtempSync(
@@ -62,23 +63,23 @@ function rejects(mutate, reason) {
 	assert.match(result.output, reason);
 }
 
-test("published beta.14 pages pass without the old candidate disclaimers", () =>
+test("final release copy and historical beta.14 pages pass together", () =>
 	passes());
 
 test("verified beta.14 publication and exact installation are permitted", () =>
 	passes(({ append }) =>
 		append(
-			installation,
+			historicalInstallation,
 			"3.0.0-beta.14 is published. Install with `pnpm add ignite-element@3.0.0-beta.14`.",
 		),
 	));
 
-test("current headless guidance uses beta.14 core-owned effect timing", () => {
+test("current headless guidance defines core-owned effect timing", () => {
 	const content = fs.readFileSync(
 		path.join(site, "src/content/docs/api/headless-runtime.mdx"),
 		"utf8",
 	);
-	assert.match(content, /published beta\.14/);
+	assert.doesNotMatch(content, /Since beta\.|required in beta\./);
 	assert.match(content, /one\s+evaluator per core\/source instance/);
 	assert.match(content, /not a renderer or\s+framework commit barrier/);
 	assert.doesNotMatch(content, /retain Ignite-renderer\s+post-render timing/);
@@ -98,13 +99,17 @@ test("current lifetime guides retain the published registered-disposal contract"
 	for (const file of [
 		"handbook/ownership.mdx",
 		"handbook/testing.mdx",
-		"guides/actor-web.mdx",
+		"api/headless-runtime.mdx",
 	]) {
 		const content = fs.readFileSync(
 			path.join(site, "src/content/docs", file),
 			"utf8",
 		);
-		assert.match(content, /beta\.13/, file);
+		assert.match(
+			content,
+			/dispos(?:al|e(?:\(\))?).{0,100}registered|registered.{0,100}dispos(?:al|e(?:\(\))?)/is,
+			file,
+		);
 		assert.doesNotMatch(
 			content,
 			/[Ss]uccessful registration (?:still )?prevents owning(?:-core)? disposal|registered cores reject owning disposal/,
@@ -118,7 +123,7 @@ test("current lifetime guides retain the published registered-disposal contract"
 	assert.doesNotMatch(
 		migration,
 		/Keep session cores unregistered/,
-		"registration is not a disposal prohibition in beta.13",
+		"registration is not a disposal prohibition",
 	);
 });
 
@@ -130,13 +135,7 @@ for (const selector of [
 	"3.0.0-beta.11",
 ]) {
 	test(`complete supported install selector ${selector} passes`, () =>
-		passes(({ replace, append }) => {
-			if (selector !== "3.0.0-beta.14")
-				replace(
-					installation,
-					/ignite-element@3\.0\.0-beta\.14/g,
-					`ignite-element@${selector}`,
-				);
+		passes(({ append }) => {
 			append(
 				"src/content/docs/api/compatibility.mdx",
 				`Verified public 3.0.0-beta.14; historical releases 3.0.0-beta.13, 3.0.0-beta.12 and 3.0.0-beta.11.\n\n\`npm install --save react "ignite-element@${selector}"\``,
@@ -159,7 +158,7 @@ for (const selector of [
 	test(`unsupported complete selector ${selector || "unqualified"} fails`, () =>
 		rejects(({ append }) => {
 			append(
-				installation,
+				historicalInstallation,
 				`\`npm install --save react ignite-element${selector ? `@${selector}` : ""}\``,
 			);
 		}, /unsupported v3 install/));
@@ -167,7 +166,8 @@ for (const selector of [
 
 test("an empty version selector fails visibly", () =>
 	rejects(
-		({ append }) => append(installation, "`pnpm add ignite-element@`"),
+		({ append }) =>
+			append(historicalInstallation, "`pnpm add ignite-element@`"),
 		/unsupported v3 install/,
 	));
 for (const quote of ['"', "'"]) {
@@ -184,7 +184,7 @@ for (const quote of ['"', "'"]) {
 			rejects(
 				({ append }) =>
 					append(
-						installation,
+						historicalInstallation,
 						`\`npm install ${quote}ignite-element@beta${suffix}${quote}\``,
 					),
 				/unsupported v3 install/,
@@ -193,19 +193,25 @@ for (const quote of ['"', "'"]) {
 }
 test("shell separators outside quoted selectors remain valid", () =>
 	passes(({ append }) =>
-		append(installation, '`npm install "ignite-element@beta"; echo done`'),
+		append(
+			historicalInstallation,
+			'`npm install "ignite-element@beta"; echo done`',
+		),
 	));
 test("concatenated quoted selector suffix is not discarded", () =>
 	rejects(
 		({ append }) =>
-			append(installation, '`npm install "ignite-element@beta"invalid`'),
+			append(
+				historicalInstallation,
+				'`npm install "ignite-element@beta"invalid`',
+			),
 		/unsupported v3 install/,
 	));
 test("an allowed selector elsewhere cannot hide an unsupported selector", () =>
 	rejects(
 		({ append }) =>
 			append(
-				installation,
+				historicalInstallation,
 				"`pnpm add ignite-element@beta ignite-element@3.0.0-beta.121`",
 			),
 		/unsupported v3 install/,
@@ -215,7 +221,7 @@ test("stable facade policy drift fails", () =>
 		({ replace }) =>
 			replace(
 				installation,
-				"ignite-element@latest = 2.2.2",
+				/ignite-element@latest[^\n]*2\.2\.2/,
 				"ignite-element@latest = 3.0.0-beta.12",
 			),
 		/stable facade policy/,
@@ -263,7 +269,7 @@ test("mutable main source links fail", () =>
 	rejects(
 		({ append }) =>
 			append(
-				installation,
+				historicalInstallation,
 				"https://github.com/0xjcf/ignite-element/tree/main/examples",
 			),
 		/mutable main link/,
@@ -289,7 +295,62 @@ for (const version of [
 test("other packages are not mistaken for the facade", () =>
 	passes(({ append }) =>
 		append(
-			installation,
+			historicalInstallation,
 			"`pnpm add ignite-element-helper @example/ignite-element`",
 		),
 	));
+
+test("Getting started cannot install historical beta.14", () =>
+	rejects(
+		({ replace }) =>
+			replace(
+				installation,
+				"pnpm add ignite-element@beta xstate",
+				"pnpm add ignite-element@3.0.0-beta.14 xstate",
+			),
+		/must install the beta channel/,
+	));
+test("Getting started must include the beta install command", () =>
+	rejects(
+		({ replace }) =>
+			replace(
+				installation,
+				"pnpm add ignite-element@beta xstate",
+				"pnpm add xstate",
+			),
+		/must install the beta channel/,
+	));
+test("quickstart cannot regain internal release instructions", () =>
+	rejects(
+		({ append }) => append(installation, "Use the candidate checkout."),
+		/without internal release instructions/,
+	));
+
+for (const text of [
+	":::note[Unreleased preview]",
+	"The local candidate uses new APIs.",
+	"Wait for the upcoming release.",
+]) {
+	test(`Getting started rejects release administration: ${text}`, () =>
+		rejects(
+			({ append }) => append(installation, text),
+			/without internal release instructions/,
+		));
+}
+
+test("stable migration guidance does not teach early-beta APIs as v2", () => {
+	const content = fs.readFileSync(
+		path.join(site, "src/content/docs/migration/v3.mdx"),
+		"utf8",
+	);
+	assert.doesNotMatch(
+		content,
+		/beta\.\d+|getView|watchView|record\(name\)|view:|Testing\/story retirement/,
+	);
+	assert.match(content, /v2 already supported this callback/);
+	assert.match(
+		content,
+		/v2 command context exposed `actor`, `emit`, and `host`/,
+	);
+	assert.match(content, /v3 is native ESM-only/);
+});

@@ -1,6 +1,7 @@
 # Ignite Element public API notes
 
-This branch documents **v3 beta.14**, not a stable v3 release. Stable v2.2.2 users
+These notes describe the current **v3 beta** contract. Install `ignite-element@beta`
+and the state library for your chosen entrypoint. v3 is not yet stable. Stable v2.2.2 users
 should read the [v2 archive](https://0xjcf.github.io/ignite-element/2.x/).
 
 Use the current handbook as the API authority:
@@ -9,7 +10,5 @@ Use the current handbook as the API authority:
 - [Sources](https://0xjcf.github.io/ignite-element/handbook/sources/): supported source entrypoints and factory discriminators.
 - [Ownership and cleanup](https://0xjcf.github.io/ignite-element/handbook/ownership/): observation lifetime, terminal core disposal and borrowed sources.
 - [Events and effects](https://0xjcf.github.io/ignite-element/handbook/events/): native occurrences, declarations and queued delivery.
-- [Advanced configuration](https://0xjcf.github.io/ignite-element/api/advanced-config/): optional renderer configuration and public imports.
 
-Ordinary examples need no configuration file or command helper. Keep `states`
-and `commands` inline for inference and render through `ctx`.
+Keep `states` and `commands` inline for inference and render through `ctx`.

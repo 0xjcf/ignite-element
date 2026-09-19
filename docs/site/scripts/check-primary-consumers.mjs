@@ -1,10 +1,12 @@
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
 	copyFileSync,
 	cpSync,
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
+	realpathSync,
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -19,6 +21,7 @@ const json = (file, value) =>
 	writeFileSync(file, JSON.stringify(value, null, 2));
 mkdirSync(join(output, "tarballs"));
 const dependencies = {};
+const provenance = { tarballs: {}, consumers: {} };
 for (const dir of [
 	"ignite-core",
 	"ignite-adapters",
@@ -35,6 +38,44 @@ for (const dir of [
 	]);
 	dependencies[pkg.name] =
 		`file:../tarballs/${pkg.name.replace(/^@/, "").replace("/", "-")}-${pkg.version}.tgz`;
+	const tarball = join(
+		output,
+		"tarballs",
+		`${pkg.name.replace(/^@/, "").replace("/", "-")}-${pkg.version}.tgz`,
+	);
+	provenance.tarballs[pkg.name] = {
+		version: pkg.version,
+		path: tarball,
+		sha256: createHash("sha256").update(readFileSync(tarball)).digest("hex"),
+	};
+}
+function recordResolution(dir) {
+	const resolved = {};
+	for (const name of Object.keys(dependencies)) {
+		const file = realpathSync(join(dir, "node_modules", name, "package.json"));
+		if (!file.startsWith(`${realpathSync(dir)}/node_modules/`))
+			throw new Error(`Non-isolated package: ${file}`);
+		const installed = JSON.parse(readFileSync(file, "utf8"));
+		const entry = execFileSync(
+			process.execPath,
+			[
+				"--input-type=module",
+				"-e",
+				`process.stdout.write(import.meta.resolve(${JSON.stringify(name)}))`,
+			],
+			{ cwd: dir, encoding: "utf8" },
+		);
+		if (!entry.includes("/node_modules/"))
+			throw new Error(`Source alias resolved: ${entry}`);
+		resolved[name] = { file, entry, version: installed.version };
+	}
+	provenance.consumers[dir] = {
+		resolved,
+		lockfileSha256: createHash("sha256")
+			.update(readFileSync(join(dir, "pnpm-lock.yaml")))
+			.digest("hex"),
+	};
+	json(join(output, "provenance.json"), provenance);
 }
 for (const lane of ["web", "native"]) {
 	const dir = join(output, lane);
@@ -74,13 +115,61 @@ for (const lane of ["web", "native"]) {
 				"@testing-library/react": "16.3.0",
 			},
 		};
+		// Compile and exercise the actual supporting guide modules, without source aliases.
+		for (const [page, names] of [
+			[
+				"guides/accessibility-first.mdx",
+				[
+					"thermostat.ts",
+					"thermostat-tools.ts",
+					"thermostat-view.tsx",
+					"thermostat-headless.ts",
+				],
+			],
+			[
+				"guides/agent-runtime-v3.mdx",
+				[
+					"agent-counter.ts",
+					"agent-counter-view.tsx",
+					"agent-counter-tools.ts",
+				],
+			],
+			["api/headless-runtime.mdx", ["headless-toggle.ts"]],
+		]) {
+			const content = readFileSync(
+				join(repo, "docs/site/src/content/docs", page),
+				"utf8",
+			);
+			for (const name of names) {
+				const marker = `title="${name}"`;
+				const block = [
+					...content.matchAll(/^```(?:ts|tsx)([^\n]*)\n([\s\S]*?)^```/gm),
+				].find((match) => match[1].includes(marker));
+				if (!block) throw new Error(`Missing guide module: ${page} ${name}`);
+				writeFileSync(join(dir, name), block[2]);
+			}
+		}
+		copyFileSync(
+			join(repo, "examples/adapters/xstate/apiShowcaseMachine.ts"),
+			join(dir, "apiShowcaseMachine.ts"),
+		);
+		copyFileSync(
+			join(repo, "scripts/__tests__/fixtures/handbook/guides.test.tsx"),
+			join(dir, "guides.test.tsx"),
+		);
+		for (const name of ["light-switch.tsx", "light-switch.css"])
+			copyFileSync(
+				join(repo, "docs/site/src/examples/light-switch/src", name),
+				join(dir, name),
+			);
 		for (const name of [
-			"toggle.tsx",
 			"toggle.test.tsx",
 			"redux.ts",
 			"mobx.ts",
 			"mobx-factory.ts",
 			"redux-factory.ts",
+			"redux-slice.ts",
+			"source-isolation.test.ts",
 			"source.test.ts",
 			"core.test.ts",
 		])
@@ -91,6 +180,26 @@ for (const lane of ["web", "native"]) {
 		copyFileSync(
 			join(repo, "examples/frameworks/react/shared-counter.tsx"),
 			join(dir, "shared-counter.tsx"),
+		);
+		copyFileSync(
+			join(repo, "examples/frameworks/react/counters.css"),
+			join(dir, "counters.css"),
+		);
+		mkdirSync(join(dir, "src"));
+		for (const name of [
+			"WebInterop.tsx",
+			"counter.react.ts",
+			"counter.ignite.tsx",
+			"counter.css",
+			"env.d.ts",
+		])
+			copyFileSync(
+				join(repo, "examples/frameworks/react/src", name),
+				join(dir, "src", name),
+			);
+		copyFileSync(
+			join(repo, "scripts/__tests__/fixtures/handbook/interop.test.tsx"),
+			join(dir, "interop.test.tsx"),
 		);
 		copyFileSync(
 			join(repo, "examples/adapters/xstate/event-counter.ts"),
@@ -132,7 +241,7 @@ for (const lane of ["web", "native"]) {
 				lib: ["ES2022", "ESNext.Collection", "DOM", "DOM.Iterable"],
 				types: ["node"],
 			},
-			include: ["*.ts", "*.tsx"],
+			include: ["*.ts", "*.tsx", "src/**/*.ts", "src/**/*.tsx"],
 		});
 		writeFileSync(
 			join(dir, "vitest.config.ts"),
@@ -159,6 +268,7 @@ for (const lane of ["web", "native"]) {
 		`auto-install-peers=false\n${lane === "native" ? "node-linker=hoisted\n" : ""}`,
 	);
 	run(dir, "pnpm", ["install"]);
+	recordResolution(dir);
 	run(dir, "pnpm", ["exec", "tsc", "-p", "tsconfig.json"]);
 	if (lane === "native") {
 		run(dir, "pnpm", ["run", "isolation"]);
@@ -168,8 +278,36 @@ for (const lane of ["web", "native"]) {
 		run(dir, "pnpm", ["exec", "vitest", "run"]);
 	}
 }
-// The public quickstart stays on the published API until a supporting beta exists.
-// Compile and execute its exact source against registry packages, without candidate overrides.
+// The exact preview project consumes packed candidates, without workspace/source aliases.
+{
+	const dir = join(output, "preview");
+	cpSync(join(repo, "docs/site/src/examples/light-switch"), dir, {
+		recursive: true,
+	});
+	const manifest = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
+	manifest.dependencies = { ...manifest.dependencies, ...dependencies };
+	manifest.pnpm = { overrides: dependencies };
+	json(join(dir, "package.json"), manifest);
+	writeFileSync(join(dir, ".npmrc"), "auto-install-peers=false\n");
+	json(join(dir, "tsconfig.json"), {
+		compilerOptions: {
+			target: "ES2022",
+			module: "ESNext",
+			moduleResolution: "Bundler",
+			jsx: "react-jsx",
+			jsxImportSource: "ignite-element/jsx",
+			strict: true,
+			skipLibCheck: false,
+			noEmit: true,
+		},
+		include: ["src"],
+	});
+	run(dir, "pnpm", ["install"]);
+	recordResolution(dir);
+	run(dir, "pnpm", ["exec", "tsc", "-p", "tsconfig.json"]);
+	run(dir, "pnpm", ["run", "build"]);
+}
+// Historical beta.14 remains a separate registry consumer, without candidate overrides.
 {
 	const dir = join(output, "published-beta14");
 	mkdirSync(dir);
@@ -178,7 +316,7 @@ for (const lane of ["web", "native"]) {
 		join(dir, "toggle.tsx"),
 	);
 	copyFileSync(
-		join(repo, "scripts/__tests__/fixtures/handbook/toggle.test.tsx"),
+		join(repo, "scripts/__tests__/fixtures/handbook/beta14-toggle.test.tsx"),
 		join(dir, "toggle.test.tsx"),
 	);
 	for (const name of ["tsconfig.json", "vitest.config.ts"])
@@ -197,6 +335,38 @@ for (const lane of ["web", "native"]) {
 	run(dir, "pnpm", ["exec", "tsc", "-p", "tsconfig.json"]);
 	run(dir, "pnpm", ["exec", "vitest", "run"]);
 }
+// Historical v2 config is checked against v2, never the candidate's source types.
+{
+	const dir = join(output, "published-v2");
+	mkdirSync(dir);
+	const page = readFileSync(
+		join(repo, "docs/site/src/content/docs/migration/v2.mdx"),
+		"utf8",
+	);
+	const config = [...page.matchAll(/^```ts\n([\s\S]*?)^```/gm)].find((block) =>
+		block[1].includes("defineIgniteConfig"),
+	);
+	if (!config) throw new Error("Historical v2 configuration example missing");
+	writeFileSync(join(dir, "config.ts"), config[1]);
+	copyFileSync(join(output, "web/tsconfig.json"), join(dir, "tsconfig.json"));
+	json(join(dir, "package.json"), {
+		private: true,
+		type: "module",
+		// v2 declares all of these peers as required; v3 isolation remains separate.
+		dependencies: {
+			"ignite-element": "2.2.2",
+			xstate: "5.32.1",
+			"@reduxjs/toolkit": "2.12.0",
+			redux: "5.0.1",
+			mobx: "6.16.1",
+			"lit-html": "3.3.1",
+		},
+		devDependencies: { typescript: "5.9.3", "@types/node": "25.0.3" },
+	});
+	writeFileSync(join(dir, ".npmrc"), "auto-install-peers=false\n");
+	run(dir, "pnpm", ["install"]);
+	run(dir, "pnpm", ["exec", "tsc", "-p", "tsconfig.json"]);
+}
 console.log(
-	`Strict packed web/native consumers and published beta.14 quickstart passed. Task-local evidence retained: ${output}`,
+	`Strict packed web/native consumers plus candidate preview and historical beta.14 fixture passed. Task-local evidence retained: ${output}`,
 );

@@ -3,70 +3,154 @@ title: Views
 description: Render inferred state and commands with Ignite JSX, React, or React Native.
 ---
 
-> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
-
 import nativeCounter from '../../../../../../scripts/__tests__/fixtures/handbook/CounterScreen.tsx?raw';
 import { Code } from '@astrojs/starlight/components';
 import counterCore from '../../../../../../examples/frameworks/react/counter-core.ts?raw';
 import sharedCounter from '../../../../../../examples/frameworks/react/shared-counter.tsx?raw';
+import ReactCounterDemo from '../../../components/ReactCounterDemo.astro';
+import webInterop from '../../../../../../examples/frameworks/react/src/WebInterop.tsx?raw';
+import counterBinding from '../../../../../../examples/frameworks/react/src/counter.react.ts?raw';
+import counterElement from '../../../../../../examples/frameworks/react/src/counter.ignite.tsx?raw';
+import counterStyles from '../../../../../../examples/frameworks/react/counters.css?raw';
+import elementStyles from '../../../../../../examples/frameworks/react/src/counter.css?raw';
 
-The renderer turns source-derived values into a view. Use `ctx` to access those
-values and source-directed commands without duplicating state in the view.
+The renderer turns source-derived values into a view.
+
+Use `ctx` to access those values and source-directed commands without duplicating state in the view.
 
 ## Ignite JSX
 
-Call `core('my-component', ctx => ...)`, as in the
-[complete toggle](/ignite-element/#build-a-component). JSX files use `.tsx` and
-`jsxImportSource: "ignite-element/jsx"`. No plugin or `ignite.config.ts` is required.
-A source-free layout can use `igniteCore()` from `ignite-element`; it returns
-only a registrar, without the source-backed runtime methods.
+Call `core('my-component', ctx => ...)`, as in the [light switch](/ignite-element/#build-a-component).
+
+JSX files use `.tsx` and `jsxImportSource: "ignite-element/jsx"`.
+
+A source-free layout can use `igniteCore()` from `ignite-element`; it returns only a registrar, without the source-backed runtime methods.
 
 ## React
 
-Install `react` and `react-dom` for a web application. Use React's JSX runtime in
-React files and the Ignite pragma in files that register Ignite JSX components.
+Install `react` and `react-dom` for a web application.
+
+Use React's JSX runtime in React files and the Ignite pragma in files that register Ignite JSX components.
+
+### Two views, one source
+
+Increment either counter or edit its label.
+
+Both views update because they use the same core and source.
+
+<ReactCounterDemo kind="shared" />
+
+### Connect the views
+
 Create the shared core outside rendering, then call `const ctx = useIgnite(core)`.
+
+Save these modules together:
 
 <Code code={counterCore} lang="ts" title="counter-core.ts" />
 
 <Code code={sharedCounter} lang="tsx" title="shared-counter.tsx" />
 
+Render `<SharedCounters />` in your React application.
+
+<details>
+<summary>counters.css — styles for both demos</summary>
+
+<Code code={counterStyles} lang="css" title="counters.css" />
+
+</details>
+
+### Shared state and cleanup
+
 This is the [runnable React example](https://github.com/0xjcf/ignite-element/tree/beta/examples/frameworks/react).
-Both views observe the same count and label. Hook unmount releases its own
-subscription; final application shutdown belongs to the owner. Shared cores
-need no preparation-only read. In the local lifecycle candidate, passing a
-machine, slice or fresh factory instead gives each hook private state with
-automatic runtime cleanup on unmount and fresh state on a genuine new mount.
-The same synchronous `ctx` works in React Native. Construction safety and the
-separate explicit headless runtime are described in
-[ownership](/ignite-element/handbook/ownership/).
+
+Both views observe the same count and label.
+
+`useIgnite(core)` automatically unsubscribes when the component unmounts.
+
+No cleanup `useEffect` is needed in the view.
+
+The core stays available for other views and later mounts.
+
+Call `core.dispose()` when you permanently discard that core, such as when its owning feature or session ends.
+
+If you supplied an external actor, its owner stops it when nothing else needs it.
+
+See the [session cleanup example](/ignite-element/handbook/ownership/#end-a-session).
+
+This example passes an existing actor, so the core is ready for `useIgnite(core)` without a preparation read.
+
+Passing a machine, slice or fresh factory instead gives each hook private state with automatic runtime cleanup on unmount and fresh state on a genuine new mount.
+
+The same synchronous `ctx` works in React Native.
+
+Construction safety and the separate explicit headless runtime are described in [ownership](/ignite-element/handbook/ownership/#isolated-headless-cores).
 
 ## React Native
 
-Use the same neutral `ignite-element/react` hook and native controls. This is a
-complete view module using the shared `counter-core.ts` above.
+Use the same neutral `ignite-element/react` hook and native controls.
+
+This is a complete view module using the shared `counter-core.ts` above.
 
 <Code code={nativeCounter} lang="tsx" title="CounterScreen.tsx" />
 
-The [native consumer fixture](https://github.com/0xjcf/ignite-element/tree/beta/scripts/__tests__/fixtures/react-native-bindings)
-checks real React Native types and its standard Jest host. That is not device or
-simulator acceptance. SSR/hydration and Solid/Vue headless bindings are not implemented.
+The [native consumer fixture](https://github.com/0xjcf/ignite-element/tree/beta/scripts/__tests__/fixtures/react-native-bindings) checks real React Native types and its standard Jest host.
+
+That is not device or simulator acceptance.
+
+SSR/hydration and Solid/Vue headless bindings are not implemented.
 
 ## Browser custom-element interoperability
 
-When React intentionally hosts a real element, use
-`igniteReact(handle)` from `ignite-element/react/web`. Its callback props receive
-flat event detail and its typed ref calls commands on that element. See the
-[separate interoperability demo](https://github.com/0xjcf/ignite-element/blob/beta/examples/frameworks/react/src/WebInterop.tsx).
-Refs serve that recipe; ordinary shared-core views use `ctx`.
+When React intentionally hosts a real element, use `igniteReact(handle)` from `ignite-element/react/web`.
 
-Plain HTML, Vue, and Svelte can use the registered tag, attributes, native DOM
-events, and element commands. These browser capabilities do not imply a new
-Ignite Vue/Solid hook. See the [framework examples](/ignite-element/handbook/examples/).
+### React to an emitted event
+
+Use the custom element's buttons to change its count.
+
+React receives `countChanged` through `onCountChanged` and updates the status beside it.
+
+The odd/even label and color belong to the React view.
+
+<ReactCounterDemo kind="events" />
+
+### Listen in React
+
+`onCountChanged` receives the event's data directly: `{ count }`.
+
+<Code code={webInterop} lang="tsx" title="src/WebInterop.tsx" />
+
+Render `<WebInterop />` in your React application.
+
+### Wrap the custom element
+
+`igniteReact` creates the React component from the registered element handle.
+
+<Code code={counterBinding} lang="ts" title="src/counter.react.ts" />
+
+### Emit the count
+
+The element declares `countChanged` and emits it when the selected count changes.
+
+<Code code={counterElement} lang="tsx" title="src/counter.ignite.tsx" />
+
+<details>
+<summary>src/counter.css — styles inside the element</summary>
+
+<Code code={elementStyles} lang="css" title="src/counter.css" />
+
+</details>
+
+The live demos run these same modules from the [React example](https://github.com/0xjcf/ignite-element/tree/beta/examples/frameworks/react).
+
+Plain HTML, Vue, and Svelte can use the registered tag, attributes, native DOM events, and element commands.
+
+These browser capabilities do not imply a new Ignite Vue/Solid hook.
+
+See the [framework examples](/ignite-element/handbook/examples/).
 
 ## Styling
 
-Use native CSS inside the shadow root. In a renderer fragment:
+Use native CSS inside the shadow root.
 
 Return a `<style>` element containing this CSS alongside the view:
 
@@ -81,12 +165,16 @@ button {
 }
 ```
 
-Global selectors do not pierce shadow roots; inherited custom properties support
-theming. Account for your application's CSP when using inline styles.
-Use native controls, labels, and keyboard behavior; see
-[accessibility](/ignite-element/guides/accessibility-first/).
+Global selectors do not pierce shadow roots; inherited custom properties support theming.
 
-The optional [Lit renderer and advanced configuration](/ignite-element/api/advanced-config/)
-require their declared dependencies. Retained Canvas, WebGL, editor, map, and
-native view resources belong to presentation lifecycle facilities. Ignite effects
-are [notifications](/ignite-element/handbook/events/), not resource or commit hooks.
+Account for your application's CSP when using inline styles.
+
+Use native controls, labels, and keyboard behavior; see [accessibility](/ignite-element/guides/accessibility-first/).
+
+<span id="other-renderers-and-resources"></span>
+
+### Presentation resources
+
+Retained Canvas, WebGL, editor, map, and native view resources belong to presentation lifecycle facilities.
+
+Ignite effects are [notifications](/ignite-element/handbook/events/), not resource or commit hooks.

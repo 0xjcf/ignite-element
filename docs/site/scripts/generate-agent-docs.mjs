@@ -53,10 +53,23 @@ function content(file) {
 		(_, id, lang, name) =>
 			`\n${name}\n\n\`\`\`${lang}\n${fs.readFileSync(imports.get(id), "utf8")}\`\`\`\n`,
 	);
-	return text.replaceAll("](/ignite-element/", `](${base}`);
+	return text
+		.replaceAll(
+			"<LightSwitchDemo />",
+			"[Try the live light switch](" + base + "#build-a-component)",
+		)
+		.replaceAll(
+			'<ReactCounterDemo kind="shared" />',
+			`[Try the live shared counters](${base}handbook/views/#two-views-one-source)`,
+		)
+		.replaceAll(
+			'<ReactCounterDemo kind="events" />',
+			`[Try the live custom-element events](${base}handbook/views/#react-to-an-emitted-event)`,
+		)
+		.replaceAll("](/ignite-element/", `](${base}`);
 }
 const heading =
-	"# Ignite Element\n\nVersion: v3 (beta), unreleased command-source candidate.\nCommands receive { source }; this change is NOT available in published beta.14. The explicitly labelled Getting started example retains beta.14 syntax and its pinned installation. Other candidate examples require this checkout until a supporting beta is published. Stable policy: ignite-element@latest = 2.2.2.\n\n";
+	"# Ignite Element\n\nVersion: v3 (beta).\nCommands receive { source }. Install ignite-element@beta with the source library you use. Stable policy: ignite-element@latest = 2.2.2.\n\n";
 const index =
 	heading +
 	primary

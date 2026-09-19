@@ -6,9 +6,11 @@ sidebar:
   order: 3
 ---
 
-> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
+A source-backed core works with or without a rendered view.
 
-Ignite Element is behavior-first. A source-backed `igniteCore(...)` registration that creates a custom element also exposes a headless runtime, so agents and tests can inspect the contract, execute commands, observe events, and verify derived states before any DOM selector exists.
+Agents and tests can read derived states, execute commands, and observe events through its headless runtime.
+
+The same core can register a custom element.
 
 The practical model is:
 
@@ -17,14 +19,21 @@ The practical model is:
 3. Add the DOM layer as a projection over already-proven behavior.
 
 :::note[API reference]
-This guide is the narrative walkthrough. For exact signatures and return shapes, see [Headless runtime](/ignite-element/api/headless-runtime/), [Command metadata](/ignite-element/api/command-metadata/), and the [Testing guide](/ignite-element/handbook/testing/).
+For method signatures and return shapes, see [Headless runtime](/ignite-element/api/headless-runtime/), [Command metadata](/ignite-element/api/command-metadata/), and the [Testing guide](/ignite-element/handbook/testing/).
 :::
 
 ## Behavior-first components
 
-Start by describing the state source, derived states, commands, events, and effects. `igniteCore(...)` infers the effect context and command `source` from the configured source and event builder. Environmental and host capabilities remain application-owned.
+Start by describing the state source, derived states, commands, events, and effects.
 
-```ts no-check
+`igniteCore(...)` infers the effect context and command `source` from the configured source and event builder.
+
+Environmental and host capabilities remain application-owned.
+
+Copy [apiShowcaseMachine.ts](https://github.com/0xjcf/ignite-element/blob/beta/examples/adapters/xstate/apiShowcaseMachine.ts) beside this module. It defines the count, limit, `ADD` and `SET_LIMIT` behavior used below.
+
+```ts title="agent-counter.ts"
+import { apiShowcaseMachine as counterMachine } from './apiShowcaseMachine';
 import { igniteCore } from 'ignite-element/xstate';
 
 export const counter = igniteCore({
@@ -37,7 +46,7 @@ export const counter = igniteCore({
   }),
 
   commands: ({ source: actor }) => ({
-    increment: () => actor.send({ type: 'INCREMENT' }),
+    increment: () => actor.send({ type: 'ADD', amount: 1 }),
 
     setLimit: (limit: number) => actor.send({ type: 'SET_LIMIT', limit }),
   }),
@@ -60,7 +69,9 @@ export const counter = igniteCore({
 
 That registration gives agents a contract to inspect and a command surface to drive — all without the DOM:
 
-```ts
+This Vitest fragment assumes `counter` is imported from `./agent-counter` and `expect` from `vitest`. Use a fresh module instance per test and dispose its test-owned core in `finally`.
+
+```ts title="Workflow test (fragment)"
 counter.get('schema'); // pure catalogue; configured commands unknown until bound
 counter.get('states');   // current derived states
 const canIncrement = !counter.get('states').isLimited; // projected source hint
@@ -86,9 +97,16 @@ In practice, the loop is:
 
 ## Add the DOM layer
 
-Once the behavior is stable, the custom element stays thin — its renderer consumes derived states and command functions to produce the view. The default DOM layer uses the public `ignite-element/jsx` runtime and ordinary local style tags; no project config is required.
+Once the behavior is stable, the custom element stays thin — its renderer consumes derived states and command functions to produce the view.
 
-```tsx
+The default DOM layer uses the public `ignite-element/jsx` runtime and ordinary local style tags.
+
+Machine-backed headless access and each registered element have independent state. To let an agent drive the same state as a mounted view, pass an existing actor to the core; see [Shared sources](/ignite-element/guides/shared-source-ownership/).
+
+```tsx title="agent-counter-view.tsx"
+/** @jsxImportSource ignite-element/jsx */
+import { counter } from './agent-counter';
+
 const panelStyles = `
   section {
     display: grid;
@@ -99,38 +117,46 @@ const panelStyles = `
   }
 `;
 
-counter('counter-panel', ({ count, limit, isLimited, increment, setLimit }) => (
+counter('counter-panel', (ctx) => (
   <section>
     <style>{panelStyles}</style>
     <strong>
-      {count} / {limit}
+      {ctx.count} / {ctx.limit}
     </strong>
 
-    <button type="button" onClick={() => increment()}>
+    <button type="button" onClick={() => ctx.increment()}>
       Increment
     </button>
 
     <input
       type="range"
+      aria-label="Count limit"
       min={3}
       max={12}
-      value={limit}
-      onInput={(event) => setLimit(Number(event.currentTarget.value))}
+      value={ctx.limit}
+      onInput={(event: Event) => {
+        if (event.currentTarget instanceof HTMLInputElement) {
+          ctx.setLimit(Number(event.currentTarget.value));
+        }
+      }}
     />
 
-    {isLimited && <p>Limit reached</p>}
+    {ctx.isLimited && <p>Limit reached</p>}
   </section>
 ));
 ```
 
-This keeps DOM tests focused on rendering and accessibility, while behavior tests stay selector-free. To assert rendered controls by role and accessible name, mount the registered component and use DOM Testing Library on its actual rendered elements — see the [Testing guide](/ignite-element/handbook/testing/).
+This keeps DOM tests focused on rendering and accessibility, while behavior tests stay selector-free.
+
+To assert rendered controls by role and accessible name, mount the registered component and use DOM Testing Library on its actual rendered elements — see the [Testing guide](/ignite-element/handbook/testing/).
 
 ## Agent-readable contracts
 
 Ordinary commands retain TypeScript inference and source-directed intent.
+
 Descriptions and input schemas belong at the application/tool boundary:
 
-```ts
+```ts title="agent-counter-tools.ts"
 import { buildManifest, resolveCall } from 'ignite-element/tools';
 
 const counterToolSchema = {
@@ -138,10 +164,6 @@ const counterToolSchema = {
     setLimit: {
       description: 'Set maximum count',
       input: { type: 'number', minimum: 3, maximum: 12 },
-    },
-    renamePreset: {
-      description: 'Rename the saved preset label.',
-      input: { type: 'string', minLength: 1, maxLength: 32 },
     },
   },
 };
@@ -151,25 +173,37 @@ const invalidLimit = resolveCall(manifest, 'setLimit', 99);
 ```
 
 Only offer definitions for commands the application's core actually exposes.
-Use `igniteTools(counter, dialect, { schema: counterToolSchema, canExecute })`
-for provider translation and validated invocation. The optional tool predicate
-reads projected availability; source guards still enforce behavior. A schema can
-explicitly mark a tool `gated: true`; this is application metadata, not automatic
-core discovery. Scalar inputs are wrapped/unwrapped only at the provider boundary.
+
+Use `igniteTools(counter, dialect, { schema: counterToolSchema, canExecute })` for provider translation and validated invocation.
+
+The optional tool predicate reads projected availability; source guards still enforce behavior.
+
+A schema can explicitly mark a tool `gated: true`; this is application metadata, not automatic core discovery.
+
+Scalar inputs are wrapped/unwrapped only at the provider boundary.
 
 A command such as `submit: () => actor.send({ type: 'SUBMIT' })` needs no helper.
-Project `snapshot.can({ type: 'SUBMIT' })` into a `canSubmit` state if useful.
-Do not infer schemas from that function, expose unavailable actions as universally
-available, or confuse availability with authorization.
 
-The core catalogue contains bound own names with `input: null`, declared event
-names with `payload: null`, and `states: { schema: null }`.
-Before command callback binding it is `commands: null`; without a callback it is
-`commands: {}`. Pure discovery never creates a source or manufactures an actor.
+Project `snapshot.can({ type: 'SUBMIT' })` into a `canSubmit` state if useful.
+
+Do not infer schemas from that function, expose unavailable actions as universally available, or confuse availability with authorization.
+
+### Read the command catalogue
+
+The core catalogue contains bound own names with `input: null`, declared event names with `payload: null`, and `states: { schema: null }`.
+
+Before command callback binding it is `commands: null`; without a callback it is `commands: {}`.
+
+Pure discovery never creates a source or manufactures an actor.
+
 See [Commands and tool schemas](/ignite-element/api/command-metadata/).
 
 ## Ordinary workflow tests
 
-Assert the direct runtime results shown above, preserving source-owned asynchronous outcomes and real DOM coverage. Replace unbounded loops with an application-specific step limit; after a command starts asynchronous source work, wait on its correlated source state/event rather than assuming `execute()` completes it. Release observers and let the source owner stop native resources.
+Assert the direct runtime results shown above, preserving source-owned asynchronous outcomes and real DOM coverage.
 
-The former recorder, trace helpers, story snapshots and lifecycle histories are intentionally retired without a replacement recorder. See the [migration notice](/ignite-element/api/testing-dsl/). Logic remains inspectable without the DOM, and the DOM remains a projection over that contract.
+Replace unbounded loops with an application-specific step limit; after a command starts asynchronous source work, wait on its correlated source state/event rather than assuming `execute()` completes it.
+
+Release observers and let the source owner stop native resources.
+
+Logic remains inspectable without the DOM, and the DOM remains a projection over that contract.

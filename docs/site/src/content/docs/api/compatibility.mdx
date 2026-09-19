@@ -6,43 +6,110 @@ sidebar:
   order: 6
 ---
 
-The published `ignite-element@3.0.0-beta.14` supports the versions below. The state libraries and `lit-html` are **optional** peer dependencies — install only the ones the adapter you import needs. npm/pnpm warn if an installed version is below the minimum.
+Ignite Element v3 supports the versions below.
 
-All four v3 packages are native ESM-only: `ignite-element`, `@ignite-element/core`, `@ignite-element/adapters`, and `@ignite-element/renderer`. Their public ESM entrypoints and declarations are supported; CommonJS `main` and `require` entrypoints are not.
+Install the state library your source entrypoint uses.
+
+Install `lit-html` only when using the Lit renderer.
+
+These are optional peer dependencies.
+
+Your package manager warns if an installed version is below the minimum.
+
+All four v3 packages are native ESM-only: `ignite-element`, `@ignite-element/core`, `@ignite-element/adapters`, and `@ignite-element/renderer`.
+
+Their public ESM entrypoints and declarations are supported; CommonJS `main` and `require` entrypoints are not.
 
 | Dependency | Required | Needed for |
 | --- | --- | --- |
 | Node.js | `>=22` | running the build/dev toolchain |
-| TypeScript | `5.x` (authored against 5.9) | the typed JSX authoring path |
 | `xstate` | `>=5.19.0` | `ignite-element/xstate` |
 | `@reduxjs/toolkit` | `>=2.3.0` | `ignite-element/redux` |
 | `redux` | `>=5.0.1` | `ignite-element/redux` (peer of Redux Toolkit) |
 | `mobx` | `>=6.13.5` | `ignite-element/mobx` |
 | `lit-html` | `>=3.2.1` | the optional legacy `lit` renderer |
 
-The version ranges come from each package's `peerDependencies`; the Node and TypeScript rows reflect the toolchain the v3 types and packages are built and tested against.
+The library version ranges come from each package's `peerDependencies`.
+
+The Node row describes the build and test toolchain.
+
+### Tested TypeScript toolchains
+
+| Validation lane | TypeScript | Evidence scope |
+| --- | --- | --- |
+| Repository and strict packed consumers | `5.9.3` | repository types and selected complete consumer modules |
+| Downloadable light-switch starter | `7.0.2` | the starter’s strict typecheck and Vite build |
+
+The [starter download](/ignite-element/examples/light-switch.zip) pins TypeScript `7.0.2` and Vite `8.3.0`.
+These are separately tested combinations, not a guarantee for every version across either compiler major.
 
 :::caution[v3 is in beta]
-v3 publishes under the `beta` dist-tag (the stable `latest` tag is still v2.2.x). Pin a known-good range in your own `package.json` until the stable release. See the [v2 → v3 migration guide](/ignite-element/migration/v3/).
+v3 publishes under the `beta` dist-tag (the stable `latest` tag is still v2.2.x).
+
+Pin a known-good range in your own `package.json` until the stable release.
+
+See the [v2 → v3 migration guide](/ignite-element/migration/v3/).
 :::
 
 ## Related
 
 - [Installation](/ignite-element/) — install steps and the project checklist.
-- [Advanced config](/ignite-element/api/advanced-config/) — the optional `lit` renderer that needs `lit-html`.
+- [Renderer compatibility](/ignite-element/api/advanced-config/) — retained settings and Lit templates in existing applications.
 
 ## Node runtime versus declaration support
 
-The published beta.13 headless path is validated on Node 22.16.0, pnpm 10.33.0 and TypeScript 5.9.3. Native `EventTarget`, `Event` and `CustomEvent` provide the runtime event path; Ignite does not fabricate browser globals. Source-backed construction and execution need no DOM. Tag registration is synchronous and requires a browser. Other engines, workers and SSR/hydration are not established by this evidence.
+The headless path is validated on Node 22.16.0, pnpm 10.33.0 and TypeScript 5.9.3.
 
-Root/JSX optional-peer isolation, adapter inference with the selected peer, and compilation without `lib: DOM` are independent checks. Beta.12 partitions the neutral source entrypoints and `ignite-element/react` from browser declarations. Genuine registration/JSX and the explicit `/react/web` and `/actor-web/web` consumers retain actual DOM types. Do not install ambient browser stubs to make a native lane pass. Documentation direct-topology examples use Actor-Web 0.2.1; the existing adapter control retains 0.2.0. Authentic neutral source-only consumption is separately verified against the public `@actor-web/runtime@0.3.0` package's `/source` entrypoint, including its strict NodeNext declarations.
+Native `EventTarget`, `Event` and `CustomEvent` provide the runtime event path; Ignite does not fabricate browser globals.
 
-### Owning-core lifetime in beta.13
+Source-backed construction and execution need no DOM.
 
-The repository and strict packed-consumer profiles use TypeScript's `Bundler`
-module resolution. A separate NodeNext probe still reports extensionless
-declaration-import resolution failures; NodeNext support is not established or
-claimed by Bundler success. Native ESM runtime imports and strict no-DOM
-declaration consumption are distinct from that compiler-mode limitation.
+Tag registration is synchronous and requires a browser.
 
-Source-backed owning cores expose terminal `dispose()` before and, since beta.13, after successful custom-element registration. It releases all Ignite observations and stops only a private Ignite-created XState actor; borrowed sources and headless Actor-Web factory handles remain application-owned. Disposed registered cores leave later connections inert. Beta.12 rejects registered-core disposal before teardown. Handles and projection sessions remain independently releasable. Shared-source cores prepare during owner-controlled construction in beta.13; the React hook needs no preparation-only read and never disposes its owner on unmount. SSR, framework commit barriers and native device execution are not implied. See the [beta.13 migration note](/ignite-element/migration/shared-readiness-terminal-disposal/).
+Other engines, workers and SSR/hydration are not established by this evidence.
+
+Root/JSX optional-peer isolation, adapter inference with the selected peer, and compilation without `lib: DOM` are independent checks.
+
+The package separates the neutral source entrypoints and `ignite-element/react` from browser declarations.
+
+Genuine registration/JSX and the explicit `/react/web` consumers retain actual DOM types.
+
+Do not install ambient browser stubs to make a native lane pass.
+
+### TypeScript module resolution
+
+The repository and strict packed-consumer profiles use TypeScript's `Bundler` module resolution.
+
+A separate NodeNext probe still reports extensionless declaration-import resolution failures; NodeNext support is not established or claimed by Bundler success.
+
+Native ESM runtime imports and strict no-DOM declaration consumption are distinct from that compiler-mode limitation.
+
+### Owning-core lifetime
+
+Source-backed owning cores expose terminal `dispose()` before and after successful custom-element registration.
+
+It releases all Ignite observations and stops only a private Ignite-created XState actor; borrowed sources remain application-owned.
+
+Disposed registered cores leave later connections inert.
+
+Handles and projection sessions remain independently releasable.
+
+With an existing actor, store or observable, the core is ready at construction and needs no preparation read before `useIgnite(core)`.
+
+Machine, slice and fresh-factory inputs also work directly with `useIgnite(core)`, with a private runtime per hook and no preparation read.
+
+Explicit headless access uses a [separate runtime](/ignite-element/handbook/ownership/#isolated-headless-cores).
+
+Web Activity behavior was verified with React DOM 19.2.7.
+
+Native host checks use React 19.1.0 and React Native 0.81.5; they do not establish native Activity or device acceptance.
+
+Independent runtime retention uses `useInsertionEffect` internally for bookkeeping, beyond React's recommended CSS-in-JS use. Source activation and teardown occur outside that effect.
+
+React DOM and the React Native test renderer have different commit ordering; passing the native Jest host does not establish every custom renderer's lifecycle behavior.
+
+The hook never disposes its owning core on unmount.
+
+SSR, framework commit barriers and native device execution are not implied.
+
+See [Ownership & cleanup](/ignite-element/handbook/ownership/).

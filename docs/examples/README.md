@@ -17,7 +17,7 @@ Each example now uses the v3 public adapter entrypoints: `ignite-element/xstate`
 
 Examples project public data through `states(snapshot)` and expose intent through `commands(...)`. Public `igniteCore` renderers receive those derived states and commands, not raw `state` or `send`. The XState example uses ordinary behavior and DOM assertions; the former recording API is retired.
 
-> The examples include `ignite.config.ts` only as an advanced compatibility layer for demo-wide shared styles. The normal v3 public path is adapter entrypoint + `jsxImportSource: "ignite-element/jsx"` + component-local `<style>` tags.
+The JSX examples use `jsxImportSource: "ignite-element/jsx"` and component-local `<style>` tags.
 
 ## Running the adapter examples
 

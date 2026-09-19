@@ -3,6 +3,7 @@
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import remarkGfm from "remark-gfm";
+import scrollableTables from "./src/rehype-scrollable-tables.mjs";
 
 import starlightVersions from "starlight-versions";
 
@@ -10,11 +11,17 @@ import starlightVersions from "starlight-versions";
 export default defineConfig({
 	site: "https://0xjcf.github.io",
 	base: "/ignite-element",
+	// Live demos import the canonical example modules outside this site package.
+	// Resolve their public dependencies from the site and share one React runtime.
+	vite: {
+		resolve: { dedupe: ["react", "react-dom", "ignite-element", "xstate"] },
+	},
 	// Astro's built-in GFM isn't reaching the Starlight MDX pipeline in this
 	// Astro 6 / Starlight 0.39 setup, so GFM tables render as literal pipes.
 	// Apply remark-gfm explicitly so `| … |` tables (and other GFM) render.
 	markdown: {
 		remarkPlugins: [remarkGfm],
+		rehypePlugins: [scrollableTables],
 	},
 	integrations: [
 		starlight({
@@ -37,6 +44,7 @@ export default defineConfig({
 			},
 			favicon: "/ignite-element-favicon.svg",
 			components: {
+				Header: "./src/components/Header.astro",
 				SiteTitle: "./src/components/SiteTitle.astro",
 				ThemeSelect: "./src/components/ThemeSelect.astro",
 				PageTitle: "./src/components/PageTitle.astro",
@@ -86,29 +94,13 @@ export default defineConfig({
 					slug: "handbook/examples",
 				},
 				{
-					label: "Migration",
+					label: "Guides",
 					collapsed: true,
 					items: [
-						{
-							label: "v2 to v3",
-							slug: "migration/v3",
-						},
-						{
-							label: "Events and effects",
-							slug: "migration/effects-events",
-						},
-						{
-							label: "Readiness and disposal",
-							slug: "migration/shared-readiness-terminal-disposal",
-						},
-						{
-							label: "Retired testing API",
-							slug: "api/testing-dsl",
-						},
-						{
-							label: "Historical v1 to v2",
-							slug: "migration/v2",
-						},
+						{ label: "Shared sources", slug: "guides/shared-source-ownership" },
+						{ label: "Routing", slug: "guides/routing" },
+						{ label: "Accessibility", slug: "guides/accessibility-first" },
+						{ label: "Build for agents", slug: "guides/agent-runtime-v3" },
 					],
 				},
 			],

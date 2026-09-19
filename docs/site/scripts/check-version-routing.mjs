@@ -72,8 +72,7 @@ const requiredCurrentRoutes = [
 	"api/advanced-config",
 	"api/compatibility",
 	"guides/routing",
-	"guides/actor-web",
-	"guides/plain-controllers",
+	"guides/shared-source-ownership",
 	"guides/accessibility-first",
 	"migration/v3",
 ];
@@ -157,11 +156,16 @@ assert.ok(
 );
 
 const installation = fs.readFileSync(routeSource("index"), "utf8");
-assert.ok(
-	facadeInstalls(installation).some((selector) =>
-		supportedFacadeInstalls.has(selector),
-	),
-	`v3 install must select the beta channel or a verified release through ${verifiedRelease}`,
+// Final reader-facing copy stays unpublished until the supporting release is verified.
+assert.deepEqual(
+	facadeInstalls(installation),
+	["ignite-element@beta"],
+	"Getting started must install the beta channel, not a historical package",
+);
+assert.doesNotMatch(
+	installation,
+	/Unreleased preview|local candidate|upcoming release|candidate checkout|candidate packages|Installation instructions will follow/i,
+	"Getting started must stay focused without internal release instructions",
 );
 assert.match(
 	installation,

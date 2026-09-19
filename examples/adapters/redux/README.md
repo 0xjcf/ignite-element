@@ -1,7 +1,5 @@
 # Redux + ignite-element Example
 
-> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
-
 This example shows how ignite-element integrates with **Redux Toolkit**, **Ignite JSX**, and **Bootstrap** to drive both shared and isolated counters through the public `ignite-element/redux` authoring surface.
 
 ---
@@ -48,8 +46,7 @@ Choose a source based on the lifetime you need:
 - **Shared store instance** → reuse across every component registration.
 - **Slice definition** → create a fresh store per component (isolated scope).
 - **Store factory** → create a separate configured store per element. Pass
-  `source: counterStore` through `ignite-element/redux`; no `adapter` property is
-  needed. See the [checked factory example](../../../scripts/__tests__/fixtures/handbook/redux-factory.ts).
+  `source: counterStore` through `ignite-element/redux`. See the [checked factory example](../../../scripts/__tests__/fixtures/handbook/redux-factory.ts).
 
 ```tsx
 import { igniteCore } from "ignite-element/redux";
@@ -85,12 +82,13 @@ Each registered element receives the projected **view** fields (e.g. `count`) an
 
 ---
 
-## Styling with Bootstrap (config-free)
+## Styling with Bootstrap
 
 Ignite renders each component into its own Shadow DOM, so Bootstrap's classes
-can't reach component internals from a global `<link>`. The example imports
-Bootstrap's stylesheet as raw text and injects a `<style>` into each component's
-shadow root — no `ignite.config.ts`, no sass build step:
+can't reach component internals from a global `<link>`.
+
+The example imports Bootstrap's stylesheet as raw text and injects a `<style>`
+into each component's shadow root:
 
 ```tsx
 import bootstrapStyles from "bootstrap/dist/css/bootstrap.min.css?raw";

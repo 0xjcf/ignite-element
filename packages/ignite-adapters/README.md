@@ -6,19 +6,14 @@ The v3 package is native ESM-only. Use ESM imports; it does not provide a Common
 
 This package provides the state-library-specific adapter layers that power Ignite's higher-level APIs.
 
-Exported entrypoints:
+Documented entrypoints:
 
 - `@ignite-element/adapters`
 - `@ignite-element/adapters/xstate`
 - `@ignite-element/adapters/redux`
 - `@ignite-element/adapters/mobx`
-- `@ignite-element/adapters/actor-web`
 
 Use this package directly only when you are building custom bindings or integrating Ignite behavior without the full `ignite-element` package.
-
-`@ignite-element/adapters/actor-web` is an optional advanced runtime bridge. It adapts an
-Actor-Web-owned runtime source into Ignite adapter state; it does not make
-Actor-Web a required dependency for standalone Ignite usage.
 
 Package role:
 
@@ -33,10 +28,3 @@ Most application and component authors should use:
 - `ignite-element/xstate`
 - `ignite-element/redux`
 - `ignite-element/mobx`
-- `ignite-element/actor-web` when the host app already owns an Actor-Web runtime
-
-Actor-Web owns orchestration, transport, and runtime lifecycle coordination.
-Ignite consumes projection/read-model state from that boundary. See
-[ADR-003](../../docs/adr-003-shared-arc.md) and the
-[shared architecture model](../../docs/shared-architecture-model.md) for the
-boundary model.

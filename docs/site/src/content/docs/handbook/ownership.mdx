@@ -11,75 +11,170 @@ description: Choose sharing deliberately and release resources at their owner bo
 | XState machine, Redux slice | Isolated runtime instances acquired when used |
 | Redux store factory from `ignite-element/redux` | Isolated store per instance |
 | MobX factory from `ignite-element/mobx` | Isolated observable per instance |
-| Actor-Web source or headless factory | Application retains native close authority |
 
-One core serves one source/runtime contract. Multiple registered names or hooks
-may intentionally share that contract. Create the source and core outside
-framework rendering. Shared cores are ready at construction without a
-preparation-only `get('states')` call. Reading state for actual use is valid.
-In the local lifecycle candidate, machine/slice/fresh-factory inputs create a
-private runtime per element or React/React Native hook. The synchronous hook
-needs no preparation-only read. Explicit `get/watch/on/execute` operations use a
-separate headless runtime, never an arbitrary hook's state.
+### Create the core outside rendering
 
-Independent factories and initialization must be safe to repeat and discard
-without external work or resources requiring cleanup. This includes XState
-context initialization, Redux reducer/middleware/enhancer initialization, MobX
-construction, projections and command setup. A factory returning a singleton is
-not independent. Ignite starts owned actors, observation and effects only when
-a hook commits, through observation or a command issued from a layout effect or
-callback ref. Construction alone starts none of them.
+One core serves one source/runtime contract.
+
+Multiple registered names or hooks may intentionally share that contract.
+
+Create the source and core outside framework rendering.
+
+When you pass an existing XState actor, Redux store or MobX observable, the core is ready after construction.
+
+Pass that core directly to `useIgnite(core)`.
+
+No preparation read is required.
+
+See the [shared React example](/ignite-element/handbook/views/#two-views-one-source).
+
+### Isolated headless cores
+
+Machine/slice/fresh-factory inputs create a private runtime per element or React/React Native hook.
+
+The synchronous hook needs no preparation-only read.
+
+Explicit `get/watch/on/execute` operations use a separate headless runtime, never an arbitrary hook's state.
+
+Independent factories and initialization must be safe to repeat and discard without external work or resources requiring cleanup.
+
+This includes XState context initialization, Redux reducer/middleware/enhancer initialization, MobX construction, projections and command setup.
+
+A factory returning a singleton is not independent.
+
+Ignite starts owned actors, observation and effects only when a hook commits, through observation or a command issued from a layout effect or callback ref.
+
+Construction alone starts none of them.
 
 ## Observation handles
 
-`watch(...)` and `on(...)` each return an independently idempotent
-`{ unsubscribe() }`. End a temporary observer when its consumer leaves.
-An independent `useIgnite(core)` releases its private runtime automatically on
-unmount. A genuine new mount starts fresh; synchronous Strict Mode replay keeps
-the live runtime. Activity hiding retains state, commands and already-active
-source resources; view subscriptions and independent projection effects pause.
-Removal or core replacement releases the retained runtime, and terminal core
-disposal also drains hidden runtimes. A shared hook releases only its own subscription. Neither
-unmount disposes the reusable core or shuts down a borrowed source.
+`watch(...)` and `on(...)` each return an independently idempotent `{ unsubscribe() }`.
 
-True element disconnect releases the view's forwarding subscription; reconnect
-acquires a fresh one. Same-tick moves retain it. A source update while no view is
-present does not become a replayed occurrence on reconnect.
+End a temporary observer when its consumer leaves.
 
-Shared adapters and activated effects remain observed through zero-view intervals
-until terminal core disposal. Disconnecting a view releases its subscriptions
-without ending application-level observation or granting native source ownership.
-The local lifecycle candidate removes `cleanup`; supplying it, including `false`
-or `undefined`, is an error. Published beta.14 still exposes that option and has
-a reconnect defect in its optional early-teardown path. See the
-[candidate migration note](/ignite-element/migration/remove-cleanup/) and
-[effect activation and timing](/ignite-element/handbook/events/#delivery-and-ownership).
+An independent `useIgnite(core)` releases its private runtime automatically on unmount.
+
+A genuine new mount starts fresh; synchronous Strict Mode replay keeps the live runtime.
+
+Web Activity hiding retains state, commands and already-active source resources; view subscriptions and independent projection effects pause.
+
+See [Compatibility](/ignite-element/api/compatibility/#owning-core-lifetime) for the tested web and native boundaries.
+
+Removal or core replacement releases the retained runtime, and terminal core disposal also drains hidden runtimes.
+
+A shared hook releases only its own subscription.
+
+Neither unmount disposes the reusable core or shuts down a borrowed source.
+
+No cleanup `useEffect` is needed in that component.
+
+The core remains available for other views or a later mount.
+
+### Element disconnect and reconnect
+
+True element disconnect releases the view's forwarding subscription; reconnect acquires a fresh one.
+
+Same-tick moves retain it.
+
+A source update while no view is present does not become a replayed occurrence on reconnect.
+
+### Shared observation
+
+Shared adapters and activated effects remain observed through zero-view intervals until terminal core disposal.
+
+Disconnecting a view releases its subscriptions without ending application-level observation or granting native source ownership.
+
+The `cleanup` option is removed; supplying it, including `false` or `undefined`, is an error.
+
+See the [migration note](/ignite-element/migration/remove-cleanup/) and [effect activation and timing](/ignite-element/handbook/events/#delivery-and-ownership).
 
 ## Terminal disposal
 
-At final application shutdown, call `core.dispose()`. This is terminal even after
-successful custom-element registration (supported since beta.13). It releases
-Ignite-owned observation, events, effects, projections, bindings, and command
-windows. Registered definitions remain; later connections are inert.
+Call `core.dispose()` when you permanently discard that core.
 
-Disposal prevents reacquisition, attempts every release, and rethrows the first
-exact cleanup error. Repeated disposal is inert even if the first call threw.
-Live reads, subscriptions, commands, and bindings reject afterward; catalogue
-reads remain available. Pending effect evaluations are discarded.
+For example, a feature or signed-in session can own a core and dispose it when that lifetime ends.
 
-Borrowed sources remain application-owned. For a started XState actor, the final
-owner can use this teardown fragment:
+Disposal is terminal, including for cores with registered custom elements.
 
-Call `core.dispose()` inside `try`, and `source.stop()` in `finally` so source
-shutdown still runs if observation cleanup throws.
+It releases Ignite-owned observation, events, effects, projections, bindings, and command windows.
 
-An Ignite-created private XState actor is stopped exactly once after its
-observations drain; an unused core does not create one. Headless Actor-Web
-factories do not transfer close authority. The explicit `/actor-web/web` host
-factory retains its per-element close behavior; asynchronous handle close is not
-awaited backing-runtime shutdown.
+Registered definitions remain; later connections are inert.
+
+### End a session
+
+Suppose the [shared counter](/ignite-element/handbook/views/#two-views-one-source) belongs to a signed-in session.
+
+Navigating away from its screen only unmounts the views.
+
+At sign-out, stop views from using that session's core before disposing it.
+
+Use the same module shown in Views:
+
+```ts title="Session owner imports"
+import { core, source } from './counter-core';
+```
+
+Place this code inside the session's existing end handler:
+
+```ts title="Inside the session-end handler"
+try {
+  core.dispose();
+} finally {
+  source.stop();
+}
+```
+
+Here the session created and exclusively owns the actor, so it also stops that actor.
+
+If another feature still needs the actor, dispose only this core and leave actor shutdown to its owner.
+
+For an Ignite-created private actor, `core.dispose()` also releases that actor.
+
+A later session creates a new core; a disposed core cannot be reused.
+
+### Navigation and backgrounding
+
+Leaving a screen does not necessarily end its session.
+
+Backgrounding a native app does not necessarily end its core's lifetime either.
+
+A core retained for the application's lifetime can stay available throughout normal navigation.
+
+Do not rely on a tab-close or process-termination callback for essential work.
+
+### Who releases what?
+
+| What ends? | Who handles cleanup? |
+| --- | --- |
+| One React or React Native component | `useIgnite` releases its private runtime, or only its view subscription for a shared source |
+| The feature or session that owns the core | Its existing lifecycle code calls `core.dispose()` |
+| An externally created XState actor | Its owner calls `actor.stop()` when nothing else needs it |
+| An Ignite-created private XState actor | Ignite stops it when the owning runtime is released, including core disposal |
+
+### Cleanup failures
+
+Disposal prevents new resource acquisition.
+
+It attempts every release and rethrows the first exact cleanup error.
+
+Repeated disposal is inert even if the first call threw.
+
+Live reads, subscriptions, commands, and bindings reject afterward; catalogue reads remain available.
+
+Pending effect evaluations are discarded.
+
+### Stop sources you own
+
+Borrowed sources remain application-owned.
+
+For an application-owned XState actor, call `core.dispose()` inside `try` and `source.stop()` in `finally`.
+
+This stops the source even if observation cleanup throws.
+
+An Ignite-created private XState actor is stopped exactly once after its observations drain; an unused core does not create one.
 
 Disposal does not cancel entered business I/O or revoke a completed operation.
+
 Keep cancellation, persistence, freshness, and durable receipts with the source.
-For an application with ports and session lifetimes, see the
-[advanced shared-source recipe](/ignite-element/guides/shared-source-ownership/).
+
+For an application with ports and session lifetimes, see the [advanced shared-source recipe](/ignite-element/guides/shared-source-ownership/).

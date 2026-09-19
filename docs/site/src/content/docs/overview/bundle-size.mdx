@@ -1,17 +1,18 @@
 ---
 title: Historical bundle measurements
-description: Historical measurements, not current beta.14 bundle sizes.
+description: Historical measurements, not current release bundle sizes.
 sidebar:
   label: Bundle size
   order: 5
 ---
 
-These retained numbers measure the pre-core-bindings public `ignite-element` ESM entrypoints after a
-production Vite build. State-library and framework peers are externalized, while
-Ignite's own workspace packages are bundled so the table reflects the Ignite
-code a host app pulled in through each import. They are historical, not measurements
-of beta.14. In particular, the old React row measured the
-web wrapper now relocated to `/react/web`, not the neutral `useIgnite` hook.
+These retained numbers measure the pre-core-bindings public `ignite-element` ESM entrypoints after a production Vite build.
+
+State-library and framework peers are externalized, while Ignite's own workspace packages are bundled so the table reflects the Ignite code a host app pulled in through each import.
+
+They are historical, not measurements of the current release.
+
+In particular, the old React row measured the web wrapper now relocated to `/react/web`, not the neutral `useIgnite` hook.
 
 The measurement command is:
 
@@ -19,8 +20,7 @@ The measurement command is:
 pnpm run size:entrypoints
 ```
 
-That command rebuilds the package dependency chain and then bundles each public
-entrypoint from `packages/ignite-element/package.json`.
+That command rebuilds the package dependency chain and then bundles each public entrypoint from `packages/ignite-element/package.json`.
 
 | Entry point | Import | Minified | Gzip |
 | --- | --- | ---: | ---: |
@@ -28,7 +28,6 @@ entrypoint from `packages/ignite-element/package.json`.
 | ignite-element/xstate | `ignite-element/xstate` | 47.72 kB | 12.27 kB |
 | ignite-element/redux | `ignite-element/redux` | 48.18 kB | 12.34 kB |
 | ignite-element/mobx | `ignite-element/mobx` | 47.10 kB | 12.21 kB |
-| ignite-element/actor-web | `ignite-element/actor-web` | 48.86 kB | 12.62 kB |
 | ignite-element/jsx | `ignite-element/jsx` | 501 B | 276 B |
 | ignite-element/jsx/jsx-runtime | `ignite-element/jsx/jsx-runtime` | 432 B | 258 B |
 | ignite-element/jsx/jsx-dev-runtime | `ignite-element/jsx/jsx-dev-runtime` | 386 B | 258 B |
@@ -42,9 +41,10 @@ entrypoint from `packages/ignite-element/package.json`.
 - **Minified** is the production ESM bundle emitted by Vite for that entrypoint.
 - **Gzip** is the gzip-compressed size of the same generated bundle.
 - **Peers are not counted**: XState, Redux Toolkit, Redux, MobX, React,
-  `lit-html`, and `@actor-web/runtime` remain host-app dependencies.
+  and `lit-html` remain host-app dependencies.
 - **Entrypoints are measured from the public export map**. Removed compatibility
   subpaths, including `ignite-element/renderers/lit`, are intentionally omitted.
 
-These are full-entrypoint measurements. A host app that imports a smaller subset
-of symbols can be smaller after its own bundler finishes tree-shaking.
+These are full-entrypoint measurements.
+
+A host app that imports a smaller subset of symbols can be smaller after its own bundler finishes tree-shaking.

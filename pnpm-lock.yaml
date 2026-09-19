@@ -43,6 +43,15 @@ importers:
       astro:
         specifier: ^6.4.3
         version: 6.4.3(@types/node@25.0.3)(jiti@2.6.1)(rollup@4.54.0)(yaml@2.9.0)
+      ignite-element:
+        specifier: workspace:*
+        version: link:../../packages/ignite-element
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
       sharp:
         specifier: ^0.34.2
         version: 0.34.5
@@ -65,6 +74,15 @@ importers:
       '@testing-library/dom':
         specifier: 10.4.1
         version: 10.4.1
+      '@types/react':
+        specifier: 19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+      fflate:
+        specifier: 0.8.2
+        version: 0.8.2
       remark-gfm:
         specifier: ^4.0.1
         version: 4.0.1
@@ -2188,6 +2206,9 @@ packages:
     peerDependenciesMeta:
       picomatch:
         optional: true
+
+  fflate@0.8.2:
+    resolution: {integrity: sha512-cPJU47OaAoCbg0pBvzsgpTPhmhqI5eJjh/JIu8tPj5q+T7iLvW/JAYUqmE7KOB4R1ZyEhzBaIQpQpardBF5z8A==}
 
   fill-range@7.1.1:
     resolution: {integrity: sha512-YsGpe3WHLK8ZYi4tWDg2Jy3ebRz2rXowDxnld4bkQB00cc/1Zw9AWnC0i9ztDJitivtQvaI9KaLyKrc+hBW0yg==}
@@ -6236,6 +6257,8 @@ snapshots:
   fdir@6.5.0(picomatch@4.0.4):
     optionalDependencies:
       picomatch: 4.0.4
+
+  fflate@0.8.2: {}
 
   fill-range@7.1.1:
     dependencies:

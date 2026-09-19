@@ -1,0 +1,35 @@
+---
+interface Props {
+	kind: "shared" | "events";
+}
+const { kind } = Astro.props;
+const label =
+	kind === "shared" ? "Live shared counters" : "Live custom-element events";
+---
+
+<div class="react-counter-demo not-content" role="region" aria-label={label}>
+	<div id={`react-counter-${kind}`}></div>
+	<noscript>Enable JavaScript to try the counters.</noscript>
+</div>
+
+<script>
+	import { createElement } from "react";
+	import { createRoot } from "react-dom/client";
+	import { SharedCounters } from "../../../../examples/frameworks/react/shared-counter";
+	import { WebInterop } from "../../../../examples/frameworks/react/src/WebInterop";
+
+	const shared = document.getElementById("react-counter-shared");
+	if (shared) createRoot(shared).render(createElement(SharedCounters));
+
+	const events = document.getElementById("react-counter-events");
+	if (events) createRoot(events).render(createElement(WebInterop));
+</script>
+
+<style>
+	.react-counter-demo {
+		padding: clamp(0.75rem, 3vw, 1.5rem);
+		border: 1px solid var(--sl-color-hairline);
+		background: var(--sl-color-bg);
+		color: var(--sl-color-text);
+	}
+</style>

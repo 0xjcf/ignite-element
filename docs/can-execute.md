@@ -1,8 +1,9 @@
 # Command availability after helper retirement
 
-> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
+These examples use the current v3 beta contract, including `commands({ source })`.
+Install `ignite-element@beta` and the state library for your chosen entrypoint.
 
-The earlier helper-metadata design is superseded in the published v3 beta.14 API.
+The earlier helper-metadata design was superseded in v3 beta.14.
 The public core `canExecute(name)` method, `command(fn, metadata)` helper and
 metadata/input-builder exports are removed without aliases.
 
@@ -21,7 +22,7 @@ commands: ({ source: actor }) => ({
 ```
 
 XState uses its native snapshot capability. Redux/MobX derive application
-booleans from their native state; Actor-Web projects its existing source facts.
+booleans from their native state.
 Do not move guards, admission, authorization or transport authority into Ignite.
 Availability is descriptive preflight, never permission or proof of completion.
 

@@ -1,7 +1,5 @@
 # MobX + ignite-element Example
 
-> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
-
 This showcase combines **ignite-element**, **MobX**, and **lit-html** to build reactive custom elements with both shared and isolated state through the public `ignite-element/mobx` authoring surface.
 
 ---
@@ -78,10 +76,11 @@ Every renderer receives the projected `count` and the command helpers (`incremen
 
 ---
 
-## Styling Strategy (config-free)
+## Styling
 
-Ignite renders each component into its own Shadow DOM, so styles are pulled in
-as raw text and injected via `<style>` tags — no `ignite.config.ts`, no plugin:
+Ignite renders each component into its own shadow root.
+
+The example imports CSS as raw text and injects it through `<style>` tags:
 
 - **Shared theme**: `theme.css` is written against `:host`, imported with
   `?raw`, and injected into every component's shadow root.

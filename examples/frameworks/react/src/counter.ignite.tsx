@@ -1,73 +1,58 @@
 /** @jsxImportSource ignite-element/jsx */
 import { igniteCore } from "ignite-element/xstate";
-import { assign, setup } from "xstate";
-import styles from "./counter.css?raw";
+import { assign, createMachine } from "xstate";
 
-// A small, real ignite element authored exactly as you would for any host —
-// framework-neutral. Registration returns a typed handle (tagName + getSchema +
-// phantom Commands/Events). The React binding lives beside it in
-// `counter.react.ts` (`igniteReact(counterElement)`); the same handle could
-// equally get a Vue/Svelte/Angular binding.
-//
-// The view is authored with ignite-JSX — the default, config-free v3 renderer
-// (no renderer registration needed). The per-file `@jsxImportSource` pragma at
-// the top routes THIS file's JSX through ignite-JSX. This file authors NO React
-// JSX, so there is no transform conflict; App.tsx / main.tsx stay on React JSX
-// via @vitejs/plugin-react.
-const counterMachine = setup({
-	types: {} as {
-		context: { count: number; label: string };
-		events:
-			| { type: "INC" }
-			| { type: "DEC" }
-			| { type: "SET_LABEL"; label: string };
-	},
-}).createMachine({
-	id: "react-demo-counter",
-	context: { count: 0, label: "Counter" },
+const counterMachine = createMachine({
+	context: { count: 0 },
 	on: {
-		INC: { actions: assign({ count: ({ context }) => context.count + 1 }) },
-		DEC: { actions: assign({ count: ({ context }) => context.count - 1 }) },
-		SET_LABEL: {
-			actions: assign({ label: ({ event }) => event.label }),
+		INCREMENT: {
+			actions: assign({ count: ({ context }) => context.count + 1 }),
+		},
+		DECREMENT: {
+			actions: assign({ count: ({ context }) => context.count - 1 }),
 		},
 	},
 });
 
 const counterCore = igniteCore({
 	source: counterMachine,
-	states: (snapshot) => ({
-		count: snapshot.context.count,
-		label: snapshot.context.label,
-	}),
-	commands: ({ source: actor }) => ({
-		increment: () => actor.send({ type: "INC" }),
-		decrement: () => actor.send({ type: "DEC" }),
-		// Single-arg `setX` command -> exposed as the `label` attribute AND prop.
-		setLabel: (label: string) => actor.send({ type: "SET_LABEL", label }),
+	states: (snapshot) => ({ count: snapshot.context.count }),
+	commands: ({ source }) => ({
+		increment: () => source.send({ type: "INCREMENT" }),
+		decrement: () => source.send({ type: "DECREMENT" }),
 	}),
 	events: (event) => ({
-		// Emitted outward as a CustomEvent; igniteReact surfaces it as
-		// `onCountChanged` receiving the flat payload.
 		countChanged: event<{ count: number }>(),
 	}),
-	effects: ({ snapshot, emit, select }) => {
-		const count = select((current) => current.context.count);
-		if (!count.changed) return;
-		emit({ type: "countChanged", count: snapshot.context.count });
+	effects: ({ emit, select }) => {
+		const count = select((snapshot) => snapshot.context.count);
+		if (count.changed) emit({ type: "countChanged", count: count.current });
 	},
 });
 
-// The framework-neutral handle: a standard custom element + getSchema(). This is
-// the unit a host (or an agent) consumes; the React wrapper derives from it. The
-// view injects counter.css into its Shadow DOM via a raw <style> (document CSS
-// can't reach shadow content) — the config-free styling path.
 export const counterElement = counterCore("react-demo-counter", (ctx) => (
-	<>
-		<style>{styles}</style>
-		<div class="counter-card">
-			<span class="counter-label">{ctx.label}: </span>
-			<output class="counter-value">{ctx.count}</output>
+	<section class="counter-card" aria-label="Ignite counter">
+		<link
+			rel="stylesheet"
+			href={new URL("./counter.css", import.meta.url).href}
+		/>
+		<p>Custom element</p>
+		<output aria-label="Element count">{ctx.count}</output>
+		<div class="counter-controls">
+			<button
+				type="button"
+				aria-label="Decrement"
+				onClick={() => ctx.decrement()}
+			>
+				−
+			</button>
+			<button
+				type="button"
+				aria-label="Increment"
+				onClick={() => ctx.increment()}
+			>
+				+
+			</button>
 		</div>
-	</>
+	</section>
 ));

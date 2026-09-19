@@ -1,7 +1,5 @@
 # SPA Router + Ignite Element (v3) Example
 
-> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
-
 A tiny single-page app whose router is an application-owned XState source passed
 directly into Ignite Element. The URL is still state and navigation is still a
 command, but the browser boundary now lives in a local `NavigationPort` backed
@@ -101,9 +99,7 @@ See `src/routerSource.test.ts`, `src/router.headless.test.ts`, and
 
 ## Styling
 
-Each component injects `styles.css?raw` into its own shadow root. The example
-still uses the config-free styling path: no `ignite.config.ts`, no router
-plugin, and no framework-specific router abstraction.
+Each component injects `styles.css?raw` into its own shadow root.
 
 ## More
 

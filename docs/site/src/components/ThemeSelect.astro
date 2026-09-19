@@ -1,4 +1,5 @@
 ---
+import Select from "@astrojs/starlight/components/Select.astro";
 import Default from "@astrojs/starlight/components/ThemeSelect.astro";
 import { routeUrl, versionDestination } from "../route-map.mjs";
 const route = Astro.url.pathname
@@ -6,17 +7,19 @@ const route = Astro.url.pathname
 	.replace(/\/$/, "");
 const archived = route === "2.x" || route.startsWith("2.x/");
 ---
-<label class="version-select">
-  <span class="sr-only">Select version</span>
-  <select aria-label="Select version" autocomplete="off">
-    <option value={routeUrl(versionDestination(route, false))} selected={!archived}>v3 (beta)</option>
-    <option value={routeUrl(versionDestination(route, true))} selected={archived}>2.x</option>
-  </select>
-</label>
+<div class="version-select">
+  <Select
+    label="Select version"
+    icon="document"
+    width="7.5em"
+    options={[
+      { label: "v3 (beta)", value: routeUrl(versionDestination(route, false)), selected: !archived },
+      { label: "2.x", value: routeUrl(versionDestination(route, true)), selected: archived },
+    ]}
+  />
+</div>
 <Default><slot /></Default>
-<style>
-  select { padding-inline: var(--control-pad-x); color: var(--control-text); background: transparent; border: 0; border-radius: var(--radius-md); }
-</style>
+
 <script>
   for (const select of document.querySelectorAll<HTMLSelectElement>('.version-select select')) {
     select.addEventListener('change', () => location.assign(select.value));

@@ -4,71 +4,146 @@ description: Connect a source, derive states, render a view, and call a command.
 ---
 
 import { Code } from '@astrojs/starlight/components';
-import toggle from '../../../../../scripts/__tests__/fixtures/handbook/beta14-toggle.tsx?raw';
+import toggle from '../../examples/light-switch/src/light-switch.tsx?raw';
+import styles from '../../examples/light-switch/src/light-switch.css?raw';
+import html from '../../examples/light-switch/index.html?raw';
+import LightSwitchDemo from '../../components/LightSwitchDemo.astro';
 
-Ignite connects an existing state source to Web Components, React, or headless
-consumers. Your source owns behavior; Ignite observes it and provides derived
-values and commands to a view.
+__source → states → view__
 
-__source → source-native snapshot → states → view__
+Connect your state source to Web Components, React, or headless consumers.
+
+Your source owns state and behavior.
+
+Use `states` to derive values for the view and `commands` to send actions to the source.
 
 ## Install v3 beta
 
-This Getting started example uses __published v3 beta.14__.
+For `ignite-element@latest` (v2.2.2), see the [stable v2 documentation](/ignite-element/2.x/).
 
-The candidate handbook also documents the [upcoming command-context rename](/ignite-element/migration/command-source/).
-That change is not available in beta.14; this example retains its published syntax.
+Use an existing TypeScript/JSX web project, or start a new one below.
 
-Install this version and the source library you use:
+<details>
+<summary>Set up a new project</summary>
+
+In an empty directory, with Node 22.12+ and pnpm installed, run:
 
 ```sh title="Terminal"
-pnpm add ignite-element@3.0.0-beta.14 xstate
+pnpm init
+pnpm add -D vite typescript
 ```
 
-The stable facade policy is `ignite-element@latest = 2.2.2`;
-[stable v2 documentation](/ignite-element/2.x/) is separate.
-Use Node 22+ and a TypeScript/bundler project. v3 is native ESM-only.
+Vite builds and serves the example locally.
+
+Ignite also works with other TypeScript/JSX web tooling.
+
+</details>
+
+Install Ignite and XState:
+
+```sh title="Terminal"
+pnpm add ignite-element@beta xstate
+```
 
 ## Build a component
 
-Save this complete file as `src/toggle.tsx`. The file-level pragma selects Ignite
-JSX; an application using only Ignite JSX can instead set `jsx: "react-jsx"`
-and `jsxImportSource: "ignite-element/jsx"` in `tsconfig.json`.
+This light switch is a Web Component.
 
-<Code code={toggle} lang="tsx" title="src/toggle.tsx" />
+Try it: each flip changes the bulb and increments the count.
 
-Load it from your bundler's HTML entry:
+<LightSwitchDemo />
 
-```html title="index.html"
-<!doctype html>
-<html lang="en">
-  <head><meta charset="UTF-8" /><title>Ignite toggle</title></head>
-  <body>
-    <ignite-toggle></ignite-toggle>
-    <script type="module" src="/src/toggle.tsx"></script>
-  </body>
-</html>
-```
+[Download the complete example](/ignite-element/examples/light-switch.zip), or read the three steps below.
 
-For example, in a new directory containing those two files:
+The download contains the same component, styles, and HTML shown below.
+
+Unzip it, then run `pnpm install` and `pnpm dev` from its directory.
+
+### 1. Create the component
+
+Create `src/light-switch.tsx`.
+
+The first line selects Ignite JSX for this file.
+
+<Code code={toggle} lang="tsx" title="src/light-switch.tsx" />
+
+`toggleMachine` owns the on/off state and flip count.
+
+The `states` callback exposes `isOn`, `label`, and `count`.
+
+The `commands` callback exposes `toggle()`.
+
+The view reads these values and calls the command through `ctx`.
+
+Each `<ignite-light-switch>` gets its own actor, so its state is independent of other light switches on the page.
+
+### 2. Add the styles
+
+Create `src/light-switch.css` alongside the component.
+
+Its stylesheet loads inside the element’s shadow root, keeping the bulb and switch styles local.
+
+<details>
+<summary>View the stylesheet</summary>
+
+<Code code={styles} lang="css" title="src/light-switch.css" />
+
+</details>
+
+### 3. Run the example
+
+In an existing app, import `src/light-switch.tsx` from your entry module and add `<ignite-light-switch></ignite-light-switch>` to the page.
+
+<details>
+<summary>Run with Vite</summary>
+
+If you used the Vite setup above, create `index.html` in the project root:
+
+<Code code={html} lang="html" title="index.html" />
+
+Run this command from the project root, then open the local URL it prints:
 
 ```sh title="Terminal"
-pnpm add -D vite typescript
 pnpm exec vite
 ```
 
-The actor owns `off` and `on`. Inline `states` derives `isOn` from its native
-snapshot; the inline command sends `TOGGLE`. The renderer receives inferred
-values and commands through `ctx`. No configuration file or notifications are
-needed for this component. Call `dispose()` at final application shutdown.
+</details>
+
+Ignite manages each element’s private actor.
+
+The core stays available for the page’s lifetime.
+
+See [Ownership & cleanup](/ignite-element/handbook/ownership/#terminal-disposal) for application teardown.
+
+<details>
+<summary>Configure JSX for the project (optional)</summary>
+
+For a project using only Ignite JSX, add this `tsconfig.json` and remove the first-line pragma from `src/light-switch.tsx`.
+
+v3 uses native ES modules.
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "jsxImportSource": "ignite-element/jsx",
+    "strict": true,
+    "noEmit": true
+  },
+  "include": ["src"]
+}
+```
+
+</details>
 
 ## Where next
 
-- [Sources](/ignite-element/handbook/sources/): use XState, Redux, or MobX directly.
-- [Views](/ignite-element/handbook/views/): use Ignite JSX or `useIgnite(core)`.
-- [Examples](/ignite-element/handbook/examples/): run a complete project.
+- [Sources](/ignite-element/handbook/sources/): choose an XState, Redux, or MobX source.
+- [Views](/ignite-element/handbook/views/): render with Ignite JSX or React.
+- [Examples](/ignite-element/handbook/examples/): run a complete application.
 - [API reference](/ignite-element/handbook/api/): look up exact contracts.
 
-Ignite fits applications that already own a source and need several ways to
-observe and control it. It does not supply routing, business persistence, or
-server rendering. See [compatibility](/ignite-element/api/compatibility/).
+See [Compatibility](/ignite-element/api/compatibility/) for supported runtimes and current limitations.

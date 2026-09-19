@@ -1,16 +1,12 @@
 # XState + Ignite Element (v3) Example
 
-> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
-
 This is the Ignite JSX v3 example referenced in the docs. It pairs **ignite-element**, **XState**, and **TailwindCSS** to show shared vs. isolated actors through the public `ignite-element/xstate` authoring surface.
 
-The default path here is intentionally config-free:
+The example uses:
 
 - adapter entrypoints come from `ignite-element/xstate`
 - JSX runtime setup points at `ignite-element/jsx`
 - local component CSS can live in ordinary `<style>{styles}</style>` output
-
-`ignite.config.ts`, renderer plugins, and the `lit-html` sample are kept only as advanced compatibility references, not the first-read setup.
 
 ---
 
@@ -54,7 +50,6 @@ pnpm run examples:xstate
 | `xstateExample.tsx` | Registers web components via `igniteCore` using the Ignite JSX renderer. |
 | `dist/styles.css` | Tailwind build output linked from `index.html` for playground-wide utility classes. |
 | `index.html` | Hosts the custom elements during development. |
-| `ignite.config.ts` | Reference-only advanced compatibility example for shared shadow-root stylesheet injection. This walkthrough does not load it unless you wire an explicit import or restore config-loader/plugin behavior. |
 
 ## igniteCore in Action
 
@@ -212,7 +207,7 @@ runtime.get("states");
 
 ---
 
-The development candidate no longer records stories or lifecycle histories. The bounded loop belongs to this application; asynchronous report work and shutdown remain source/application-owned. Test real controls by role and accessible name, independently of headless state assertions. Terminal `core.dispose()` also releases registered cores. It does not stop borrowed sources; the application owns their shutdown.
+The v3 runtime does not record stories or lifecycle histories. The bounded loop belongs to this application; asynchronous report work and shutdown remain source/application-owned. Test real controls by role and accessible name, independently of headless state assertions. Terminal `core.dispose()` also releases registered cores. It does not stop borrowed sources; the application owns their shutdown.
 
 `apiShowcaseCommandDefinitions` keeps the application's tool descriptions and input schemas separate from these ordinary commands. For example, `setLimit` retains description "Set maximum count" and `{ type: "number", minimum: 3, maximum: 12 }`. Core discovery reports the name with `input: null`; it does not infer or validate that schema.
 
@@ -242,19 +237,9 @@ registerSharedXState("gradient-tally", ({ count }) => (
 ));
 ```
 
-If you need one stylesheet injected into every component shadow root, `ignite.config.ts` shows one advanced compatibility option:
+To reuse a stylesheet, link it inside each component's shadow root as shown in [Getting started](https://0xjcf.github.io/ignite-element/#build-a-component).
 
-```ts
-import { defineIgniteConfig } from "ignite-renderer";
-
-export default defineIgniteConfig({
-  styles: new URL("./dist/styles.css", import.meta.url).href,
-});
-```
-
-That `ignite.config.ts` file is reference-only in this example. The demo stays config-free unless you choose to import that module yourself or restore the config-loader/plugin wiring that used to load it automatically.
-
-The example Vite config is only there to alias this monorepo workspace into local source files. It does not need a config-loader plugin for the default Ignite JSX flow.
+The example Vite config resolves workspace packages to local source files.
 
 ---
 

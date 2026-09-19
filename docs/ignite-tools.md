@@ -157,7 +157,7 @@ VITE_MLX_BASE_URL=http://127.0.0.1:8080/v1 VITE_MLX_MODEL=<model> pnpm --dir exa
 
 These are application setup examples, not actions performed by package validation.
 
-Smart Home retains XState and `SMART_HOME_RUNTIME=actor-web` paths, Anthropic and
+Smart Home uses XState with Anthropic and
 OpenAI-compatible model loops, and a terminal/browser bridge sharing a headless
 runtime. Its explicit `homeToolSchema` preserves command descriptions and inputs.
 
@@ -167,10 +167,8 @@ definitions do not turn user intents into fabricated no-input tools. Unknown
 model calls and invalid payloads remain rejected before source execution.
 CI uses scripted model responses and fake fetch, not a live model provider.
 
-Actor-Web owns execution, topology, admission, transport, replay and runtime
-shutdown. Ignite adapts source facts; it does not become an actor gateway or
-distributed supervisor. A local WebSocket demo is not evidence of production
-Actor-Web transport or durable model-process hosting.
+The application owns durable model-process hosting and distributed transport.
+The local WebSocket example does not provide those capabilities.
 
 ## Errors and verification
 

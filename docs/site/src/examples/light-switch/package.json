@@ -1,0 +1,17 @@
+{
+	"name": "ignite-light-switch",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build"
+	},
+	"dependencies": {
+		"ignite-element": "beta",
+		"xstate": "5.33.2"
+	},
+	"devDependencies": {
+		"vite": "8.3.0",
+		"typescript": "7.0.2"
+	}
+}

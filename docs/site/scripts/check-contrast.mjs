@@ -1,41 +1,17 @@
 #!/usr/bin/env node
 
-/**
- * Docs theme contrast guardrail.
- *
- * Renders the BUILT docs site (docs/site/dist) in a headless Chromium, in both
- * the dark and light themes, and computes the WCAG contrast ratio for key chrome
- * (version/theme selects, search trigger) and content (sidebar, TOC, asides,
- * inline code, links) selectors. Fails when any element is below threshold:
- *   - UI controls:  >= 3:1
- *   - text/content: >= 4.5:1
- *
- * This codifies the manual audit from the version-picker dark-mode fix
- * (commit f2f61cb) and the token-driven theme refactor. It renders the real
- * page so it catches un-themed defaults and Astro-scoped component overrides
- * that a token-only check would miss (the version picker and search trigger
- * both broke that way).
- *
- * The contrast math composites alpha over the nearest opaque backdrop, so
- * translucent fills (inline code, asides) are measured against what actually
- * renders — a naive "ignore alpha" check false-positives on every inline code.
- *
- * It also runs a GEOMETRY guardrail: interactive controls (header selects,
- * search, hero buttons) must use the --radius-* scale and have non-zero
- * horizontal padding, catching un-tokenized geometry and the 0px-padding button
- * class of bug. Both checks share one render pass and one exit code.
- *
- * Usage:
- *   node scripts/check-contrast.mjs            # expects dist/ to exist
- *   npm run check:contrast    (build first)    # see package.json
+/** Rendered contrast, interaction, and responsive-layout checks.
+ * Starlight owns component styling. Geometry checks retain padding and radius
+ * coverage against native component dimensions instead of a custom CSS scale.
+ * Run after the site build; --interactions-only isolates theme regressions.
  */
 
 import assert from "node:assert/strict";
-import { readFile, stat } from "node:fs/promises";
+import { mkdir, readFile, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 
 const SITE_ROOT = fileURLToPath(new URL("..", import.meta.url)); // docs/site
 const DIST = join(SITE_ROOT, "dist");
@@ -46,6 +22,14 @@ const TEXT = 4.5; // WCAG AA for body text
 
 // selector -> { sel, min }. `min` is the threshold for that element class.
 const SELECTORS = {
+	lightSwitch: { root: "ignite-light-switch", sel: "button", min: TEXT },
+	lightCount: { root: "ignite-light-switch", sel: ".count", min: TEXT },
+	lightSwitchBorder: {
+		root: "ignite-light-switch",
+		sel: "button",
+		property: "borderTopColor",
+		min: UI,
+	},
 	versionPicker: { sel: ".version-select select", min: UI },
 	themeToggle: { sel: "starlight-theme-select select", min: UI },
 	search: { sel: "site-search button", min: UI },
@@ -54,6 +38,11 @@ const SELECTORS = {
 	pagination: { sel: ".pagination-links a span", min: TEXT },
 	inlineCode: { sel: ".sl-markdown-content code:not(pre code)", min: TEXT },
 	link: { sel: ".sl-markdown-content a", min: TEXT },
+	versionNotice: {
+		sel: 'aside[aria-label="Documentation version"] a',
+		min: TEXT,
+	},
+	footer: { sel: 'nav[aria-label="Support links"] a', min: TEXT },
 	aside: { sel: ".starlight-aside p", min: TEXT },
 };
 
@@ -62,30 +51,42 @@ const SELECTORS = {
 // alongside the beta (green) ramp on current pages.
 const PAGES = ["/", "/migration/v3/", "/2.x/getting-started/installation/"];
 const THEMES = ["dark", "light"];
+const SCREENSHOTS = process.env.DOCS_SCREENSHOT_DIR;
 
-// Geometry guardrail: interactive controls must use the radius scale and (where
-// text sits inside) have non-zero horizontal padding. This catches un-tokenized
-// geometry and the 0px-padding button class of bug. Geometry is theme-agnostic,
-// so it's checked once. `needPadX` is false for the select boxes because their
-// inner <select> carries the horizontal padding, not the label.
-const RADIUS_SCALE_VARS = ["--radius-sm", "--radius-md", "--radius-lg"];
+async function capture(page, name) {
+	if (!SCREENSHOTS) return;
+	await mkdir(SCREENSHOTS, { recursive: true });
+	await page.screenshot({ path: join(SCREENSHOTS, `${name}.png`) });
+}
+
+// Native dimensions from Starlight Select/Search and Expressive Code's copy
+// button. Keep checking every control; custom radii must not return silently.
 const GEOMETRY = [
+	{ path: "/", sel: ".version-select select", needPadX: true, radiusRem: 0 },
 	{
 		path: "/",
-		sel: ".version-select",
-		needPadX: false,
-	},
-	{
-		path: "/",
-		sel: "starlight-theme-select label",
-		needPadX: false,
-	},
-	{
-		path: "/",
-		sel: "site-search button",
+		sel: "starlight-theme-select select",
 		needPadX: true,
+		radiusRem: 0,
 	},
-	{ path: "/", sel: ".expressive-code .copy button", needPadX: false },
+	{
+		path: "/",
+		sel: "site-search button[data-open-modal]",
+		needPadX: true,
+		radiusRem: 0.5,
+	},
+	{
+		path: "/",
+		sel: "site-search button[data-close-modal]",
+		needPadX: true,
+		radiusRem: 0,
+	},
+	{
+		path: "/",
+		sel: ".expressive-code .copy button",
+		needPadX: false,
+		radiusRem: 0.2,
+	},
 ];
 
 const MIME = {
@@ -103,6 +104,7 @@ const MIME = {
 	".ico": "image/x-icon",
 	".xml": "application/xml",
 	".txt": "text/plain",
+	".zip": "application/zip",
 };
 
 /** Minimal static file server for dist/, serving under the configured base. */
@@ -172,14 +174,14 @@ function auditInPage(selectorMap) {
 		while (n) {
 			const c = parse(getComputedStyle(n).backgroundColor);
 			if (c.a === 1) return c;
-			n = n.parentElement;
+			n = n.parentElement || n.getRootNode().host;
 		}
 		return { r: 255, g: 255, b: 255 };
 	};
-	const ratio = (el) => {
+	const ratio = (el, property = "color") => {
 		const cs = getComputedStyle(el);
 		const back = solidBg(el);
-		const fg = over(parse(cs.color), back);
+		const fg = over(parse(cs[property]), back);
 		const ownBg = parse(cs.backgroundColor);
 		const effBg = ownBg.a < 1 ? over(ownBg, back) : ownBg;
 		const hi = Math.max(lum(fg), lum(effBg));
@@ -188,27 +190,318 @@ function auditInPage(selectorMap) {
 	};
 	const out = {};
 	for (const [key, sel] of Object.entries(selectorMap)) {
-		const el = document.querySelector(sel);
-		out[key] = el ? ratio(el) : null;
+		const root = sel.root
+			? document.querySelector(sel.root)?.shadowRoot
+			: document;
+		const el = root?.querySelector(typeof sel === "string" ? sel : sel.sel);
+		out[key] = el ? ratio(el, sel.property) : null;
 	}
 	return out;
 }
 
 /** Runs in the page: radius + horizontal padding for every match of a selector. */
-function geometryInPage({ sel, scaleVars }) {
+function geometryInPage({ sel, radiusRem }) {
 	const root = getComputedStyle(document.documentElement);
-	const scale = scaleVars.map((v) => root.getPropertyValue(v).trim());
+	const expectedRadius = radiusRem * parseFloat(root.fontSize);
 	return [...document.querySelectorAll(sel)].map((el, idx) => {
 		const cs = getComputedStyle(el);
 		return {
 			idx,
 			label: (el.textContent || "").trim().slice(0, 22) || `#${idx}`,
 			radius: cs.borderTopLeftRadius,
-			radiusInScale: scale.includes(cs.borderTopLeftRadius),
+			radiusMatches:
+				Math.abs(parseFloat(cs.borderTopLeftRadius) - expectedRadius) < 0.01,
+			expectedRadius,
 			padL: parseFloat(cs.paddingLeft) || 0,
 			padR: parseFloat(cs.paddingRight) || 0,
 		};
 	});
+}
+
+/** Check the reported regressions through real pointer and keyboard input. */
+async function checkInteractions(browser, origin) {
+	for (const theme of THEMES) {
+		const context = await browser.newContext({
+			viewport: { width: 1440, height: 960 },
+			permissions: ["clipboard-read", "clipboard-write"],
+		});
+		await context.addInitScript(
+			(value) => localStorage.setItem("starlight-theme", value),
+			theme,
+		);
+		const page = await context.newPage();
+		try {
+			for (const path of ["/", "/2.x/getting-started/installation/"]) {
+				await page.goto(`${origin}${path}`);
+				const label = `${theme} ${path}`;
+				if (path === "/") {
+					const demo = page.locator("ignite-light-switch");
+					const light = demo.getByRole("switch", {
+						name: "Light",
+						exact: true,
+					});
+					await expect(light).toHaveAttribute("aria-checked", "false");
+					await expect(demo.locator(".state")).toHaveText("Off");
+					await expect(demo.locator(".count")).toHaveText("Toggled: 0");
+					await light.click();
+					await expect(light).toHaveAttribute("aria-checked", "true");
+					await expect(demo.locator(".state")).toHaveText("On");
+					await expect(demo.locator(".count")).toHaveText("Toggled: 1");
+					await light.press("Space");
+					await expect(light).toHaveAttribute("aria-checked", "false");
+					await expect(demo.locator(".count")).toHaveText("Toggled: 2");
+					await light.press("Enter");
+					await expect(light).toHaveAttribute("aria-checked", "true");
+					await expect(demo.locator(".count")).toHaveText("Toggled: 3");
+					await expect(light).toBeFocused();
+					await expect(light).toHaveCSS("outline-style", "solid");
+					await expect(demo.locator(".thumb")).toHaveCSS(
+						"transform",
+						"matrix(1, 0, 0, 1, 24, 0)",
+					);
+					await expect
+						.poll(() =>
+							demo
+								.locator(".bulb")
+								.evaluate((el) => getComputedStyle(el).width),
+						)
+						.toBe("80px");
+					for (const width of [1440, 390]) {
+						await page.setViewportSize({ width, height: 960 });
+						await light.scrollIntoViewIfNeeded();
+						await capture(page, `light-switch-${theme}-${width}-on`);
+					}
+					await page.setViewportSize({ width: 1440, height: 960 });
+					const expected = await readFile(
+						new URL(
+							"../../../docs/site/src/examples/light-switch/src/light-switch.tsx",
+							import.meta.url,
+						),
+						"utf8",
+					);
+					await page
+						.getByRole("figure", { name: "src/light-switch.tsx", exact: true })
+						.getByRole("button", { name: "Copy to clipboard", exact: true })
+						.click();
+					await expect
+						.poll(() => page.evaluate(() => navigator.clipboard.readText()))
+						.toBe(expected.replaceAll("\t", "  ").trimEnd());
+				}
+				const pagination = page.locator(".pagination-links a").first();
+				await pagination.scrollIntoViewIfNeeded();
+				await page.mouse.move(0, 0);
+				const border = {
+					border: { sel: ".pagination-links a", property: "borderTopColor" },
+				};
+				const normal = (await page.evaluate(auditInPage, border)).border;
+				await pagination.hover();
+				const hover = (await page.evaluate(auditInPage, border)).border;
+				assert.ok(
+					hover >= UI && hover > normal,
+					`${label}: pagination hover border ${hover}:1 must strengthen default ${normal}:1 and reach ${UI}:1`,
+				);
+				if (path === "/")
+					await capture(page, `starlight-${theme}-pagination-hover`);
+				await page.mouse.move(0, 0);
+				console.log(
+					`${label}: pagination border ${normal}:1 → ${hover}:1 on hover`,
+				);
+				// Tab into the link: focus must remain visible without a pointer hover.
+				await pagination.focus();
+				await page.keyboard.press("Shift+Tab");
+				await page.keyboard.press("Tab");
+				assert.ok(
+					await pagination.evaluate((e) => {
+						const s = getComputedStyle(e);
+						return (
+							e.matches(":focus-visible") &&
+							s.outlineStyle !== "none" &&
+							parseFloat(s.outlineWidth) > 0
+						);
+					}),
+					`${label}: pagination keyboard focus`,
+				);
+				const footer = page
+					.getByRole("navigation", { name: "Support links" })
+					.getByRole("link")
+					.first();
+				const contentLink = page.locator(".sl-markdown-content a").first();
+				await page.mouse.move(0, 0);
+				assert.equal(
+					await footer.evaluate((e) => getComputedStyle(e).color),
+					await contentLink.evaluate((e) => getComputedStyle(e).color),
+					`${label}: footer uses the content link theme`,
+				);
+				await footer.hover();
+				const footerHover = await footer.evaluate(
+					(e) => getComputedStyle(e).color,
+				);
+				await contentLink.hover();
+				assert.equal(
+					footerHover,
+					await contentLink.evaluate((e) => getComputedStyle(e).color),
+					`${label}: footer uses the content link hover theme`,
+				);
+			}
+			await page.setViewportSize({ width: 390, height: 844 });
+			for (const path of ["/", "/2.x/getting-started/installation/"]) {
+				await page.goto(`${origin}${path}`);
+				const menu = page.getByRole("button", { name: "Menu", exact: true });
+				for (const expanded of [false, true]) {
+					if (expanded) await menu.click();
+					if (expanded && path === "/")
+						await capture(page, `starlight-${theme}-mobile-menu`);
+					const contrast = await page.evaluate(auditInPage, {
+						menu: "starlight-menu-button button",
+					});
+					assert.ok(
+						contrast.menu >= UI,
+						`${theme} ${path}: ${expanded ? "expanded" : "closed"} mobile menu icon ${contrast.menu}:1`,
+					);
+				}
+				await menu.press("Escape");
+				await expect(page.locator("starlight-menu-button")).toHaveAttribute(
+					"aria-expanded",
+					"false",
+				);
+			}
+		} finally {
+			await context.close();
+		}
+	}
+	console.log(
+		"Shared interactions: beta/archive in both themes; pagination hover/focus, footer link states, and mobile menu open/close passed.",
+	);
+}
+
+async function checkCounterDemos(browser, origin) {
+	for (const theme of THEMES) {
+		for (const width of [1440, 390]) {
+			const context = await browser.newContext({
+				viewport: { width, height: 960 },
+			});
+			await context.addInitScript(
+				(value) => localStorage.setItem("starlight-theme", value),
+				theme,
+			);
+			const page = await context.newPage();
+			const errors = [];
+			page.on("pageerror", (error) => errors.push(error.message));
+			try {
+				await page.goto(`${origin}/handbook/views/`);
+				const shared = page.getByRole("region", {
+					name: "Live shared counters",
+					exact: true,
+				});
+				await expect(shared.getByLabel("Count", { exact: true })).toHaveText([
+					"0",
+					"0",
+				]);
+				await shared
+					.getByRole("button", { name: "Increment", exact: true })
+					.first()
+					.click();
+				await expect(shared.getByLabel("Count", { exact: true })).toHaveText([
+					"1",
+					"1",
+				]);
+				await shared
+					.getByRole("button", { name: "Decrement", exact: true })
+					.last()
+					.click();
+				await expect(shared.getByLabel("Count", { exact: true })).toHaveText([
+					"0",
+					"0",
+				]);
+				await shared
+					.getByLabel("Counter label", { exact: true })
+					.last()
+					.fill("Guests");
+				await expect(
+					shared.getByLabel("Counter label", { exact: true }).first(),
+				).toHaveValue("Guests");
+
+				await shared.scrollIntoViewIfNeeded();
+				await capture(page, `shared-counters-${theme}-${width}`);
+
+				const events = page.getByRole("region", {
+					name: "Live custom-element events",
+					exact: true,
+				});
+				const status = events.getByRole("status", {
+					name: "React event status",
+				});
+				await expect(status).toHaveText("Waiting for an event.");
+				let oddColor;
+				for (const [count, parity] of [
+					[1, "Odd"],
+					[2, "Even"],
+				]) {
+					await events
+						.getByRole("button", { name: "Increment", exact: true })
+						.click();
+					await expect(status).toHaveText(
+						`React received: ${count} — ${parity}`,
+					);
+					await expect(
+						events.getByLabel("Element count", { exact: true }),
+					).toHaveText(String(count));
+					const color = await status.evaluate(
+						(el) => getComputedStyle(el).color,
+					);
+					if (count === 1) oddColor = color;
+					else
+						assert.notEqual(
+							color,
+							oddColor,
+							"odd/even must have distinct colors",
+						);
+					const ratios = await page.evaluate(auditInPage, {
+						status: {
+							sel: '#react-counter-events [aria-label="React event status"]',
+						},
+						sharedCount: { sel: "#react-counter-shared output" },
+						input: { sel: "#react-counter-shared input" },
+						button: { root: "react-demo-counter", sel: "button" },
+						elementCount: { root: "react-demo-counter", sel: "output" },
+					});
+					for (const [name, ratio] of Object.entries(ratios)) {
+						assert.ok(
+							ratio >= TEXT,
+							`${theme}/${width}/${parity} ${name}: ${ratio}`,
+						);
+					}
+					assert.equal(
+						Object.keys(ratios).length,
+						5,
+						"all contrast targets must exist",
+					);
+				}
+				await events
+					.getByRole("button", { name: "Decrement", exact: true })
+					.focus();
+				await page.keyboard.press("Enter");
+				await expect(status).toHaveText("React received: 1 — Odd");
+				await expect(shared.getByLabel("Count", { exact: true })).toHaveText([
+					"0",
+					"0",
+				]);
+				assert.ok(
+					await page.evaluate(
+						() => document.documentElement.scrollWidth <= window.innerWidth,
+					),
+					"page must not overflow",
+				);
+				await capture(page, `counter-demos-${theme}-${width}`);
+				assert.deepEqual(errors, []);
+			} finally {
+				await context.close();
+			}
+		}
+	}
+	console.log(
+		"Live counter demos: shared updates, emitted events, keyboard input, dark/light contrast and mobile layout passed.",
+	);
 }
 
 async function main() {
@@ -228,6 +521,10 @@ async function main() {
 	const geomFailures = [];
 
 	try {
+		await checkCounterDemos(browser, origin);
+		if (process.argv.includes("--counter-demos-only")) return;
+		await checkInteractions(browser, origin);
+		if (process.argv.includes("--interactions-only")) return;
 		for (const theme of THEMES) {
 			const context = await browser.newContext();
 			// Set Starlight's theme before any page script runs.
@@ -240,11 +537,20 @@ async function main() {
 
 			for (const path of PAGES) {
 				await page.goto(`${origin}${path}`, { waitUntil: "load" });
-				const got = await page.evaluate(auditInPage, {
-					...Object.fromEntries(
-						Object.entries(SELECTORS).map(([k, v]) => [k, v.sel]),
-					),
-				});
+				const got = await page.evaluate(auditInPage, SELECTORS);
+				if (path === "/") {
+					for (const key of [
+						"lightSwitch",
+						"lightCount",
+						"lightSwitchBorder",
+					]) {
+						assert.notEqual(
+							got[key],
+							null,
+							`${theme}: missing live demo contrast target ${key}`,
+						);
+					}
+				}
 				for (const [key, value] of Object.entries(got)) {
 					if (value == null) continue; // selector absent on this page
 					const min = SELECTORS[key].min;
@@ -256,6 +562,243 @@ async function main() {
 			await context.close();
 		}
 
+		// Shared layout: the divider must be the actual rail boundary, and tables
+		// must remain reachable without scrolling the document at narrow widths.
+		for (const theme of THEMES) {
+			const context = await browser.newContext();
+			await context.addInitScript(
+				(value) => localStorage.setItem("starlight-theme", value),
+				theme,
+			);
+			const page = await context.newPage();
+			for (const width of [1280, 1440, 1920, 768, 390]) {
+				await page.setViewportSize({ width, height: 960 });
+				for (const path of [
+					"/",
+					"/handbook/sources/",
+					"/handbook/examples/",
+					"/handbook/api/",
+					"/guides/routing/",
+					"/2.x/api/ignite-core/",
+				]) {
+					await page.goto(`${origin}${path}`);
+					if (path === "/") {
+						const summaries = page.locator(
+							".sl-markdown-content details > summary",
+						);
+						for (let i = 0; i < (await summaries.count()); i++)
+							await summaries.nth(i).click();
+						const frames = await page.evaluate(() => {
+							const content = document.querySelector(".sl-markdown-content");
+							const right = content.getBoundingClientRect().right;
+							return [...content.querySelectorAll(".expressive-code")].map(
+								(frame) => ({
+									title: frame.querySelector("figcaption")?.textContent,
+									right: frame.getBoundingClientRect().right,
+									expected: right,
+								}),
+							);
+						});
+						for (const frame of frames)
+							assert.ok(
+								Math.abs(frame.right - frame.expected) <= 1,
+								`${theme} ${width}px ${frame.title}: code edge ${frame.right} differs from content edge ${frame.expected}`,
+							);
+					}
+					const layout = await page.evaluate(() => {
+						const rail = document.querySelector(".right-sidebar");
+						const divider =
+							document.querySelector(".header-preferences") ||
+							document.querySelector(".social-icons");
+						const selects = [...document.querySelectorAll("header select")];
+						return {
+							overflow: document.documentElement.scrollWidth - innerWidth,
+							rail: rail?.getBoundingClientRect().left,
+							divider:
+								divider?.getBoundingClientRect()[
+									divider.classList.contains("header-preferences")
+										? "left"
+										: "right"
+								],
+							titleFits: (() => {
+								const title = document.querySelector(".site-title span");
+								return title.scrollWidth <= title.clientWidth + 1;
+							})(),
+							selects: selects.map((e) => ({
+								appearance: getComputedStyle(e).appearance,
+								height: e.getBoundingClientRect().height,
+							})),
+							tables: [
+								...document.querySelectorAll(".sl-markdown-content table"),
+							].map((table) => {
+								const frame = table.closest(".table-scroll");
+								return {
+									grid: table.tBodies[0]?.getBoundingClientRect().width,
+									width: table.getBoundingClientRect().width,
+									scrollable:
+										frame && getComputedStyle(frame).overflowX === "auto",
+									focusable: frame?.tabIndex === 0,
+								};
+							}),
+						};
+					});
+					const label = `${theme} ${width}px ${path}`;
+					if ([1440, 390].includes(width)) {
+						const name =
+							path === "/"
+								? "getting-started"
+								: path.split("/").filter(Boolean).join("-");
+						if (path === "/" && SCREENSHOTS) {
+							await mkdir(SCREENSHOTS, { recursive: true });
+							await page.screenshot({
+								path: join(
+									SCREENSHOTS,
+									`getting-started-${theme}-${width}-expanded.png`,
+								),
+								fullPage: true,
+							});
+							for (const section of [
+								"install-v3-beta",
+								"build-a-component",
+								"2-add-the-styles",
+								"3-run-the-example",
+								"where-next",
+							]) {
+								await page
+									.locator(`[id="${section}"]`)
+									.scrollIntoViewIfNeeded();
+								await capture(
+									page,
+									`getting-started-${theme}-${width}-${section}`,
+								);
+							}
+							await page
+								.getByRole("heading", { name: "Getting started", exact: true })
+								.scrollIntoViewIfNeeded();
+						}
+						await capture(page, `starlight-${theme}-${width}-${name}`);
+						if (path === "/handbook/sources/" && SCREENSHOTS) {
+							await page.screenshot({
+								path: join(SCREENSHOTS, `sources-${theme}-${width}-full.png`),
+								fullPage: true,
+							});
+						}
+					}
+					assert.ok(
+						layout.overflow <= 1,
+						`${label}: document overflow ${layout.overflow}px`,
+					);
+					if (width >= 1152) {
+						assert.ok(layout.titleFits, `${label}: clipped site title`);
+						assert.ok(
+							Math.abs(layout.rail - layout.divider) <= 1,
+							`${label}: divider ${layout.divider} != rail ${layout.rail}`,
+						);
+						assert.equal(
+							layout.selects[0].appearance,
+							layout.selects[1].appearance,
+							label,
+						);
+						assert.equal(
+							layout.selects[0].height,
+							layout.selects[1].height,
+							label,
+						);
+					}
+					for (const table of layout.tables) {
+						assert.ok(
+							Math.abs(table.width - table.grid) <= 2,
+							`${label}: empty strip inside table frame`,
+						);
+						assert.ok(
+							table.scrollable && table.focusable,
+							`${label}: table must support local keyboard scrolling`,
+						);
+					}
+					for (const frame of await page
+						.locator(".table-scroll, .expressive-code pre")
+						.all()) {
+						if (await frame.evaluate((e) => e.scrollWidth > e.clientWidth)) {
+							// Expressive Code assigns focusability after its resize observer runs.
+							await expect(frame).toHaveAttribute("tabindex", "0");
+							assert.ok(
+								await frame.evaluate(
+									(e) =>
+										e.tabIndex >= 0 &&
+										["auto", "scroll"].includes(getComputedStyle(e).overflowX),
+								),
+								`${label}: wide content must allow keyboard scrolling`,
+							);
+							await frame.focus();
+							await page.keyboard.press("ArrowRight");
+							await page.waitForFunction(
+								() => document.activeElement.scrollLeft > 0,
+							);
+						}
+					}
+				}
+			}
+			await context.close();
+		}
+		console.log(
+			"Shared layout: 60 page/theme/viewport cases; table grids and table/code keyboard scrolling passed.",
+		);
+
+		// Readers can revisit retained guides from either navigation layout.
+		for (const theme of THEMES) {
+			for (const width of [1440, 390]) {
+				const context = await browser.newContext({
+					viewport: { width, height: 960 },
+				});
+				await context.addInitScript(
+					(value) => localStorage.setItem("starlight-theme", value),
+					theme,
+				);
+				const page = await context.newPage();
+				for (const [slug, label] of [
+					["shared-source-ownership", "Shared sources"],
+					["routing", "Routing"],
+				]) {
+					await page.goto(`${origin}/handbook/sources/`);
+					await page.locator(`main a[href="${BASE}/guides/${slug}/"]`).click();
+					await page.waitForURL(`${origin}/guides/${slug}/`);
+					if (width < 800)
+						await page
+							.getByRole("button", { name: "Menu", exact: true })
+							.click();
+					const sidebar = page.locator(".sidebar-pane");
+					const active = sidebar.getByRole("link", {
+						name: label,
+						exact: true,
+					});
+					await expect(active).toBeVisible();
+					await expect(active).toHaveAttribute("aria-current", "page");
+					await capture(page, `guides-${slug}-${theme}-${width}`);
+					await sidebar
+						.getByRole("link", { name: "Sources", exact: true })
+						.click();
+					await page.waitForURL(`${origin}/handbook/sources/`);
+					if (width < 800)
+						await page
+							.getByRole("button", { name: "Menu", exact: true })
+							.click();
+					const group = sidebar.locator("details").filter({
+						has: page.locator("summary", { hasText: /^\s*Guides\s*$/ }),
+					});
+					if (!(await group.evaluate((element) => element.open))) {
+						await group.locator("summary").focus();
+						await page.keyboard.press("Enter");
+					}
+					await sidebar.getByRole("link", { name: label, exact: true }).click();
+					await page.waitForURL(`${origin}/guides/${slug}/`);
+				}
+				await context.close();
+			}
+		}
+		console.log(
+			"Sources guide links, active sidebar entries and keyboard return navigation pass in both themes on desktop/mobile.",
+		);
+
 		// Geometry guardrail (theme-agnostic — checked once).
 		const geomContext = await browser.newContext();
 		const geomPage = await geomContext.newPage();
@@ -263,18 +806,19 @@ async function main() {
 			await geomPage.goto(`${origin}${g.path}`, { waitUntil: "load" });
 			const items = await geomPage.evaluate(geometryInPage, {
 				sel: g.sel,
-				scaleVars: RADIUS_SCALE_VARS,
+				radiusRem: g.radiusRem,
 			});
+			assert.ok(items.length > 0, `Missing geometry target: ${g.sel}`);
 			for (const it of items) {
 				const padOk = !g.needPadX || (it.padL > 0 && it.padR > 0);
-				const ok = it.radiusInScale && padOk;
+				const ok = it.radiusMatches && padOk;
 				geomRows.push({ sel: g.sel, ...it, ok });
 				if (!ok) {
 					geomFailures.push({
 						sel: g.sel,
 						label: it.label,
-						reason: !it.radiusInScale
-							? `radius ${it.radius} is not in the --radius-* scale`
+						reason: !it.radiusMatches
+							? `radius ${it.radius} differs from the native ${it.expectedRadius}px`
 							: `horizontal padding ${it.padL}/${it.padR}px (needs non-zero)`,
 					});
 				}
@@ -288,7 +832,7 @@ async function main() {
 				viewport: { width, height: 900 },
 			});
 			const page = await context.newPage();
-			await page.goto(`${origin}/contributing/shared-controller-validation/`);
+			await page.goto(`${origin}/api/command-metadata/`);
 			if (width < 800)
 				await page.getByRole("button", { name: "Menu", exact: true }).click();
 			await page
@@ -303,10 +847,48 @@ async function main() {
 				.selectOption({ label: "v3 (beta)" });
 			await page.waitForURL(`${origin}/`);
 			assert.equal(await page.locator("h1").innerText(), "Getting started");
-			for (const [fragment, title] of [
+			await page.goBack();
+			await page.waitForURL(`${origin}/2.x/`);
+			if (width < 800)
+				await page.getByRole("button", { name: "Menu", exact: true }).click();
+			const version = page.getByRole("combobox", {
+				name: "Select version",
+				exact: true,
+			});
+			assert.equal(await version.inputValue(), `${BASE}/2.x/`);
+			await version.focus();
+			await page.keyboard.press("Tab");
+			const theme = page.getByRole("combobox", {
+				name: "Select theme",
+				exact: true,
+			});
+			assert.ok(
+				await theme.evaluate((e) => e === document.activeElement),
+				"Tab moves from version to theme",
+			);
+			assert.ok(
+				await theme.evaluate((e) => {
+					const style = getComputedStyle(e);
+					return (
+						e.matches(":focus-visible") &&
+						style.outlineStyle !== "none" &&
+						parseFloat(style.outlineWidth) > 0
+					);
+				}),
+				"visible native select focus ring",
+			);
+			await page.keyboard.press("d");
+			await page.keyboard.press("Enter");
+			assert.equal(await theme.inputValue(), "dark", "keyboard selects Dark");
+
+			for (const [fragment, title, heading = fragment] of [
 				["one-counter-two-meanings", "One counter, two meanings"],
 				["delivery-and-ownership", "Delivery and ownership"],
-				["migration-from-per-view-effects", "Migration from per-view effects"],
+				[
+					"migration-from-per-view-effects",
+					"View-specific work",
+					"view-specific-work",
+				],
 				[
 					"one-production-rule-per-public-event",
 					"One production rule per public event",
@@ -314,12 +896,13 @@ async function main() {
 			]) {
 				await page.goto(`${origin}/guides/events/#${fragment}`);
 				await page.waitForURL(`${origin}/handbook/events/#${fragment}`);
-				assert.equal(await page.locator(`#${fragment}`).innerText(), title);
+				await expect(page.locator(`#${fragment}`)).toBeAttached();
+				assert.equal(await page.locator(`#${heading}`).innerText(), title);
 			}
 			await context.close();
 		}
 		console.log(
-			"Desktop/mobile version round trips and four preserved Events subjects passed.",
+			"Desktop/mobile version round trips, browser Back, keyboard selectors and four preserved Events subjects passed.",
 		);
 	} finally {
 		await browser.close();
@@ -361,7 +944,7 @@ async function main() {
 			);
 		}
 		console.error(
-			"\nDrive the element from the theme tokens (--sl-color-* / --control-*) so it inherits AA contrast in both themes.",
+			"\nCheck the element against Starlight theme tokens and its rendered background.",
 		);
 	}
 
@@ -372,14 +955,14 @@ async function main() {
 			console.error(`  - ${f.label} (${f.sel}): ${f.reason}`);
 		}
 		console.error(
-			"\nDrive control geometry from the tokens (--control-* / --button-* / --radius-*) so every control is sized consistently.",
+			"\nPreserve native Starlight/Expressive Code geometry and usable control padding.",
 		);
 	}
 
 	if (failed) process.exit(1);
 
 	console.log(
-		`\n✓ All ${rows.length} contrast checks pass AA in both themes, and all ${geomRows.length} controls use the geometry scale (radius + non-zero padding).`,
+		`\n✓ All ${rows.length} contrast checks pass AA in both themes, and all ${geomRows.length} controls retain native geometry (radius + non-zero padding).`,
 	);
 }
 

@@ -3,16 +3,14 @@ title: Testing
 description: Test source behavior, core contracts, and actual rendered controls.
 ---
 
-> Unreleased command-context change: These examples use `commands({ source })`, which is not available in beta.14. Use this candidate checkout until a supporting beta is published.
-
 import { Code } from '@astrojs/starlight/components';
 import sourceTest from '../../../../../../scripts/__tests__/fixtures/handbook/source.test.ts?raw';
 import coreTest from '../../../../../../scripts/__tests__/fixtures/handbook/core.test.ts?raw';
 import viewTest from '../../../../../../scripts/__tests__/fixtures/handbook/toggle.test.tsx?raw';
 
-Test behavior at its owner boundary: the source, the core, then the rendered
-controls. Use ordinary assertions. The [retired testing API](/ignite-element/api/testing-dsl/)
-is migration material, not a prerequisite.
+Test behavior at its owner boundary: the source, the core, then the rendered controls.
+
+Use ordinary assertions.
 
 ## Setup
 
@@ -30,10 +28,7 @@ export default defineConfig({
 });
 ```
 
-Use the same JSX settings as the application. No setup file or Lit dependency is
-needed for the Ignite JSX example. Applications choosing Lit should declare
-`@ignite-element/renderer` and `lit-html` directly and load that renderer in their
-own test setup file.
+Use the same JSX settings as the application.
 
 ## Source behavior
 
@@ -41,34 +36,40 @@ own test setup file.
 
 ## Core contracts
 
-This complete test imports [redux.ts](/ignite-element/handbook/sources/#redux).
+This complete test imports [redux.ts](/ignite-element/guides/shared-source-ownership/#shared-redux-store).
+
 It checks a command result, external source updates, and unsubscribe behavior.
 
 <Code code={coreTest} lang="ts" title="core.test.ts" />
 
-`execute` waits for its callback and observation window, not every asynchronous
-business operation. Resolve fixture-owned ports and assert application-correlated
-outcomes for asynchronous work; keep cancellation and stale-result coverage.
-For native events and derived notifications, also test repeated occurrences and
-[one producer per name](/ignite-element/handbook/events/).
+`execute` waits for its callback and observation window, not every asynchronous business operation.
+
+Resolve fixture-owned ports and assert application-correlated outcomes for asynchronous work; keep cancellation and stale-result coverage.
+
+For native events and derived notifications, also test repeated occurrences and [one producer per name](/ignite-element/handbook/events/).
 
 ## Rendered controls
 
-Save this beside the complete [toggle.tsx](/ignite-element/#build-a-component).
+Save this beside the complete [light-switch.tsx](/ignite-element/#build-a-component).
+
 It checks actual accessible controls and source-derived state.
 
 <Code code={viewTest} lang="tsx" title="toggle.test.tsx" />
 
 ## Cleanup and lifetime
 
-Register each custom-element name once. Use fresh fixture-owned sources or
-explicitly shared fixtures; do not dispose a core that later tests reuse.
-Remove hosts, unsubscribe temporary observers, and terminally dispose test-owned
-cores. Registered-core disposal is supported since beta.13. Stop borrowed sources
-only when the test owns them. Use `try/finally` around the entire acquisition/use
-boundary so failed assertions still clean up.
+Register each custom-element name once.
 
-Test real disconnect/reconnect and same-tick moves when your behavior depends on
-them. Do not infer lifecycle history or durable business receipts from a runtime
-result. See [ownership](/ignite-element/handbook/ownership/) and the
-[example index](/ignite-element/handbook/examples/) for broader fixtures.
+Use fresh fixture-owned sources or explicitly shared fixtures; do not dispose a core that later tests reuse.
+
+Remove hosts, unsubscribe temporary observers, and terminally dispose test-owned cores, including registered cores.
+
+Stop borrowed sources only when the test owns them.
+
+Use `try/finally` around the entire acquisition/use boundary so failed assertions still clean up.
+
+Test real disconnect/reconnect and same-tick moves when your behavior depends on them.
+
+Do not infer lifecycle history or durable business receipts from a runtime result.
+
+See [ownership](/ignite-element/handbook/ownership/) and the [example index](/ignite-element/handbook/examples/) for broader fixtures.

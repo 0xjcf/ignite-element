@@ -15,46 +15,37 @@ and the browser `<smart-home-bridge>` element observes and sends commands over a
 WebSocket bridge.
 
 For release recording, use the
-[v3 headless smart-home screencast script](https://0xjcf.github.io/ignite-element/handbook/views/).
+[v3 headless smart-home screencast script](../../../docs/demo/v3-headless-smart-home-screencast.md).
 
 ## Run it
 
 ```bash
 # key-free, deterministic — a scripted "model" drives the home (no API key)
 npm run mock
-SMART_HOME_RUNTIME=actor-web npm run mock
 
 # the real loop — Claude drives the home
 npm install @anthropic-ai/sdk
 ANTHROPIC_API_KEY=sk-... npm run anthropic -- "it's movie night"
-SMART_HOME_RUNTIME=actor-web ANTHROPIC_API_KEY=sk-... npm run anthropic -- "it's movie night"
 
 # fully local loop — MLX exposes an OpenAI-compatible endpoint
 python -m pip install mlx-lm
 python -m mlx_lm.server --model <model> --port 8080
 MLX_MODEL=<model> npm run mlx -- "it's bedtime"
-SMART_HOME_RUNTIME=actor-web MLX_MODEL=<model> npm run mlx -- "it's bedtime"
 
 # terminal agent + browser UI, sharing one live headless home
 npm run demo
-SMART_HOME_RUNTIME=actor-web npm run demo
 
 # local MLX/OpenAI-compatible agent + browser UI, sharing one live home
 MLX_MODEL=<model> npm run demo:mlx
-SMART_HOME_RUNTIME=actor-web MLX_MODEL=<model> npm run demo:mlx
 
 # the always-on assertions (this is what proves it runs headless)
 npm test
 ```
 
-Set `SMART_HOME_RUNTIME=actor-web` to swap the default XState-backed home for an
-example-local actor-web runtime composed through `ignite-element/actor-web`.
-
 `npm run demo` serves <http://localhost:5177>. The scripted terminal agent starts
 automatically and browser clicks route back into the same shared headless
 runtime. The WebSocket bridge is still intentionally small and example-local:
-the runtime behind it can now be actor-web-backed, but the browser transport is
-still a thin local WebSocket demo rather than the actor-web gateway/client path.
+it connects the browser to the XState-backed home runtime.
 
 The terminal is also interactive. Type commands such as `scene away`,
 `light kitchen on`, `temp bedroom 72`, or `status` at the `smart-home>` prompt;
@@ -75,22 +66,19 @@ The always-on validation is deterministic:
   DOM-free.
 - OpenAI-compatible behavior is covered with scripted responses and injected
   `fetch`; no hosted API key or local MLX server is required.
-- Actor-web dogfood is covered by `SMART_HOME_RUNTIME=actor-web` tests that
-  inject the runtime factory and assert actor-native events through
-  `igniteTools`.
+
 
 Live model validation is opt-in:
 
 - `npm run anthropic` uses the consumer-installed Anthropic SDK and API key.
 - `npm run mlx` and `npm run demo:mlx` call a running OpenAI-compatible server,
   usually `python -m mlx_lm.server`.
-- `SMART_HOME_RUNTIME=actor-web` switches the local home implementation behind
-  the same agent loop; it does not change the provider dialect.
+
 
 That split is intentional. The example proves Ignite's side of the ecosystem:
 projection, headless command execution, observations, and provider-neutral tool
 manifests. It does not own durable MLX process management or distributed
-actor-web transport. Those belong to fas-local and actor-web respectively.
+transport. Applications own those capabilities.
 
 ## The loop
 
@@ -118,21 +106,8 @@ OpenAI-compatible `/v1/chat/completions` server such as MLX.
   model and unwrapped on the way back.
 - **Provider-independent tool loop** — the same headless runtime runs with the
   Anthropic Messages shape or OpenAI-compatible Chat Completions shape.
-- **Runtime injection seam** — the same provider loops can drive the existing
-  local home runtime or an actor-web-backed Ignite runtime selected with
-  `SMART_HOME_RUNTIME=actor-web`.
 - **Errors as values** — an out-of-range input comes back as an `InvalidInput`
   `tool_result` (never a throw), so the model can recover.
-- **Actor-web native emits** — in actor-web mode, `runScene` emits
-  `scene-applied` from the runtime itself and `igniteTools.run()` captures it in
-  the command window.
 - **Terminal-to-browser bridge** — `src/server.ts` hosts one canonical headless
   home, `igniteTools(...).observe()` broadcasts state changes, and
   `<smart-home-bridge>` renders the same runtime as an Ignite web component.
-
-## Gaps found
-
-Dogfooding this surfaced several real gaps (view-vs-snapshot grounding,
-`canExecute` availability gating, an `observe()` channel, async/settle, array
-input coverage). See
-[`GAPS.md`](./GAPS.md).

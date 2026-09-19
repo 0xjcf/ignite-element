@@ -24,9 +24,8 @@ adapter or the renderer — it consumes the same browser contract either way.
 - **Events out, declaratively.** The element's `changed` event is a DOM
   `CustomEvent`; `onchanged={…}` listens for it with no `addEventListener` —
   the path React (before 19) and Vue both fall back to.
-- **Config-free lit + Redux.** The `html\`\`` view renders with lit purely because
-  `@ignite-element/renderer/lit` is imported (auto-detected, no `ignite.config.ts`),
-  and the Redux slice drives it through the standard adapter.
+- **Lit renderer and Redux.** Importing `@ignite-element/renderer/lit` registers
+  the renderer for the `html\`\`` view. The Redux slice supplies its state.
 
 ## The Svelte friction (not papered over)
 
