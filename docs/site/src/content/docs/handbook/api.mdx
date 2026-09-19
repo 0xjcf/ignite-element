@@ -7,7 +7,7 @@ description: Construction, configuration, bindings, and runtime return shapes.
 
 | Call | Return |
 | --- | --- |
-| `igniteCore({ source, states?, commands?, events?, effects?, cleanup? })` from a source entrypoint | Callable core plus `get`, `watch`, `on`, `execute`, `dispose` |
+| `igniteCore({ source, states?, commands?, events?, effects? })` from a source entrypoint | Callable core plus `get`, `watch`, `on`, `execute`, `dispose` |
 | `core(tagName, renderer)` | Registered component handle with `tagName` and discovery reads |
 | `core(projectionTarget)` | Disposable non-DOM projection session |
 | Root `igniteCore()` | Source-free registrar only |

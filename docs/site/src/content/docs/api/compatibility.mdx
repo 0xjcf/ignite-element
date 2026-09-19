@@ -87,7 +87,13 @@ Handles and projection sessions remain independently releasable.
 
 With an existing actor, store or observable, the core is ready at construction and needs no preparation read before `useIgnite(core)`.
 
-Machine, slice and source-factory inputs need [isolated headless acquisition](/ignite-element/handbook/ownership/#isolated-headless-cores) outside rendering before using the hook.
+In the local lifecycle candidate, machine, slice and fresh-factory inputs also work directly with `useIgnite(core)`, with a private runtime per hook and no preparation read.
+
+Explicit headless access uses a [separate runtime](/ignite-element/handbook/ownership/#isolated-headless-cores).
+
+Web Activity behavior was verified with React DOM 19.2.7.
+
+Native host checks use React 19.1.0 and React Native 0.81.5; they do not establish native Activity or device acceptance.
 
 The hook never disposes its owning core on unmount.
 

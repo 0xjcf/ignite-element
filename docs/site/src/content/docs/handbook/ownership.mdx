@@ -56,7 +56,9 @@ An independent `useIgnite(core)` releases its private runtime automatically on u
 
 A genuine new mount starts fresh; synchronous Strict Mode replay keeps the live runtime.
 
-Activity hiding retains state, commands and already-active source resources; view subscriptions and independent projection effects pause.
+Web Activity hiding retains state, commands and already-active source resources; view subscriptions and independent projection effects pause.
+
+See [Compatibility](/ignite-element/api/compatibility/#owning-core-lifetime) for the tested web and native boundaries.
 
 Removal or core replacement releases the retained runtime, and terminal core disposal also drains hidden runtimes.
 
@@ -146,7 +148,7 @@ Do not rely on a tab-close or process-termination callback for essential work.
 
 | What ends? | Who handles cleanup? |
 | --- | --- |
-| One React or React Native component | `useIgnite` removes that component's subscription |
+| One React or React Native component | `useIgnite` releases its private runtime, or only its view subscription for a shared source |
 | The feature or session that owns the core | Its existing lifecycle code calls `core.dispose()` |
 | An externally created XState actor | Its owner calls `actor.stop()` when nothing else needs it |
 | An Ignite-created private XState actor | Ignite stops it when the owning runtime is released, including core disposal |

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { unzipSync, strFromU8 } from "fflate";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { strFromU8, unzipSync } from "fflate";
 import routes from "../src/route-map.json" with { type: "json" };
 import {
 	currentRoute,
@@ -121,9 +121,11 @@ const canonical = fs
 	.trim();
 assert.match(canonical, /commands: \(\{ source \}\)/);
 assert.match(full, /Commands receive \{ source \}/);
-assert.doesNotMatch(
+assert.doesNotMatch(full, /candidate checkout|candidate packages/i);
+assert.match(full, /Unreleased preview/);
+assert.match(
 	full,
-	/Unreleased preview|unreleased command-context|candidate checkout|candidate packages/i,
+	/Published beta\.14 does not support the `\{ source \}` command context/,
 );
 const historical = fs.readFileSync(
 	path.join(repo, "scripts/__tests__/fixtures/handbook/beta14-toggle.tsx"),

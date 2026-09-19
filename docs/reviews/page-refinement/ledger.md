@@ -4,7 +4,11 @@ Started at beta `cd40ce117cf5a2a3be92415ba7e02bd99e45d969`, tree `632410b8b74284
 
 This ledger carries all A01–A12 and E01–E10 findings from the supplied audits. Findings outside the current slice are queued reports, not newly verified conclusions. Shared presentation affects all routes; it does not confer content acceptance. Getting started is accepted by the Operator at `7d8e37840bfacb2835bd2f99f2cab5b9e9558275`; no other page is accepted. Review order: Getting started, Sources, Views, Events, Ownership, Testing, API, Examples, then remaining destinations individually. Prior review records remain historical.
 
-Current slice: shared editorial consistency across current pages, with Getting started still the next acceptance checkpoint. The parked branch stays unchanged at `1cfc2310557e9ed602c6e7f9524e9827e45f4dbc`, tree `14689a7da715fa2cfde41745438f7485bbb34b5d`. Its original Getting started approval remains historical evidence. The local successor `fas/docs-getting-started-source` includes integrated beta `af0de5696b60922aacbbcc895879adcc72851357`; see the [factory reconciliation and Getting started re-review receipt](getting-started-factory-reconciliation.md). Getting started now awaits re-review. Sources still awaits review and Views remains queued. The accepted shared presentation is preserved. The Operator has authorized the shared prose pass below; individual page acceptance remains sequential.
+Current slice: Getting started re-review against merged lifecycle beta `4e1441ead1f91d4f6de60ab0f4187bcee59c9a21`. The recoverable successor is `task/docs-getting-started-lifecycle`; both parked branches remain unchanged. See the [lifecycle reconciliation checkpoint](getting-started-lifecycle-reconciliation.md). Getting started awaits acceptance; Sources awaits review; Views is queued. Stop after this page. Shared presentation remains preserved and does not confer content acceptance.
+
+## Lifecycle reconciliation and unreleased preview — 2026-09-19
+
+The current release prompt supersedes the historical publication-copy preview and isolated-hook preparation guidance below. Baseline reconciliation is committed separately. The Getting started page and ZIP README now identify the unreleased candidate; linked contract contradictions are narrowly corrected. Fresh packed consumers, the public beta.14 control, native isolation and desktop/mobile light/dark evidence are recorded in the [checkpoint receipt](getting-started-lifecycle-reconciliation.md). No publication or deployment has occurred. Cross-page findings remain queued for their individual reviews.
 
 ## Shared and isolated hook setup — 2026-09-17
 
@@ -64,7 +68,7 @@ Source paths below are relative to `docs/site/src/content/docs/`. All pages inhe
 
 | Page / URL | Findings | Source | Status | Evidence / remaining work |
 | --- | --- | --- | --- | --- |
-| [Getting started](https://0xjcf.github.io/ignite-element/) | A01, A08, A10 | `index.mdx` | awaiting re-review | Original approval at `7d8e3784` preserved; current candidate validation and preview in the [re-review receipt](getting-started-factory-reconciliation.md). |
+| [Getting started](https://0xjcf.github.io/ignite-element/) | A01, A08, A10 | `index.mdx` | awaiting re-review | Original approval at `7d8e3784` preserved; current candidate validation and preview in the [lifecycle checkpoint](getting-started-lifecycle-reconciliation.md). |
 | [Sources](https://0xjcf.github.io/ignite-element/handbook/sources/) | A01, A08 | `handbook/sources.mdx` | awaiting review | Adapter-specific states inputs, short paragraphs, installation blocks, checked Redux/MobX modules and discoverable guides; [receipt](sources.md). |
 | [Views](https://0xjcf.github.io/ignite-element/handbook/views/) | A08, A11 | `handbook/views.mdx` | queued | Show const ctx = useIgnite(core) and the small view first. Link the shared source definition rather than front-loading a 43-line setup. Clearly separate the neutral hook from browser custom-element interoperability. |
 | [Events & effects](https://0xjcf.github.io/ignite-element/handbook/events/) | A11 | `handbook/events.mdx` | queued | Lead with when to forward a source event and when to derive a notification. Keep one producer per event and core/source ownership explicit. Move detailed ordering, activation and error contracts to a reference section, preserving links. |

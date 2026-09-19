@@ -156,7 +156,7 @@ assert.ok(
 );
 
 const installation = fs.readFileSync(routeSource("index"), "utf8");
-// Operator-approved publication copy; package verification remains a release prerequisite.
+// Keep the upcoming API visibly unreleased until verified publication.
 assert.deepEqual(
 	facadeInstalls(installation),
 	["ignite-element@beta"],
@@ -164,8 +164,8 @@ assert.deepEqual(
 );
 assert.doesNotMatch(
 	installation,
-	/Unreleased preview|candidate checkout|candidate packages|Installation instructions will follow/i,
-	"Getting started must show publication copy without internal release instructions",
+	/candidate checkout|candidate packages|Installation instructions will follow/i,
+	"Getting started must stay focused without internal release instructions",
 );
 assert.match(
 	installation,
@@ -176,6 +176,22 @@ assert.doesNotMatch(
 	installation,
 	/production[- ]stable|stable v3/i,
 	"v3 must not be described as stable",
+);
+
+assert.match(
+	installation,
+	/:::note\[Unreleased preview\]/,
+	"Getting started must retain the unreleased preview notice",
+);
+assert.match(
+	installation,
+	/Published beta\.14 does not support the `\{ source \}` command context/,
+	"Getting started must distinguish the candidate API from published beta.14",
+);
+assert.match(
+	installation,
+	/installation and download instructions below require the upcoming release/,
+	"Getting started must qualify installation and downloads until publication",
 );
 
 const archivedInstallation = fs.readFileSync(
