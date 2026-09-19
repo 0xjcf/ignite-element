@@ -5,6 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { isMap, parseDocument } from "yaml";
 import {
+	inspectCurrentRepositoryGuides,
 	inspectDocumentationWorkflow,
 	inspectWorkflowPermissions,
 } from "./check-docs-publication-contract.mjs";
@@ -803,3 +804,54 @@ test("pushes and off-branch dispatches cannot cancel a beta docs dispatch", () =
 		"cancel-in-progress": true,
 	});
 });
+
+test("current repository guidance permits explicit beta history", () => {
+	assert.deepEqual(
+		inspectCurrentRepositoryGuides([
+			[
+				"docs/core-api-bindings.md",
+				"Current v3 beta. The effect evaluator shipped in beta.14.",
+			],
+		]),
+		[],
+	);
+});
+
+for (const [file, content] of [
+	[
+		"docs/core-api-bindings.md",
+		"Unreleased command-context change: use this candidate checkout.",
+	],
+	[
+		"docs/can-execute.md",
+		"Use this candidate checkout until a supporting beta is published.",
+	],
+	["docs/api/README.md", "This branch documents **v3 beta.14**."],
+]) {
+	test(`current reference rejects stale release instructions: ${file}`, () => {
+		assert.match(
+			inspectCurrentRepositoryGuides([[file, content]]).join("\n"),
+			/current guidance must describe the release contract/,
+		);
+	});
+}
+
+for (const file of ["README.md", "packages/ignite-element/README.md"]) {
+	test(`quickstart requires the rendered setup guide: ${file}`, () => {
+		assert.match(
+			inspectCurrentRepositoryGuides([
+				[file, "[Getting started](docs/site/src/content/docs/index.mdx)"],
+			]).join("\n"),
+			/quickstart must link to the rendered/,
+		);
+		assert.deepEqual(
+			inspectCurrentRepositoryGuides([
+				[
+					file,
+					"[Getting started](https://0xjcf.github.io/ignite-element/#build-a-component)",
+				],
+			]),
+			[],
+		);
+	});
+}

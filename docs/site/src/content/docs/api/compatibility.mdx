@@ -23,7 +23,6 @@ Their public ESM entrypoints and declarations are supported; CommonJS `main` and
 | Dependency | Required | Needed for |
 | --- | --- | --- |
 | Node.js | `>=22` | running the build/dev toolchain |
-| TypeScript | `5.x` (authored against 5.9) | the typed JSX authoring path |
 | `xstate` | `>=5.19.0` | `ignite-element/xstate` |
 | `@reduxjs/toolkit` | `>=2.3.0` | `ignite-element/redux` |
 | `redux` | `>=5.0.1` | `ignite-element/redux` (peer of Redux Toolkit) |
@@ -32,7 +31,17 @@ Their public ESM entrypoints and declarations are supported; CommonJS `main` and
 
 The library version ranges come from each package's `peerDependencies`.
 
-The Node and TypeScript rows describe the build and test toolchain.
+The Node row describes the build and test toolchain.
+
+### Tested TypeScript toolchains
+
+| Validation lane | TypeScript | Evidence scope |
+| --- | --- | --- |
+| Repository and strict packed consumers | `5.9.3` | repository types and selected complete consumer modules |
+| Downloadable light-switch starter | `7.0.2` | the starter’s strict typecheck and Vite build |
+
+The [starter download](/ignite-element/examples/light-switch.zip) pins TypeScript `7.0.2` and Vite `8.3.0`.
+These are separately tested combinations, not a guarantee for every version across either compiler major.
 
 :::caution[v3 is in beta]
 v3 publishes under the `beta` dist-tag (the stable `latest` tag is still v2.2.x).

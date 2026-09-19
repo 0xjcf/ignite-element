@@ -78,7 +78,7 @@ core("ignite-light-switch", (ctx) => (
 ```
 
 Load that file from your HTML entry and add `<ignite-light-switch></ignite-light-switch>`.
-The [Getting started](../../docs/site/src/content/docs/index.mdx) includes
+The [Getting started](https://0xjcf.github.io/ignite-element/#build-a-component) includes
 the matching `src/light-switch.css`, complete HTML, live demo and complete example download. Inline `states` and `commands` preserve
 inference; the view uses `ctx`. Each element has its own state: Ignite creates
 and manages a private actor from `toggleMachine`.

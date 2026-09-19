@@ -491,8 +491,48 @@ function runExampleValidator() {
 	return { status: result.status, output, report };
 }
 
+const currentRepositoryGuides = [
+	"docs/core-api-bindings.md",
+	"docs/can-execute.md",
+	"docs/api/README.md",
+	"README.md",
+	"packages/ignite-element/README.md",
+];
+
+export function inspectCurrentRepositoryGuides(guides) {
+	const problems = [];
+	for (const [file, content] of guides) {
+		if (
+			/Unreleased command-context change|candidate checkout|This branch documents \*\*v3 beta\.\d+/i.test(
+				content,
+			)
+		) {
+			problems.push(
+				`${file}: current guidance must describe the release contract without candidate-checkout requirements or a stale branch version`,
+			);
+		}
+		if (
+			["README.md", "packages/ignite-element/README.md"].includes(file) &&
+			!content.includes(
+				"[Getting started](https://0xjcf.github.io/ignite-element/#build-a-component)",
+			)
+		) {
+			problems.push(
+				`${file}: quickstart must link to the rendered Getting started setup`,
+			);
+		}
+	}
+	return problems;
+}
+
 function main() {
-	const failures = [];
+	const repositoryGuideProblems = inspectCurrentRepositoryGuides(
+		currentRepositoryGuides.map((file) => [
+			file,
+			fs.readFileSync(path.join(repoRoot, file), "utf8"),
+		]),
+	);
+	const failures = [...repositoryGuideProblems];
 	const workflowProblems = inspectWorkflow();
 	for (const problem of workflowProblems) failures.push(`workflow: ${problem}`);
 
@@ -563,6 +603,8 @@ function main() {
 				? "failed-docs-publication-contract"
 				: "verified-docs-publication-contract",
 			workflowProblems: workflowProblems.length,
+			currentRepositoryGuidesChecked: currentRepositoryGuides.length,
+			repositoryGuideProblems: repositoryGuideProblems.length,
 			v2InstallViolations: v2Violations.length,
 			filesScanned: discovered.files,
 			totalDiscovered: discovered.total,
