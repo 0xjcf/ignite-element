@@ -49,7 +49,7 @@ Node 22.16.0, pnpm 10.33.0, TypeScript 5.9.3; fresh frozen workspace installatio
 | Standalone native fixture | Isolated install, frozen reinstall, dependency isolation, strict typecheck and 5 tests passed. |
 | Canonical light-switch project | Exact candidate tarballs, strict typecheck and Vite build passed. |
 | Published controls | Separate registry beta.14 consumer passed strict types and 1 test; historical v2.2.2 config passed strict types with its required peers. |
-| Documentation snippet accounting | 50 current files scanned, 33 blocks discovered, 2 explicitly excluded, 31 eligible (30 checked plus 1 declared fragment); historical v2 is checked against v2 separately. |
+| Documentation snippet accounting | 50 current files scanned, 33 blocks discovered, 2 explicitly excluded, 31 eligible and typechecked (0 syntactically incomplete fragments); historical v2 is checked against v2 separately. |
 | Publication/routing and handbook suites | 302 publication/routing tests and 8 handbook tests passed. |
 | Astro and build | 0 errors, 0 warnings; 69 routes built. |
 | Links, anchors, version routing and exports | 3,116 internal references passed; 29 legacy mappings and both version directions passed; canonical ZIP and agent export match source. No claim of live external-link crawling. |
