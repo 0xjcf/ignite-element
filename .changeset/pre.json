@@ -16,6 +16,7 @@
 		"canonical-states-projection-contract",
 		"collapse-actorweb-address",
 		"command-context-source",
+		"command-results-public-observations",
 		"dedicated-store-factories",
 		"effects-object-form",
 		"emitted-event-stream-seam",

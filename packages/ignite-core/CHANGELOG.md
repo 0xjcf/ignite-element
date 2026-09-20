@@ -1,5 +1,7 @@
 # ignite-core
 
+## 3.0.0-beta.16
+
 ## 3.0.0-beta.15
 
 ### Major Changes
