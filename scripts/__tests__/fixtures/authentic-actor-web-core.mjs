@@ -46,7 +46,7 @@ const core = igniteCore({
 const seen = [];
 let handle;
 try {
-	assert.equal(core.get("commands"), null);
+	assert.deepEqual(core.get("commands"), { add: { input: null } });
 	assert.equal(core.get("states").count, 0);
 	handle = core.watch((next, previous) =>
 		seen.push([previous.count, next.count]),
