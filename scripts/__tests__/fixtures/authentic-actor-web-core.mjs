@@ -38,7 +38,9 @@ const core = igniteCore({
 	source,
 	states: (snapshot) => ({ count: snapshot.context.count }),
 	commands: ({ source: actor }) => ({
-		add: (amount) => actor.send({ type: "add", amount }),
+		add: async (amount) => {
+			await actor.send({ type: "add", amount });
+		},
 	}),
 });
 const seen = [];
@@ -50,8 +52,8 @@ try {
 		seen.push([previous.count, next.count]),
 	);
 	const result = await core.execute({ command: "add", input: 2 });
-	assert.equal(result.snapshot.context.count, 2);
-	assert.equal(result.states.count, 2);
+	assert.equal(result, undefined);
+	assert.equal(core.get("states").count, 2);
 	assert.ok(seen.some((pair) => pair[0] === 0 && pair[1] === 2));
 	core.dispose();
 	const delivered = seen.length;

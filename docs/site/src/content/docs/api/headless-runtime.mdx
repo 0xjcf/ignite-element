@@ -43,7 +43,8 @@ try {
     console.log(previous.isOn, '->', next.isOn);
   });
   const result = await counter.execute({ command: 'toggle' });
-  console.log(result.snapshot, result.states, result.events);
+  console.log(result); // The command returns void.
+  console.log(counter.get('states')); // Read current projected state explicitly.
   console.log(counter.get('states'));
   subscription.unsubscribe();
 } finally {
@@ -80,7 +81,7 @@ See [isolated headless cores](/ignite-element/handbook/ownership/#isolated-headl
 
 Native source APIs such as `actor.getSnapshot()` remain source-owned.
 
-Native snapshots also remain in projections, effects and execution results.
+Native snapshots remain in source authoring, projections and effects; execution does not append them.
 
 Separate public reads are not an atomic multi-read transaction.
 
@@ -118,15 +119,27 @@ Strict types exclude serialized calls requiring multiple positional arguments; d
 
 #### Results and asynchronous work
 
-The promise awaits the callback and its queued-microtask observation window.
+The promise returns only the command-defined awaited value or void.
 
-Its `{ snapshot, states, events }` result pairs native snapshot and derived states from the same observation and includes ordered window events.
+Its type is `Promise<Awaited<ReturnType<Commands[K]>>>` for the selected command.
 
-It does not promise business/network completion or independently correlated receipts for overlapping calls.
+Execution invokes the command, awaits its return/thenable, yields through the existing microtask, checks that the core remains active, then returns that value.
 
-Wait for application-correlated source outcomes when work continues asynchronously.
+Read current projections with `get('states')` and install `on` subscriptions before execution when events are needed.
 
-The result does not contain the command's resolved value.
+Ordinary synchronous XState, Redux and MobX mutations are visible to an immediate projected read after awaiting execution.
+
+Mutations made before a returned promise fulfills are visible when the source has published them.
+
+Detached work acknowledges initiation only; successful execution does not guarantee machine finality, rendering, all effects, detached I/O or remote read-model convergence.
+
+A transport acknowledgement may precede local snapshot delivery; a command requiring stronger visibility must await its own correlated application/source signal.
+
+No-op commands resolve normally. Concurrent calls do not provide isolated transaction reads.
+
+Command rejections retain their original identity. Disposal does not cancel entered business I/O; fulfillment after disposal rejects as disposed.
+
+Application authors own returned values. Discard or map native send/dispatch acknowledgements when they are not public application results.
 
 Direct `useIgnite(core)` commands preserve that ordinary value/promise instead.
 
@@ -205,7 +218,7 @@ The latest catalogue survives disposal.
 
 Declared event names are not an exhaustive list of native source emits.
 
-Observe actual occurrences with `on` and execution results.
+Observe actual occurrences with `on`; tools captures declared public events during its call window.
 
 Explicit tool descriptions, input schemas and availability predicates belong at the [tool/application boundary](/ignite-element/api/command-metadata/).
 

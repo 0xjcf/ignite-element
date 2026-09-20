@@ -35,9 +35,7 @@ describe("retired testing and recording API", () => {
 			expect(core).not.toHaveProperty("record");
 			expect(source.getSnapshot().value).toBe("ready");
 			expect(core.get("commands")).toEqual({ ping: { input: null } });
-			expect((await core.execute({ command: "ping" })).snapshot.value).toBe(
-				"ready",
-			);
+			expect(await core.execute({ command: "ping" })).toBeUndefined();
 		} finally {
 			source.stop();
 		}
@@ -70,16 +68,18 @@ const createCounter = () => {
 };
 
 describe("ordinary runtime assertions", () => {
-	it("preserves native snapshots, derived values, results and gated commands", async () => {
+	it("preserves source mutation, projected reads and derived availability", async () => {
 		const { core, store } = createCounter();
 		const canDecrement = () => core.get("states").count > 0;
 		expect(store.getState()).toEqual({ counter: { count: 0 } });
 		expect(canDecrement()).toBe(false);
-		const result = await core.execute({ command: "increment", input: 2 });
-		expect(result.snapshot).toEqual({ counter: { count: 2 } });
-		expect(result.states).toEqual({ count: 2, label: "Count" });
-		expect(result.events).toEqual([{ type: "changed", count: 2 }]);
-		expect(core.get("states")).toEqual(result.states);
+		const captured: Array<{ type: string; [key: string]: unknown }> = [];
+		const eventHandles = [core.on("changed", (event) => captured.push(event))];
+		await core.execute({ command: "increment", input: 2 });
+		for (const handle of eventHandles) handle.unsubscribe();
+		expect(store.getState()).toEqual({ counter: { count: 2 } });
+		expect(core.get("states")).toEqual({ count: 2, label: "Count" });
+		expect(captured).toEqual([{ type: "changed", count: 2 }]);
 		expect(core.get("schema").states).toEqual({ schema: null });
 		expect(core.get("schema")).not.toHaveProperty("snapshot");
 		expect(core.get("schema")).not.toHaveProperty("view");
@@ -131,16 +131,8 @@ describe("ordinary runtime assertions", () => {
 			received.push(event.count),
 		);
 		try {
-			const results = [];
 			for (const amount of [1, 2, -2])
-				results.push(
-					await core.execute({ command: "increment", input: amount }),
-				);
-			expect(results.flatMap((result) => result.events)).toEqual([
-				{ type: "changed", count: 1 },
-				{ type: "changed", count: 3 },
-				{ type: "changed", count: 1 },
-			]);
+				await core.execute({ command: "increment", input: amount });
 			expect(received).toEqual([1, 3, 1]);
 		} finally {
 			subscription.unsubscribe();
@@ -154,10 +146,11 @@ describe("ordinary runtime assertions", () => {
 		);
 		await expect(
 			core.execute({ command: "increment", input: 1 }),
-		).resolves.toMatchObject({ states: { count: 1 } });
+		).resolves.toEqual(counterSlice.actions.addByAmount(1));
+		expect(core.get("states").count).toBe(1);
 	});
 
-	it("returns nullable native snapshots without substituting another observation", async () => {
+	it("allows commands with nullable native snapshots and explicit projected reads", async () => {
 		const adapter: IgniteAdapter<null, never> = {
 			getSnapshot: () => null,
 			send: () => {},
@@ -176,7 +169,7 @@ describe("ordinary runtime assertions", () => {
 				additionalArgs: { noop: () => undefined },
 			}),
 		});
-		expect((await runtime.execute({ command: "noop" })).snapshot).toBeNull();
+		expect(await runtime.execute({ command: "noop" })).toBeUndefined();
 		expect(runtime.get("states")).toEqual({ available: false });
 		runtime.dispose();
 	});

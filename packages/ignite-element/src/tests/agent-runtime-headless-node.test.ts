@@ -127,11 +127,16 @@ describe("agent runtime is DOM-free (pure Node, no jsdom)", () => {
 		counter.dispose();
 	});
 
-	it("execute() runs a command and returns the post-ack snapshot + events", async () => {
+	it("execute() runs a command and returns void with explicit state and event observation", async () => {
 		const counter = createCounter();
-		const result = await counter.execute({ command: "increment" });
-		expect(result.snapshot.context.count).toBe(1);
-		expect(result.events).toEqual([{ type: "counted", count: 1 }]);
+		const captured: Array<{ type: string; [key: string]: unknown }> = [];
+		const eventHandles = [
+			counter.on("counted", (event) => captured.push(event)),
+		];
+		await counter.execute({ command: "increment" });
+		for (const handle of eventHandles) handle.unsubscribe();
+		expect(counter.get("states").count).toBe(1);
+		expect(captured).toEqual([{ type: "counted", count: 1 }]);
 	});
 
 	it("on() receives effect-emitted events via the host EventTarget", async () => {
@@ -168,9 +173,9 @@ describe("agent runtime is DOM-free (pure Node, no jsdom)", () => {
 		eventSubscription.unsubscribe();
 		viewSubscription.unsubscribe();
 
-		const result = await counter.execute({ command: "increment" });
+		await counter.execute({ command: "increment" });
 
-		expect(result.snapshot.context.count).toBe(1);
+		expect(counter.get("states").count).toBe(1);
 		expect(eventHandler).not.toHaveBeenCalled();
 		expect(viewHandler).not.toHaveBeenCalled();
 		expect(counter.get("states").canDecrement).toBe(true);

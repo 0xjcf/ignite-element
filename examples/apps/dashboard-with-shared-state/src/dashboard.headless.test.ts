@@ -58,12 +58,17 @@ describe("dashboard shared state — headless runtime", () => {
 		const actor = createSharedDashboard();
 		const summary = makeSummaryRuntime(actor);
 
-		const result = await summary.execute({
+		const captured: Array<{ type: string; [key: string]: unknown }> = [];
+		const eventHandles = [
+			summary.on("alertDismissed", (event) => captured.push(event)),
+		];
+		await summary.execute({
 			command: "dismissAlert",
 			input: "latency",
 		});
+		for (const handle of eventHandles) handle.unsubscribe();
 
-		expect(result.events).toContainEqual({
+		expect(captured).toContainEqual({
 			type: "alertDismissed",
 			id: "latency",
 		});
@@ -76,12 +81,17 @@ describe("dashboard shared state — headless runtime", () => {
 		const summary = makeSummaryRuntime(actor);
 
 		await summary.execute({ command: "dismissAlert", input: "latency" });
-		const result = await summary.execute({
+		const captured: Array<{ type: string; [key: string]: unknown }> = [];
+		const eventHandles = [
+			summary.on("alertDismissed", (event) => captured.push(event)),
+		];
+		await summary.execute({
 			command: "dismissAlert",
 			input: "latency",
 		});
+		for (const handle of eventHandles) handle.unsubscribe();
 
-		expect(result.events).not.toContainEqual({
+		expect(captured).not.toContainEqual({
 			type: "alertDismissed",
 			id: "latency",
 		});

@@ -651,7 +651,6 @@ export default function igniteElementFactory<
 		hasCommands: options?.hasCommands,
 		lifetime,
 		dispose,
-		resolveInspection,
 		resolveRuntime: resolveRuntimeResources,
 		observeNative: (adapter, name) =>
 			eventOrigins.observe(adapter, name, "native"),

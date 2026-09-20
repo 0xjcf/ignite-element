@@ -48,16 +48,6 @@ export type IgniteCommandCall<
 				: { command: Name; input: CommandPayload<Commands, Name> };
 }[CommandName];
 
-export type IgniteAgentExecutionResult<
-	State,
-	Events extends EventMap = EmptyEventMap,
-	States extends Record<string, unknown> = Record<never, never>,
-> = {
-	snapshot: State;
-	states: States;
-	events: RuntimeEvent<Events>[];
-};
-
 export type IgniteAgentEventListener<
 	Events extends EventMap = EmptyEventMap,
 	Type extends keyof Events & string = keyof Events & string,
@@ -73,7 +63,7 @@ export type IgniteAgentSubscription = {
 };
 
 export type IgniteAgentRuntime<
-	State,
+	_State,
 	Commands extends FacadeCommandResult = FacadeCommandResult,
 	Events extends EventMap = EmptyEventMap,
 	SchemaState = IgniteSchemaValue,
@@ -81,7 +71,7 @@ export type IgniteAgentRuntime<
 > = {
 	execute<CommandName extends keyof Commands & string>(
 		call: IgniteCommandCall<Commands, CommandName>,
-	): Promise<IgniteAgentExecutionResult<State, Events, States>>;
+	): Promise<Awaited<ReturnType<Commands[CommandName]>>>;
 	get(key: "states"): States;
 	get(key: "schema"): IgniteAgentSchema<SchemaState, States>;
 	get(key: "commands"): IgniteAgentSchema["commands"];

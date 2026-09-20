@@ -318,14 +318,11 @@ describe("igniteElementFactory", () => {
 		const name = `ignite-direct-runtime-cleanup-${crypto.randomUUID()}`;
 		component(name, () => html`<div></div>`);
 		const runtime = component as typeof component & {
-			execute: (call: {
-				command: string;
-				input?: unknown;
-			}) => Promise<{ snapshot: typeof initialState }>;
+			execute: (call: { command: string; input?: unknown }) => Promise<void>;
 		};
 
 		const initial = await runtime.execute({ command: "reportAdapter" });
-		expect(initial.snapshot).toEqual(initialState);
+		expect(initial).toBeUndefined();
 
 		const element = document.createElement(name);
 		document.body.appendChild(element);

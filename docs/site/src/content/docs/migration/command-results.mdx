@@ -1,0 +1,73 @@
+---
+title: Command results and tools observations
+description: Migrate the beta.15 execution receipt to command-defined results.
+---
+
+This candidate amends the beta.15 headless contract. It is unversioned until the
+next reviewed prerelease is published; beta.15 itself retains its historical behavior.
+
+## Execute is mutation; reads and observations are explicit
+
+Previously `execute()` returned `{ snapshot, states, events }` and discarded the
+command's value. It now returns only `Awaited<ReturnType<Commands[K]>>`, including
+void. The public `IgniteAgentExecutionResult` type and reexports are removed.
+
+```ts
+import { igniteCore } from 'ignite-element/xstate';
+import { createMachine } from 'xstate';
+
+const core = igniteCore({
+  source: createMachine({}),
+  states: () => ({ ready: true }),
+  commands: () => ({
+    async createTodo(input: { title: string }) {
+      return { id: input.title };
+    },
+  }),
+});
+const input = { title: 'Review candidate' };
+const created = await core.execute({ command: 'createTodo', input });
+console.log(created.id); // When the authored command returns { id }.
+console.log(core.get('states'));
+core.dispose();
+```
+
+Author commands with `commands: ({ source }) => ({ ... })`. Return application
+DTOs explicitly; discard or map source-specific send/dispatch acknowledgements.
+The library does not sanitize values deliberately returned by the application.
+
+Install `core.on(name, handler)` before a command when its events are needed,
+and unsubscribe when observation ends. `watch` observes projected transitions.
+Direct callable commands retain ordinary tuples, receiver and return behavior;
+serialized execute calls still accept zero, optional or one required input, with
+arrays treated as one input and multiple required positional arguments excluded.
+
+## Tools keeps explicit application feedback
+
+`igniteTools.run()` keeps its tagged Result wrapper. Success now contains
+`{ result, states, events }`: the command value, an explicit current projected
+read, and declared public events observed through `on` during the call.
+Provider serialization no longer implicitly supplies a native snapshot.
+An undefined result may be omitted from JSON.
+
+Only names in the current event catalogue are captured. Previously execute also
+collected uncatalogued native emissions. Declare any native event needed by tools;
+ordinary public named `on` subscriptions remain available. Overlapping calls may
+see the same event and reads are not isolated transaction receipts.
+
+## Completion and ownership
+
+Execution invokes the command, awaits its returned work, yields through the
+existing microtask, checks active lifetime, and returns its value. Immediate
+projected reads see ordinary synchronous mutations. Detached work, machine
+finality, rendering, all effects and remote replication are separate boundaries.
+A transport acknowledgement can precede local publication; await an application
+correlation signal inside a command when stronger visibility is required.
+
+Core disposal does not cancel entered business I/O. A later fulfillment rejects
+as disposed; a command rejection retains its original identity.
+
+Ownership semantics are unchanged. Machine-created actors are private and stop
+on owned teardown; existing actors remain caller-owned. Native completion does
+not dispose the core: completed results remain readable until explicit teardown.
+See [Ownership & cleanup](/ignite-element/handbook/ownership/) for all modes.

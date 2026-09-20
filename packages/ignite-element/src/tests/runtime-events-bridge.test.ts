@@ -329,7 +329,7 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 		subscription.unsubscribe();
 	});
 
-	it("execute().events captures source emits (uniform shape) alongside declared/effects events", async () => {
+	it("public subscriptions capture source emits (uniform shape) alongside declared/effects events", async () => {
 		// The command emits both a declared/effects event (host bus) and a source
 		// event (subscribeEvents seam) during the command window.
 		const h = makeHarness({
@@ -341,20 +341,26 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 			},
 		});
 
-		const result = await h.runtime.execute({ command: "acceptFork" });
+		const captured: Array<{ type: string; [key: string]: unknown }> = [];
+		const eventHandles = [
+			h.runtime.on("ui-event", (event) => captured.push(event)),
+			h.runtime.on("OUTCOME_RESOLVED", (event) => captured.push(event)),
+		];
+		await h.runtime.execute({ command: "acceptFork" });
+		for (const handle of eventHandles) handle.unsubscribe();
 
-		expect(result.events).toContainEqual({
+		expect(captured).toContainEqual({
 			type: "OUTCOME_RESOLVED",
 			outcome: "accepted-fork",
 		});
-		expect(result.events).toContainEqual({
+		expect(captured).toContainEqual({
 			type: "ui-event",
 			clicked: true,
 		});
 		// no double-count of the source event
-		expect(
-			result.events.filter((e) => e.type === "OUTCOME_RESOLVED"),
-		).toHaveLength(1);
+		expect(captured.filter((e) => e.type === "OUTCOME_RESOLVED")).toHaveLength(
+			1,
+		);
 		// transient capture sub cleaned up after the command
 		expect(h.activeStreamSubscriptions()).toBe(0);
 	});
@@ -367,9 +373,14 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 			},
 		});
 
-		const result = await h.runtime.execute({ command: "emitDate" });
+		const captured: Array<{ type: string; [key: string]: unknown }> = [];
+		const eventHandles = [
+			h.runtime.on("ui-event", (event) => captured.push(event)),
+		];
+		await h.runtime.execute({ command: "emitDate" });
+		for (const handle of eventHandles) handle.unsubscribe();
 
-		expect(result.events).toEqual([
+		expect(captured).toEqual([
 			{
 				type: "ui-event",
 				detail,
@@ -377,7 +388,7 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 		]);
 	});
 
-	it("cleans execute listeners when source event subscription setup throws", async () => {
+	it("execute does not subscribe to native events", async () => {
 		const host = document.createElement("div");
 		const removeEventListener = vi.spyOn(host, "removeEventListener");
 		const setupError = new Error("subscribe failed");
@@ -408,13 +419,8 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 			resolveStates: () => ({}),
 		});
 
-		await expect(runtime.execute({ command: "noop" })).rejects.toThrow(
-			setupError,
-		);
-		expect(removeEventListener).toHaveBeenCalledWith(
-			"ui-event",
-			expect.any(Function),
-		);
+		await expect(runtime.execute({ command: "noop" })).resolves.toBeUndefined();
+		expect(removeEventListener).not.toHaveBeenCalled();
 	});
 
 	it("cleans on() listeners when source event subscription setup throws", () => {
@@ -489,16 +495,10 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 		});
 
 		try {
-			await expect(runtime.execute({ command: "noop" })).resolves.toMatchObject(
-				{
-					snapshot: state,
-					events: [],
-				},
-			);
-			expect(consoleError).toHaveBeenCalledWith(
-				"[igniteCore] Source event subscription cleanup failed after command execution.",
-				cleanupError,
-			);
+			await expect(
+				runtime.execute({ command: "noop" }),
+			).resolves.toBeUndefined();
+			expect(consoleError).not.toHaveBeenCalled();
 		} finally {
 			consoleError.mockRestore();
 		}
@@ -578,7 +578,7 @@ describe("runtime bridge for adapter.subscribeEvents() emitted events", () => {
 		});
 
 		const result = await runtime.execute({ command: "noop" });
-		expect(result.events).toEqual([]);
+		expect(result).toBeUndefined();
 		// on() still works (host path) without throwing
 		const sub = runtime.on("whatever", () => {});
 		sub.unsubscribe();

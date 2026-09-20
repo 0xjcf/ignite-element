@@ -92,7 +92,7 @@ describe("recoverable core setup", () => {
 		expect(listeners.size).toBe(0);
 		log.mockRestore();
 	});
-	it.each(["watch", "on", "execute"] as const)(
+	it.each(["watch", "on"] as const)(
 		"recovers shared XState %s setup without executing a failed window",
 		async (mode) => {
 			const actor = createActor(machine).start();
@@ -118,8 +118,7 @@ describe("recoverable core setup", () => {
 				});
 			try {
 				if (mode === "watch") core.watch(() => {});
-				else if (mode === "on") core.on("changed", () => {});
-				else await core.execute({ command: "add" });
+				else core.on("changed", () => {});
 				throw Error("expected failure");
 			} catch (error) {
 				expect(error).toBe(reason);
@@ -140,7 +139,7 @@ describe("recoverable core setup", () => {
 			actor.stop();
 		},
 	);
-	it.each(["watch", "on", "execute"] as const)(
+	it.each(["watch", "on"] as const)(
 		"recovers shared Actor-Web %s setup and preserves established consumers",
 		async (mode) => {
 			const { source, listeners, close } = sourceFixture();
@@ -174,8 +173,7 @@ describe("recoverable core setup", () => {
 			fail = true;
 			try {
 				if (mode === "watch") core.watch(() => {});
-				else if (mode === "on") core.on("changed", () => {});
-				else await core.execute({ command: "add" });
+				else core.on("changed", () => {});
 				throw Error("expected failure");
 			} catch (error) {
 				expect(error).toBe(reason);
@@ -191,14 +189,14 @@ describe("recoverable core setup", () => {
 			const listened = core.on("changed", () => {});
 			fail = true;
 			if (mode !== "watch") {
-				await expect(core.execute({ command: "add" })).rejects.toBe(reason);
+				await expect(core.execute({ command: "add" })).resolves.toBeUndefined();
 				expect(listeners.size).toBe(1);
 				expect(events.size).toBe(1);
 			}
 			fail = false;
 			await core.execute({ command: "add" });
-			expect(core.get("states").count).toBe(1);
-			expect(seen).toHaveBeenCalledOnce();
+			expect(core.get("states").count).toBe(mode === "watch" ? 1 : 2);
+			expect(seen).toHaveBeenCalledTimes(mode === "watch" ? 1 : 2);
 			watched.unsubscribe();
 			listened.unsubscribe();
 			core.dispose();

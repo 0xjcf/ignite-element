@@ -6,7 +6,7 @@ import { createRouterSource } from "./routerSource";
 // The payoff of keeping the router's core pure: you can drive navigation
 // through Ignite's headless runtime and assert the result with no DOM, no
 // jsdom History, no rendered element. `execute` issues a command, `getStates`
-// reads the projection, and `on`/`execute().events` observe the emitted
+// reads the projection, and `on` observe the emitted
 // `navigated` event (bridged from the machine through the subscribeEvents seam).
 const makeRouter = () =>
 	igniteCore({
@@ -48,13 +48,18 @@ describe("SPA router — headless runtime", () => {
 		expect(seen).toContain("about");
 	});
 
-	it("captures navigated events in execute().events", async () => {
+	it("observes navigated events during execution", async () => {
 		const router = makeRouter();
-		const result = await router.execute({
+		const captured: Array<{ type: string; [key: string]: unknown }> = [];
+		const eventHandles = [
+			router.on("navigated", (event) => captured.push(event)),
+		];
+		await router.execute({
 			command: "navigate",
 			input: "/users/3",
 		});
-		expect(result.events).toContainEqual({
+		for (const handle of eventHandles) handle.unsubscribe();
+		expect(captured).toContainEqual({
 			type: "navigated",
 			path: "/users/3",
 			route: "user",

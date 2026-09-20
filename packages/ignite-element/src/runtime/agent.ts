@@ -83,10 +83,6 @@ type AgentRuntimeOptions<
 	lifetime: Lifetime;
 	dispose: () => void;
 	resolveRuntime: () => RuntimeResources<State, Event, AdditionalArgs>;
-	resolveInspection?: (adapter: IgniteAdapter<State, Event>) => {
-		snapshot: unknown;
-		states: States;
-	};
 	resolveStates: (adapter: IgniteAdapter<State, Event>) => States;
 	resolveDeliveredStates?: (snapshot: State) => States;
 };
@@ -102,17 +98,10 @@ export function createAgentRuntime<
 	hasCommands,
 	lifetime,
 	dispose,
-	resolveInspection,
 	resolveRuntime,
 	resolveDeliveredStates,
 	resolveStates,
 }: AgentRuntimeOptions<State, Event, States, AdditionalArgs>) {
-	const inspect =
-		resolveInspection ??
-		((adapter: IgniteAdapter<State, Event>) => ({
-			snapshot: adapter.getSnapshot(),
-			states: resolveStates(adapter),
-		}));
 	const derive =
 		resolveDeliveredStates ??
 		((snapshot: State) => snapshot as unknown as States);
@@ -311,7 +300,6 @@ export function createAgentRuntime<
 	const listen = (
 		names: readonly string[],
 		handler: (event: RuntimeEventMember) => void,
-		allSourceEvents = false,
 	): IgniteAgentSubscription => {
 		lifetime.assertActive();
 		let active = true;
@@ -347,15 +335,12 @@ export function createAgentRuntime<
 				if (!active || !lifetime.active) return;
 				const member = sourceEventToRuntimeEvent(event);
 				if (member) observeNative?.(adapter, member.type);
-				if (member && (allSourceEvents || names.includes(member.type)))
-					handler(member);
+				if (member && names.includes(member.type)) handler(member);
 			});
 			if (subscription)
 				releases.push(
 					cleanup(
-						allSourceEvents
-							? "[igniteCore] Source event subscription cleanup failed after command execution."
-							: "[igniteCore] Source event subscription cleanup failed.",
+						"[igniteCore] Source event subscription cleanup failed.",
 						() => subscription.unsubscribe(),
 					),
 				);
@@ -381,7 +366,7 @@ export function createAgentRuntime<
 		lifetime.assertActive();
 		const resources = resolveRuntime();
 		activateHostEffects(resources.host);
-		const { adapter, additionalArgs } = resources;
+		const { additionalArgs } = resources;
 		const descriptor = Object.getOwnPropertyDescriptor(
 			additionalArgs,
 			call.command,
@@ -390,33 +375,10 @@ export function createAgentRuntime<
 			descriptor && "value" in descriptor ? descriptor.value : undefined;
 		if (typeof command !== "function")
 			throw new Error(`[igniteCore] Unknown command "${call.command}".`);
-		const events: RuntimeEventMember[] = [];
-		let window: IgniteAgentSubscription;
-		try {
-			window = listen(eventTypes, (event) => events.push(event), true);
-		} catch (error) {
-			try {
-				resources.rollback?.();
-			} catch (cleanupError) {
-				console.error(
-					"[igniteCore] Command-window setup rollback failed.",
-					cleanupError,
-				);
-			}
-			throw error;
-		}
-		try {
-			await command("input" in call ? call.input : undefined);
-			await new Promise<void>((resolve) => queueMicrotask(resolve));
-			lifetime.assertActive();
-			return { ...inspect(adapter), events };
-		} finally {
-			try {
-				window.unsubscribe();
-			} catch (error) {
-				console.error("[igniteCore] Command-window cleanup failed.", error);
-			}
-		}
+		const result = await command("input" in call ? call.input : undefined);
+		await new Promise<void>((resolve) => queueMicrotask(resolve));
+		lifetime.assertActive();
+		return result;
 	};
 	const runtime = {
 		get(key: "states" | "schema" | "commands" | "events") {

@@ -10,7 +10,6 @@ export {
 } from "./runtime/projectionTargets";
 export type {
 	IgniteAgentEventListener,
-	IgniteAgentExecutionResult,
 	IgniteAgentRuntime,
 	IgniteAgentSubscription,
 	IgniteCommandCall,

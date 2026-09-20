@@ -122,7 +122,10 @@ test("agents can drive the XState example runtime without DOM locators", async (
 
 		const startStates = runtime.get("states");
 		const schema = runtime.get("schema");
-		const events: Awaited<ReturnType<typeof runtime.execute>>["events"] = [];
+		const events: Array<{ type: string; [key: string]: unknown }> = [];
+		const handles = (
+			["api-count-changed", "api-limit-reached", "api-reset"] as const
+		).map((name) => runtime.on(name, (event) => events.push(event)));
 
 		const stepResult = await runtime.execute({ command: "setStep", input: 2 });
 		const stepStates = runtime.get("states");
@@ -131,11 +134,11 @@ test("agents can drive the XState example runtime without DOM locators", async (
 
 		let steps = 0;
 		while (!runtime.get("states").isLimited && steps < 20) {
-			const result = await runtime.execute({ command: "increment" });
-			events.push(...result.events);
+			await runtime.execute({ command: "increment" });
 			steps += 1;
 		}
 		const finalStates = runtime.get("states");
+		for (const handle of handles) handle.unsubscribe();
 
 		return {
 			commands: schema.commands,
@@ -143,7 +146,7 @@ test("agents can drive the XState example runtime without DOM locators", async (
 			finalStates,
 			limitStates,
 			schemaEvents: schema.events,
-			snapshot: stepResult.snapshot,
+			commandResult: stepResult,
 			schemaStates: schema.states,
 			startStates,
 			stepStates,
@@ -168,10 +171,7 @@ test("agents can drive the XState example runtime without DOM locators", async (
 		{ type: "api-limit-reached", payload: null },
 		{ type: "api-reset", payload: null },
 	]);
-	expect(result.snapshot).toMatchObject({
-		context: { count: 0 },
-		value: "active",
-	});
+	expect(result.commandResult).toBeUndefined();
 	expect(result.schemaStates).toEqual({ schema: null });
 	expect(result.startStates.isLimited).toBe(false);
 	expect(result.stepStates.step).toBe(2);

@@ -111,12 +111,7 @@ export function checkCombinedNativeMembers() {
 		void type;
 		void count;
 	});
-	void core.execute({ command: "run" }).then(({ events }) => {
-		for (const event of events) {
-			const count: number = event.count;
-			void count;
-		}
-	});
+	void core.execute({ command: "run" });
 	eventCore({
 		source: machine,
 		// @ts-expect-error A combined native discriminator retains numeric payloads.

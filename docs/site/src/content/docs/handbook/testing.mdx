@@ -42,7 +42,7 @@ It checks a command result, external source updates, and unsubscribe behavior.
 
 <Code code={coreTest} lang="ts" title="core.test.ts" />
 
-`execute` waits for its callback and observation window, not every asynchronous business operation.
+`execute` awaits the command's returned work and the existing microtask yield, then returns its value. Use explicit projected reads and event subscriptions; detached work may still be pending.
 
 Resolve fixture-owned ports and assert application-correlated outcomes for asynchronous work; keep cancellation and stale-result coverage.
 

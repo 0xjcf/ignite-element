@@ -26,7 +26,8 @@ describe("one plain controller, deterministic ports", () => {
 		expect(f.fake.writes).toHaveLength(1);
 		const request = at(f.fake.writes, 0);
 		request.result.resolve({ kind: "accepted", ...request.request });
-		expect((await write).states).toMatchObject({
+		expect(await write).toBeUndefined();
+		expect(f.state()).toMatchObject({
 			outcome: "confirmed",
 			confirmed: "compact",
 		});

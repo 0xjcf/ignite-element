@@ -347,7 +347,7 @@ function requestBody(
 					id: result.id,
 					name: result.command,
 					result: ok({
-						snapshot: {
+						result: {
 							outcome: result.status,
 							...(result.ownerId ? { ownerId: result.ownerId } : {}),
 							...(result.reason ? { reason: result.reason } : {}),

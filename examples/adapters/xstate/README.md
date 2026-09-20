@@ -185,7 +185,8 @@ apiShowcase.on("api-count-changed", (event) => [
 apiShowcase.watch((states, prevStates) => [prevStates, states]);
 
 const result = await apiShowcase.execute({ command: "increment" });
-console.log(result.snapshot, result.states); // One paired native/projected observation.
+console.log(result); // Command-defined value or void.
+console.log(apiShowcase.get('states')); // Explicit projected read.
 
 await apiShowcase.execute({ command: "setLimit", input: 6 });
 for (let step = 0; step < 20 && apiShowcase.get("states").stateLabel !== "Limit reached"; step += 1) {
@@ -201,7 +202,7 @@ const runtime = window.__igniteExamples?.apiShowcase;
 if (!runtime) throw new Error("Runtime unavailable");
 await runtime.execute({ command: "reset" });
 const result = await runtime.execute({ command: "increment" });
-console.log(result.snapshot);
+console.log(result); // Command-defined value or void.
 runtime.get("states");
 ```
 

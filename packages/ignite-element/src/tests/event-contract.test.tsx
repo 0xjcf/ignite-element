@@ -44,7 +44,7 @@ it("infers a real Actor-Web channel shared with command types and releases it", 
 		core.on("reset", (event) => received.push(event));
 		const result = await core.execute({ command: "reset" });
 		expect(received).toEqual([{ type: "reset", count: 0 }]);
-		expect(result.events).toEqual([{ type: "reset", count: 0 }]);
+		expect(result).toBeUndefined();
 	} finally {
 		core.dispose();
 	}

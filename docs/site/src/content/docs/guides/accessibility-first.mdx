@@ -273,7 +273,8 @@ if (canSave) {
       command: "saveTarget",
       input: 70,
     });
-    console.log(result.snapshot, result.events);
+    console.log(result); // Authored command value or void.
+    console.log(thermostat.get('states'));
   } catch (error) {
     // Availability can change; source guards enforce behavior.
     // Fulfillment alone does not confirm that persistence succeeded.
@@ -381,7 +382,7 @@ Use this split when you review an accessibility-first component.
 - Validated semantic documents reject unsafe content and keep stable ids.
 - Command-backed actions resolve against existing commands and schema.
 - Speech requests dedupe and acknowledge correctly.
-- `execute()` produces the expected events and resulting snapshot.
+- `execute()` returns the expected application value; explicit `get('states')` reads and `on` subscriptions verify the resulting projections and events.
 
 ### Rendered DOM must verify
 

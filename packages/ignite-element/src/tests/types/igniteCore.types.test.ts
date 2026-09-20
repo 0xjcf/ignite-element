@@ -281,10 +281,6 @@ describe("igniteCore type inference", () => {
 			lifetime,
 			dispose: () => lifetime.dispose(),
 			eventTypes: [],
-			resolveInspection: (current) => ({
-				snapshot: current.getSnapshot(),
-				states: {},
-			}),
 			resolveRuntime: () => ({
 				adapter,
 				additionalArgs: {},
@@ -929,16 +925,7 @@ describe("igniteCore type inference", () => {
 				increment: (amount: number) => unknown;
 			}>
 		>();
-		expectTypeOf(result).toEqualTypeOf<
-			Promise<{
-				snapshot: StoreState;
-				states: { count: number };
-				events: Array<{
-					type: "counter-incremented";
-					count: number;
-				}>;
-			}>
-		>();
+		expectTypeOf(result).toEqualTypeOf<Promise<void>>();
 		expectTypeOf(register.get("states")).toEqualTypeOf<{ count: number }>();
 		expectTypeOf(
 			schema.commands,
@@ -1123,20 +1110,7 @@ describe("igniteCore type inference", () => {
 		});
 
 		expectTypeOf(register.execute({ command: "increment" })).toEqualTypeOf<
-			Promise<{
-				snapshot: XStateSnapshot<typeof machine>;
-				states: { count: number; ready: boolean };
-				events: Array<
-					| {
-							type: "counter-incremented";
-							count: number;
-					  }
-					| {
-							type: "ready-changed";
-							ready: boolean;
-					  }
-				>;
-			}>
+			Promise<void>
 		>();
 	});
 

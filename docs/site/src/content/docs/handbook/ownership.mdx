@@ -96,7 +96,7 @@ For example, a feature or signed-in session can own a core and dispose it when t
 
 Disposal is terminal, including for cores with registered custom elements.
 
-It releases Ignite-owned observation, events, effects, projections, bindings, and command windows.
+It releases Ignite-owned observation, events, effects, projections, bindings, and observation windows.
 
 Registered definitions remain; later connections are inert.
 
@@ -178,3 +178,23 @@ Disposal does not cancel entered business I/O or revoke a completed operation.
 Keep cancellation, persistence, freshness, and durable receipts with the source.
 
 For an application with ports and session lifetimes, see the [advanced shared-source recipe](/ignite-element/guides/shared-source-ownership/).
+
+## Source modes and completion
+
+| Source mode | Ignite teardown |
+| --- | --- |
+| XState machine | Stops its private owned actor; disposing an unused core creates none |
+| Existing XState actor | Detaches Ignite; another borrowing core can keep using it |
+| Redux slice or store factory | Releases Ignite subscriptions; no generic store shutdown |
+| Existing Redux store | Detaches Ignite; caller resources remain usable |
+| MobX factory or instance | Disposes Ignite autorun/listeners; unrelated reactions remain application-owned |
+
+Transport adapters have additional source/factory modes. See the
+[adapter ownership reference](https://github.com/0xjcf/ignite-element/blob/beta/docs/ignite-tools.md#adapter-ownership)
+for those boundaries.
+
+Native completion is not core disposal. Retain readable completed results until
+the application owner calls `core.dispose()`. The source owner may then stop a
+borrowed actor once no other owner needs it. Shared React/React Native hooks
+release their subscriptions; independent hooks release private runtimes on final
+unmount without disposing the reusable core.

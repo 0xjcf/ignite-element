@@ -7,7 +7,7 @@ import { createLifetime } from "../runtime/lifetime";
 import { igniteCore } from "../xstate";
 
 describe("terminal core lifetime", () => {
-	it.each(["watch", "on", "execute"] as const)(
+	it.each(["watch", "on"] as const)(
 		"rolls back newly acquired resources when %s subscription setup fails",
 		async (mode) => {
 			const failure = { reason: "subscribe" };
@@ -38,11 +38,7 @@ describe("terminal core lifetime", () => {
 				events: (event) => ({ changed: event<{ count: number }>() }),
 			});
 			const acquire = () =>
-				mode === "watch"
-					? core.watch(() => {})
-					: mode === "on"
-						? core.on("changed", () => {})
-						: core.execute({ command: "run" });
+				mode === "watch" ? core.watch(() => {}) : core.on("changed", () => {});
 			try {
 				await acquire();
 				throw Error("expected setup failure");
@@ -53,7 +49,7 @@ describe("terminal core lifetime", () => {
 			fail = false;
 			const handle = await acquire();
 			expect(create).toHaveBeenCalledTimes(2);
-			if ("unsubscribe" in handle) handle.unsubscribe();
+			if (handle && "unsubscribe" in handle) handle.unsubscribe();
 			core.dispose();
 			expect(stop).toHaveBeenCalledTimes(2);
 		},

@@ -29,7 +29,7 @@ import type { XStateConfig as CheckedXStateConfig } from "./igniteCore/xstateTyp
 
 // A machine's declared `emitted` types fold into the headless runtime's events
 // on this adapter entry the same way they do on the bare `ignite-element`
-// entry, so `on(type)` / `execute().events` are typed from the machine's emit
+// entry, so `on(type)` are typed from the machine's emit
 // union with no manual type arguments. Mirrors the threading in `IgniteCore.ts`.
 type XStateRuntimeEvents<
 	Machine extends AnyStateMachine,
@@ -47,7 +47,6 @@ export {
 } from "./runtime/projectionTargets";
 export type {
 	IgniteAgentEventListener,
-	IgniteAgentExecutionResult,
 	IgniteAgentRuntime,
 	IgniteAgentSubscription,
 	IgniteCommandCall,

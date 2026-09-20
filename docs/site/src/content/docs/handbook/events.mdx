@@ -35,7 +35,7 @@ DOM events use the public name and flat `detail`; React web callbacks receive th
 
 Headless `core.on(name, handler)` receives `{ type, ...fields }`.
 
-`execute().events` is an observation window, not a durable or command-correlated business receipt.
+`execute()` returns the command value only. `igniteTools.run()` captures a window of declared public events through `on`; uncatalogued native emissions are excluded. Overlapping windows may share events and are not durable command logs.
 
 ## Delivery and ownership
 

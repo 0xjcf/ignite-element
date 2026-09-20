@@ -292,8 +292,8 @@ describe("resolved source command context", () => {
 		const observer = core.on("changed", (event) => events.push(event.count));
 		try {
 			expect(core.get("states").count).toBe(0);
-			const result = await core.execute({ command: "add", input: 3 });
-			expect(result.states.count).toBe(3);
+			expect(await core.execute({ command: "add", input: 3 })).toBe(3);
+			expect(core.get("states").count).toBe(3);
 			expect(source.count).toBe(3);
 			expect(events).toEqual([3]);
 			expect(keys.every((key) => key.length === 1 && key[0] === "source")).toBe(

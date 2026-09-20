@@ -1445,7 +1445,7 @@ describe("projection targets", () => {
 	const flushMicrotasks = () =>
 		new Promise<void>((resolve) => queueMicrotask(resolve));
 
-	it("keeps discovery pure and resolves the execution inspection pair exactly once", async () => {
+	it("keeps discovery and execution free of implicit inspection", async () => {
 		const adapter: IgniteAdapter<{ sequence: number }, InspectionEvent> = {
 			scope: StateScope.Isolated,
 			subscribeSnapshots: () => ({ unsubscribe: () => undefined }),
@@ -1453,17 +1453,12 @@ describe("projection targets", () => {
 			getSnapshot: vi.fn(() => ({ sequence: 99 })),
 			stop: vi.fn(),
 		};
-		const resolveInspection = vi.fn(() => ({
-			snapshot: { sequence: 1 },
-			states: { sequence: 1 },
-		}));
 		const resolveStates = vi.fn(() => ({ sequence: 99 }));
 		const lifetime = createLifetime();
 		const { runtime } = createAgentRuntime({
 			lifetime,
 			dispose: () => lifetime.dispose(),
 			eventTypes: [],
-			resolveInspection,
 			resolveRuntime: () => ({
 				adapter,
 				additionalArgs: { inspect: () => undefined },
@@ -1472,15 +1467,10 @@ describe("projection targets", () => {
 			resolveStates,
 		});
 		expect(runtime.get("schema")).toMatchObject({ states: { schema: null } });
-		expect(resolveInspection).not.toHaveBeenCalled();
 		expect(adapter.getSnapshot).not.toHaveBeenCalled();
 		expect(resolveStates).not.toHaveBeenCalled();
 		const result = await runtime.execute({ command: "inspect" });
-		expect(result).toMatchObject({
-			snapshot: { sequence: 1 },
-			states: { sequence: 1 },
-		});
-		expect(resolveInspection).toHaveBeenCalledOnce();
+		expect(result).toBeUndefined();
 		expect(adapter.getSnapshot).not.toHaveBeenCalled();
 		expect(resolveStates).not.toHaveBeenCalled();
 		runtime.dispose();
@@ -1763,17 +1753,11 @@ describe("projection targets", () => {
 			input: { value: 1 },
 		});
 
-		// Initial command binding checks collisions once; execution captures one
-		// subsequent pair. Neither observation is reused as the other's snapshot.
-		expect(resolveStateSnapshot).toHaveBeenCalledTimes(2);
-		expect(adapter.getSnapshot).toHaveBeenCalledTimes(2);
-		expect(result.snapshot).toMatchObject({
-			sequence: 2,
-			context: {
-				documents: [{ revision: "2" }],
-			},
-		});
-		expect(result.states).toEqual({
+		// Binding preparation reads once; execute adds no receipt inspection.
+		expect(result).toBeUndefined();
+		expect(resolveStateSnapshot).toHaveBeenCalledTimes(1);
+		expect(adapter.getSnapshot).toHaveBeenCalledTimes(1);
+		expect(core.get("states")).toEqual({
 			sequence: 2,
 			documentRevision: "2",
 			commandAvailability: { confirm: true },
@@ -3308,7 +3292,8 @@ describe("projection targets", () => {
 				},
 			});
 			await Promise.all([...burst, latestSpeech]);
-			expect(projectStates).toHaveBeenCalledTimes(statesCallsBeforeBurst + 101);
+			// Execution adds no inspection reads while speech delivery is pending.
+			expect(projectStates).toHaveBeenCalledTimes(statesCallsBeforeBurst);
 
 			if (!releaseFirstCommit) {
 				throw new Error("Expected the first speech commit to be pending.");
@@ -3317,9 +3302,7 @@ describe("projection targets", () => {
 			await new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 			expect(commitSpeech).toHaveBeenCalledTimes(2);
-			expect(projectStates.mock.calls.length - statesCallsBeforeBurst).toBe(
-				103,
-			);
+			expect(projectStates.mock.calls.length - statesCallsBeforeBurst).toBe(2);
 			expect(core.get("states").speechStatus).toBe("acknowledged");
 		} finally {
 			session.dispose();

@@ -126,13 +126,10 @@ describe("native element event forwarding", () => {
 		expect(dom).toHaveLength(0);
 		await core.execute({ command: "increment" });
 		expect(changed).toHaveLength(1);
-		const first = await core.execute({ command: "reset" });
-		expect(first.events.map((e) => e.type).sort()).toEqual([
-			"countChanged",
-			"counterReset",
-		]);
-		const second = await core.execute({ command: "reset" });
-		expect(second.events.map((e) => e.type)).toEqual(["counterReset"]);
+		expect(await core.execute({ command: "reset" })).toBeUndefined();
+		expect(head).toHaveLength(1);
+		expect(changed).toHaveLength(2);
+		expect(await core.execute({ command: "reset" })).toBeUndefined();
 		expect(head).toHaveLength(2);
 		expect(changed).toHaveLength(2);
 		expect(dom).toHaveLength(4);

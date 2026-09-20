@@ -121,11 +121,9 @@ function createFakeComponent(
 				throw new Error("kaboom");
 			}
 			states = { count: calls.length, label: "active" };
-			return {
-				snapshot: { count: 1, last: call.command, payload: call.input },
-				states,
-				events: [{ type: "item-added", id: 1 }],
-			};
+			for (const handler of eventHandlers)
+				handler({ type: "item-added", id: 1 });
+			return { count: 1, last: call.command, payload: call.input };
 		}) as FakeComponent["execute"],
 		on: ((
 			eventName: "item-added",
@@ -173,16 +171,9 @@ class ThisBoundFakeComponent implements FakeComponent {
 	) {
 		this.calls.push({ name: call.command, payload: call.input });
 		return {
-			snapshot: {
-				count: this.calls.length,
-				last: call.command,
-				payload: call.input,
-			},
-			states: {
-				count: this.calls.length,
-				label: "active",
-			},
-			events: [{ type: "item-added", id: this.calls.length }],
+			count: this.calls.length,
+			last: call.command,
+			payload: call.input,
 		};
 	} as FakeComponent["execute"];
 
@@ -545,7 +536,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		expect(component.calls).toEqual([{ name: "setLimit", payload: 7 }]);
 		expect(isOk(result)).toBe(true);
 		if (isOk(result)) {
-			expect(result.value.snapshot).toEqual({
+			expect(result.value.result).toEqual({
 				count: 1,
 				last: "setLimit",
 				payload: 7,
@@ -567,7 +558,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		expect(component.calls).toEqual([{ name: "setLimit", payload: 7 }]);
 		expect(isOk(result)).toBe(true);
 		if (isOk(result)) {
-			expect(result.value.snapshot).toMatchObject({
+			expect(result.value.result).toMatchObject({
 				count: 1,
 				last: "setLimit",
 			});
@@ -680,7 +671,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 				execute: async (call: { command: string; input?: unknown }) => {
 					calls.push({ name: call.command, payload: call.input });
 					return {
-						snapshot: { documents: [call.input] },
+						result: { documents: [call.input] },
 						states: { count: calls.length },
 						events: [],
 					};

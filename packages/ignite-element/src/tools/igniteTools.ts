@@ -18,27 +18,33 @@ import type {
 } from "./types";
 
 /** The neutral core surface, usable directly without a provider dialect. */
-export type IgniteToolsNeutral<State, States, Events extends EventMap> = {
+export type IgniteToolsNeutral<
+	CommandResult,
+	States,
+	Events extends EventMap,
+> = {
 	manifest: NeutralManifest;
 	resolveCall(name: string, input: unknown): Result<Route, ToolError>;
 	run(
 		call: NeutralToolCall,
-	): Promise<Result<ToolObservation<State, States, Events>, ToolError>>;
+	): Promise<Result<ToolObservation<CommandResult, States, Events>, ToolError>>;
 	observe(handler: ToolStreamHandler<States, Events>): ToolStreamSubscription;
 };
 
 /** The neutral core plus a dialect's provider-shaped tools + translators. */
 export type IgniteToolsWithDialect<
-	State,
+	CommandResult,
 	States,
 	Events extends EventMap,
 	Tools,
 	Response,
 	ResultBlock,
-> = IgniteToolsNeutral<State, States, Events> & {
+> = IgniteToolsNeutral<CommandResult, States, Events> & {
 	tools: Tools;
 	toolCalls(response: Response): NeutralToolCall[];
-	toolResult(result: NeutralToolResult<State, States, Events>): ResultBlock;
+	toolResult(
+		result: NeutralToolResult<CommandResult, States, Events>,
+	): ResultBlock;
 };
 
 type ToolOptions = {
@@ -83,7 +89,11 @@ export function igniteTools<
 	runtime: IgniteToolsRuntime<State, Commands, Events, SchemaState, States>,
 	dialect?: undefined,
 	options?: ToolOptions,
-): IgniteToolsNeutral<State, States, Events>;
+): IgniteToolsNeutral<
+	Awaited<ReturnType<Commands[keyof Commands]>>,
+	States,
+	Events
+>;
 export function igniteTools<
 	State,
 	Commands extends FacadeCommandResult,
@@ -97,7 +107,14 @@ export function igniteTools<
 	runtime: IgniteToolsRuntime<State, Commands, Events, SchemaState, States>,
 	dialect: ToolDialect<Tools, Response, ResultBlock>,
 	options?: ToolOptions,
-): IgniteToolsWithDialect<State, States, Events, Tools, Response, ResultBlock>;
+): IgniteToolsWithDialect<
+	Awaited<ReturnType<Commands[keyof Commands]>>,
+	States,
+	Events,
+	Tools,
+	Response,
+	ResultBlock
+>;
 /**
  * Bridge the agent-runtime contract to LLM tool-use. The pure core builds a
  * neutral manifest from explicit tool definitions and routes validated calls; the shell
@@ -130,12 +147,23 @@ export function igniteTools<
 
 	const run = async (
 		call: NeutralToolCall,
-	): Promise<Result<ToolObservation<State, States, Events>, ToolError>> => {
+	): Promise<
+		Result<
+			ToolObservation<
+				Awaited<ReturnType<Commands[keyof Commands]>>,
+				States,
+				Events
+			>,
+			ToolError
+		>
+	> => {
 		const routed = boundResolveCall(call.name, call.input);
 		if (!routed.ok) {
 			return routed;
 		}
 
+		const subscriptions: ToolStreamSubscription[] = [];
+		let observing = true;
 		try {
 			const routedTool = manifest.find(
 				(candidate) => candidate.name === routed.value.command,
@@ -157,8 +185,17 @@ export function igniteTools<
 				});
 			}
 
-			const { snapshot, states, events } = await runtime.execute(routed.value);
-			return ok({ snapshot, states, events });
+			const events: RuntimeEvent<Events>[] = [];
+			for (const { type } of runtime.get("events")) {
+				subscriptions.push(
+					runtime.on(type, (event) => {
+						if (observing) events.push(event);
+					}),
+				);
+			}
+			const result = await runtime.execute(routed.value);
+			const states = runtime.get("states");
+			return ok({ result, states, events });
 		} catch (cause) {
 			return err({
 				kind: "ExecuteFailed",
@@ -166,6 +203,19 @@ export function igniteTools<
 				message: cause instanceof Error ? cause.message : String(cause),
 				cause,
 			});
+		} finally {
+			observing = false;
+			for (const subscription of subscriptions) {
+				try {
+					subscription.unsubscribe();
+				} catch (error) {
+					// Cleanup must drain every handle without replacing the primary result.
+					console.error(
+						"[igniteTools] Command observation cleanup failed.",
+						error,
+					);
+				}
+			}
 		}
 	};
 
@@ -230,7 +280,12 @@ export function igniteTools<
 		...neutral,
 		tools: dialect.tools(manifest),
 		toolCalls: (response: Response) => dialect.toolCalls(response, manifest),
-		toolResult: (result: NeutralToolResult<State, States, Events>) =>
-			dialect.toolResult(result),
+		toolResult: (
+			result: NeutralToolResult<
+				Awaited<ReturnType<Commands[keyof Commands]>>,
+				States,
+				Events
+			>,
+		) => dialect.toolResult(result),
 	};
 }

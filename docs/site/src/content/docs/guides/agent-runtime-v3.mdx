@@ -92,7 +92,7 @@ In practice, the loop is:
 1. Read `get('schema')` for pure minimal discovery; use `get('states')` for live projections and real binding.
 2. Use explicit application tool schemas to validate payloads; null discovery schemas are unknown.
 3. Read projected availability through a separately supplied tool predicate; the source remains authoritative.
-4. Run `execute()` and inspect the returned snapshot, derived states, and emitted events.
+4. Run `execute()` for the command-defined result, read `get('states')`, and observe events through subscriptions installed before execution.
 5. Keep long-lived observers attached with `on(...)` or `watch(...)` when the workflow spans multiple actions.
 
 ## Add the DOM layer

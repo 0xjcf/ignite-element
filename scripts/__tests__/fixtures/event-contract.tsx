@@ -88,14 +88,7 @@ export function eventContract() {
 		void count;
 		void text;
 	});
-	void instance.execute({ command: "reset" }).then(({ events }) => {
-		for (const event of events) {
-			const type: "reset" = event.type;
-			const count: number = event.count;
-			void type;
-			void count;
-		}
-	});
+	void instance.execute({ command: "reset" });
 	const factory = actorCore({ source: () => source });
 	factory.on("reset", (event) => {
 		const count: number = event.count;

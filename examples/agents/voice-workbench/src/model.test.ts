@@ -458,14 +458,14 @@ describe("consumer-configured MLX workbench model", () => {
 			body.messages[2].tool_calls.map((call: { id: string }) => call.id),
 		).toEqual(["create", "early-complete", "search"]);
 		expect(JSON.parse(body.messages[3].content)).toMatchObject({
-			snapshot: { outcome: "accepted" },
+			result: { outcome: "accepted" },
 			states: { artifacts: [{ id: "release-checklist", revision: "1" }] },
 		});
 		expect(JSON.parse(body.messages[4].content)).toMatchObject({
-			snapshot: { outcome: "deferred" },
+			result: { outcome: "deferred" },
 		});
 		expect(JSON.parse(body.messages[5].content)).toMatchObject({
-			snapshot: {
+			result: {
 				outcome: "capability-success",
 				ownerId: "web-search",
 				providerStatus: 200,

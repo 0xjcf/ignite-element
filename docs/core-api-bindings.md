@@ -6,6 +6,8 @@ Install `ignite-element@beta` and the state library for your chosen entrypoint.
 Current API details are maintained in the [handbook reference](site/src/content/docs/handbook/api.mdx).
 Shared readiness and registered terminal disposal shipped in beta.13.
 The core-owned effect evaluator shipped in beta.14.
+The command-results candidate amends the beta.15 receipt; see the
+[execution migration](site/src/content/docs/migration/command-results.mdx).
 
 ## Construction and reads
 
@@ -20,13 +22,13 @@ Source-backed owners retain registration and opaque projection-target call forms
 | `get('events')` | Declared names with `{ type, payload: null }`, not history |
 | `watch((next, previous) => …)` | Derived observations without initial user delivery or global deep equality |
 | `on(name, handler)` | Flat outward occurrences; independently idempotent unsubscribe handle |
-| `execute({ command, input })` | One payload argument; awaited callback and paired snapshot/states/window events |
+| `execute({ command, input })` | One payload argument; command-defined awaited value or void |
 | `dispose()` | Terminal owning cleanup, including registered views; tag definitions are not reusable |
 
 No zero-argument read, snapshot key, path language, function lookup or compatibility
 aliases are added. The former public raw getters/watchers, derived getters/watchers,
 schema getter, `canExecute`, command helpers and their metadata builders are removed.
-Native source APIs, native snapshots in projections/effects/execution, and the
+Native source APIs, native snapshots in projections/effects, and the
 private document/speech observation seam remain.
 
 ## Minimal catalogue

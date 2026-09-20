@@ -48,18 +48,16 @@ export type NeutralToolCall = {
 };
 
 /**
- * The observation an agent gets back after a successful tool call: the
- * post-command `snapshot` (raw state), the derived `states` (the read-model the
- * agent should ground on — distinct from the raw snapshot), and the events
- * emitted during the command window. Both snapshot and states are captured at
- * command-acknowledgement (see the act+ack note in `docs/ignite-tools.md`).
+ * The command-defined awaited result, current projected states, and declared
+ * public events observed during the call window. Concurrent calls may overlap;
+ * this observation is not an isolated transaction or durable command log.
  */
 export type ToolObservation<
-	Snapshot,
+	CommandResult,
 	States = unknown,
 	Events extends EventMap = EmptyEventMap,
 > = {
-	snapshot: Snapshot;
+	result: CommandResult;
 	states: States;
 	events: RuntimeEvent<Events>[];
 };
@@ -113,13 +111,13 @@ export type Route<Name extends string = string> = {
  * paired with the `run` outcome.
  */
 export type NeutralToolResult<
-	Snapshot = unknown,
+	CommandResult = unknown,
 	States = unknown,
 	Events extends EventMap = EmptyEventMap,
 > = {
 	id?: string;
 	name: string;
-	result: Result<ToolObservation<Snapshot, States, Events>, ToolError>;
+	result: Result<ToolObservation<CommandResult, States, Events>, ToolError>;
 };
 
 /**
@@ -148,10 +146,10 @@ export interface ToolDialect<
 	toolCalls(response: Response, manifest: NeutralManifest): NeutralToolCall[];
 	/** Neutral result → provider tool-result block (encoded one call at a time). */
 	toolResult<
-		Snapshot = unknown,
+		CommandResult = unknown,
 		States = unknown,
 		Events extends EventMap = EmptyEventMap,
-	>(result: NeutralToolResult<Snapshot, States, Events>): ResultBlock;
+	>(result: NeutralToolResult<CommandResult, States, Events>): ResultBlock;
 }
 
 /** Per-command availability predicate, evaluated against the current snapshot. */

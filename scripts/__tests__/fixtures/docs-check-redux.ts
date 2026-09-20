@@ -36,16 +36,16 @@ const recoveryCounter = igniteRedux({
 
 expect(store.getState().counter.count).toBe(0);
 expect(recoveryCounter.get("states").canDecrement).toBe(false);
-const result = await recoveryCounter.execute({
-	command: "increment",
-	input: 2,
+const countedEvents: Array<{ type: "counter-incremented"; count: number }> = [];
+const eventHandle = recoveryCounter.on("counter-incremented", (event) => {
+	const countedEvent: typeof event = { type: "counter-incremented", count: 2 };
+	expect(event).toEqual(countedEvent);
+	countedEvents.push(event);
 });
-const countedEvent: Awaited<
-	ReturnType<typeof recoveryCounter.execute>
->["events"][number] = { type: "counter-incremented", count: 2 };
-expect(result.snapshot.counter.count).toBe(2);
-expect(result.states).toEqual({ count: 2, canDecrement: true });
-expect(result.events).toEqual([countedEvent]);
+await recoveryCounter.execute({ command: "increment", input: 2 });
+eventHandle.unsubscribe();
+expect(recoveryCounter.get("states")).toEqual({ count: 2, canDecrement: true });
+expect(countedEvents).toEqual([{ type: "counter-incremented", count: 2 }]);
 expect(recoveryCounter.get("states").canDecrement).toBe(true);
 const observed: number[] = [];
 const subscription = recoveryCounter.watch((states) =>
