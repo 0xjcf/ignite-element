@@ -6,7 +6,7 @@ Install `ignite-element@beta` and the state library for your chosen entrypoint.
 Current API details are maintained in the [handbook reference](site/src/content/docs/handbook/api.mdx).
 Shared readiness and registered terminal disposal shipped in beta.13.
 The core-owned effect evaluator shipped in beta.14.
-The command-results candidate amends the beta.15 receipt; see the
+Command-defined execution results shipped in beta.16, replacing the beta.15 receipt; see the
 [execution migration](site/src/content/docs/migration/command-results.mdx).
 
 ## Construction and reads
