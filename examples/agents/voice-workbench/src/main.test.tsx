@@ -450,7 +450,7 @@ describe("voice workbench browser entry", () => {
 				.filter((message: { role: string }) => message.role === "tool")
 				.map(
 					(message: { content: string }) =>
-						JSON.parse(message.content).snapshot.outcome,
+						JSON.parse(message.content).result.outcome,
 				),
 		).toEqual(["accepted", "deferred"]);
 

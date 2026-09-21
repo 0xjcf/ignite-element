@@ -30,8 +30,8 @@ describe("v3 states/view contract types", () => {
 		});
 
 		expectTypeOf<
-			Awaited<ReturnType<typeof counter.execute>>["snapshot"]
-		>().toEqualTypeOf<Snapshot>();
+			Awaited<ReturnType<typeof counter.execute>>
+		>().toEqualTypeOf<void>();
 		expectTypeOf(counter.get("states")).toEqualTypeOf<{ count: number }>();
 		counter.watch((states, prevStates) => {
 			expectTypeOf(states).toEqualTypeOf<{ count: number }>();
@@ -41,9 +41,12 @@ describe("v3 states/view contract types", () => {
 
 		const inspectResult = async () => {
 			const result = await counter.execute({ command: "increment" });
-			expectTypeOf(result.snapshot).toEqualTypeOf<Snapshot>();
-			expectTypeOf(result.states).toEqualTypeOf<{ count: number }>();
-			expectTypeOf(result.events).toBeArray();
+			expectTypeOf(result).toEqualTypeOf<void>();
+			// @ts-expect-error no implicit receipt
+			result.snapshot;
+			expectTypeOf(counter.get("states")).toEqualTypeOf<{ count: number }>();
+			// @ts-expect-error event observation is explicit
+			result.events;
 		};
 		void inspectResult;
 

@@ -116,3 +116,12 @@ the known NodeNext declaration limitation and tested platform boundaries.
 [Issues](https://github.com/0xjcf/ignite-element/issues) ·
 [Discussions](https://github.com/0xjcf/ignite-element/discussions) ·
 [MIT license](https://github.com/0xjcf/ignite-element/blob/beta/LICENSE)
+
+### Headless command results
+
+`await core.execute({ command, input })` returns the command-defined awaited value
+or void. Read projections with `core.get("states")`; subscribe to facts with
+`core.on(name, handler)` before executing. Tools provides an explicit
+`{ result, states, events }` observation containing declared public events only.
+See the [execution migration](https://0xjcf.github.io/ignite-element/migration/command-results/)
+for the breaking beta receipt change and unchanged source ownership.

@@ -1,3 +1,5 @@
+const readApiStates = () => apiShowcase.get("states");
+
 import type { IgniteAgentSchema } from "ignite-element/xstate";
 import { igniteCore } from "ignite-element/xstate";
 import { assign, fromPromise, setup } from "xstate";
@@ -14,9 +16,7 @@ type RuntimeCommand =
 	| "incrementToLimit";
 type PayloadCommand = "setStep" | "setLimit";
 type ApiShowcaseState = ApiShowcaseStates;
-type ApiShowcaseStates = Awaited<
-	ReturnType<typeof apiShowcase.execute>
->["states"];
+type ApiShowcaseStates = ReturnType<typeof readApiStates>;
 type RuntimeEventRecord = {
 	type: string;
 	[key: string]: unknown;
@@ -41,7 +41,7 @@ interface RuntimeReport {
 		step: number;
 		lastCommand: string;
 	};
-	states: Awaited<ReturnType<typeof apiShowcase.execute>>["states"];
+	states: ReturnType<typeof readApiStates>;
 	resultEvents: RuntimeEventRecord[];
 	eventLog: string[];
 	stateLog: string[];
@@ -175,14 +175,20 @@ const incrementToLimit = async (): Promise<RuntimeExecution> => {
 	const maxSteps = Math.max(1, states.limit - states.count + 1);
 	let steps = 0;
 
-	while (!states.isLimited && steps < maxSteps) {
-		const result = await apiShowcase.execute({ command: "increment" });
-		resultEvents.push(...mapRuntimeEvents(result.events));
-		states = apiShowcase.get("states");
-		steps += 1;
-		agentLog.push(
-			`execute({ command: "increment" }) -> count ${states.count}/${states.limit}, state ${states.stateLabel}`,
-		);
+	const handles = (
+		["api-count-changed", "api-limit-reached", "api-reset"] as const
+	).map((name) => apiShowcase.on(name, (event) => resultEvents.push(event)));
+	try {
+		while (!states.isLimited && steps < maxSteps) {
+			await apiShowcase.execute({ command: "increment" });
+			states = apiShowcase.get("states");
+			steps += 1;
+			agentLog.push(
+				`execute({ command: "increment" }) -> count ${states.count}/${states.limit}, state ${states.stateLabel}`,
+			);
+		}
+	} finally {
+		for (const handle of handles) handle.unsubscribe();
 	}
 
 	agentLog.push(
@@ -201,56 +207,28 @@ const executeRuntimeCommand = async (
 	command: RuntimeCommand | PayloadCommand,
 	payload?: number,
 ): Promise<RuntimeExecution> => {
-	switch (command) {
-		case "inspect":
-			return inspectRuntime();
-		case "increment":
+	if (command === "inspect") return inspectRuntime();
+	if (command === "incrementToLimit") return incrementToLimit();
+	const resultEvents: RuntimeEventRecord[] = [];
+	const handles = (
+		["api-count-changed", "api-limit-reached", "api-reset"] as const
+	).map((name) => apiShowcase.on(name, (event) => resultEvents.push(event)));
+	try {
+		if (command === "setStep" || command === "setLimit") {
+			const input = payload ?? (command === "setStep" ? 1 : 5);
+			await apiShowcase.execute({ command, input });
 			return {
-				resultEvents: mapRuntimeEvents(
-					(await apiShowcase.execute({ command: "increment" })).events,
-				),
-				agentLog: ['execute({ command: "increment" })'],
+				resultEvents: mapRuntimeEvents(resultEvents),
+				agentLog: [`execute({ command: "${command}", input: ${input} })`],
 			};
-		case "decrement":
-			return {
-				resultEvents: mapRuntimeEvents(
-					(await apiShowcase.execute({ command: "decrement" })).events,
-				),
-				agentLog: ['execute({ command: "decrement" })'],
-			};
-		case "reset":
-			return {
-				resultEvents: mapRuntimeEvents(
-					(await apiShowcase.execute({ command: "reset" })).events,
-				),
-				agentLog: ['execute({ command: "reset" })'],
-			};
-		case "incrementToLimit":
-			return incrementToLimit();
-		case "setStep":
-			return {
-				resultEvents: mapRuntimeEvents(
-					(
-						await apiShowcase.execute({
-							command: "setStep",
-							input: payload ?? 1,
-						})
-					).events,
-				),
-				agentLog: [`execute({ command: "setStep", input: ${payload ?? 1} })`],
-			};
-		case "setLimit":
-			return {
-				resultEvents: mapRuntimeEvents(
-					(
-						await apiShowcase.execute({
-							command: "setLimit",
-							input: payload ?? 5,
-						})
-					).events,
-				),
-				agentLog: [`execute({ command: "setLimit", input: ${payload ?? 5} })`],
-			};
+		}
+		await apiShowcase.execute({ command });
+		return {
+			resultEvents: mapRuntimeEvents(resultEvents),
+			agentLog: [`execute({ command: "${command}" })`],
+		};
+	} finally {
+		for (const handle of handles) handle.unsubscribe();
 	}
 };
 

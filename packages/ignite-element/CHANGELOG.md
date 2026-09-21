@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.0.0-beta.16
+
+### Minor Changes
+
+- 96f45d4: Return only the command-defined awaited value or void from core.execute and remove
+  IgniteAgentExecutionResult. Migrate tools to explicit result/states/declared-event
+  observations without native snapshots. Clarify completion and existing source
+  ownership; migrate public consumers and docs. This is a breaking beta migration;
+  the existing four-package fixed prerelease group determines version effects.
+
+### Patch Changes
+
+- @ignite-element/core@3.0.0-beta.16
+- @ignite-element/adapters@3.0.0-beta.16
+- @ignite-element/renderer@3.0.0-beta.16
+
 ## 3.0.0-beta.15
 
 ### Major Changes

@@ -3,7 +3,7 @@ import { igniteCore } from "ignite-element/redux";
 import { expectTypeOf, it } from "vitest";
 import counterStore, { counterSlice } from "../fixtures/reduxCounterStore";
 
-it("retains command payload, native snapshot, state and discriminated event typing", () => {
+it("retains command payload, command results, state and discriminated event typing", () => {
 	const store = counterStore();
 	const core = igniteCore({
 		source: store,
@@ -21,19 +21,21 @@ it("retains command payload, native snapshot, state and discriminated event typi
 		}),
 	});
 	expectTypeOf<
-		Awaited<ReturnType<typeof core.execute>>["snapshot"]
-	>().toEqualTypeOf<ReturnType<typeof store.getState>>();
+		Awaited<ReturnType<typeof core.execute>>
+	>().toEqualTypeOf<void>();
 	expectTypeOf(core.get("states")).toEqualTypeOf<{
 		count: number;
 		label: string;
 	}>();
 	const validate = async () => {
 		const result = await core.execute({ command: "increment", input: 2 });
-		expectTypeOf(result.events).toEqualTypeOf<
-			Array<
-				{ type: "changed"; count: number } | { type: "failed"; message: string }
-			>
-		>();
+		expectTypeOf(result).toEqualTypeOf<void>();
+		// @ts-expect-error execution no longer returns a snapshot receipt
+		result.snapshot;
+		// @ts-expect-error use explicit projected reads
+		result.states;
+		// @ts-expect-error events use public subscriptions
+		result.events;
 		await core.execute({ command: "optional" });
 		await core.execute({ command: "optional", input: 1 });
 		await core.execute({ command: "decrement" });
@@ -47,8 +49,12 @@ it("retains command payload, native snapshot, state and discriminated event typi
 		core.execute({ command: "missing" });
 		// @ts-expect-error no recording member remains
 		core.record("removed");
+		type DeclaredEvent = RuntimeEvent<{
+			changed: import("../../RenderArgs").EventDescriptor<{ count: number }>;
+			failed: import("../../RenderArgs").EventDescriptor<{ message: string }>;
+		}>;
 		// @ts-expect-error event variants retain their own payload
-		const wrong: (typeof result.events)[number] = { type: "failed", count: 2 };
+		const wrong: DeclaredEvent = { type: "failed", count: 2 };
 		void wrong;
 		// @ts-expect-error unknown outward event remains invalid
 		core.on("missing", () => {});

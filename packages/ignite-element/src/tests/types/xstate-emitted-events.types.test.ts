@@ -6,7 +6,7 @@ import { igniteCore as subpathIgniteCore } from "../../xstate";
 /**
  * The Emitted→Events typing thread for the xstate adapter. A machine that
  * declares `emitted` types surfaces those events on `on()` /
- * `execute().events` with NO manual type arguments on the `igniteCore` call,
+ * `on()` with NO manual type arguments on the `igniteCore` call,
  * mirroring the actor-web thread. A machine with no declared `emitted` types
  * (XState defaults `TEmitted` to the broad `EventObject`) must contribute
  * nothing — no string index signature on the events map.

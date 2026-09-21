@@ -6,6 +6,9 @@ The flat event shape below remains the contract. This historical cutover record'
 getter, helper, and recording references are superseded by
 [the core API and bindings migration](./core-api-bindings.md): current discovery
 is `get("events")` with unknown `payload: null`, and recording is retired.
+The command-results candidate also removes execution receipts: use `on` for
+occurrences or tools for a declared-event window. The cutover examples below
+record the earlier API, not the current command-result boundary.
 
 Implemented in the v3 beta cutover. **Breaking, agent-facing** → shipped in the
 pre-stable v3 window with a changeset and a downstream migration note. Because

@@ -41,7 +41,7 @@ export const core = igniteCore({
 	},
 });
 
-// Subscribe before issuing commands. execute().events is a capture window,
+// Subscribe before issuing commands. Tools provides a declared-event window,
 // not correlation with a durable business operation.
 export const notifications: { type: string; count: number }[] = [];
 core.on("countChanged", (event) => notifications.push(event));

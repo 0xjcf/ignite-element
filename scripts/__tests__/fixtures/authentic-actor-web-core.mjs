@@ -38,22 +38,26 @@ const core = igniteCore({
 	source,
 	states: (snapshot) => ({ count: snapshot.context.count }),
 	commands: ({ source: actor }) => ({
-		add: (amount) => actor.send({ type: "add", amount }),
+		add: async (amount) => {
+			await actor.send({ type: "add", amount });
+		},
 	}),
 });
 const seen = [];
 let handle;
 try {
-	assert.equal(core.get("commands"), null);
+	assert.deepEqual(core.get("commands"), { add: { input: null } });
 	assert.equal(core.get("states").count, 0);
 	handle = core.watch((next, previous) =>
 		seen.push([previous.count, next.count]),
 	);
 	const result = await core.execute({ command: "add", input: 2 });
-	assert.equal(result.snapshot.context.count, 2);
-	assert.equal(result.states.count, 2);
+	assert.equal(result, undefined);
+	assert.equal(core.get("states").count, 2);
 	assert.ok(seen.some((pair) => pair[0] === 0 && pair[1] === 2));
 	core.dispose();
+	handle.unsubscribe();
+	handle.unsubscribe();
 	const delivered = seen.length;
 	await source.send({ type: "add", amount: 3 });
 	assert.equal(source.snapshot().context.count, 5);
@@ -67,7 +71,7 @@ try {
 	await source.send({ type: "add", amount: 1 });
 	assert.equal(source.snapshot().context.count, 6);
 	console.log(
-		"Authentic packed Actor-Web source and Ignite core: paired execution, watch release, and caller-owned source/factory lifetime passed.",
+		"Authentic packed Actor-Web source and Ignite core: authored void, projected reads, idempotent watch release, and caller-owned source/factory lifetime passed.",
 	);
 } finally {
 	handle?.unsubscribe();

@@ -24,6 +24,15 @@ export function createCore(
 		const value: number = fact.count;
 		void value;
 	});
+	const execution = core.execute({ command: "add", input: 1 });
+	void execution.then((result) => {
+		// @ts-expect-error The command acknowledgement is not a native snapshot receipt.
+		void result.snapshot;
+		// @ts-expect-error Projected state requires an explicit read.
+		void result.states;
+		// @ts-expect-error Events require explicit subscriptions.
+		void result.events;
+	});
 	// @ts-expect-error Authentic source-backed command input stays inferred.
 	core.execute({ command: "add", input: "bad" });
 	// @ts-expect-error Authentic source context is not erased to an untyped substitute.

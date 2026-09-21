@@ -15,6 +15,8 @@ export const core = igniteCore({
 	source,
 	states: (snapshot) => ({ count: snapshot.count }),
 	commands: ({ source: store }) => ({
-		increment: () => store.dispatch(slice.actions.increment()),
+		increment: () => {
+			store.dispatch(slice.actions.increment());
+		},
 	}),
 });

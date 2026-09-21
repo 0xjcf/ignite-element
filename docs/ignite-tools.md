@@ -80,11 +80,18 @@ dialect internally.
 ## Command acknowledgement and observation
 
 `run(call)` routes validated input into `core.execute({ command, input })`.
-It returns a Result containing `{ snapshot, states, events }`, or a ToolError.
-The snapshot and derived states are paired after the callback and queued
-observation window. This is not a promise that asynchronous network, persistence
-or remote business work is complete, nor an independently correlated receipt for
-overlapping calls.
+It returns the existing tagged Result containing `{ result, states, events }`, or
+a ToolError. `result` is the command-defined awaited value (possibly void).
+After validation, tools subscribes through `on` to the current declared event
+names, awaits `execute`, then explicitly reads `get('states')`. Every temporary
+subscription is released on success or failure. No native snapshot is appended.
+
+The event window contains declared public events only; uncatalogued native
+emissions are excluded. Declare any native events needed by tools. Overlapping
+calls may observe the same events, and states is a current read, not an isolated
+transaction or durable command receipt. A returned promise gates command
+completion; detached work and remote snapshot delivery may still be pending.
+JSON may omit an undefined `result` while retaining states and events.
 
 `observe(handler)` streams declared outward events and derived-state transitions
 through the core's `on` and `watch` subscriptions. Release its handle. The owner
@@ -184,3 +191,18 @@ core authoring helper is required.
 
 See [availability](can-execute.md), [core API](core-api-bindings.md),
 [React](ignite-react.md), and [projection runtime](projection-runtime.md).
+
+## Adapter ownership
+
+| Source mode | Teardown |
+| --- | --- |
+| Neutral Actor-Web source or factory | Detaches with `ownsFactorySource: false`; native shutdown stays with the caller/Actor-Web |
+| Explicit Actor-Web web host factory | Closes its owned source handle according to the adapter contract |
+
+The low-level Actor-Web adapter factory has separate capability defaults; do not
+infer its ownership from the neutral facade. Owned handle close can be
+asynchronous while `core.dispose()` remains synchronous and does not await remote
+shutdown. Borrowing an XState actor currently starts it.
+
+Native completion does not dispose a core. Retain completed results until the
+application owner explicitly tears it down.

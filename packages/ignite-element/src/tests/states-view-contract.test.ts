@@ -73,7 +73,7 @@ function createActorWebCounter(): ActorWebCommandSource<
 }
 
 describe("v3 states/view public contract", () => {
-	it("derives execute().states exactly once from the returned native XState snapshot", async () => {
+	it("does not add a projection read to command execution", async () => {
 		const actor = createActor(counterMachine).start();
 		const seenSnapshots: unknown[] = [];
 		const states = vi.fn((snapshot: ReturnType<typeof actor.getSnapshot>) => {
@@ -98,9 +98,10 @@ describe("v3 states/view public contract", () => {
 		seenSnapshots.length = 0;
 		const result = await counter.execute({ command: "increment" });
 
-		expect(result).toMatchObject({ states: { count: 1 }, events: [] });
-		expect(states).toHaveBeenCalledTimes(2);
-		expect(Object.is(seenSnapshots[1], result.snapshot)).toBe(true);
+		expect(result).toBeUndefined();
+		expect(states).toHaveBeenCalledTimes(1);
+		expect(seenSnapshots[0]).toBe(actor.getSnapshot());
+		expect(counter.get("states")).toEqual({ count: 1 });
 		counter.dispose();
 		actor.stop();
 	});
@@ -147,7 +148,7 @@ describe("v3 states/view public contract", () => {
 		actor.stop();
 	});
 
-	it("awaits asynchronous command callbacks before sampling snapshot and states", async () => {
+	it("awaits asynchronous command callbacks before explicit projected reads", async () => {
 		const slice = createSlice({
 			name: "counter",
 			initialState: { count: 0 },
@@ -171,10 +172,8 @@ describe("v3 states/view public contract", () => {
 
 		await expect(
 			counter.execute({ command: "incrementLater" }),
-		).resolves.toMatchObject({
-			snapshot: { count: 1 },
-			states: { count: 1 },
-		});
+		).resolves.toBeUndefined();
+		expect(counter.get("states")).toEqual({ count: 1 });
 	});
 
 	it("projects states through Redux, MobX, and Actor-Web entrypoints", () => {
@@ -216,8 +215,7 @@ describe("v3 states/view public contract", () => {
 		expect(counter.get("schema")).toMatchObject({ states: { schema: null } });
 		expect(counter.get("schema")).not.toHaveProperty("view");
 
-		const result = await counter.execute({ command: "increment" });
-		expect(result.states).toEqual({ count: 1 });
-		expect(counter.get("states")).toEqual(result.states);
+		await counter.execute({ command: "increment" });
+		expect(counter.get("states")).toEqual({ count: 1 });
 	});
 });

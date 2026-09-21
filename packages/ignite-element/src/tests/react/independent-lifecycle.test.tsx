@@ -557,8 +557,8 @@ it("keeps private native and effect events out of the explicit headless event st
 	expect(native).not.toHaveBeenCalled();
 	expect(effect).not.toHaveBeenCalled();
 	expect(watch).not.toHaveBeenCalled();
-	const result = await core.execute({ command: "add" });
-	expect(result.states.count).toBe(1);
+	await core.execute({ command: "add" });
+	expect(core.get("states").count).toBe(1);
 	expect(native).toHaveBeenCalledTimes(1);
 	expect(effect).toHaveBeenCalledTimes(1);
 	expect(watch).toHaveBeenCalledTimes(1);

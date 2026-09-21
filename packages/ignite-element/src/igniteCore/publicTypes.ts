@@ -37,7 +37,7 @@ export type DisjointBindings<States, Commands> = string extends
  * events. When the source declares a distinct `Emitted` union (≠ its command
  * `Message`), each emitted member is folded into the headless runtime's events
  * as the flat runtime event member, matching the runtime bridge, so
- * `on(...)` / `execute().events` are typed from the source with no `events:`
+ * `on(...)` are typed from the source with no `events:`
  * map. Explicitly declared keys are checked against native payloads at the
  * supported typed constructors before taking precedence. A non-distinct
  * `Emitted` (the `= Message` default) contributes nothing, and neither does a

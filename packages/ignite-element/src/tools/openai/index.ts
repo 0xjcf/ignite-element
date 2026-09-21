@@ -185,13 +185,17 @@ export const openai: ToolDialect<
 	},
 
 	toolResult<
-		Snapshot = unknown,
+		CommandResult = unknown,
 		View = unknown,
 		Events extends EventMap = EmptyEventMap,
 	>({
 		id,
 		result,
-	}: NeutralToolResult<Snapshot, View, Events>): OpenAIChatToolResultMessage {
+	}: NeutralToolResult<
+		CommandResult,
+		View,
+		Events
+	>): OpenAIChatToolResultMessage {
 		// OpenAI-compatible chat completions reject a tool message without the
 		// originating tool_call_id. The neutral id is optional because the port is
 		// provider-agnostic; for this dialect, a missing id is a pairing bug.

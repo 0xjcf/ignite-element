@@ -110,7 +110,7 @@ function createActorWebShipmentSource(): ActorWebCommandSource<
 			source.sent.push(message);
 			// A real actor responds to a command by emitting a domain event on its
 			// side-channel; mirror that so commands can drive emits during the
-			// `execute()` command window. `subscribeEvent` is the source contract the
+			// `on()` observation window. `subscribeEvent` is the source contract the
 			// ActorWebAdapter `subscribeEvents()` seam wraps; `emitEvent` is a test-only driver.
 			if (message.type === "CREATE_SHIPMENT") {
 				source.emitEvent({
@@ -928,9 +928,9 @@ describe("igniteCore", () => {
 			},
 		});
 
-		const result = await register.execute({ command: "increment" });
+		await register.execute({ command: "increment" });
 
-		expect(result.snapshot.counter.count).toBe(1);
+		expect(store.getState().counter.count).toBe(1);
 		expect(consoleError).toHaveBeenCalledWith(
 			"[igniteCore] Effect callback failed.",
 			effectError,
@@ -1079,12 +1079,17 @@ describe("igniteCore", () => {
 		};
 		const viewSubscription = register.watch(watchStatesListener);
 
-		const result = await register.execute({ command: "increment", input: 3 });
+		const captured: Array<{ type: string; [key: string]: unknown }> = [];
+		const eventHandles = [
+			register.on("counter-incremented", (event) => captured.push(event)),
+		];
+		await register.execute({ command: "increment", input: 3 });
+		for (const handle of eventHandles) handle.unsubscribe();
 
 		expect(store.getState().counter.count).toBe(3);
 		expect(register.get("states")).toEqual({ count: 3, isEven: false });
-		expect(result.snapshot.counter.count).toBe(3);
-		expect(result.events).toEqual([
+		expect(store.getState().counter.count).toBe(3);
+		expect(captured).toEqual([
 			{
 				type: "counter-incremented",
 				count: 3,
@@ -1148,14 +1153,16 @@ describe("igniteCore", () => {
 			"async failed",
 		);
 
-		expect(removeListener).toHaveBeenCalledWith(
-			"counter-incremented",
-			expect.any(Function),
-		);
+		expect(removeListener).not.toHaveBeenCalled();
 
-		const result = await register.execute({ command: "increment" });
+		const captured: Array<{ type: string; [key: string]: unknown }> = [];
+		const eventHandles = [
+			register.on("counter-incremented", (event) => captured.push(event)),
+		];
+		await register.execute({ command: "increment" });
+		for (const handle of eventHandles) handle.unsubscribe();
 
-		expect(result.events).toEqual([
+		expect(captured).toEqual([
 			{
 				type: "counter-incremented",
 				count: 1,
@@ -1296,7 +1303,7 @@ describe("igniteCore", () => {
 		expect(store.getState().counter.count).toBe(0);
 		const result = await tools.run({ name: "addByAmount", input: 3 });
 		if (!result.ok) throw new Error(result.error.kind);
-		expect(result.value.snapshot.counter.count).toBe(3);
+		expect(result.value.states.count).toBe(3);
 		expect(register.get("states")).toEqual({ count: 3 });
 		expect(register.get("commands")).toEqual({
 			addByAmount: { input: null },
@@ -1415,7 +1422,7 @@ describe("igniteCore", () => {
 		expect(store.getState().counter.count).toBe(0);
 		const result = await tools.run({ name: "configureCounter", input });
 		if (!result.ok) throw new Error(result.error.kind);
-		expect(result.value.snapshot.counter.count).toBe(6);
+		expect(result.value.states.count).toBe(6);
 		expect(register.get("states")).toEqual({ count: 6 });
 		expect(tools.manifest[0].inputSchema).toEqual(
 			schema.commands.configureCounter.input,
@@ -1612,7 +1619,7 @@ describe("igniteCore", () => {
 });
 
 // E4 — actor-web emitted events surface through the real igniteCore runtime path
-// (on()/execute().events), typed from the source's `Emitted` union. E2
+// (on()), typed from the source's `Emitted` union. E2
 // proved the runtime bridge with a fake adapter; this exercises the actual
 // ActorWebAdapter.subscribeEvents() → source.subscribeEvent wiring end to end.
 describe("igniteCore actor-web emitted-event bridge", () => {
@@ -1644,7 +1651,7 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 		expect(received).toHaveLength(1);
 	});
 
-	it("captures command-driven emits in execute().events with the uniform shape", async () => {
+	it("observes command-driven emits through public subscriptions", async () => {
 		const source = createActorWebShipmentSource();
 		const register = igniteCore({
 			source,
@@ -1655,22 +1662,27 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 			}),
 		});
 
-		const result = await register.execute({
+		const captured: Array<{ type: string; [key: string]: unknown }> = [];
+		const eventHandles = [
+			register.on("SHIPMENT_CREATED", (event) => captured.push(event)),
+		];
+		await register.execute({
 			command: "createShipment",
 			input: "shipment-1001",
 		});
+		for (const handle of eventHandles) handle.unsubscribe();
 
 		expect(source.sent).toEqual([
 			{ type: "CREATE_SHIPMENT", shipmentId: "shipment-1001" },
 		]);
 		// Uniform shape: the emitted member itself.
-		expect(result.events).toContainEqual({
+		expect(captured).toContainEqual({
 			type: "SHIPMENT_CREATED",
 			shipmentId: "shipment-1001",
 		});
 		// Single capture per emit — no double-count from the transient subscription.
 		expect(
-			result.events.filter((event) => event.type === "SHIPMENT_CREATED"),
+			captured.filter((event) => event.type === "SHIPMENT_CREATED"),
 		).toHaveLength(1);
 	});
 
@@ -1709,18 +1721,24 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 			}),
 		});
 
-		const result = await register.execute({
+		const captured: Array<{ type: string; [key: string]: unknown }> = [];
+		const eventHandles = [
+			register.on("SHIPMENT_CREATED", (event) => captured.push(event)),
+			register.on("shipment-recorded", (event) => captured.push(event)),
+		];
+		await register.execute({
 			command: "createShipment",
 			input: "shipment-2002",
 		});
+		for (const handle of eventHandles) handle.unsubscribe();
 
 		// Stream-bridged source event.
-		expect(result.events).toContainEqual({
+		expect(captured).toContainEqual({
 			type: "SHIPMENT_CREATED",
 			shipmentId: "shipment-2002",
 		});
 		// Effects-declared event still flows alongside the bridge.
-		expect(result.events).toContainEqual({
+		expect(captured).toContainEqual({
 			type: "shipment-recorded",
 			shipmentId: "shipment-2002",
 		});
@@ -1733,22 +1751,20 @@ describe("igniteCore actor-web emitted-event bridge", () => {
 			source: store,
 			states: (snapshot) => ({ count: snapshot.counter.count }),
 			commands: ({ source: actor }) => ({
-				increment: () => actor.dispatch(counterSlice.actions.increment()),
+				increment: () => {
+					actor.dispatch(counterSlice.actions.increment());
+				},
 			}),
 		});
 
-		const result = await register.execute({ command: "increment" });
-
-		// No subscribeEvents() seam on redux — the bridge contributes nothing, so the command
-		// surfaces no events while the state update still applies normally.
-		expect(result.events).toEqual([]);
-		expect(result.snapshot.counter.count).toBe(1);
+		expect(await register.execute({ command: "increment" })).toBeUndefined();
+		expect(register.get("states").count).toBe(1);
 	});
 });
 
 // XState joins the subscribeEvents() seam as its second consumer: emitted events
 // (XState v5 emit(...)) surface through the same runtime path as actor-web —
-// on(type) and execute().events — with the uniform shape.
+// on(type) — with the uniform shape.
 describe("igniteCore xstate emitted-event bridge", () => {
 	afterEach(() => {
 		document.body.innerHTML = "";
@@ -1799,7 +1815,7 @@ describe("igniteCore xstate emitted-event bridge", () => {
 		expect(received).toHaveLength(1);
 	});
 
-	it("captures command-driven emits in execute().events with the uniform shape", async () => {
+	it("observes command-driven emits through public subscriptions", async () => {
 		const register = igniteCore({
 			source: emittingCounterMachine,
 			states: (snapshot) => ({ count: snapshot.context.count }),
@@ -1808,16 +1824,21 @@ describe("igniteCore xstate emitted-event bridge", () => {
 			}),
 		});
 
-		const result = await register.execute({ command: "increment" });
+		const captured: Array<{ type: string; [key: string]: unknown }> = [];
+		const eventHandles = [
+			register.on("count-changed", (event) => captured.push(event)),
+		];
+		await register.execute({ command: "increment" });
+		for (const handle of eventHandles) handle.unsubscribe();
 
 		// Uniform shape: the emitted member itself.
-		expect(result.events).toContainEqual({
+		expect(captured).toContainEqual({
 			type: "count-changed",
 			count: 1,
 		});
 		// Single capture per emit — no double-count from the transient subscription.
 		expect(
-			result.events.filter((event) => event.type === "count-changed"),
+			captured.filter((event) => event.type === "count-changed"),
 		).toHaveLength(1);
 	});
 });

@@ -55,10 +55,15 @@ export const registerSharedRedux = igniteCore({
 	source: sharedStore,
 	states: (snapshot) => resolveReduxView(snapshot),
 	commands: ({ source: actor }) => ({
-		decrement: () => actor.dispatch(counterSlice.actions.decrement()),
-		increment: () => actor.dispatch(counterSlice.actions.increment()),
-		addByAmount: (value: number) =>
-			actor.dispatch(counterSlice.actions.addByAmount(value)),
+		decrement: () => {
+			actor.dispatch(counterSlice.actions.decrement());
+		},
+		increment: () => {
+			actor.dispatch(counterSlice.actions.increment());
+		},
+		addByAmount: (value: number) => {
+			actor.dispatch(counterSlice.actions.addByAmount(value));
+		},
 	}),
 });
 
@@ -66,10 +71,15 @@ export const registerIsolatedRedux = igniteCore({
 	source: counterSlice,
 	states: (snapshot) => resolveReduxSliceView(snapshot),
 	commands: ({ source: actor }) => ({
-		decrement: () => actor.dispatch(counterSlice.actions.decrement()),
-		increment: () => actor.dispatch(counterSlice.actions.increment()),
-		addByAmount: (value: number) =>
-			actor.dispatch(counterSlice.actions.addByAmount(value)),
+		decrement: () => {
+			actor.dispatch(counterSlice.actions.decrement());
+		},
+		increment: () => {
+			actor.dispatch(counterSlice.actions.increment());
+		},
+		addByAmount: (value: number) => {
+			actor.dispatch(counterSlice.actions.addByAmount(value));
+		},
 	}),
 });
 

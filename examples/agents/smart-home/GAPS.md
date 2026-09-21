@@ -1,5 +1,10 @@
 # igniteTools gaps — found dogfooding the headless smart-home agent
 
+Historical dogfooding record. Current tools use `{ result, states, events }` with
+explicit projected reads and declared public events only. See the
+[tools reference](../../../docs/ignite-tools.md) for current discovery and
+application-owned schemas/availability.
+
 Building a real agent loop against `getSchema()` / `execute()` / `igniteTools` +
 the Anthropic adapter surfaced these. Ordered by impact. Each is a candidate
 follow-up; none blocks the example (the loop works headless today).

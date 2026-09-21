@@ -32,9 +32,6 @@ describe("igniteTools types", () => {
 		}),
 	});
 
-	type ComponentSnapshot = Awaited<
-		ReturnType<typeof component.execute>
-	>["snapshot"];
 	const options = {
 		schema: {
 			commands: { toggle: { input: { type: "object", properties: {} } } },
@@ -53,17 +50,17 @@ describe("igniteTools types", () => {
 		expectTypeOf(run).toBeFunction();
 	});
 
-	it("types the run observation from the component's snapshot + events", () => {
+	it("types the run observation from the command result + events", () => {
 		const { run } = igniteTools(component, undefined, options);
 
 		// Wrapped uncalled: the body is typechecked but never executed (these
 		// `.types.test.ts` files also run under vitest). The success branch carries
-		// the component's snapshot + typed events; the failure branch is ToolError.
+		// the command result + typed events; the failure branch is ToolError.
 		const probe = async () => {
 			const result = await run({ name: "toggle", input: undefined });
 
 			if (result.ok) {
-				expectTypeOf(result.value.snapshot).toEqualTypeOf<ComponentSnapshot>();
+				expectTypeOf(result.value.result).toEqualTypeOf<unknown>();
 				// The observation also carries the derived states, typed from the
 				// component's `states` projection.
 				expectTypeOf(result.value.states).toEqualTypeOf<{ isOn: boolean }>();

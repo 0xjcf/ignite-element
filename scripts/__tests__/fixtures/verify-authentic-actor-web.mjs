@@ -27,10 +27,10 @@ if (
 	);
 	if (
 		actor.name !== "@actor-web/runtime" ||
-		actor.version !== "0.2.1" ||
+		actor.version !== "0.3.0" ||
 		!actor.exports["./source"]
 	)
-		throw Error("Expected the corrected Actor-Web 0.2.1 source boundary");
+		throw Error("Expected the published Actor-Web 0.3.0 source boundary");
 	mkdirSync(destination);
 	const run = (cwd, ...args) =>
 		execFileSync("pnpm", args, { cwd, stdio: "inherit" });

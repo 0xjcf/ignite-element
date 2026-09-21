@@ -4,7 +4,7 @@ import { igniteCore } from "../../IgniteCore";
 
 /**
  * E3 — the Emitted→Events typing thread. A source that declares a distinct
- * `Emitted` union surfaces those events on `on()` / `execute().events` with NO
+ * `Emitted` union surfaces those events on `on()` with NO
  * manual type arguments on the `igniteCore` call (best consumer DX).
  */
 
@@ -52,17 +52,14 @@ async function _typeAssertions() {
 	// @ts-expect-error — a name that is neither declared nor emitted is rejected.
 	register.on("NOT_AN_EVENT", () => {});
 
-	// execute().events is typed to the emitted union (flat member shape).
 	const result = await register.execute({
 		command: "cancel",
 		input: "shipment-1",
 	});
-	expectTypeOf(result.events).toEqualTypeOf<
-		Array<
-			| { type: "OUTCOME_RESOLVED"; outcome: string }
-			| { type: "SHIPMENT_CREATED"; shipmentId: string }
-		>
-	>();
+	// Native acknowledgements are unknown unless mapped by the application.
+	expectTypeOf(result).toEqualTypeOf<unknown>();
+	// @ts-expect-error no execution receipt
+	result.events;
 }
 
 describe("actor-web emitted events flow into the runtime types (no manual typing)", () => {

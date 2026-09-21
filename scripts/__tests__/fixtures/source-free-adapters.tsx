@@ -53,8 +53,8 @@ const redux = igniteRedux({
 	}),
 	events: (event) => ({ changed: event<{ count: number }>() }),
 });
-const rcount: number = (await redux.execute({ command: "set", input: 2 }))
-	.snapshot.count;
+await redux.execute({ command: "set", input: 2 });
+const rcount: number = redux.get("states").count;
 
 const mobx = igniteMobx({
 	source: makeAutoObservable({
@@ -69,8 +69,8 @@ const mobx = igniteMobx({
 	}),
 	events: (event) => ({ changed: event<{ count: number }>() }),
 });
-const mcount: number = (await mobx.execute({ command: "set", input: 2 }))
-	.snapshot.count;
+await mobx.execute({ command: "set", input: 2 });
+const mcount: number = mobx.get("states").count;
 
 declare const actorSource: ActorWebCommandSource<
 	{ count: number },

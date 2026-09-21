@@ -272,7 +272,7 @@ export function createHomeCommands(sendHomeCommand: HomeCommandSender) {
 		transitionScene: (scene: Scene) =>
 			sendHomeCommand({ type: "START_SCENE_TRANSITION", scene }),
 		status: () => {
-			// No-op: the home state is read from the returned snapshot / getStates().
+			// No-op: the home state is read from an explicit get("states") read.
 		},
 	};
 }

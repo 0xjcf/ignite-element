@@ -596,6 +596,7 @@ console.info("[verify:packed] tree-shaken renderer registration retained without
 }
 
 const removedTestingTypes = [
+	"IgniteAgentExecutionResult",
 	"IgniteDomBridge",
 	"IgniteDomRoleExpectation",
 	"IgniteEventExpectation",
@@ -652,9 +653,11 @@ type Commands = { set: (value: number) => void };
 declare const runtime: IgniteAgentRuntime<{ count: number }, Commands, typeof events, unknown, { label: string }>;
 const call: IgniteCommandCall<Commands> = { command: "set", input: 2 };
 runtime.execute(call).then(result => {
-  const count: number = result.snapshot.count;
-  const label: string = result.states.label;
-  void count; void label;
+  const value: void = result;
+  const label: string = runtime.get("states").label;
+  void value; void label;
+  // @ts-expect-error native execution receipts are removed
+  result.snapshot;
 });
 runtime.on("changed", fact => { const count: number = fact.count; void count; });
 const fact: RuntimeEvent<typeof events> = { type: "changed", count: 2 };

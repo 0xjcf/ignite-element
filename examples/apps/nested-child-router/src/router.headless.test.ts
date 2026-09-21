@@ -54,15 +54,18 @@ describe("nested child router — headless runtime", () => {
 		});
 	});
 
-	it("captures nested route events in execute().events", async () => {
+	it("observes nested route events during execution", async () => {
 		const router = makeRouter();
 
-		const result = await router.execute({
+		const captured: Array<{ type: string; [key: string]: unknown }> = [];
+		const eventHandles = [router.on("routed", (event) => captured.push(event))];
+		await router.execute({
 			command: "navigate",
 			input: "/docs/api",
 		});
+		for (const handle of eventHandles) handle.unsubscribe();
 
-		expect(result.events).toContainEqual({
+		expect(captured).toContainEqual({
 			type: "routed",
 			parent: "docs",
 			child: "api",

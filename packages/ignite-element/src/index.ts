@@ -13,7 +13,6 @@ export {
 export { igniteCore } from "./sourceFreeCore";
 export type {
 	IgniteAgentEventListener,
-	IgniteAgentExecutionResult,
 	IgniteAgentRuntime,
 	IgniteAgentSubscription,
 	IgniteCommandCall,

@@ -132,12 +132,13 @@ if (scenario.includes("-live") || scenario.includes("-factory")) {
 		states: (snapshot) => ({ count: read(snapshot) }),
 		events: (event) => ({ changed: event() }),
 		commands: ({ source: actor }) => ({
-			increment: () =>
+			increment: () => {
 				kind === "redux"
 					? actor.dispatch({ type: "counter/inc" })
 					: kind === "mobx"
 						? actor.inc()
-						: actor.send({ type: "INC" }),
+						: actor.send({ type: "INC" });
+			},
 		}),
 		effects: ({ select, emit }) => {
 			const count = select(read);
@@ -171,9 +172,8 @@ if (scenario.includes("-live") || scenario.includes("-factory")) {
 		first.unsubscribe();
 		unchanged();
 		const result = await core.execute({ command: "increment" });
-		assert.equal(result.states.count, 1);
-		assert.equal(read(result.snapshot), 1);
-		assert.deepEqual(result.events, [{ type: "changed", count: 1 }]);
+		assert.equal(result, undefined);
+		assert.equal(core.get("states").count, 1);
 		assert.deepEqual(facts, [{ type: "changed", count: 1 }]);
 		assert.equal(delivered, 1);
 		unchanged();

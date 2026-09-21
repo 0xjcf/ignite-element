@@ -4,6 +4,10 @@
 
 Implemented for the v3 beta contract. **Breaking.**
 
+The historical execution observation shape below is superseded by the
+[command-results candidate](site/src/content/docs/migration/command-results.mdx):
+execute returns the authored value; tools observes result/states/declared events.
+
 ## Decision
 
 `states` is the only `igniteCore` projection configuration field. It receives

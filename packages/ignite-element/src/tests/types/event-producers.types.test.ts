@@ -153,20 +153,8 @@ function check() {
 			void count;
 		});
 		void core.execute({ command: "run" }).then((result) => {
-			for (const event of result.events) {
-				if (event.type === "first") {
-					const type: "first" = event.type;
-					const count: number = event.count;
-					void type;
-					void count;
-				}
-				if (event.type === "second") {
-					const type: "second" = event.type;
-					const count: number = event.count;
-					void type;
-					void count;
-				}
-			}
+			const value: void = result;
+			void value;
 		});
 	}
 	igniteCore({

@@ -17,11 +17,11 @@ export async function inspectPreference(core: Core): Promise<States> {
 	const stop = observe(core, (state) => console.log(state.message));
 	try {
 		await core.execute({ command: "check" });
-		const observation = await core.execute({
+		await core.execute({
 			command: "choose",
 			input: "compact",
 		});
-		return observation.states; // Not the command value or a server receipt.
+		return core.get("states"); // Current projection after the awaited command.
 	} finally {
 		stop();
 	} // Borrower cleanup, not session disposal.
