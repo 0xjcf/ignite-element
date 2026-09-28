@@ -432,10 +432,8 @@ export const voiceWorkbenchCommandDefinitions = {
 // The model receives only these already-defined application capabilities.
 // User-intent functions with unknown input schemas are not automatic tools.
 export const voiceWorkbenchModelSchema = {
-	commands: {
-		createArtifact: voiceWorkbenchCommandDefinitions.createArtifact,
-		reviseArtifact: voiceWorkbenchCommandDefinitions.reviseArtifact,
-		setChecklistItem: voiceWorkbenchCommandDefinitions.setChecklistItem,
-		completeResponse: voiceWorkbenchCommandDefinitions.completeResponse,
-	},
+	createArtifact: voiceWorkbenchCommandDefinitions.createArtifact,
+	reviseArtifact: voiceWorkbenchCommandDefinitions.reviseArtifact,
+	setChecklistItem: voiceWorkbenchCommandDefinitions.setChecklistItem,
+	completeResponse: voiceWorkbenchCommandDefinitions.completeResponse,
 };

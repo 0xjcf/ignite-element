@@ -36,9 +36,7 @@ describe("igniteTools types", () => {
 	const options = {
 		core: component,
 		schema: {
-			commands: {
-				toggle: { input: { type: "object" as const, properties: {} } },
-			},
+			toggle: { input: { type: "object" as const, properties: {} } },
 		},
 	};
 
@@ -122,14 +120,10 @@ describe("igniteTools types", () => {
 
 	it("accepts satisfies ToolSchema and defineToolSchema factories", () => {
 		const satisfied = {
-			commands: {
-				toggle: { input: { type: "object", properties: {} } },
-			},
+			toggle: { input: { type: "object", properties: {} } },
 		} satisfies ToolSchema;
 		const defined = defineToolSchema({
-			commands: {
-				toggle: { input: { type: "object", properties: {} } },
-			},
+			toggle: { input: { type: "object", properties: {} } },
 		});
 		const fromSatisfied = igniteTools({ core: component, schema: satisfied });
 		const fromDefined = igniteTools({ core: component, schema: defined });

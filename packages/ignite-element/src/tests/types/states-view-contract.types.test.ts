@@ -131,7 +131,7 @@ describe("v3 states/view contract types", () => {
 		const tools = igniteTools({
 			core: component,
 			schema: {
-				commands: { ping: { input: { type: "object", properties: {} } } },
+				ping: { input: { type: "object", properties: {} } },
 			},
 		});
 		const inspectTools = async () => {

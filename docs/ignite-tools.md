@@ -10,12 +10,10 @@ import { defineToolSchema, igniteTools } from 'ignite-element/tools';
 import { openai, textOf } from 'ignite-element/tools/openai';
 
 const toolSchema = defineToolSchema({
-  commands: {
-    setLimit: {
-      description: 'Set the counter limit.',
-      input: { type: 'number', minimum: 3, maximum: 12 },
-      gated: true,
-    },
+  setLimit: {
+    description: 'Set the counter limit.',
+    input: { type: 'number', minimum: 3, maximum: 12 },
+    gated: true,
   },
 });
 const tools = igniteTools({
@@ -27,10 +25,12 @@ const tools = igniteTools({
 const { tools: defs, toolCalls, run, toolResult, observe } = tools;
 ```
 
-`schema` may also be authored with `satisfies ToolSchema`. Retain
-JSON-Schema-shaped number/string/boolean/enum/object/array constraints. This is
-the built-in structural validator, not Zod and not full JSON Schema. There is no
-Zod peer and no core Zod adapter.
+`schema` may also be authored with `satisfies ToolSchema`. `ToolSchema` is a
+bare command map — `{ setLimit: { input, description?, gated? } }` — not
+`{ commands: { setLimit: … } }`. Retain JSON-Schema-shaped
+number/string/boolean/enum/object/array constraints. This is the built-in
+structural validator, not Zod and not full JSON Schema. There is no Zod peer
+and no core Zod adapter.
 
 `canExecute?: (name: string) => boolean` is one predicate for every
 `gated: true` command. Omit it and gated tools stay available (`() => true`).

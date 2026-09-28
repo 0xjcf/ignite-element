@@ -10,7 +10,7 @@ import { igniteCore } from "../xstate";
 
 const options = {
 	schema: defineToolSchema({
-		commands: { run: { input: { type: "object", properties: {} } } },
+		run: { input: { type: "object", properties: {} } },
 	}),
 };
 const call = { name: "run", input: {} };

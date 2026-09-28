@@ -39,12 +39,10 @@ The `canExecute` option name remains valid there; it is not a method on the core
 import { defineToolSchema, igniteTools } from 'ignite-element/tools';
 
 const schema = defineToolSchema({
-  commands: {
-    setLimit: {
-      description: 'Set the counter limit.',
-      input: { type: 'number', minimum: 3, maximum: 12 },
-      gated: true,
-    },
+  setLimit: {
+    description: 'Set the counter limit.',
+    input: { type: 'number', minimum: 3, maximum: 12 },
+    gated: true,
   },
 });
 const tools = igniteTools({

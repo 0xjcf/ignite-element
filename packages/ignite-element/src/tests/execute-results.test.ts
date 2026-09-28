@@ -39,7 +39,7 @@ describe("command-defined execution results", () => {
 		const tools = igniteTools({
 			core,
 			schema: {
-				commands: { noop: { input: { type: "object", properties: {} } } },
+				noop: { input: { type: "object", properties: {} } },
 			},
 		});
 		try {

@@ -44,6 +44,11 @@ function normalizeRouteInput(
 // Explicit application input schema, scalar or object, mirrored verbatim.
 // Unknown discovery metadata must not fabricate an empty-object contract.
 function toInputSchema(metadata: ToolCommandSchema): ToolInputSchema {
+	if (!isPlainObject(metadata)) {
+		throw new Error(
+			"[igniteTools] Missing explicit command input schema. Supply tool/application definitions; discovery does not infer schemas.",
+		);
+	}
 	const input = metadata.input;
 	if (!isPlainObject(input)) {
 		throw new Error(
@@ -63,22 +68,23 @@ function toInputSchema(metadata: ToolCommandSchema): ToolInputSchema {
  * currently unavailable; without a predicate, every command is offered
  * (`() => true`).
  *
- * Only `schema.commands` is read. Minimal core discovery does not provide
+ * Only the bare command map is read. Minimal core discovery does not provide
  * input validation; missing explicit definitions fail before execution.
  */
 export function buildManifest(
-	schema: ToolSchema | { commands: null },
+	schema: ToolSchema,
 	canExecute?: AvailabilityPredicate,
 ): NeutralManifest {
-	if (schema.commands === null)
+	if (!isPlainObject(schema)) {
 		throw new Error(
 			"[igniteTools] Unknown command catalogue. Supply explicit tool definitions.",
 		);
+	}
 	const isAvailable = canExecute ?? (() => true);
 	const manifest: NeutralManifest = [];
 
-	for (const name of Object.keys(schema.commands).sort()) {
-		const metadata = schema.commands[name];
+	for (const name of Object.keys(schema).sort()) {
+		const metadata = schema[name];
 		const gated = metadata.gated === true;
 		if (gated && !isAvailable(name)) {
 			continue;

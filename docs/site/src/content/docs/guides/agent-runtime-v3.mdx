@@ -160,11 +160,9 @@ Descriptions and input schemas belong at the application/tool boundary:
 import { buildManifest, resolveCall } from 'ignite-element/tools';
 
 const counterToolSchema = {
-  commands: {
-    setLimit: {
-      description: 'Set maximum count',
-      input: { type: 'number', minimum: 3, maximum: 12 },
-    },
+  setLimit: {
+    description: 'Set maximum count',
+    input: { type: 'number', minimum: 3, maximum: 12 },
   },
 };
 const manifest = buildManifest(counterToolSchema);
@@ -174,7 +172,7 @@ const invalidLimit = resolveCall(manifest, 'setLimit', 99);
 
 Only offer definitions for commands the application's core actually exposes.
 
-Use `igniteTools(counter, dialect, { schema: counterToolSchema, canExecute })` for provider translation and validated invocation.
+Use `igniteTools({ core: counter, schema: counterToolSchema, canExecute, dialect })` for provider translation and validated invocation.
 
 The optional tool predicate reads projected availability; source guards still enforce behavior.
 

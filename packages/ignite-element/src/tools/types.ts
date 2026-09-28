@@ -43,12 +43,12 @@ export type ToolCommandSchema = {
 };
 
 /**
- * Application-owned tool definitions. Author with `satisfies ToolSchema` or
- * `defineToolSchema(...)`. Core discovery does not infer this.
+ * Application-owned tool definitions as a bare command map. Author with
+ * `satisfies ToolSchema` or `defineToolSchema({ toggleLight: { input } })`.
+ * Core discovery does not infer this. Schema-wide concerns (`canExecute`,
+ * `dialect`) belong on `igniteTools(...)`, not on the schema object.
  */
-export type ToolSchema = {
-	commands: Readonly<Record<string, ToolCommandSchema>>;
-};
+export type ToolSchema = Readonly<Record<string, ToolCommandSchema>>;
 
 /**
  * A single neutral tool, derived from an explicit application schema entry. Provider

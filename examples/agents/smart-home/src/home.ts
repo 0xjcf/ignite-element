@@ -491,90 +491,86 @@ export function createLocalHomeSession(): HomeRuntimeSession {
 }
 
 export const homeToolSchema = defineToolSchema({
-	commands: {
-		toggleLight: {
-			description: "Turn a room's light on or off.",
-			input: {
-				type: "object",
-				properties: {
-					room: { type: "string", enum: [...ROOMS] },
-					on: { type: "boolean" },
-				},
+	toggleLight: {
+		description: "Turn a room's light on or off.",
+		input: {
+			type: "object",
+			properties: {
+				room: { type: "string", enum: [...ROOMS] },
+				on: { type: "boolean" },
 			},
 		},
-		setThermostat: {
-			description: "Set a room's target temperature in °F.",
-			input: {
-				type: "object",
-				properties: {
-					room: { type: "string", enum: [...ROOMS] },
-					temp: { type: "number", minimum: 50, maximum: 90 },
-				},
+	},
+	setThermostat: {
+		description: "Set a room's target temperature in °F.",
+		input: {
+			type: "object",
+			properties: {
+				room: { type: "string", enum: [...ROOMS] },
+				temp: { type: "number", minimum: 50, maximum: 90 },
 			},
 		},
-		setBlinds: {
-			description: "Set how far a room's blinds are open (0–100%).",
-			input: {
-				type: "object",
-				properties: {
-					room: { type: "string", enum: [...ROOMS] },
-					percent: { type: "number", minimum: 0, maximum: 100 },
-				},
+	},
+	setBlinds: {
+		description: "Set how far a room's blinds are open (0–100%).",
+		input: {
+			type: "object",
+			properties: {
+				room: { type: "string", enum: [...ROOMS] },
+				percent: { type: "number", minimum: 0, maximum: 100 },
 			},
 		},
-		lockDoor: {
-			description: "Lock a door.",
-			input: {
+	},
+	lockDoor: {
+		description: "Lock a door.",
+		input: {
+			type: "string",
+			enum: [...DOORS],
+			description: "Door id to lock: front, back, or garage.",
+		},
+	},
+	unlockDoor: {
+		description: "Unlock a door.",
+		input: {
+			type: "string",
+			enum: [...DOORS],
+			description: "Door id to unlock: front, back, or garage.",
+		},
+	},
+	runScene: {
+		description:
+			"Activate a scene: morning, away, movie, or night. Sets several devices at once.",
+		input: {
+			type: "string",
+			enum: [...SCENES],
+			description: "Scene name to activate: morning, away, movie, or night.",
+		},
+	},
+	dimRooms: {
+		description: "Dim selected rooms by turning lights off and closing blinds.",
+		input: {
+			type: "array",
+			items: {
 				type: "string",
-				enum: [...DOORS],
-				description: "Door id to lock: front, back, or garage.",
+				enum: [...ROOMS],
+				description: "Room id to dim.",
 			},
+			description: "Room ids to dim by turning lights off and closing blinds.",
+			minItems: 1,
 		},
-		unlockDoor: {
-			description: "Unlock a door.",
-			input: {
-				type: "string",
-				enum: [...DOORS],
-				description: "Door id to unlock: front, back, or garage.",
-			},
-		},
-		runScene: {
+	},
+	transitionScene: {
+		description:
+			"Start a scene transition that acknowledges immediately and settles asynchronously.",
+		input: {
+			type: "string",
+			enum: [...SCENES],
 			description:
-				"Activate a scene: morning, away, movie, or night. Sets several devices at once.",
-			input: {
-				type: "string",
-				enum: [...SCENES],
-				description: "Scene name to activate: morning, away, movie, or night.",
-			},
+				"Scene name to transition toward asynchronously: morning, away, movie, or night.",
 		},
-		dimRooms: {
-			description:
-				"Dim selected rooms by turning lights off and closing blinds.",
-			input: {
-				type: "array",
-				items: {
-					type: "string",
-					enum: [...ROOMS],
-					description: "Room id to dim.",
-				},
-				description:
-					"Room ids to dim by turning lights off and closing blinds.",
-				minItems: 1,
-			},
-		},
-		transitionScene: {
-			description:
-				"Start a scene transition that acknowledges immediately and settles asynchronously.",
-			input: {
-				type: "string",
-				enum: [...SCENES],
-				description:
-					"Scene name to transition toward asynchronously: morning, away, movie, or night.",
-			},
-		},
-		status: {
-			description: "Read the current home state (no change).",
-			input: { type: "object", properties: {} },
-		},
+	},
+	status: {
+		description: "Read the current home state (no change).",
+		input: { type: "object", properties: {} },
 	},
 });

@@ -24,49 +24,47 @@ type FakeEvents = {
 };
 
 const fakeSchema: ToolSchema = {
-	commands: {
-		// The application explicitly declares this no-argument tool schema.
-		increment: {
-			description: "Increment the count.",
-			input: { type: "object", properties: {} },
+	// The application explicitly declares this no-argument tool schema.
+	increment: {
+		description: "Increment the count.",
+		input: { type: "object", properties: {} },
+	},
+	// scalar-input command (positional number payload)
+	setLimit: {
+		description: "Set the limit.",
+		input: { type: "number", minimum: 3, maximum: 12 },
+	},
+	// object-input command
+	addItem: {
+		description: "Add an item.",
+		input: {
+			type: "object",
+			properties: { name: { type: "string" }, qty: { type: "number" } },
+			required: ["name"],
 		},
-		// scalar-input command (positional number payload)
-		setLimit: {
-			description: "Set the limit.",
-			input: { type: "number", minimum: 3, maximum: 12 },
-		},
-		// object-input command
-		addItem: {
-			description: "Add an item.",
-			input: {
-				type: "object",
-				properties: { name: { type: "string" }, qty: { type: "number" } },
-				required: ["name"],
-			},
-		},
-		// enum-input command
-		pickColor: {
-			description: "Pick a color.",
-			input: { type: "string", enum: ["red", "green", "blue"] },
-		},
-		// command that rejects when executed
-		boom: {
-			description: "Always fails.",
-			input: { type: "object", properties: {} },
-		},
-		// gated command (availability predicate exists)
-		adminOnly: {
-			description: "Admin only.",
-			gated: true,
-			input: { type: "object", properties: {} },
-		},
+	},
+	// enum-input command
+	pickColor: {
+		description: "Pick a color.",
+		input: { type: "string", enum: ["red", "green", "blue"] },
+	},
+	// command that rejects when executed
+	boom: {
+		description: "Always fails.",
+		input: { type: "object", properties: {} },
+	},
+	// gated command (availability predicate exists)
+	adminOnly: {
+		description: "Admin only.",
+		gated: true,
+		input: { type: "object", properties: {} },
 	},
 };
 
 const fakeCatalogue: IgniteAgentSchema = {
 	schemaVersion: 1,
 	commands: Object.fromEntries(
-		Object.keys(fakeSchema.commands).map((name) => [name, { input: null }]),
+		Object.keys(fakeSchema).map((name) => [name, { input: null }]),
 	),
 	events: [{ type: "item-added", payload: null }],
 	states: { schema: null },
@@ -234,7 +232,7 @@ const fakeDialect: ToolDialect<FakeToolDefs, FakeResponse, FakeResultBlock> = {
 // --- buildManifest (pure core) ------------------------------------------------
 
 describe("buildManifest", () => {
-	it("maps getSchema().commands to neutral tools, sorted by name", () => {
+	it("maps an explicit command map to neutral tools, sorted by name", () => {
 		const manifest = buildManifest(fakeSchema);
 		expect(manifest.map((t) => t.name)).toEqual([
 			"addItem",
@@ -511,12 +509,14 @@ describe("igniteTools (neutral, no dialect)", () => {
 			(igniteTools as (value: unknown) => unknown)(component),
 		).toThrow(/schema/i);
 		expect(component.calls).toEqual([]);
-		expect(() => buildManifest({ commands: null })).toThrow(
-			/bound|unknown|schema/i,
-		);
 		expect(() =>
 			buildManifest({
-				commands: { unschematized: { input: null as never } },
+				commands: { toggle: { input: { type: "object", properties: {} } } },
+			} as never),
+		).toThrow(/schema/i);
+		expect(() =>
+			buildManifest({
+				unschematized: { input: null as never },
 			}),
 		).toThrow(/schema/i);
 	});
@@ -643,29 +643,27 @@ describe("igniteTools (neutral, no dialect)", () => {
 
 	it("keeps projection authorship in commands instead of adding a projection registry surface", async () => {
 		const projectionSchema: ToolSchema = {
-			commands: {
-				upsertProjection: {
-					description: "Create or replace a projection document.",
-					input: {
-						type: "object",
-						properties: {
-							id: { type: "string" },
-							revision: { type: "string" },
-						},
-						required: ["id", "revision"],
+			upsertProjection: {
+				description: "Create or replace a projection document.",
+				input: {
+					type: "object",
+					properties: {
+						id: { type: "string" },
+						revision: { type: "string" },
 					},
+					required: ["id", "revision"],
 				},
-				patchProjection: {
-					description: "Patch an existing projection document.",
-					input: {
-						type: "object",
-						properties: {
-							documentId: { type: "string" },
-							revision: { type: "string" },
-							type: { type: "string", enum: ["set-node", "remove-node"] },
-						},
-						required: ["documentId", "revision", "type"],
+			},
+			patchProjection: {
+				description: "Patch an existing projection document.",
+				input: {
+					type: "object",
+					properties: {
+						documentId: { type: "string" },
+						revision: { type: "string" },
+						type: { type: "string", enum: ["set-node", "remove-node"] },
 					},
+					required: ["documentId", "revision", "type"],
 				},
 			},
 		};

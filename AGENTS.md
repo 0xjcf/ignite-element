@@ -330,7 +330,8 @@ The canonical flow is:
   private runtime on unmount while keeping its reusable core alive.
 - Commands express source-directed semantic intent.
 - `igniteTools` is named-only: `igniteTools({ core, schema, canExecute?, dialect? })`.
-  Author schemas with `satisfies ToolSchema` or `defineToolSchema`. `run` is
+  Author schemas as a bare command map with `satisfies ToolSchema` or
+  `defineToolSchema({ toggleLight: { input } })`. `run` is
   act-plus-acknowledgement; long/async settle uses `observe` (fan-in of `on` +
   `watch`). Headless proof is the Smart Home example. Discovery does not infer
   schemas. `canExecute` is availability preflight, not authentication.

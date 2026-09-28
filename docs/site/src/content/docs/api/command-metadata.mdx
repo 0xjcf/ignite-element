@@ -53,27 +53,25 @@ These examples validate numbers, strings, enumerations, and nested objects and a
 import { buildManifest, resolveCall } from 'ignite-element/tools';
 
 const toolSchema = {
-  commands: {
-    setLimit: {
-      description: 'Set maximum count.',
-      input: { type: 'number', minimum: 3, maximum: 12 },
-    },
-    renamePreset: {
-      description: 'Rename the saved preset label.',
-      input: { type: 'string', minLength: 1, maxLength: 32 },
-    },
-    configureAlerts: {
-      description: 'Update alert routing rules.',
-      input: {
-        type: 'object',
-        properties: {
-          enabled: { type: 'boolean', default: true },
-          priority: { type: 'string', enum: ['low', 'high'], default: 'low' },
-          channels: { type: 'array', items: { type: 'string' }, minItems: 1 },
-        },
-        required: ['enabled', 'priority', 'channels'],
-        additionalProperties: false,
+  setLimit: {
+    description: 'Set maximum count.',
+    input: { type: 'number', minimum: 3, maximum: 12 },
+  },
+  renamePreset: {
+    description: 'Rename the saved preset label.',
+    input: { type: 'string', minLength: 1, maxLength: 32 },
+  },
+  configureAlerts: {
+    description: 'Update alert routing rules.',
+    input: {
+      type: 'object',
+      properties: {
+        enabled: { type: 'boolean', default: true },
+        priority: { type: 'string', enum: ['low', 'high'], default: 'low' },
+        channels: { type: 'array', items: { type: 'string' }, minItems: 1 },
       },
+      required: ['enabled', 'priority', 'channels'],
+      additionalProperties: false,
     },
   },
 };
@@ -88,7 +86,7 @@ Do not fabricate an empty-object input schema for an unknown function signature.
 
 Supply an actual contract before offering a command to a model.
 
-`igniteTools(core, dialect, { schema: toolSchema, canExecute })` accepts the same explicit definitions and an independently supplied availability predicate.
+`igniteTools({ core, schema: toolSchema, canExecute, dialect })` accepts the same explicit definitions and an independently supplied availability predicate.
 
 Missing required input schemas cause tool construction to fail before any source command executes.
 
