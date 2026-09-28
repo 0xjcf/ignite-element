@@ -1,0 +1,140 @@
+---
+title: Shared sources
+description: Same Smart Home core. One started actor is the house; the panel and a scripted command both move it.
+---
+
+import SmartHomeSharedDemo from '../../../components/SmartHomeSharedDemo.astro';
+
+The house has one source.
+
+A view can click it. A scripted caller can command it. They are not two houses that happen to look alike. Pass a started actor into `igniteCore`, and every surface on that core reads and writes the same house.
+
+This is the same Smart Home as [Ignite Element v3](/ignite-element/explainers/v3/) and [Views & effects](/ignite-element/explainers/views-effects/). Those pages taught the tool loop and the view. This page stays on the shared source of truth.
+
+:::note[Guides stay the reference]
+Ownership, lifetime, and adapter inputs live in [Shared sources](/ignite-element/guides/shared-source-ownership/) and [Ownership & cleanup](/ignite-element/handbook/ownership/). This page teaches the path.
+:::
+
+## Same house
+
+The panel below is a view of a real Smart Home core from the [canonical example](https://github.com/0xjcf/ignite-element/tree/beta/examples/agents/smart-home).
+
+The core is created once from a started actor. The custom element registers with `home('ignite-shared-home', renderer)`. There is no `view:` on `igniteCore`.
+
+<SmartHomeSharedDemo />
+
+That is the house. The snapshot beside it is the same source, read through the core.
+
+## The source is visible
+
+Turn the living room on.
+
+The panel updates because it projects `states`. The snapshot updates because it is watching the same core. There is no second copy of the lights.
+
+## Two callers, one truth
+
+Press **Run scripted: movie**.
+
+That button does not click the panel. It calls `runScene` on the same core. Living turns off. The scene pill reads Movie. The snapshot shows the same scene.
+
+Click **Movie** on the panel yourself after Reset, or let the scripted command do it. Both paths send to one actor.
+
+## The golden path
+
+The house you just used is this bind. A started actor is the source. `igniteCore` borrows it. `home(tag, renderer)` is a view of it. A scripted `execute` is a second caller of the same commands.
+
+<details>
+<summary>Started actor, igniteCore, home(tag), then a scripted command</summary>
+
+```tsx title="shared-home.tsx"
+import { igniteCore } from 'ignite-element/xstate';
+import { assign, createActor, setup } from 'xstate';
+
+type Room = 'living';
+type Scene = 'movie';
+
+const homeMachine = setup({
+  types: {
+    context: {} as {
+      lights: Record<Room, boolean>;
+      activeScene: Scene | null;
+    },
+    events: {} as
+      | { type: 'TOGGLE_LIGHT'; room: Room; on: boolean }
+      | { type: 'RUN_SCENE'; scene: Scene },
+  },
+}).createMachine({
+  context: { lights: { living: false }, activeScene: null },
+  on: {
+    TOGGLE_LIGHT: {
+      actions: assign(({ context, event }) => ({
+        lights: { ...context.lights, [event.room]: event.on },
+        activeScene: null,
+      })),
+    },
+    RUN_SCENE: {
+      actions: assign({
+        lights: { living: false },
+        activeScene: 'movie' as const,
+      }),
+    },
+  },
+});
+
+const actor = createActor(homeMachine).start();
+const home = igniteCore({
+  source: actor,
+  states: (snapshot) => ({
+    lights: snapshot.context.lights,
+    activeScene: snapshot.context.activeScene,
+  }),
+  commands: ({ source: actor }) => ({
+    toggleLight: ({ room, on }: { room: Room; on: boolean }) =>
+      actor.send({ type: 'TOGGLE_LIGHT', room, on }),
+    runScene: (scene: Scene) => actor.send({ type: 'RUN_SCENE', scene }),
+  }),
+});
+
+home('ignite-shared-home', (ctx) => (
+  <section>
+    <p>Living light: {ctx.lights.living ? 'On' : 'Off'}</p>
+    <p>Scene: {ctx.activeScene ?? 'Manual'}</p>
+    <button
+      onClick={() =>
+        ctx.toggleLight({ room: 'living', on: !ctx.lights.living })
+      }
+    >
+      Toggle living
+    </button>
+    <button onClick={() => ctx.runScene('movie')}>Movie</button>
+  </section>
+));
+
+export async function runMovie() {
+  await home.execute({ command: 'runScene', input: 'movie' });
+}
+```
+
+The live demo uses the full Smart Home example core — same `source: actor` shape, more rooms and scenes.
+
+Pass an existing started actor to share it. A machine definition creates a private actor per element.
+
+The application that created the actor owns `actor.stop()`. `home.dispose()` releases Ignite's observation.
+
+</details>
+
+## Honest limits
+
+Sharing one actor is in-process. It does not synchronize other tabs, devices, or copies of the same code.
+
+Navigation detaches views. It does not stop the source.
+
+When the feature or session ends, dispose the core, then stop the actor if this owner created it and nothing else needs it.
+
+[Shared sources](/ignite-element/guides/shared-source-ownership/) and [Ownership & cleanup](/ignite-element/handbook/ownership/) remain the reference for adapter inputs, React, and lifetime.
+
+The full Smart Home example is where an application adds more devices, a live model, or a bridge.
+
+[Open the Smart Home example](https://github.com/0xjcf/ignite-element/tree/beta/examples/agents/smart-home) when you want that next step.
+
+Keep [Shared sources](/ignite-element/guides/shared-source-ownership/) open while you pass an existing instance. [Ignite Element v3](/ignite-element/explainers/v3/) is the tool-loop lens. [Views & effects](/ignite-element/explainers/views-effects/) is the view and notification lens.
