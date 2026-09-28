@@ -107,7 +107,9 @@ Source-native sign-in, sign-out and account reset can keep one core and its regi
 
 When a feature or session permanently discards its core, dispose the core.
 
-Stop a borrowed actor only if that owner also created the actor and nothing else needs it:
+Stop a borrowed actor only if that owner also created the actor and nothing else needs it.
+
+A feature module that owns the pair is in [Own a feature module](#own-a-feature-module).
 
 This example shows the release order:
 
@@ -130,6 +132,100 @@ The core releases its observations; the application stops its actor.
 Repeated core disposal does not release resources again.
 
 The application must release any observations it created separately.
+
+## Own a feature module
+
+A feature module owns its source and `igniteCore` pair.
+
+Create the source, or borrow a shared started actor.
+
+Pass that source into `igniteCore` with `states`, `commands`, `events`, and `effects`.
+
+Register views with `home(tag, renderer)`. There is no `view:` on the core.
+
+When the feature unmounts, the session ends, or a test tears down, dispose the core.
+
+Then stop the actor only if this owner created the source and nothing else needs it.
+
+A shared started actor keeps the house running. Dispose releases observation only.
+
+The [ownership table](#own-the-source-lifetime) is that same rule: a started actor is application-owned; a machine definition creates isolated actors that Ignite releases.
+
+This factory is the owned pair. Hand-written dispose is the teardown:
+
+```tsx title="lights-feature.tsx"
+import { assign, createActor, setup } from 'xstate';
+import { igniteCore } from 'ignite-element/xstate';
+
+const lightsMachine = setup({
+  types: {
+    context: {} as { living: boolean },
+    events: {} as { type: 'TOGGLE'; on: boolean },
+  },
+}).createMachine({
+  context: { living: false },
+  on: {
+    TOGGLE: {
+      actions: assign({ living: ({ event }) => event.on }),
+    },
+  },
+});
+
+function createLightsFeature() {
+  const actor = createActor(lightsMachine).start();
+  const home = igniteCore({
+    source: actor,
+    states: (snapshot) => ({ living: snapshot.context.living }),
+    commands: ({ source: actor }) => ({
+      toggle: (on: boolean) => actor.send({ type: 'TOGGLE', on }),
+    }),
+  });
+  home('ignite-lights', (ctx) => (
+    <button onClick={() => ctx.toggle(!ctx.living)}>
+      Living: {ctx.living ? 'On' : 'Off'}
+    </button>
+  ));
+  return {
+    core: home,
+    dispose() {
+      try {
+        home.dispose();
+      } finally {
+        actor.stop();
+      }
+    },
+  };
+}
+
+function createPanelFeature(
+  sharedActor: ReturnType<typeof createActor<typeof lightsMachine>>,
+) {
+  const home = igniteCore({
+    source: sharedActor,
+    states: (snapshot) => ({ living: snapshot.context.living }),
+    commands: ({ source: actor }) => ({
+      toggle: (on: boolean) => actor.send({ type: 'TOGGLE', on }),
+    }),
+  });
+  return {
+    core: home,
+    dispose() {
+      home.dispose();
+      // do not stop sharedActor
+    },
+  };
+}
+```
+
+A panel that borrows the house uses `createPanelFeature`. Dispose releases observation only. Do not stop the shared actor.
+
+Call `dispose()` from the feature's existing unmount, session-end, or test teardown.
+
+The [Smart Home example](https://github.com/0xjcf/ignite-element/tree/beta/examples/agents/smart-home) `createLocalHomeSession` is this pair on the full house.
+
+[Ownership & cleanup](/ignite-element/handbook/ownership/) is the lifetime reference.
+
+[Shared sources](/ignite-element/explainers/shared-sources/) is the same house through one started actor.
 
 ## React and React Native
 

@@ -130,6 +130,16 @@ Here the session created and exclusively owns the actor, so it also stops that a
 
 If another feature still needs the actor, dispose only this core and leave actor shutdown to its owner.
 
+A feature module owns that pair.
+
+Create or borrow the source, pass it to `igniteCore`, and register views with `home(tag, renderer)`.
+
+Dispose the core when that lifetime ends. Stop an actor only if this owner created it and nothing else needs it.
+
+A shared started actor stays running; dispose releases observation only.
+
+[Own a feature module](/ignite-element/guides/shared-source-ownership/#own-a-feature-module) is the copyable factory.
+
 For an Ignite-created private actor, `core.dispose()` also releases that actor.
 
 A later session creates a new core; a disposed core cannot be reused.
