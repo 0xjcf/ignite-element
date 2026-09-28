@@ -14,6 +14,9 @@ const primary = [
 	"handbook/testing",
 	"handbook/api",
 	"handbook/examples",
+	"guides/shared-source-ownership",
+	"guides/tools",
+	"guides/agent-runtime-v3",
 ];
 function walk(dir) {
 	return fs

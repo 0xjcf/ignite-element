@@ -1,5 +1,7 @@
 # Tools: named bind, explicit schema, consumer loop
 
+Published docs: [Tools](https://0xjcf.github.io/ignite-element/guides/tools/).
+
 Bind tools with named options. The right path is an explicit `ToolSchema` plus
 `igniteTools({ core, schema, canExecute?, dialect? })`. Ordinary core commands
 need no metadata. `get('schema')` is minimal discovery, not an input schema
@@ -37,8 +39,6 @@ Zod peer and no core Zod adapter.
 `gated: true` command. Omit it and gated tools stay available (`() => true`).
 Do not treat `canExecute` as authentication or authorization; keep source
 enforcement. Rebuild the bind when a fresh provider list is needed.
-
-The positional `igniteTools(core, dialect, opts)` overload is removed.
 
 ## Provider port
 

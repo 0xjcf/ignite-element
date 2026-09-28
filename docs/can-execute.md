@@ -73,4 +73,5 @@ Preserve source-native methods and independently supplied policy predicates.
 
 The historical testing/story availability surface remains retired. Use ordinary
 assertions over projected states, native source behavior and actual tool results.
-See [tools](ignite-tools.md) and [core API](core-api-bindings.md).
+See [tools](https://0xjcf.github.io/ignite-element/guides/tools/) ([source](ignite-tools.md))
+and [core API](core-api-bindings.md).

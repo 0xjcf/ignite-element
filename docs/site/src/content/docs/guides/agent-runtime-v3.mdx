@@ -1,25 +1,26 @@
 ---
 title: Build for agents
-description: Build and test Ignite Element components from behavior contracts before adding a DOM layer.
+description: Prove behavior on a headless core, then offer the same commands through named igniteTools.
 sidebar:
   label: Build for agents
-  order: 3
+  order: 5
 ---
 
 A source-backed core works with or without a rendered view.
 
-Agents and tests can read derived states, execute commands, and observe events through its headless runtime.
+Agents and tests read derived states, execute commands, and observe events through the headless runtime.
 
 The same core can register a custom element.
 
 The practical model is:
 
 1. Define component behavior and boundaries.
-2. Test workflows through the headless runtime.
-3. Add the DOM layer as a projection over already-proven behavior.
+2. Drive workflows through the headless runtime.
+3. Offer the same commands with `igniteTools({ core, schema, canExecute?, dialect? })`.
+4. Add the DOM layer as a projection over already-proven behavior.
 
 :::note[API reference]
-For method signatures and return shapes, see [Headless runtime](/ignite-element/api/headless-runtime/), [Command metadata](/ignite-element/api/command-metadata/), and the [Testing guide](/ignite-element/handbook/testing/).
+For method signatures, see [Headless runtime](/ignite-element/api/headless-runtime/), [Tools](/ignite-element/guides/tools/), and the [Testing guide](/ignite-element/handbook/testing/).
 :::
 
 ## Behavior-first components
@@ -28,9 +29,9 @@ Start by describing the state source, derived states, commands, events, and effe
 
 `igniteCore(...)` infers the effect context and command `source` from the configured source and event builder.
 
-Environmental and host capabilities remain application-owned.
+Copy [apiShowcaseMachine.ts](https://github.com/0xjcf/ignite-element/blob/beta/examples/adapters/xstate/apiShowcaseMachine.ts) beside this module.
 
-Copy [apiShowcaseMachine.ts](https://github.com/0xjcf/ignite-element/blob/beta/examples/adapters/xstate/apiShowcaseMachine.ts) beside this module. It defines the count, limit, `ADD` and `SET_LIMIT` behavior used below.
+It defines the count, limit, `ADD`, and `SET_LIMIT` behavior used below.
 
 ```ts title="agent-counter.ts"
 import { apiShowcaseMachine as counterMachine } from './apiShowcaseMachine';
@@ -43,6 +44,8 @@ export const counter = igniteCore({
     count: snapshot.context.count,
     limit: snapshot.context.limit,
     isLimited: snapshot.matches('limited'),
+    canIncrement: snapshot.can({ type: 'ADD', amount: 1 }),
+    canSetLimit: snapshot.can({ type: 'SET_LIMIT', limit: snapshot.context.limit }),
   }),
 
   commands: ({ source: actor }) => ({
@@ -67,41 +70,101 @@ export const counter = igniteCore({
 });
 ```
 
-That registration gives agents a contract to inspect and a command surface to drive — all without the DOM:
+That registration gives agents a contract to inspect and a command surface to drive, without the DOM.
 
-This Vitest fragment assumes `counter` is imported from `./agent-counter` and `expect` from `vitest`. Use a fresh module instance per test and dispose its test-owned core in `finally`.
+This Vitest fragment assumes `counter` is imported from `./agent-counter` and `expect` from `vitest`.
+
+Use a fresh module instance per test and dispose its test-owned core in `finally`.
 
 ```ts title="Workflow test (fragment)"
-counter.get('schema'); // pure catalogue; configured commands unknown until bound
-counter.get('states');   // current derived states
-const canIncrement = !counter.get('states').isLimited; // projected source hint
-
 await counter.execute({ command: 'setLimit', input: 6 });
+await counter.execute({ command: 'increment' });
 
-for (let step = 0; step < 20 && !counter.get('states').isLimited; step += 1) {
-  await counter.execute({ command: 'increment' });
-}
-
-expect(counter.get('states')).toMatchObject({ count: 6, limit: 6, isLimited: true });
+expect(counter.get('states')).toMatchObject({ count: 1, limit: 6, isLimited: false });
 ```
 
 See [Headless runtime](/ignite-element/api/headless-runtime/) for `get`, `watch`, `on`, `execute`, and owning `dispose`.
 
-In practice, the loop is:
+Projected states such as `canIncrement` are facts for views and for the tools predicate.
 
-1. Read `get('schema')` for pure minimal discovery; use `get('states')` for live projections and real binding.
-2. Use explicit application tool schemas to validate payloads; null discovery schemas are unknown.
-3. Read projected availability through a separately supplied tool predicate; the source remains authoritative.
-4. Run `execute()` for the command-defined result, read `get('states')`, and observe events through subscriptions installed before execution.
-5. Keep long-lived observers attached with `on(...)` or `watch(...)` when the workflow spans multiple actions.
+They are not themselves the agent gate.
+
+## Offer tools
+
+Keep descriptions and input schemas at the application boundary.
+
+Mark commands `gated: true` and supply `canExecute`.
+
+```ts title="agent-counter-tools.ts"
+import { defineToolSchema, igniteTools } from 'ignite-element/tools';
+import { openai } from 'ignite-element/tools/openai';
+import { counter } from './agent-counter';
+
+export const counterToolSchema = defineToolSchema({
+  increment: {
+    description: 'Add one to the count.',
+    input: { type: 'object', properties: {} },
+    gated: true,
+  },
+  setLimit: {
+    description: 'Set maximum count',
+    input: { type: 'number', minimum: 3, maximum: 12 },
+    gated: true,
+  },
+});
+
+export const counterTools = igniteTools({
+  core: counter,
+  schema: counterToolSchema,
+  dialect: openai,
+  canExecute: (name) => {
+    const states = counter.get('states');
+    if (name === 'increment') return states.canIncrement;
+    if (name === 'setLimit') return states.canSetLimit;
+    return false;
+  },
+});
+```
+
+`run` acknowledges the command.
+
+`observe` stays attached while later source work settles.
+
+```ts title="agent-counter-observe.ts"
+import { isOk } from 'ignite-element/tools';
+import { counterTools } from './agent-counter-tools';
+
+const { run, observe } = counterTools;
+const subscription = observe((observation) => {
+  if (observation.type === 'states') {
+    console.log(observation.states);
+  }
+});
+try {
+  const result = await run({ name: 'setLimit', input: 6 });
+  if (isOk(result)) {
+    console.log(result.value.states);
+  }
+} finally {
+  subscription.unsubscribe();
+}
+```
+
+Only offer definitions for commands the core actually exposes.
+
+See [Tools](/ignite-element/guides/tools/) for dialects, tagged errors, and provider loops.
 
 ## Add the DOM layer
 
-Once the behavior is stable, the custom element stays thin — its renderer consumes derived states and command functions to produce the view.
+Once the behavior is stable, the custom element stays thin.
+
+Its renderer consumes derived states and command functions to produce the view.
 
 The default DOM layer uses the public `ignite-element/jsx` runtime and ordinary local style tags.
 
-Machine-backed headless access and each registered element have independent state. To let an agent drive the same state as a mounted view, pass an existing actor to the core; see [Shared sources](/ignite-element/guides/shared-source-ownership/).
+Machine-backed headless access and each registered element have independent state.
+
+To let an agent drive the same state as a mounted view, pass an existing actor to the core; see [Shared sources](/ignite-element/guides/shared-source-ownership/).
 
 ```tsx title="agent-counter-view.tsx"
 /** @jsxImportSource ignite-element/jsx */
@@ -124,7 +187,7 @@ counter('counter-panel', (ctx) => (
       {ctx.count} / {ctx.limit}
     </strong>
 
-    <button type="button" onClick={() => ctx.increment()}>
+    <button type="button" onClick={() => ctx.increment()} disabled={!ctx.canIncrement}>
       Increment
     </button>
 
@@ -150,61 +213,11 @@ This keeps DOM tests focused on rendering and accessibility, while behavior test
 
 To assert rendered controls by role and accessible name, mount the registered component and use DOM Testing Library on its actual rendered elements — see the [Testing guide](/ignite-element/handbook/testing/).
 
-## Agent-readable contracts
-
-Ordinary commands retain TypeScript inference and source-directed intent.
-
-Descriptions and input schemas belong at the application/tool boundary:
-
-```ts title="agent-counter-tools.ts"
-import { defineToolSchema, igniteTools } from 'ignite-element/tools';
-import { openai } from 'ignite-element/tools/openai';
-import { counter } from './agent-counter';
-
-export const counterToolSchema = defineToolSchema({
-  setLimit: {
-    description: 'Set maximum count',
-    input: { type: 'number', minimum: 3, maximum: 12 },
-  },
-});
-export const counterTools = igniteTools({
-  core: counter,
-  schema: counterToolSchema,
-  dialect: openai,
-});
-```
-
-Only offer definitions for commands the application's core actually exposes.
-
-Use `igniteTools({ core: counter, schema: counterToolSchema, canExecute, dialect })` for provider translation and validated invocation.
-
-The optional tool predicate reads projected availability; source guards still enforce behavior.
-
-A schema can explicitly mark a tool `gated: true`; this is application metadata, not automatic core discovery.
-
-Scalar inputs are wrapped/unwrapped only at the provider boundary.
-
-A command such as `submit: () => actor.send({ type: 'SUBMIT' })` needs no helper.
-
-Project `snapshot.can({ type: 'SUBMIT' })` into a `canSubmit` state if useful.
-
-Do not infer schemas from that function, expose unavailable actions as universally available, or confuse availability with authorization.
-
-### Read the command catalogue
-
-The core catalogue contains bound own names with `input: null`, declared event names with `payload: null`, and `states: { schema: null }`.
-
-Before command callback binding it is `commands: null`; without a callback it is `commands: {}`.
-
-Pure discovery never creates a source or manufactures an actor.
-
-See [Commands and tool schemas](/ignite-element/api/command-metadata/).
-
 ## Ordinary workflow tests
 
-Assert the direct runtime results shown above, preserving source-owned asynchronous outcomes and real DOM coverage.
+Assert the direct runtime results shown above.
 
-Replace unbounded loops with an application-specific step limit; after a command starts asynchronous source work, wait on its correlated source state/event rather than assuming `execute()` completes it.
+After a command starts asynchronous source work, stay subscribed with `observe` rather than treating `run` as business-done.
 
 Release observers and let the source owner stop native resources.
 

@@ -1,6 +1,6 @@
 ---
-title: Share a source and own its lifetime
-description: Existing actors and stores feed views without another controller.
+title: Shared sources
+description: Share one source across views, tests, and agents, and own its lifetime.
 ---
 
 import { Code } from '@astrojs/starlight/components';
@@ -28,6 +28,44 @@ For observation and terminal disposal, see [Ownership & cleanup](/ignite-element
 Run this complete example from `examples/adapters/xstate/shared-counter.html`.
 
 The core and source are created at application bootstrap, not in a renderer.
+
+## Share with agents and tests
+
+Pass that same started source to `igniteCore`.
+
+A headless test, a tool loop, and the registered views then share one actor.
+
+```ts title="shared-counter-tools.ts"
+import { defineToolSchema, igniteTools } from 'ignite-element/tools';
+import { openai } from 'ignite-element/tools/openai';
+import { core } from './shared-counter';
+
+export const counterToolSchema = defineToolSchema({
+  increment: {
+    description: 'Increment the shared counter.',
+    input: { type: 'object', properties: {} },
+    gated: true,
+  },
+});
+
+export const counterTools = igniteTools({
+  core,
+  schema: counterToolSchema,
+  dialect: openai,
+  canExecute: (name) =>
+    name !== 'increment' || Boolean(core.get('states').canIncrement),
+});
+```
+
+`canExecute` is the tools gate.
+
+It reads the current projection from this shared core.
+
+`run` acknowledges the command; `observe` stays attached while later source work settles.
+
+Machine-backed isolated cores do not share state with a mounted view.
+
+See [Build for agents](/ignite-element/guides/agent-runtime-v3/) and [Tools](/ignite-element/guides/tools/).
 
 ## Shared Redux store
 

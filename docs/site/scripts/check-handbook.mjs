@@ -72,6 +72,33 @@ assert.ok(
 	small.split(/\s+/).length < 250,
 	"agent entry index must stay concise",
 );
+assert.match(
+	small,
+	/guides\/shared-source-ownership/,
+	"llms.txt must list Shared sources",
+);
+assert.match(small, /guides\/tools/, "llms.txt must list Tools");
+assert.match(
+	small,
+	/guides\/agent-runtime-v3/,
+	"llms.txt must list Build for agents",
+);
+const sitemap = fs
+	.readdirSync(dist)
+	.filter((name) => /^sitemap.*\.xml$/.test(name))
+	.map((name) => fs.readFileSync(path.join(dist, name), "utf8"))
+	.join("\n");
+assert.match(
+	sitemap,
+	/guides\/shared-source-ownership/,
+	"sitemap must list Shared sources",
+);
+assert.match(sitemap, /guides\/tools/, "sitemap must list Tools");
+assert.match(
+	sitemap,
+	/guides\/agent-runtime-v3/,
+	"sitemap must list Build for agents",
+);
 const full = fs.readFileSync(path.join(dist, "llms-full.txt"), "utf8");
 assert.ok(
 	full.includes('import { igniteCore } from "ignite-element/xstate";'),

@@ -1,0 +1,212 @@
+---
+title: Tools
+description: Bind explicit command schemas to a core with named igniteTools, then run and observe.
+sidebar:
+  label: Tools
+  order: 4
+---
+
+Offer commands to a model through an explicit schema.
+
+The default bind is named `igniteTools({ core, schema, canExecute?, dialect? })`.
+
+`ToolSchema` is a bare command map.
+
+Author it with `defineToolSchema({ setLimit: { input } })` or `satisfies ToolSchema`.
+
+Ordinary core commands stay ordinary functions.
+
+Discovery does not infer tool schemas.
+
+:::note[Related]
+[Build for agents](/ignite-element/guides/agent-runtime-v3/) proves the core first.
+
+[Shared sources](/ignite-element/guides/shared-source-ownership/) lets a view and a tool loop share one source.
+
+[Commands and tool schemas](/ignite-element/api/command-metadata/) covers discovery versus application schemas.
+:::
+
+## Define a schema
+
+Keep descriptions, input contracts, and `gated` on the application schema.
+
+```ts title="counter-tool-schema.ts"
+import { defineToolSchema } from 'ignite-element/tools';
+
+export const toolSchema = defineToolSchema({
+  setLimit: {
+    description: 'Set the counter limit.',
+    input: { type: 'number', minimum: 3, maximum: 12 },
+    gated: true,
+  },
+  increment: {
+    description: 'Add one to the count.',
+    input: { type: 'object', properties: {} },
+    gated: true,
+  },
+});
+```
+
+Retain JSON-Schema-shaped `number` / `string` / `boolean` / `object` / `array` constraints.
+
+This is the built-in structural validator, not Zod and not full JSON Schema.
+
+Unknown `type` strings are rejected at `defineToolSchema`.
+
+## Bind tools
+
+Pass the core, the schema, and the availability predicate together.
+
+```ts title="counter-tools.ts"
+import { igniteTools } from 'ignite-element/tools';
+import { openai } from 'ignite-element/tools/openai';
+import { toolSchema } from './counter-tool-schema';
+
+export const tools = igniteTools({
+  core: component,
+  schema: toolSchema,
+  dialect: openai,
+  canExecute: (name) => {
+    const states = component.get('states');
+    if (name === 'increment') return !states.isLimited;
+    if (name === 'setLimit') return Boolean(states.canSetLimit);
+    return false;
+  },
+});
+```
+
+`canExecute?: (name: string) => boolean` is one predicate for every `gated: true` command.
+
+Omit it and gated tools stay available.
+
+Rebuild the bind when the application needs a fresh provider list.
+
+Source guards still enforce behavior after preflight.
+
+## Run, then observe
+
+`run(call)` is act plus acknowledgement.
+
+It routes validated input into `core.execute({ command, input })` and returns `{ result, states, events }` or a tagged error.
+
+A fulfilled `run` does not mean detached work is finished.
+
+`observe(handler)` is the tools fan-in of `on` and `watch` for long or async settle.
+
+Release its handle.
+
+```ts title="counter-tool-loop.ts"
+import { isOk } from 'ignite-element/tools';
+
+const { run, observe } = tools;
+const subscription = observe((observation) => {
+  if (observation.type === 'states') {
+    console.log(observation.states);
+  } else {
+    console.log(observation.event);
+  }
+});
+try {
+  const result = await run({ name: 'setLimit', input: 6 });
+  if (isOk(result)) {
+    console.log(result.value.states);
+  }
+} finally {
+  subscription.unsubscribe();
+}
+```
+
+Without a dialect, `igniteTools({ core, schema })` still exposes `run` and `observe` for headless proof.
+
+UI registration stays on the callable core: `home('smart-home', renderer)`.
+
+## Provider loop
+
+`ToolDialect` has three pure methods: `tools`, `toolCalls`, and `toolResult`.
+
+- `ignite-element/tools/anthropic` translates Anthropic Messages tool definitions, `tool_use`, and `tool_result`, and exports `textOf(response)`.
+- `ignite-element/tools/openai` translates OpenAI-compatible Chat Completions definitions, `tool_calls`, and role-tool results, and exports `textOf(response)`.
+
+The application owns the client, credentials, and requests.
+
+```ts title="openai-tool-loop.ts"
+import { igniteTools } from 'ignite-element/tools';
+import { openai, textOf } from 'ignite-element/tools/openai';
+import { toolSchema } from './counter-tool-schema';
+
+const client: {
+  chat: {
+    completions: {
+      create: (request: unknown) => Promise<{
+        choices: { message?: { content?: string | null; tool_calls?: unknown } }[];
+      }>;
+    };
+  };
+} = globalThis as never;
+const model = 'local-model';
+const messages: {
+  role: string;
+  content: unknown;
+  tool_calls?: unknown;
+}[] = [];
+
+const { tools: defs, toolCalls, run, toolResult } = igniteTools({
+  core: component,
+  schema: toolSchema,
+  dialect: openai,
+  canExecute: (name) =>
+    name !== 'increment' || !component.get('states').isLimited,
+});
+
+for (let turn = 0; turn < 8; turn += 1) {
+  const response = await client.chat.completions.create({
+    model,
+    messages,
+    tools: defs,
+  });
+  const assistant = response.choices[0]?.message ?? {};
+  messages.push({
+    role: 'assistant',
+    content: typeof assistant.content === 'string' ? assistant.content : null,
+    tool_calls: assistant.tool_calls ?? undefined,
+  });
+  const calls = toolCalls(response);
+  if (calls.length === 0) {
+    console.log(textOf(response));
+    break;
+  }
+  for (const call of calls) {
+    const result = await run(call);
+    messages.push(toolResult({ id: call.id, name: call.name, result }));
+  }
+}
+```
+
+Scalar inputs are object-wrapped under a strict `value` property at the provider boundary.
+
+The bound `toolCalls(response)` method unwraps them.
+
+For a raw fetch client, pass parsed Chat Completions JSON to `toolCalls`.
+
+## Errors
+
+`run` returns tagged errors: `UnknownCommand`, `InvalidInput`, `Unavailable`, `ExecuteFailed`.
+
+Provider translators turn those results into provider result blocks so a model can react.
+
+Missing required schema is a construction error.
+
+Headless proof is the [Smart Home example](https://github.com/0xjcf/ignite-element/tree/beta/examples/agents/smart-home) running in the Vitest `node` environment with no DOM.
+
+## Advanced
+
+`buildManifest` and `resolveCall` remain exported for tests and harnesses.
+
+Application loops import `igniteTools` instead.
+
+## Related
+
+- [Build for agents](/ignite-element/guides/agent-runtime-v3/)
+- [Shared sources](/ignite-element/guides/shared-source-ownership/)
+- [Commands and tool schemas](/ignite-element/api/command-metadata/)
+- [Headless runtime](/ignite-element/api/headless-runtime/)
