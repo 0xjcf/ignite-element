@@ -50,18 +50,24 @@ function publish(slice: SourceSlice): void {
 	}
 }
 
-home.watch((states) => {
-	const slice = sliceFrom(states);
-	if (restoring) {
+home.watch(
+	(states: {
+		lights: Record<Room, boolean>;
+		thermostat: Record<Room, number>;
+		activeScene: string | null;
+	}) => {
+		const slice = sliceFrom(states);
+		if (restoring) {
+			publish(slice);
+			return;
+		}
+		const caller = pendingCaller;
+		pendingCaller = "panel";
+		lastCaller = caller;
+		records = [{ caller, summary: summarize(slice) }, ...records].slice(0, 8);
 		publish(slice);
-		return;
-	}
-	const caller = pendingCaller;
-	pendingCaller = "panel";
-	lastCaller = caller;
-	records = [{ caller, summary: summarize(slice) }, ...records].slice(0, 8);
-	publish(slice);
-});
+	},
+);
 
 export function watchSource(listener: SourceListener): () => void {
 	listeners.add(listener);
