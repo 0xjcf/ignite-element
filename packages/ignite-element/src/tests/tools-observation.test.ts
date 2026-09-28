@@ -1,16 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
 import { assign, emit, setup } from "xstate";
 import type { EventDescriptor, EventMember } from "../RenderArgs";
-import { igniteTools } from "../tools";
+import type { IgniteToolsRuntime } from "../tools";
+import { defineToolSchema, igniteTools } from "../tools";
 import { anthropic } from "../tools/anthropic";
 import { openai } from "../tools/openai";
 import type { IgniteAgentSchema } from "../types/schema";
 import { igniteCore } from "../xstate";
 
 const options = {
-	schema: { commands: { run: { input: { type: "object", properties: {} } } } },
+	schema: defineToolSchema({
+		commands: { run: { input: { type: "object", properties: {} } } },
+	}),
 };
 const call = { name: "run", input: {} };
+type ObservationRuntime = IgniteToolsRuntime<
+	unknown,
+	Record<string, () => unknown>,
+	Record<string, EventDescriptor<void>>,
+	unknown,
+	{ count: number }
+>;
 
 function fixture(fail?: "setup" | "command" | "read", cleanupFails = false) {
 	const failure = { primary: fail };
@@ -95,8 +105,8 @@ describe("tools public observation window", () => {
 			const report = vi.spyOn(console, "error").mockImplementation(() => {});
 			try {
 				const tools = igniteTools({
-					core: f.runtime,
-					...options,
+					core: f.runtime as ObservationRuntime,
+					schema: options.schema,
 				});
 				const outcome = await tools.run(call);
 				expect(outcome).toMatchObject({
@@ -118,15 +128,9 @@ describe("tools public observation window", () => {
 	);
 	it("validates before subscribing and reads the current catalogue on each run", async () => {
 		const f = fixture();
-		const tools = igniteTools<
-			unknown,
-			Record<string, () => unknown>,
-			Record<string, EventDescriptor<void>>,
-			unknown,
-			{ count: number }
-		>({
-			core: f.runtime,
-			...options,
+		const tools = igniteTools({
+			core: f.runtime as ObservationRuntime,
+			schema: options.schema,
 		});
 		expect((await tools.run({ name: "missing", input: {} })).ok).toBe(false);
 		expect(f.handlers.size).toBe(0);
@@ -173,7 +177,10 @@ describe("tools public observation window", () => {
 		const native: unknown[] = [];
 		const handle = core.on("private", (event) => native.push(event));
 		try {
-			const tools = igniteTools({ core: core, ...options });
+			const tools = igniteTools({
+				core,
+				schema: options.schema,
+			});
 			const outcome = await tools.run(call);
 			expect(outcome).toEqual({
 				ok: true,
@@ -206,15 +213,9 @@ describe("tools public observation window", () => {
 			for (const h of f.handlers.get("first") ?? []) h({ type: "first" });
 			return { id: "created" };
 		};
-		const tools = igniteTools<
-			unknown,
-			Record<string, () => unknown>,
-			Record<string, EventDescriptor<void>>,
-			unknown,
-			{ count: number }
-		>({
-			core: f.runtime,
-			...options,
+		const tools = igniteTools({
+			core: f.runtime as ObservationRuntime,
+			schema: options.schema,
 		});
 		const first = tools.run(call),
 			second = tools.run(call);
@@ -243,7 +244,10 @@ it("releases temporary handles when a pending core is disposed", async () => {
 		commands: () => ({ run: () => pending }),
 	});
 	const subscribe = vi.spyOn(core, "on");
-	const tools = igniteTools({ core, ...options });
+	const tools = igniteTools({
+		core,
+		schema: options.schema,
+	});
 	const outcome = tools.run(call);
 	const releases = subscribe.mock.results.map((entry) =>
 		vi.spyOn(entry.value, "unsubscribe"),

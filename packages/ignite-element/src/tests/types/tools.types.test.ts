@@ -108,7 +108,11 @@ describe("igniteTools types", () => {
 			toolResult: (result) => ({ id: result.id }),
 		};
 
-		const tools = igniteTools({ ...options, dialect });
+		const tools = igniteTools({
+			core: component,
+			schema: options.schema,
+			dialect,
+		});
 
 		expectTypeOf(tools.tools).toEqualTypeOf<Defs>();
 		expectTypeOf(tools.toolCalls).parameter(0).toEqualTypeOf<Resp>();

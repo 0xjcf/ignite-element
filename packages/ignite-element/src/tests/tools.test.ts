@@ -6,6 +6,7 @@ import type {
 	NeutralToolCall,
 	NeutralToolResult,
 	ToolDialect,
+	ToolInputSchema,
 	ToolSchema,
 	ToolStreamObservation,
 } from "../tools";
@@ -447,7 +448,7 @@ describe("resolveCall", () => {
 // --- resolveCall: input-schema validation (the validator) ---------------------
 
 describe("resolveCall input validation", () => {
-	const tool = (inputSchema: IgniteSchemaObject): NeutralManifest => [
+	const tool = (inputSchema: ToolInputSchema): NeutralManifest => [
 		{ name: "t", inputSchema, gated: false },
 	];
 

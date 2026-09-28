@@ -10,14 +10,12 @@ export { err, isErr, isOk, ok } from "./result";
 export { defineToolSchema } from "./schema";
 export type {
 	AvailabilityPredicate,
-	CanExecuteOption,
 	IgniteToolsRuntime,
 	NeutralManifest,
 	NeutralTool,
 	NeutralToolCall,
 	NeutralToolResult,
 	Route,
-	SchemaHasGatedCommand,
 	ToolCommandSchema,
 	ToolDialect,
 	ToolError,

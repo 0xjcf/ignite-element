@@ -17,7 +17,7 @@ import type { Result } from "./result";
  * Not a claim of full JSON Schema compliance, and not a Zod schema.
  */
 export type ToolInputSchema = {
-	type?: "number" | "string" | "boolean" | "object" | "array";
+	type?: string;
 	description?: string;
 	default?: unknown;
 	minimum?: number;
@@ -193,25 +193,6 @@ export interface ToolDialect<
 
 /** Per-command availability predicate, evaluated against the current snapshot. */
 export type AvailabilityPredicate = (name: string) => boolean;
-
-/**
- * When any command is marked `gated: true` on a specific schema, require the
- * availability predicate at the type level. Runtime still defaults omitted
- * predicates to always-available (`() => true`). `canExecute` is application
- * preflight, not authentication or authorization.
- */
-export type SchemaHasGatedCommand<S extends ToolSchema> = true extends {
-	[K in keyof S["commands"]]: S["commands"][K] extends { gated: true }
-		? true
-		: false;
-}[keyof S["commands"]]
-	? true
-	: false;
-
-export type CanExecuteOption<S extends ToolSchema> =
-	SchemaHasGatedCommand<S> extends true
-		? { canExecute: AvailabilityPredicate }
-		: { canExecute?: AvailabilityPredicate };
 
 /**
  * The source-backed runtime slice borrowed by tools: keyed discovery/state reads,

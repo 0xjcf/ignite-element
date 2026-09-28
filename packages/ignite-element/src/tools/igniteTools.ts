@@ -3,7 +3,7 @@ import type { IgniteCommandCall, RuntimeEvent } from "../types/agent";
 import { buildManifest, resolveCall } from "./core";
 import { err, ok, type Result } from "./result";
 import type {
-	CanExecuteOption,
+	AvailabilityPredicate,
 	IgniteToolsRuntime,
 	NeutralManifest,
 	NeutralToolCall,
@@ -55,14 +55,11 @@ export type IgniteToolsBind<
 	SchemaState,
 	States extends Record<string, unknown>,
 	S extends ToolSchema = ToolSchema,
-	Tools = unknown,
-	Response = unknown,
-	ResultBlock = unknown,
 > = {
 	core: IgniteToolsRuntime<State, Commands, Events, SchemaState, States>;
 	schema: S;
-	dialect?: ToolDialect<Tools, Response, ResultBlock>;
-} & CanExecuteOption<S>;
+	canExecute?: AvailabilityPredicate;
+};
 
 const NAMED_BIND_ERROR =
 	"[igniteTools] Named bind only: igniteTools({ core, schema, canExecute?, dialect? }). Supply an explicit schema; discovery does not infer one. The positional igniteTools(core, dialect, opts) overload is removed.";
@@ -100,54 +97,22 @@ function isIgniteCommandCall<Commands extends FacadeCommandResult>(
 	return true;
 }
 
-export function igniteTools<
-	State,
-	Commands extends FacadeCommandResult,
-	Events extends EventMap,
-	SchemaState,
-	States extends Record<string, unknown>,
-	S extends ToolSchema,
->(
-	options: IgniteToolsBind<State, Commands, Events, SchemaState, States, S> & {
-		dialect?: undefined;
-	},
-): IgniteToolsNeutral<
-	Awaited<ReturnType<Commands[keyof Commands]>>,
+type IgniteToolsResult<
+	CommandResult,
 	States,
-	Events
->;
-export function igniteTools<
-	State,
-	Commands extends FacadeCommandResult,
 	Events extends EventMap,
-	SchemaState,
-	States extends Record<string, unknown>,
-	S extends ToolSchema,
-	Tools,
-	Response,
-	ResultBlock,
->(
-	options: IgniteToolsBind<
-		State,
-		Commands,
-		Events,
-		SchemaState,
-		States,
-		S,
-		Tools,
-		Response,
-		ResultBlock
-	> & {
-		dialect: ToolDialect<Tools, Response, ResultBlock>;
-	},
-): IgniteToolsWithDialect<
-	Awaited<ReturnType<Commands[keyof Commands]>>,
-	States,
-	Events,
-	Tools,
-	Response,
-	ResultBlock
->;
+	Dialect,
+> = Dialect extends ToolDialect<infer Tools, infer Response, infer ResultBlock>
+	? IgniteToolsWithDialect<
+			CommandResult,
+			States,
+			Events,
+			Tools,
+			Response,
+			ResultBlock
+		>
+	: IgniteToolsNeutral<CommandResult, States, Events>;
+
 /**
  * Bridge the agent-runtime contract to LLM tool-use. Bind with named options
  * only: `{ core, schema, canExecute?, dialect? }`. The pure core builds a
@@ -165,22 +130,17 @@ export function igniteTools<
 	SchemaState,
 	States extends Record<string, unknown>,
 	S extends ToolSchema,
-	Tools,
-	Response,
-	ResultBlock,
+	Dialect extends ToolDialect | undefined = undefined,
 >(
-	options: IgniteToolsBind<
-		State,
-		Commands,
-		Events,
-		SchemaState,
-		States,
-		S,
-		Tools,
-		Response,
-		ResultBlock
-	>,
-) {
+	options: IgniteToolsBind<State, Commands, Events, SchemaState, States, S> & {
+		dialect?: Dialect;
+	},
+): IgniteToolsResult<
+	Awaited<ReturnType<Commands[keyof Commands]>>,
+	States,
+	Events,
+	Dialect
+> {
 	if (!isNamedBind(options)) {
 		throw new Error(NAMED_BIND_ERROR);
 	}
@@ -325,19 +285,23 @@ export function igniteTools<
 	const neutral = { manifest, resolveCall: boundResolveCall, run, observe };
 
 	if (!dialect) {
-		return neutral;
+		return neutral as IgniteToolsResult<
+			Awaited<ReturnType<Commands[keyof Commands]>>,
+			States,
+			Events,
+			Dialect
+		>;
 	}
 
 	return {
 		...neutral,
 		tools: dialect.tools(manifest),
-		toolCalls: (response: Response) => dialect.toolCalls(response, manifest),
-		toolResult: (
-			result: NeutralToolResult<
-				Awaited<ReturnType<Commands[keyof Commands]>>,
-				States,
-				Events
-			>,
-		) => dialect.toolResult(result),
-	};
+		toolCalls: (response) => dialect.toolCalls(response, manifest),
+		toolResult: (result) => dialect.toolResult(result),
+	} as IgniteToolsResult<
+		Awaited<ReturnType<Commands[keyof Commands]>>,
+		States,
+		Events,
+		Dialect
+	>;
 }
