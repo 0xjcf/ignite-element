@@ -77,6 +77,7 @@ const requiredCurrentRoutes = [
 	"guides/accessibility-first",
 	"guides/tools",
 	"guides/agent-runtime-v3",
+	"explainers/v3",
 	"migration/v3",
 ];
 

@@ -69,6 +69,10 @@ function content(file) {
 			'<ReactCounterDemo kind="events" />',
 			`[Try the live custom-element events](${base}handbook/views/#react-to-an-emitted-event)`,
 		)
+		.replaceAll(
+			"<SmartHomeExplainerDemo />",
+			`[Try the live Smart Home explainer](${base}explainers/v3/)`,
+		)
 		.replaceAll("](/ignite-element/", `](${base}`);
 }
 const heading =

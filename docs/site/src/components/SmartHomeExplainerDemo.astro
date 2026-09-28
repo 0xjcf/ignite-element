@@ -1,0 +1,220 @@
+<div
+	class="smart-home-explainer not-content"
+	aria-label="Live Smart Home explainer"
+>
+	<div class="explainer-grid">
+		<ignite-v3-home></ignite-v3-home>
+		<section class="agent-turn" aria-labelledby="agent-turn-heading">
+			<p class="kicker">Scripted model · no network · no keys</p>
+			<h2 id="agent-turn-heading">Agent turn</h2>
+			<p class="lede">
+				The same core offers three tools. A fake model picks
+				<code>runScene("movie")</code>.
+			</p>
+			<ul class="offered" aria-label="Offered tools"></ul>
+			<ol class="beats" aria-live="polite"></ol>
+			<button type="button" class="run-agent">Run agent: movie night</button>
+			<p class="status" role="status"></p>
+		</section>
+	</div>
+	<noscript>Enable JavaScript to try the Smart Home.</noscript>
+</div>
+
+<script>
+	import {
+		offeredToolNames,
+		runMovieNight,
+	} from "../examples/smart-home-explainer/src/home-explainer";
+
+	const root = document.querySelector(".smart-home-explainer");
+	if (root) {
+		const offered = root.querySelector(".offered");
+		const beats = root.querySelector(".beats");
+		const button = root.querySelector(".run-agent");
+		const status = root.querySelector(".status");
+
+		if (offered) {
+			for (const name of offeredToolNames) {
+				const item = document.createElement("li");
+				item.textContent = name;
+				offered.append(item);
+			}
+		}
+
+		const phaseLabel: Record<string, string> = {
+			offered: "Tools offered",
+			model: "Model chose a tool",
+			run: "run() acknowledged",
+			until: "until() settled",
+			done: "Home updated",
+			error: "Turn failed",
+		};
+
+		function setBusy(busy: boolean) {
+			if (!(button instanceof HTMLButtonElement)) return;
+			button.disabled = busy;
+			button.setAttribute("aria-busy", String(busy));
+		}
+
+		function paint(phase: string, detail: string) {
+			if (!beats) return;
+			let item = beats.querySelector(`[data-phase="${phase}"]`);
+			if (!item) {
+				item = document.createElement("li");
+				item.setAttribute("data-phase", phase);
+				beats.append(item);
+			}
+			item.setAttribute("data-active", "true");
+			item.textContent = `${phaseLabel[phase] ?? phase}: ${detail}`;
+			for (const previous of beats.children) {
+				if (previous !== item) previous.removeAttribute("data-active");
+			}
+		}
+
+		button?.addEventListener("click", () => {
+			if (!(button instanceof HTMLButtonElement) || button.disabled) return;
+			beats?.replaceChildren();
+			if (status) status.textContent = "";
+			setBusy(true);
+			void runMovieNight((beat) => {
+				switch (beat.phase) {
+					case "offered":
+						paint("offered", beat.tools.join(", "));
+						break;
+					case "model":
+						paint(
+							"model",
+							`${beat.call.name}(${JSON.stringify(beat.call.input)})`,
+						);
+						break;
+					case "run":
+						paint("run", beat.detail);
+						break;
+					case "until":
+						paint(
+							"until",
+							`scene ${beat.scene ?? "manual"} · matched current states (seed-safe)`,
+						);
+						break;
+					case "done":
+						paint("done", beat.text);
+						if (status) status.textContent = beat.text;
+						break;
+					case "error":
+						paint("error", beat.message);
+						if (status) status.textContent = beat.message;
+						break;
+				}
+			}).finally(() => setBusy(false));
+		});
+	}
+</script>
+
+<style>
+	.smart-home-explainer {
+		margin-block: 1.25rem;
+		padding: clamp(0.85rem, 2vw, 1.25rem);
+		border: 1px solid var(--sl-color-hairline);
+		border-radius: 0.75rem;
+		background: var(--sl-color-bg);
+		color: var(--sl-color-text);
+	}
+
+	.explainer-grid {
+		display: grid;
+		gap: 1rem;
+	}
+
+	@media (min-width: 860px) {
+		.explainer-grid {
+			grid-template-columns: minmax(0, 1.25fr) minmax(16rem, 0.9fr);
+			align-items: start;
+		}
+	}
+
+	.agent-turn {
+		display: grid;
+		gap: 0.65rem;
+		padding: 0.85rem;
+		border: 1px solid var(--sl-color-hairline);
+		border-radius: 0.65rem;
+		background: var(--sl-color-bg-nav);
+	}
+
+	.agent-turn h2 {
+		margin: 0;
+		font-size: 1rem;
+	}
+
+	.kicker,
+	.lede,
+	.status {
+		margin: 0;
+		color: var(--sl-color-text-accent);
+		font-size: 0.85rem;
+	}
+
+	.lede,
+	.status {
+		color: var(--sl-color-text);
+	}
+
+	.offered,
+	.beats {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.35rem;
+	}
+
+	.offered li,
+	.beats li {
+		padding: 0.25rem 0.55rem;
+		border-radius: 999px;
+		border: 1px solid var(--sl-color-hairline);
+		font-size: 0.8rem;
+	}
+
+	.beats {
+		display: grid;
+		gap: 0.4rem;
+	}
+
+	.beats li {
+		border-radius: 0.45rem;
+		color: var(--sl-color-text);
+	}
+
+	.beats li[data-active="true"] {
+		border-color: var(--sl-color-accent);
+		background: var(--sl-color-accent-low);
+	}
+
+	.run-agent {
+		justify-self: start;
+		min-height: 2.5rem;
+		padding: 0.4rem 0.9rem;
+		border: 1px solid var(--sl-color-accent);
+		border-radius: 0.5rem;
+		background: var(--sl-color-bg);
+		color: var(--sl-color-text);
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.run-agent:hover {
+		background: var(--sl-color-accent-low);
+	}
+
+	.run-agent:focus-visible {
+		outline: 3px solid var(--sl-color-accent);
+		outline-offset: 3px;
+	}
+
+	.run-agent:disabled {
+		cursor: wait;
+		opacity: 0.7;
+	}
+</style>
