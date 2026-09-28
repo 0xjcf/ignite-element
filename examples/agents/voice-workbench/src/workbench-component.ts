@@ -1,3 +1,4 @@
+import { defineToolSchema, type ToolInputSchema } from "ignite-element/tools";
 import { igniteCore } from "ignite-element/xstate";
 import type {
 	AcknowledgeSpeechInput,
@@ -144,7 +145,7 @@ const responsePayloadInput = {
 		speech: { type: "string", ...{ minLength: 1 } },
 	},
 	...{ required: ["text"] },
-};
+} satisfies ToolInputSchema;
 const actionNodeInput = {
 	type: "object",
 	properties: {
@@ -156,7 +157,7 @@ const actionNodeInput = {
 		description: { type: "string", ...{ minLength: 1 } },
 	},
 	...{ required: ["kind", "id", "label", "commandName", "payload"] },
-};
+} satisfies ToolInputSchema;
 const semanticNodeInput = {
 	type: "object",
 	properties: {
@@ -300,7 +301,7 @@ const semanticNodeInput = {
 		},
 	},
 	...{ required: ["id", "kind"] },
-};
+} satisfies ToolInputSchema;
 export const voiceWorkbenchCommandDefinitions = {
 	acknowledgeSpeech: {
 		channel: "user-intent",
@@ -310,7 +311,7 @@ export const voiceWorkbenchCommandDefinitions = {
 			type: "object",
 			properties: { id: { type: "string", ...{ minLength: 1 } } },
 			...{ required: ["id"] },
-		},
+		} satisfies ToolInputSchema,
 	},
 	beginModelPreparation: { channel: "user-intent" },
 	cancelVoiceCapture: { channel: "user-intent", gated: true },
@@ -329,7 +330,7 @@ export const voiceWorkbenchCommandDefinitions = {
 				speech: { type: "string", ...{ minLength: 1 } },
 			},
 			...{ required: ["text"] },
-		},
+		} satisfies ToolInputSchema,
 	},
 	createArtifact: {
 		channel: "model-intent",
@@ -343,7 +344,7 @@ export const voiceWorkbenchCommandDefinitions = {
 				nodes: { type: "array", items: semanticNodeInput, ...{ minItems: 1 } },
 			},
 			...{ required: ["id", "nodes"] },
-		},
+		} satisfies ToolInputSchema,
 	},
 	playSpeech: { channel: "user-intent" },
 	replay: { channel: "user-intent" },
@@ -360,7 +361,7 @@ export const voiceWorkbenchCommandDefinitions = {
 				nodes: { type: "array", items: semanticNodeInput, ...{ minItems: 1 } },
 			},
 			...{ required: ["artifactId", "expectedRevision", "nodes"] },
-		},
+		} satisfies ToolInputSchema,
 	},
 	restoreArtifactRevision: {
 		channel: "user-intent",
@@ -375,7 +376,7 @@ export const voiceWorkbenchCommandDefinitions = {
 				revision: { type: "string", ...{ minLength: 1 } },
 			},
 			...{ required: ["artifactId", "expectedRevision", "revision"] },
-		},
+		} satisfies ToolInputSchema,
 	},
 	selectArtifact: {
 		channel: "user-intent",
@@ -385,7 +386,7 @@ export const voiceWorkbenchCommandDefinitions = {
 			type: "object",
 			properties: { artifactId: { type: "string", ...{ minLength: 1 } } },
 			...{ required: ["artifactId"] },
-		},
+		} satisfies ToolInputSchema,
 	},
 	setChecklistItem: {
 		channel: "model-intent",
@@ -410,7 +411,7 @@ export const voiceWorkbenchCommandDefinitions = {
 					"checked",
 				],
 			},
-		},
+		} satisfies ToolInputSchema,
 	},
 	submitPrompt: {
 		channel: "user-intent",
@@ -423,7 +424,7 @@ export const voiceWorkbenchCommandDefinitions = {
 				text: { type: "string", ...{ minLength: 1 } },
 			},
 			...{ required: ["modality", "text"] },
-		},
+		} satisfies ToolInputSchema,
 	},
 	startVoiceCapture: { channel: "user-intent", gated: true },
 	submitVoiceTranscript: { channel: "user-intent", gated: true },
@@ -431,9 +432,25 @@ export const voiceWorkbenchCommandDefinitions = {
 
 // The model receives only these already-defined application capabilities.
 // User-intent functions with unknown input schemas are not automatic tools.
-export const voiceWorkbenchModelSchema = {
-	createArtifact: voiceWorkbenchCommandDefinitions.createArtifact,
-	reviseArtifact: voiceWorkbenchCommandDefinitions.reviseArtifact,
-	setChecklistItem: voiceWorkbenchCommandDefinitions.setChecklistItem,
-	completeResponse: voiceWorkbenchCommandDefinitions.completeResponse,
-};
+export const voiceWorkbenchModelSchema = defineToolSchema({
+	createArtifact: {
+		description: voiceWorkbenchCommandDefinitions.createArtifact.description,
+		gated: true,
+		input: voiceWorkbenchCommandDefinitions.createArtifact.input,
+	},
+	reviseArtifact: {
+		description: voiceWorkbenchCommandDefinitions.reviseArtifact.description,
+		gated: true,
+		input: voiceWorkbenchCommandDefinitions.reviseArtifact.input,
+	},
+	setChecklistItem: {
+		description: voiceWorkbenchCommandDefinitions.setChecklistItem.description,
+		gated: true,
+		input: voiceWorkbenchCommandDefinitions.setChecklistItem.input,
+	},
+	completeResponse: {
+		description: voiceWorkbenchCommandDefinitions.completeResponse.description,
+		gated: true,
+		input: voiceWorkbenchCommandDefinitions.completeResponse.input,
+	},
+});
