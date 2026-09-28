@@ -541,3 +541,12 @@ Candidate and stop receipts should briefly report, when applicable:
 
 Workflow friction is advisory unless it exposes a correctness, architecture,
 public-contract, security, release, custody, or authorization failure.
+
+## Cursor Cloud specific instructions
+
+- Use Node.js 22 and pnpm `10.33.0` from the root `packageManager` field. Bootstrap with `pnpm install --frozen-lockfile`, then `pnpm --filter "./packages/*" run build`.
+- Published entrypoints resolve to `dist/`. Build the library packages before the handbook, packed-consumer checks, or any import of `ignite-element`.
+- Workspace members are `packages/*` and `docs/site`. Directories under `examples/` are self-contained and are not workspace members. `pnpm run examples:xstate`, `examples:redux`, and `examples:mobx` install that example separately. The XState Vite server listens on port 8080.
+- Handbook dev server: `pnpm docs:dev`. The site `base` is `/ignite-element`, so the local URL is `http://localhost:4321/ignite-element/` (Astro binds `::1` only, so `127.0.0.1` does not connect). To listen on all interfaces, run `pnpm --dir docs/site exec astro dev --host 0.0.0.0 --port 4321`. Passing `--host` through `pnpm docs:dev -- --host` inserts a literal `--` and Astro ignores the flag. The getting-started page renders a live `<ignite-light-switch>`; Flip toggles the label and increments the toggle count.
+- Package tests are `pnpm run test:packages`. `pnpm test` is the full lane (`test:packages`, `test:scripts`, and `test:examples`). Architecture, package typecheck, and lint are `pnpm run architecture:check`, `pnpm run typecheck:packages`, and `pnpm lint`.
+- pnpm 10 skips the `sharp` install script (`onlyBuiltDependencies` lists `esbuild` only). The docs site still loads sharp’s prebuilt binary. The `ignite-element` `prepare` script runs `husky` and may print `.git can't be found` during install; that message is non-fatal and the install still exits 0.
