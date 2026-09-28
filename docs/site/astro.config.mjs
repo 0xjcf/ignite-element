@@ -69,6 +69,7 @@ export default defineConfig({
 					items: [
 						{ label: "Ignite Element v3", slug: "explainers/v3" },
 						{ label: "Views & effects", slug: "explainers/views-effects" },
+						{ label: "Shared sources", slug: "explainers/shared-sources" },
 					],
 				},
 				{

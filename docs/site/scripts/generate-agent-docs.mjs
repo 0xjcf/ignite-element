@@ -77,6 +77,10 @@ function content(file) {
 			"<SmartHomeViewsDemo />",
 			`[Try the live Views & effects explainer](${base}explainers/views-effects/)`,
 		)
+		.replaceAll(
+			"<SmartHomeSharedDemo />",
+			`[Try the live Shared sources explainer](${base}explainers/shared-sources/)`,
+		)
 		.replaceAll("](/ignite-element/", `](${base}`);
 }
 const heading =

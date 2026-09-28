@@ -1,0 +1,235 @@
+<div
+	class="smart-home-shared not-content"
+	aria-label="Live Smart Home shared sources explainer"
+>
+	<div class="explainer-grid">
+		<ignite-shared-home></ignite-shared-home>
+		<section class="inspector" aria-labelledby="inspector-heading">
+			<p class="kicker">One started actor · two callers · no live model</p>
+			<h2 id="inspector-heading">Source snapshot</h2>
+			<p class="lede">
+				The panel and the scripted command both write this source. The
+				inspector reads it through the same core.
+			</p>
+			<dl class="snapshot" aria-label="Shared source snapshot"></dl>
+			<p class="caller" role="status" data-empty="true">Waiting for a write</p>
+			<ol class="log" aria-live="polite"></ol>
+			<button type="button" class="run-scripted">Run scripted: movie</button>
+		</section>
+	</div>
+	<noscript>Enable JavaScript to try the Smart Home.</noscript>
+</div>
+
+<script>
+	import {
+		runMovie,
+		watchSource,
+	} from "../examples/smart-home-explainer/src/shared-home";
+
+	const root = document.querySelector(".smart-home-shared");
+	if (root) {
+		const snapshot = root.querySelector(".snapshot");
+		const caller = root.querySelector(".caller");
+		const log = root.querySelector(".log");
+		const button = root.querySelector(".run-scripted");
+
+		function title(value: string): string {
+			return value.charAt(0).toUpperCase() + value.slice(1);
+		}
+
+		function setBusy(busy: boolean) {
+			if (!(button instanceof HTMLButtonElement)) return;
+			button.disabled = busy;
+			button.setAttribute("aria-busy", String(busy));
+		}
+
+		function paint(
+			slice: {
+				lights: Record<string, boolean>;
+				thermostat: Record<string, number>;
+				activeScene: string | null;
+			},
+			records: readonly { caller: string; summary: string }[],
+			nextCaller: string | null,
+		) {
+			if (snapshot instanceof HTMLElement) {
+				snapshot.replaceChildren();
+				snapshot.dataset.scene = slice.activeScene ?? "manual";
+				snapshot.dataset.living = slice.lights.living ? "on" : "off";
+				const rows: Array<[string, string]> = [
+					["Living", slice.lights.living ? "On" : "Off"],
+					["Bedroom", slice.lights.bedroom ? "On" : "Off"],
+					["Kitchen", slice.lights.kitchen ? "On" : "Off"],
+					["Scene", slice.activeScene ? title(slice.activeScene) : "Manual"],
+				];
+				for (const [label, value] of rows) {
+					const term = document.createElement("dt");
+					term.textContent = label;
+					const description = document.createElement("dd");
+					description.textContent = value;
+					snapshot.append(term, description);
+				}
+			}
+			if (caller instanceof HTMLElement) {
+				if (nextCaller) {
+					caller.dataset.empty = "false";
+					caller.dataset.caller = nextCaller;
+					caller.textContent =
+						nextCaller === "scripted"
+							? "Last write: scripted command"
+							: "Last write: panel";
+				} else {
+					caller.dataset.empty = "true";
+					delete caller.dataset.caller;
+					caller.textContent = "Waiting for a write";
+				}
+			}
+			if (!log) return;
+			log.replaceChildren();
+			for (const record of records) {
+				const item = document.createElement("li");
+				item.dataset.caller = record.caller;
+				item.textContent = `${record.caller} · ${record.summary}`;
+				log.append(item);
+			}
+		}
+
+		watchSource(paint);
+
+		button?.addEventListener("click", () => {
+			if (!(button instanceof HTMLButtonElement) || button.disabled) return;
+			setBusy(true);
+			void runMovie().finally(() => setBusy(false));
+		});
+	}
+</script>
+
+<style>
+	.smart-home-shared {
+		margin-block: 1.25rem;
+		padding: clamp(0.85rem, 2vw, 1.25rem);
+		border: 1px solid var(--sl-color-hairline);
+		border-radius: 0.75rem;
+		background: var(--sl-color-bg);
+		color: var(--sl-color-text);
+	}
+
+	.explainer-grid {
+		display: grid;
+		gap: 1rem;
+	}
+
+	@media (min-width: 860px) {
+		.explainer-grid {
+			grid-template-columns: minmax(0, 1.25fr) minmax(16rem, 0.9fr);
+			align-items: start;
+		}
+	}
+
+	.inspector {
+		display: grid;
+		gap: 0.65rem;
+		padding: 0.85rem;
+		border: 1px solid var(--sl-color-hairline);
+		border-radius: 0.65rem;
+		background: var(--sl-color-bg-nav);
+	}
+
+	.inspector h2 {
+		margin: 0;
+		font-size: 1rem;
+	}
+
+	.kicker,
+	.lede,
+	.caller {
+		margin: 0;
+		color: var(--sl-color-text-accent);
+		font-size: 0.85rem;
+	}
+
+	.lede {
+		color: var(--sl-color-text);
+	}
+
+	.snapshot,
+	.log {
+		margin: 0;
+		padding: 0;
+	}
+
+	.snapshot {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		gap: 0.25rem 0.85rem;
+		font-size: 0.85rem;
+		font-family: var(--sl-font-mono, ui-monospace, monospace);
+	}
+
+	.snapshot :global(dt) {
+		margin: 0;
+		color: color-mix(in srgb, var(--sl-color-text) 68%, transparent);
+	}
+
+	.snapshot :global(dd) {
+		margin: 0;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.log {
+		list-style: none;
+		display: grid;
+		gap: 0.4rem;
+	}
+
+	.log :global(li),
+	.caller {
+		padding: 0.25rem 0.55rem;
+		border-radius: 0.45rem;
+		border: 1px solid color-mix(in srgb, var(--sl-color-text) 35%, transparent);
+		background: var(--sl-color-bg);
+		font-size: 0.8rem;
+		font-family: var(--sl-font-mono, ui-monospace, monospace);
+	}
+
+	.log :global(li[data-caller="scripted"]) {
+		border-color: var(--sl-color-accent);
+	}
+
+	.caller {
+		justify-self: start;
+		border-radius: 999px;
+		color: var(--sl-color-text);
+	}
+
+	.caller[data-empty="false"] {
+		border-color: var(--sl-color-accent);
+		background: var(--sl-color-accent-low);
+	}
+
+	.run-scripted {
+		justify-self: start;
+		min-height: 2.5rem;
+		padding: 0.4rem 0.9rem;
+		border: 1px solid var(--sl-color-accent);
+		border-radius: 0.5rem;
+		background: var(--sl-color-bg);
+		color: var(--sl-color-text);
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.run-scripted:hover {
+		background: var(--sl-color-accent-low);
+	}
+
+	.run-scripted:focus-visible {
+		outline: 3px solid var(--sl-color-accent);
+		outline-offset: 3px;
+	}
+
+	.run-scripted:disabled {
+		cursor: wait;
+		opacity: 0.7;
+	}
+</style>
