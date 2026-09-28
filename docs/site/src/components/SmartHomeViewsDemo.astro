@@ -1,0 +1,173 @@
+<div
+	class="smart-home-views not-content"
+	aria-label="Live Smart Home views and effects explainer"
+>
+	<div class="explainer-grid">
+		<ignite-views-home></ignite-views-home>
+		<section class="observer" aria-labelledby="observer-heading">
+			<p class="kicker">Effects notify · events declare · no live model</p>
+			<h2 id="observer-heading">Observer</h2>
+			<p class="lede">
+				The panel is a view of <code>ctx</code>. Notices arrive from
+				<code>core.on</code> and DOM <code>detail</code> after effects emit.
+			</p>
+			<ul class="declared" aria-label="Declared events"></ul>
+			<p class="toast" role="status" data-empty="true">Waiting for an occurrence</p>
+			<ol class="log" aria-live="polite"></ol>
+		</section>
+	</div>
+	<noscript>Enable JavaScript to try the Smart Home.</noscript>
+</div>
+
+<script>
+	import {
+		connectHomeObserver,
+		declaredEventNames,
+		watchNotices,
+	} from "../examples/smart-home-explainer/src/views-home";
+
+	const root = document.querySelector(".smart-home-views");
+	if (root) {
+		const declared = root.querySelector(".declared");
+		const toast = root.querySelector(".toast");
+		const log = root.querySelector(".log");
+		const host = root.querySelector("ignite-views-home");
+
+		if (declared) {
+			for (const name of declaredEventNames) {
+				const item = document.createElement("li");
+				item.textContent = name;
+				declared.append(item);
+			}
+		}
+
+		function paint(
+			notices: readonly {
+				origin: string;
+				name: string;
+				summary: string;
+			}[],
+			nextToast: { origin: string; name: string; summary: string } | null,
+		) {
+			if (toast instanceof HTMLElement) {
+				if (nextToast) {
+					toast.dataset.empty = "false";
+					toast.dataset.name = nextToast.name;
+					toast.textContent = nextToast.summary;
+				} else {
+					toast.dataset.empty = "true";
+					delete toast.dataset.name;
+					toast.textContent = "Waiting for an occurrence";
+				}
+			}
+			if (!log) return;
+			log.replaceChildren();
+			for (const notice of notices) {
+				const item = document.createElement("li");
+				item.dataset.origin = notice.origin;
+				item.dataset.name = notice.name;
+				item.textContent = `${notice.origin} · ${notice.name}: ${notice.summary}`;
+				log.append(item);
+			}
+		}
+
+		watchNotices(paint);
+		if (host) {
+			connectHomeObserver(host);
+		}
+	}
+</script>
+
+<style>
+	.smart-home-views {
+		margin-block: 1.25rem;
+		padding: clamp(0.85rem, 2vw, 1.25rem);
+		border: 1px solid var(--sl-color-hairline);
+		border-radius: 0.75rem;
+		background: var(--sl-color-bg);
+		color: var(--sl-color-text);
+	}
+
+	.explainer-grid {
+		display: grid;
+		gap: 1rem;
+	}
+
+	@media (min-width: 860px) {
+		.explainer-grid {
+			grid-template-columns: minmax(0, 1.25fr) minmax(16rem, 0.9fr);
+			align-items: start;
+		}
+	}
+
+	.observer {
+		display: grid;
+		gap: 0.65rem;
+		padding: 0.85rem;
+		border: 1px solid var(--sl-color-hairline);
+		border-radius: 0.65rem;
+		background: var(--sl-color-bg-nav);
+	}
+
+	.observer h2 {
+		margin: 0;
+		font-size: 1rem;
+	}
+
+	.kicker,
+	.lede,
+	.toast {
+		margin: 0;
+		color: var(--sl-color-text-accent);
+		font-size: 0.85rem;
+	}
+
+	.lede {
+		color: var(--sl-color-text);
+	}
+
+	.declared,
+	.log {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.35rem;
+	}
+
+	.declared :global(li),
+	.log :global(li),
+	.toast {
+		padding: 0.25rem 0.55rem;
+		border-radius: 999px;
+		border: 1px solid color-mix(in srgb, var(--sl-color-text) 35%, transparent);
+		background: var(--sl-color-bg);
+		font-size: 0.8rem;
+		font-family: var(--sl-font-mono, ui-monospace, monospace);
+	}
+
+	.log {
+		display: grid;
+		gap: 0.4rem;
+	}
+
+	.log :global(li) {
+		border-radius: 0.45rem;
+		color: var(--sl-color-text);
+	}
+
+	.log :global(li[data-origin="headless"]) {
+		border-color: var(--sl-color-accent);
+	}
+
+	.toast {
+		justify-self: start;
+		color: var(--sl-color-text);
+	}
+
+	.toast[data-empty="false"] {
+		border-color: var(--sl-color-accent);
+		background: var(--sl-color-accent-low);
+	}
+</style>
