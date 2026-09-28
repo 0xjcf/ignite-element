@@ -141,7 +141,9 @@ Create the source, or borrow a shared started actor.
 
 Pass that source into `igniteCore` with `states`, `commands`, `events`, and `effects`.
 
-Register views with `home(tag, renderer)`. There is no `view:` on the core.
+The factory returns `{ core, source, dispose }`. It does not register a view.
+
+Register views separately with `core(tag, renderer)`. There is no `view:` on the core.
 
 When the feature unmounts, the session ends, or a test tears down, dispose the core.
 
@@ -153,7 +155,7 @@ The [ownership table](#own-the-source-lifetime) is that same rule: a started act
 
 This factory is the owned pair. Hand-written dispose is the teardown:
 
-```tsx title="lights-feature.tsx"
+```ts title="lights-feature.ts"
 import { assign, createActor, setup } from 'xstate';
 import { igniteCore } from 'ignite-element/xstate';
 
@@ -173,23 +175,19 @@ const lightsMachine = setup({
 
 function createLightsFeature() {
   const actor = createActor(lightsMachine).start();
-  const home = igniteCore({
+  const core = igniteCore({
     source: actor,
     states: (snapshot) => ({ living: snapshot.context.living }),
     commands: ({ source: actor }) => ({
       toggle: (on: boolean) => actor.send({ type: 'TOGGLE', on }),
     }),
   });
-  home('ignite-lights', (ctx) => (
-    <button onClick={() => ctx.toggle(!ctx.living)}>
-      Living: {ctx.living ? 'On' : 'Off'}
-    </button>
-  ));
   return {
-    core: home,
+    core,
+    source: actor,
     dispose() {
       try {
-        home.dispose();
+        core.dispose();
       } finally {
         actor.stop();
       }
@@ -197,29 +195,59 @@ function createLightsFeature() {
   };
 }
 
-function createPanelFeature(
-  sharedActor: ReturnType<typeof createActor<typeof lightsMachine>>,
-) {
-  const home = igniteCore({
-    source: sharedActor,
+function createScenesFeature({
+  source,
+}: {
+  source: ReturnType<typeof createActor<typeof lightsMachine>>;
+}) {
+  const core = igniteCore({
+    source,
     states: (snapshot) => ({ living: snapshot.context.living }),
     commands: ({ source: actor }) => ({
       toggle: (on: boolean) => actor.send({ type: 'TOGGLE', on }),
     }),
   });
   return {
-    core: home,
+    core,
     dispose() {
-      home.dispose();
-      // do not stop sharedActor
+      core.dispose();
+      // do not stop source
     },
   };
 }
 ```
 
-A panel that borrows the house uses `createPanelFeature`. Dispose releases observation only. Do not stop the shared actor.
+A scene feature that borrows `lights.source` disposes observation only. Do not stop the shared actor.
 
-Call `dispose()` from the feature's existing unmount, session-end, or test teardown.
+Register the panel on the core. `<ignite-lights>` is already in the page.
+
+```tsx title="lights-panel.tsx"
+function registerLightsPanel(core: ReturnType<typeof createLightsFeature>['core']) {
+  core('ignite-lights', (ctx) => (
+    <button onClick={() => ctx.toggle(!ctx.living)}>
+      Living: {ctx.living ? 'On' : 'Off'}
+    </button>
+  ));
+}
+```
+
+`createApp` creates the pair, registers the panel, and returns unmount:
+
+```ts title="app.ts"
+export function createApp() {
+  const lights = createLightsFeature();
+  const scenes = createScenesFeature({ source: lights.source });
+  registerLightsPanel(lights.core);
+  return {
+    unmount() {
+      scenes.dispose();
+      lights.dispose();
+    },
+  };
+}
+```
+
+Call `unmount()` from the application's existing teardown.
 
 The [Smart Home example](https://github.com/0xjcf/ignite-element/tree/beta/examples/agents/smart-home) `createLocalHomeSession` is this pair on the full house.
 

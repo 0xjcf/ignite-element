@@ -132,9 +132,11 @@ If another feature still needs the actor, dispose only this core and leave actor
 
 A feature module owns that pair.
 
-Create or borrow the source, pass it to `igniteCore`, and register views with `home(tag, renderer)`.
+Create or borrow the source and pass it to `igniteCore`. The factory returns `{ core, source, dispose }`.
 
-Dispose the core when that lifetime ends. Stop an actor only if this owner created it and nothing else needs it.
+Register views separately with `core(tag, renderer)`.
+
+`createApp` wires the pair and unmounts through `dispose()`.
 
 A shared started actor stays running; dispose releases observation only.
 
