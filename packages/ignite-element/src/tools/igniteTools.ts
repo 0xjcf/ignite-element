@@ -313,9 +313,7 @@ export function igniteTools<
 							return;
 						}
 						finish(() => {
-							resolve(
-								matched as Exclude<Matched, undefined | null | false>,
-							);
+							resolve(matched as Exclude<Matched, undefined | null | false>);
 						});
 					} catch (error) {
 						finish(() => {
