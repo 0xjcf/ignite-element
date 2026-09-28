@@ -28,12 +28,11 @@ const { tools: defs, toolCalls, run, toolResult, observe } = tools;
 ```
 
 `schema` may also be authored with `satisfies ToolSchema`. `ToolSchema` is a
-bare command map — `{ setLimit: { input, description?, gated? } }` — not
-`{ commands: { setLimit: … } }`. Retain JSON-Schema-shaped
-number/string/boolean/enum/object/array constraints. This is the built-in
-structural validator, not Zod and not full JSON Schema. Unknown `type` strings
-such as `"nubmer"` are rejected at `defineToolSchema` / construction. There is no
-Zod peer and no core Zod adapter.
+bare command map: `{ setLimit: { input, description?, gated? } }`. Retain
+JSON-Schema-shaped number/string/boolean/enum/object/array constraints. This is
+the built-in structural validator, not Zod and not full JSON Schema. Unknown
+`type` strings are rejected at `defineToolSchema`. There is no Zod peer and no
+core Zod adapter.
 
 `canExecute?: (name: string) => boolean` is one predicate for every
 `gated: true` command. Omit it and gated tools stay available (`() => true`).
@@ -72,8 +71,7 @@ tagged ToolError. A returned promise gates command acknowledgement, not
 business-done. Detached work and remote snapshot delivery may still be pending.
 
 `observe(handler)` is the tools fan-in of `on` + `watch` for long/async settle.
-Release its handle. Do not invent `waitFor`, `gateFromStates`, or shared/isolated
-core factories for tools.
+Release its handle.
 
 ```ts
 import { igniteTools } from 'ignite-element/tools';
@@ -106,7 +104,7 @@ try {
 
 Without a dialect, `igniteTools({ core, schema })` still exposes `run` and
 `observe` for headless proof. UI registration uses the callable core:
-`home('smart-home', renderer)`. There is no `view:` callback on `igniteCore`.
+`home('smart-home', renderer)`.
 
 ## OpenAI-compatible and local-model loops
 

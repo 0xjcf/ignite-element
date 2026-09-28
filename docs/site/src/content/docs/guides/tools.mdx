@@ -129,40 +129,20 @@ The application owns the client, credentials, and requests.
 
 ```ts title="openai-tool-loop.ts"
 import { igniteTools } from 'ignite-element/tools';
-import {
-  openai,
-  textOf,
-  type OpenAIChatCompletionResponse,
-} from 'ignite-element/tools/openai';
-import { toolSchema } from './counter-tool-schema';
+import { openai, textOf } from 'ignite-element/tools/openai';
 
-const client: {
-  chat: {
-    completions: {
-      create: (request: unknown) => Promise<OpenAIChatCompletionResponse>;
-    };
-  };
-} = globalThis as never;
-const model = 'local-model';
-const messages: {
-  role: string;
-  content: unknown;
-  tool_calls?: unknown;
-}[] = [];
-
-const { tools: defs, toolCalls, run, toolResult } = igniteTools({
+const { tools, toolCalls, run, toolResult } = igniteTools({
   core: component,
   schema: toolSchema,
   dialect: openai,
   canExecute: (name) =>
     name !== 'increment' || !component.get('states').isLimited,
 });
-
 for (let turn = 0; turn < 8; turn += 1) {
   const response = await client.chat.completions.create({
     model,
     messages,
-    tools: defs,
+    tools,
   });
   const assistant = response.choices[0]?.message ?? {};
   messages.push({

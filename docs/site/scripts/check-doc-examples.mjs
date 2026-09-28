@@ -76,6 +76,9 @@ const AMBIENT_GLOBALS = [
 	"handleToggle",
 	"handleIncrement",
 	"checkoutRuntime",
+	"client",
+	"model",
+	"messages",
 	// library / adapter names that some illustrative fragments use without an
 	// import. Blocks that DO import these shadow the ambient (so igniteCore /
 	// component calls in import-bearing blocks are still type-checked for real).

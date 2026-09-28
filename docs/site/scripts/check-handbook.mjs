@@ -99,6 +99,23 @@ assert.match(
 	/guides\/agent-runtime-v3/,
 	"sitemap must list Build for agents",
 );
+const docsRoot = path.join(site, "src/content/docs");
+function walkDocs(dir) {
+	return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+		const next = path.join(dir, entry.name);
+		if (entry.isDirectory()) return walkDocs(next);
+		return /\.mdx?$/.test(entry.name) ? [next] : [];
+	});
+}
+for (const file of walkDocs(docsRoot)) {
+	if (file.includes(`${path.sep}2.x${path.sep}`)) continue;
+	const relative = path.relative(docsRoot, file).split(path.sep).join("/");
+	assert.doesNotMatch(
+		fs.readFileSync(file, "utf8"),
+		/\bas never\b|globalThis\s+as/,
+		`${relative}: guides must not teach typecheck stubs or fake globals`,
+	);
+}
 const full = fs.readFileSync(path.join(dist, "llms-full.txt"), "utf8");
 assert.ok(
 	full.includes('import { igniteCore } from "ignite-element/xstate";'),
@@ -116,6 +133,7 @@ assert.doesNotMatch(
 	"deferred integrations must not be promoted in navigation",
 );
 assert.match(full, /Version: v3 \(beta\)/);
+assert.doesNotMatch(full, /\bas never\b|globalThis\s+as/);
 assert.doesNotMatch(
 	full,
 	/You are reading the Ignite Element v2 docs|LegacyRoute|<ReactCounterDemo|<Code code=/,
