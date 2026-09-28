@@ -169,8 +169,8 @@
 		gap: 0.35rem;
 	}
 
-	.offered li,
-	.beats li {
+	.offered :global(li),
+	.beats :global(li) {
 		padding: 0.25rem 0.55rem;
 		border-radius: 999px;
 		border: 1px solid color-mix(in srgb, var(--sl-color-text) 35%, transparent);
@@ -184,12 +184,12 @@
 		gap: 0.4rem;
 	}
 
-	.beats li {
+	.beats :global(li) {
 		border-radius: 0.45rem;
 		color: var(--sl-color-text);
 	}
 
-	.beats li[data-active="true"] {
+	.beats :global(li[data-active="true"]) {
 		border-color: var(--sl-color-accent);
 		background: var(--sl-color-accent-low);
 	}
