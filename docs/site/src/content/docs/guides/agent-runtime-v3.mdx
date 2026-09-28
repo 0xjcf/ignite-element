@@ -126,25 +126,24 @@ export const counterTools = igniteTools({
 
 `run` acknowledges the command.
 
-`observe` stays attached while later source work settles.
+`until` waits on the same stream as `observe` for later source work to settle.
 
-```ts title="agent-counter-observe.ts"
+`observe` remains for ongoing fan-in.
+
+```ts title="agent-counter-until.ts"
 import { counterTools } from './agent-counter-tools';
 
-const { run, observe } = counterTools;
-const settled = new Promise((resolve) => {
-  const subscription = observe((observation) => {
-    if (observation.type === 'states' && observation.states.limit === 6) {
-      subscription.unsubscribe();
-      resolve(observation.states);
-    }
-  });
-});
+const { run, until, observe } = counterTools;
 const result = await run({ name: 'setLimit', input: 6 });
 if (result.ok) {
   console.log(result.value);
 }
-await settled;
+const states = await until(
+  (observation) =>
+    observation.type === 'states' && observation.states.limit === 6
+      ? observation.states
+      : undefined,
+);
 ```
 
 Only offer definitions for commands the core actually exposes.
@@ -214,7 +213,9 @@ To assert rendered controls by role and accessible name, mount the registered co
 
 Assert the direct runtime results shown above.
 
-After a command starts asynchronous source work, stay subscribed with `observe` rather than treating `run` as business-done.
+After a command starts asynchronous source work, wait with `until` rather than treating `run` as business-done.
+
+`observe` remains when you need ongoing fan-in.
 
 Release observers and let the source owner stop native resources.
 

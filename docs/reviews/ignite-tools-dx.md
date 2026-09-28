@@ -11,10 +11,11 @@ Status: **locked product cut, beta break OK**.
   | `array`); unknown type strings are rejected at construction.
 - `canExecute?: (name: string) => boolean` for all `gated: true` tools. Default
   when omitted is always available. Not authentication.
-- Consumer path: `tools` / `toolCalls` / `run` / `toolResult` / `observe`.
+- Consumer path: `tools` / `toolCalls` / `run` / `until` / `toolResult` / `observe`.
   Dialect modules export `textOf`. Apps do not import `buildManifest` /
   `resolveCall`.
-- `run` = act + ack. Long/async settle uses `observe` (fan-in of `on` + `watch`).
+- `run` = act + ack. Everyday settle uses `until` (same stream as `observe`).
+  `observe` remains for ongoing fan-in.
 - Headless proof: Smart Home example and its tests in the Vitest `node`
   environment.
 - UI registration uses the callable core: `home('tag', renderer)`. There is no

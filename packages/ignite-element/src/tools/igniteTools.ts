@@ -15,6 +15,7 @@ import type {
 	ToolObservation,
 	ToolSchema,
 	ToolStreamHandler,
+	ToolStreamObservation,
 	ToolStreamSubscription,
 } from "./types";
 
@@ -30,6 +31,9 @@ export type IgniteToolsNeutral<
 		call: NeutralToolCall,
 	): Promise<Result<ToolObservation<CommandResult, States, Events>, ToolError>>;
 	observe(handler: ToolStreamHandler<States, Events>): ToolStreamSubscription;
+	until<Matched>(
+		match: (observation: ToolStreamObservation<States, Events>) => Matched,
+	): Promise<Exclude<Matched, undefined | null | false>>;
 };
 
 /** The neutral core plus a dialect's provider-shaped tools + translators. */
@@ -118,10 +122,10 @@ type IgniteToolsResult<
  * only: `{ core, schema, canExecute?, dialect? }`. The pure core builds a
  * neutral manifest from explicit tool definitions and routes validated calls;
  * the shell (`run`) performs the single `execute` side effect. `run` is
- * act-plus-acknowledgement; long/async settle uses `observe`. With a
- * `ToolDialect`, the result also carries provider-shaped `tools` and the
- * parse/result translators — the consumer brings the SDK and runs the model
- * loop.
+ * act-plus-acknowledgement; everyday settle uses `until`, and `observe`
+ * remains for ongoing fan-in. With a `ToolDialect`, the result also carries
+ * provider-shaped `tools` and the parse/result translators — the consumer
+ * brings the SDK and runs the model loop.
  */
 export function igniteTools<
 	State,
@@ -282,7 +286,60 @@ export function igniteTools<
 		};
 	};
 
-	const neutral = { manifest, resolveCall: boundResolveCall, run, observe };
+	const until = <Matched>(
+		match: (observation: ToolStreamObservation<States, Events>) => Matched,
+	): Promise<Exclude<Matched, undefined | null | false>> =>
+		new Promise((resolve, reject) => {
+			let settled = false;
+			let subscription: ToolStreamSubscription | undefined;
+
+			const finish = (complete: () => void) => {
+				if (settled) {
+					return;
+				}
+				settled = true;
+				subscription?.unsubscribe();
+				complete();
+			};
+
+			try {
+				subscription = observe((observation) => {
+					if (settled) {
+						return;
+					}
+					try {
+						const matched = match(observation);
+						if (matched == null || matched === false) {
+							return;
+						}
+						finish(() => {
+							resolve(
+								matched as Exclude<Matched, undefined | null | false>,
+							);
+						});
+					} catch (error) {
+						finish(() => {
+							reject(error);
+						});
+					}
+				});
+			} catch (error) {
+				reject(error);
+				return;
+			}
+
+			if (settled) {
+				subscription?.unsubscribe();
+			}
+		});
+
+	const neutral = {
+		manifest,
+		resolveCall: boundResolveCall,
+		run,
+		observe,
+		until,
+	};
 
 	if (!dialect) {
 		return neutral as IgniteToolsResult<

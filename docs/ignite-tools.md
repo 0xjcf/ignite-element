@@ -24,7 +24,7 @@ const tools = igniteTools({
   dialect: openai,
   canExecute: name => name === 'setLimit' && core.get('states').canSetLimit,
 });
-const { tools: defs, toolCalls, run, toolResult, observe } = tools;
+const { tools: defs, toolCalls, run, toolResult, until, observe } = tools;
 ```
 
 `schema` may also be authored with `satisfies ToolSchema`. `ToolSchema` is a
@@ -70,29 +70,29 @@ the provider boundary.
 tagged ToolError. A returned promise gates command acknowledgement, not
 business-done. Detached work and remote snapshot delivery may still be pending.
 
-`observe(handler)` is the tools fan-in of `on` + `watch` for long/async settle.
-Stay subscribed until the application-correlated settle you care about, then
-release the handle.
+`until(match)` waits on the same observation stream as `observe` and resolves
+with the first defined match. Match returning `undefined`, `false`, or nullish
+means keep waiting. It unsubscribes when it resolves.
+
+`observe(handler)` remains for ongoing fan-in — logging, multiple listeners, or
+long-lived loops.
 
 ```ts
-const { run, observe } = tools;
-const settled = new Promise((resolve) => {
-  const subscription = observe((observation) => {
-    if (observation.type === 'states' && observation.states.limit === 6) {
-      subscription.unsubscribe();
-      resolve(observation.states);
-    }
-  });
-});
+const { run, until, observe } = tools;
 const result = await run({ name: 'setLimit', input: 6 });
 if (result.ok) {
   console.log(result.value);
 }
-await settled;
+const states = await until(
+  (observation) =>
+    observation.type === 'states' && observation.states.limit === 6
+      ? observation.states
+      : undefined,
+);
 ```
 
-Without a dialect, `igniteTools({ core, schema })` still exposes `run` and
-`observe` for headless proof. UI registration uses the callable core:
+Without a dialect, `igniteTools({ core, schema })` still exposes `run`, `until`,
+and `observe` for headless proof. UI registration uses the callable core:
 `home('smart-home', renderer)`.
 
 ## OpenAI-compatible and local-model loops
@@ -155,7 +155,7 @@ VITE_MLX_BASE_URL=http://127.0.0.1:8080/v1 VITE_MLX_MODEL=<model> pnpm --dir exa
 Smart Home uses XState with Anthropic and OpenAI-compatible model loops, and a
 terminal/browser bridge sharing a headless runtime. Its explicit
 `homeToolSchema` is the consumer path: named `igniteTools` plus `tools` /
-`toolCalls` / `run` / `toolResult` / `observe`.
+`toolCalls` / `run` / `until` / `toolResult` / `observe`.
 
 Voice Workbench retains its source-owned artifact and stale-result policies.
 CI uses scripted model responses and fake fetch, not a live model provider.

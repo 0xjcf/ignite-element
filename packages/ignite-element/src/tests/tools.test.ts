@@ -832,6 +832,92 @@ describe("igniteTools (neutral, no dialect)", () => {
 		expect(watchStates).toHaveBeenCalledTimes(1);
 		expect(unsubscribeEvent).toHaveBeenCalledTimes(1);
 	});
+
+	it("until resolves with the first defined match", async () => {
+		const component = createFakeComponent();
+		const { until } = igniteTools({
+			core: component,
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
+
+		const pending = until(
+			(observation: ToolStreamObservation<FakeStates, FakeEvents>) =>
+				observation.type === "states" && observation.states.count === 2
+					? observation.states
+					: undefined,
+		);
+
+		component.emitEvent({ type: "item-added", id: 2 });
+		component.emitStates({ count: 2, label: "ready" });
+		await expect(pending).resolves.toEqual({ count: 2, label: "ready" });
+	});
+
+	it("until unsubscribes after it resolves", async () => {
+		const component = createFakeComponent();
+		const { until } = igniteTools({
+			core: component,
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
+		const match = vi.fn(
+			(observation: ToolStreamObservation<FakeStates, FakeEvents>) =>
+				observation.type === "states" && observation.states.count === 2
+					? observation.states
+					: undefined,
+		);
+
+		const pending = until(match);
+		component.emitStates({ count: 2, label: "ready" });
+		await pending;
+
+		const calls = match.mock.calls.length;
+		component.emitEvent({ type: "item-added", id: 9 });
+		component.emitStates({ count: 2, label: "again" });
+		await Promise.resolve();
+		expect(match).toHaveBeenCalledTimes(calls);
+	});
+
+	it("until keeps waiting when the match is undefined, false, or null", async () => {
+		const component = createFakeComponent();
+		const { until } = igniteTools({
+			core: component,
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
+
+		const pending = until(
+			(observation: ToolStreamObservation<FakeStates, FakeEvents>) => {
+				if (observation.type !== "states") {
+					return undefined;
+				}
+				if (observation.states.label === "skip-false") {
+					return false;
+				}
+				if (observation.states.label === "skip-null") {
+					return null;
+				}
+				if (observation.states.count === 4) {
+					return observation.states;
+				}
+				return undefined;
+			},
+		);
+
+		let resolved = false;
+		void pending.then(() => {
+			resolved = true;
+		});
+		component.emitEvent({ type: "item-added", id: 1 });
+		component.emitStates({ count: 1, label: "skip-false" });
+		component.emitStates({ count: 2, label: "skip-null" });
+		component.emitStates({ count: 3, label: "waiting" });
+		await Promise.resolve();
+		expect(resolved).toBe(false);
+
+		component.emitStates({ count: 4, label: "ready" });
+		await expect(pending).resolves.toEqual({ count: 4, label: "ready" });
+	});
 });
 
 describe("igniteTools (with a ToolDialect)", () => {
@@ -847,6 +933,7 @@ describe("igniteTools (with a ToolDialect)", () => {
 			tools.manifest.map((t) => ({ tool: t.name, schema: t.inputSchema })),
 		);
 		expect(typeof tools.observe).toBe("function");
+		expect(typeof tools.until).toBe("function");
 		expect(typeof tools.toolCalls).toBe("function");
 		expect(typeof tools.toolResult).toBe("function");
 	});
