@@ -20,6 +20,7 @@ export type {
 	ToolDialect,
 	ToolError,
 	ToolInputSchema,
+	ToolInputType,
 	ToolObservation,
 	ToolSchema,
 	ToolStreamHandler,

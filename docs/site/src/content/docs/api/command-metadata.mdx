@@ -50,9 +50,10 @@ Define these schemas when exposing commands as tools.
 These examples validate numbers, strings, enumerations, and nested objects and arrays:
 
 ```ts
-import { buildManifest, resolveCall } from 'ignite-element/tools';
+import { defineToolSchema, igniteTools } from 'ignite-element/tools';
+import { openai } from 'ignite-element/tools/openai';
 
-const toolSchema = {
+const toolSchema = defineToolSchema({
   setLimit: {
     description: 'Set maximum count.',
     input: { type: 'number', minimum: 3, maximum: 12 },
@@ -74,10 +75,12 @@ const toolSchema = {
       additionalProperties: false,
     },
   },
-};
-const manifest = buildManifest(toolSchema);
-const valid = resolveCall(manifest, 'setLimit', 6);
-const invalid = resolveCall(manifest, 'setLimit', 99);
+});
+const { run } = igniteTools({
+  core: component,
+  schema: toolSchema,
+  dialect: openai,
+});
 ```
 
 These definitions belong to the application; they are not automatically derived or attached to the core catalogue.

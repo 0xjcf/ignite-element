@@ -14,6 +14,63 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+const TOOL_INPUT_TYPES = new Set([
+	"number",
+	"string",
+	"boolean",
+	"object",
+	"array",
+]);
+
+function unsupportedInputTypeError(type: unknown, path: string): Error {
+	return new Error(
+		`[igniteTools] Unsupported input schema type ${JSON.stringify(type)} at ${path}. Supported types: number, string, boolean, object, array.`,
+	);
+}
+
+function assertSupportedInputSchema(
+	schema: ToolInputSchema,
+	path: string,
+): void {
+	if (!isPlainObject(schema)) {
+		throw new Error(
+			`[igniteTools] Missing explicit command input schema at ${path}. Supply tool/application definitions; discovery does not infer schemas.`,
+		);
+	}
+	if ("type" in schema && schema.type !== undefined) {
+		if (!TOOL_INPUT_TYPES.has(schema.type)) {
+			throw unsupportedInputTypeError(schema.type, path);
+		}
+	}
+	const properties = isPlainObject(schema.properties) ? schema.properties : {};
+	for (const [key, property] of Object.entries(properties)) {
+		if (isPlainObject(property)) {
+			assertSupportedInputSchema(property, `${path}.properties.${key}`);
+		}
+	}
+	if (isPlainObject(schema.items)) {
+		assertSupportedInputSchema(schema.items, `${path}.items`);
+	}
+}
+
+/** Reject unknown `type` strings before a schema is offered as tools. */
+export function assertSupportedToolSchema(schema: ToolSchema): void {
+	if (!isPlainObject(schema)) {
+		throw new Error(
+			"[igniteTools] Unknown command catalogue. Supply explicit tool definitions.",
+		);
+	}
+	for (const name of Object.keys(schema)) {
+		const metadata = schema[name];
+		if (!isPlainObject(metadata)) {
+			throw new Error(
+				`[igniteTools] Missing explicit command input schema at ${name}. Supply tool/application definitions; discovery does not infer schemas.`,
+			);
+		}
+		assertSupportedInputSchema(metadata.input, `${name}.input`);
+	}
+}
+
 function isNoArgSchema(schema: ToolInputSchema): boolean {
 	if (schema.type !== "object") {
 		return false;
@@ -55,6 +112,7 @@ function toInputSchema(metadata: ToolCommandSchema): ToolInputSchema {
 			"[igniteTools] Missing explicit command input schema. Supply tool/application definitions; discovery does not infer schemas.",
 		);
 	}
+	assertSupportedInputSchema(input, "input");
 	return input;
 }
 
@@ -80,6 +138,7 @@ export function buildManifest(
 			"[igniteTools] Unknown command catalogue. Supply explicit tool definitions.",
 		);
 	}
+	assertSupportedToolSchema(schema);
 	const isAvailable = canExecute ?? (() => true);
 	const manifest: NeutralManifest = [];
 
@@ -273,7 +332,9 @@ export function validateToolInputValue(
 			return issues;
 		}
 		default:
-			// Unknown/unconstrained schema — do not block.
+			if (type !== undefined) {
+				return [`${path}: unsupported type ${String(type)}`];
+			}
 			return [];
 	}
 }

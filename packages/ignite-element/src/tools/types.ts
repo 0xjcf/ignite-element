@@ -16,8 +16,15 @@ import type { Result } from "./result";
  * validator (number/string/boolean/object/array plus declared constraints).
  * Not a claim of full JSON Schema compliance, and not a Zod schema.
  */
+export type ToolInputType =
+	| "number"
+	| "string"
+	| "boolean"
+	| "object"
+	| "array";
+
 export type ToolInputSchema = {
-	type?: string;
+	type?: ToolInputType;
 	description?: string;
 	default?: unknown;
 	minimum?: number;

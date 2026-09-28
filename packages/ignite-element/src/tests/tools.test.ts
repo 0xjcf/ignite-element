@@ -10,7 +10,14 @@ import type {
 	ToolSchema,
 	ToolStreamObservation,
 } from "../tools";
-import { buildManifest, igniteTools, isErr, isOk, resolveCall } from "../tools";
+import {
+	buildManifest,
+	defineToolSchema,
+	igniteTools,
+	isErr,
+	isOk,
+	resolveCall,
+} from "../tools";
 import { type OpenAIChatCompletionResponse, openai } from "../tools/openai";
 import type { IgniteAgentSchema } from "../types/schema";
 
@@ -288,6 +295,24 @@ describe("buildManifest", () => {
 		const manifest = buildManifest(fakeSchema, () => true);
 		expect(manifest.find((t) => t.name === "adminOnly")).toBeDefined();
 	});
+
+	it("rejects unknown input schema types at construction", () => {
+		expect(() =>
+			defineToolSchema({
+				setLimit: { input: { type: "nubmer" as "number" } },
+			}),
+		).toThrow(/unsupported input schema type/i);
+		expect(() =>
+			buildManifest({
+				configure: {
+					input: {
+						type: "object",
+						properties: { n: { type: "nubmer" as never } },
+					},
+				},
+			}),
+		).toThrow(/unsupported input schema type/i);
+	});
 });
 
 // --- resolveCall (pure core, errors as values) --------------------------------
@@ -479,6 +504,15 @@ describe("resolveCall input validation", () => {
 		const manifest = tool({ type: "boolean" });
 		expect(isOk(resolveCall(manifest, "t", true))).toBe(true);
 		expect(isErr(resolveCall(manifest, "t", "nope"))).toBe(true);
+	});
+
+	it("rejects unknown types instead of accepting any value", () => {
+		const manifest = tool({ type: "nubmer" as never });
+		const result = resolveCall(manifest, "t", 1);
+		expect(isErr(result)).toBe(true);
+		if (isErr(result) && result.error.kind === "InvalidInput") {
+			expect(result.error.issues).toEqual(["input: unsupported type nubmer"]);
+		}
 	});
 
 	it("enforces array bounds and validates element types", () => {

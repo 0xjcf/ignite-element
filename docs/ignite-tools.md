@@ -29,8 +29,9 @@ const { tools: defs, toolCalls, run, toolResult, observe } = tools;
 bare command map — `{ setLimit: { input, description?, gated? } }` — not
 `{ commands: { setLimit: … } }`. Retain JSON-Schema-shaped
 number/string/boolean/enum/object/array constraints. This is the built-in
-structural validator, not Zod and not full JSON Schema. There is no Zod peer
-and no core Zod adapter.
+structural validator, not Zod and not full JSON Schema. Unknown `type` strings
+such as `"nubmer"` are rejected at `defineToolSchema` / construction. There is no
+Zod peer and no core Zod adapter.
 
 `canExecute?: (name: string) => boolean` is one predicate for every
 `gated: true` command. Omit it and gated tools stay available (`() => true`).

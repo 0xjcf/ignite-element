@@ -30,7 +30,7 @@ import type {
 	ReduxStoreCommandActor,
 } from "../RenderArgs";
 import { toSchemaValue } from "../runtime/schema";
-import { igniteTools } from "../tools";
+import { igniteTools, type ToolSchema } from "../tools";
 import type { InferStateAndEvent } from "../utils/igniteRedux";
 import counterStore, { counterSlice } from "./fixtures/reduxCounterStore";
 
@@ -1290,7 +1290,7 @@ describe("igniteCore", () => {
 				},
 			},
 			increment: { input: { type: "object", properties: {} } },
-		};
+		} satisfies ToolSchema;
 		const tools = igniteTools({ core: register, schema });
 		// Shared construction publishes metadata, but does not execute tools.
 		expect(register.get("commands")).toEqual({
@@ -1382,7 +1382,7 @@ describe("igniteCore", () => {
 					required: ["label", "enabled", "mode", "values", "limits"],
 				},
 			},
-		};
+		} satisfies ToolSchema;
 		const tools = igniteTools({ core: register, schema });
 		const input = {
 			label: "shift-a",
@@ -1456,7 +1456,7 @@ describe("igniteCore", () => {
 					maximum: 4,
 				},
 			},
-		};
+		} satisfies ToolSchema;
 		const tools = igniteTools({ core: register, schema });
 		expect((await tools.run({ name: "addSmall", input: 5 })).ok).toBe(false);
 		expect((await tools.run({ name: "addLarge", input: 2 })).ok).toBe(false);

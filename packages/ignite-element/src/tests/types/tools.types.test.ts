@@ -36,8 +36,8 @@ describe("igniteTools types", () => {
 	const options = {
 		core: component,
 		schema: {
-			toggle: { input: { type: "object" as const, properties: {} } },
-		},
+			toggle: { input: { type: "object", properties: {} } },
+		} satisfies ToolSchema,
 	};
 
 	it("exposes a NeutralManifest and an errors-as-values run", () => {
@@ -129,5 +129,20 @@ describe("igniteTools types", () => {
 		const fromDefined = igniteTools({ core: component, schema: defined });
 		expectTypeOf(fromSatisfied.run).toBeFunction();
 		expectTypeOf(fromDefined.run).toBeFunction();
+	});
+
+	it("rejects unknown input types at the ToolSchema boundary", () => {
+		const author = () => {
+			const schema = {
+				setLimit: {
+					input: {
+						// @ts-expect-error typo is not in the validator vocabulary
+						type: "nubmer",
+					},
+				},
+			} satisfies ToolSchema;
+			return schema;
+		};
+		void author;
 	});
 });
