@@ -76,7 +76,9 @@ function recordingOpenAICompatibleFetch(
 }
 
 describe("smart-home agent — Anthropic tool schemas (getSchema → adapter)", () => {
-	const { tools } = igniteTools(createHome(), anthropic, {
+	const { tools } = igniteTools({
+		core: createHome(),
+		dialect: anthropic,
 		schema: homeToolSchema,
 	});
 	const byName = (name: string) => tools.find((tool) => tool.name === name);
@@ -180,7 +182,9 @@ describe("smart-home shared reducer", () => {
 });
 
 describe("smart-home agent — OpenAI-compatible tool schemas (getSchema → adapter)", () => {
-	const { tools } = igniteTools(createHome(), openai, {
+	const { tools } = igniteTools({
+		core: createHome(),
+		dialect: openai,
 		schema: homeToolSchema,
 	});
 	const byName = (name: string) =>
@@ -353,7 +357,11 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 	it("round-trips an array command through Anthropic value wrapping", async () => {
 		const home = createHome();
 		await home.execute({ command: "runScene", input: "morning" });
-		const tools = igniteTools(home, anthropic, { schema: homeToolSchema });
+		const tools = igniteTools({
+			core: home,
+			dialect: anthropic,
+			schema: homeToolSchema,
+		});
 		const [call] = tools.toolCalls({
 			content: [
 				{
@@ -467,7 +475,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 	it("observes a delayed scene after run() acknowledges the pending view", async () => {
 		vi.useFakeTimers();
 		const home = createHome();
-		const tools = igniteTools(home, undefined, { schema: homeToolSchema });
+		const tools = igniteTools({ core: home, schema: homeToolSchema });
 		const observations: unknown[] = [];
 		const subscription = tools.observe((observation) => {
 			observations.push(observation);
@@ -532,7 +540,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 	it("cancels a delayed scene when a manual command runs before the timer", async () => {
 		vi.useFakeTimers();
 		const home = createHome();
-		const tools = igniteTools(home, undefined, { schema: homeToolSchema });
+		const tools = igniteTools({ core: home, schema: homeToolSchema });
 
 		try {
 			const result = await tools.run({
@@ -586,7 +594,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 	it("restarts a delayed scene when transitionScene is repeated", async () => {
 		vi.useFakeTimers();
 		const home = createHome();
-		const tools = igniteTools(home, undefined, { schema: homeToolSchema });
+		const tools = igniteTools({ core: home, schema: homeToolSchema });
 
 		try {
 			const firstResult = await tools.run({
@@ -655,7 +663,9 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 		const session = createLocalHomeSession();
 		let closed = false;
 		try {
-			const tools = igniteTools(session.home, anthropic, {
+			const tools = igniteTools({
+				core: session.home,
+				dialect: anthropic,
 				schema: homeToolSchema,
 			});
 			const result = await tools.run({
@@ -855,7 +865,9 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 			model: "mlx-test",
 			fetch: fetchImpl,
 		});
-		const [tool] = igniteTools(createHome(), openai, {
+		const [tool] = igniteTools({
+			core: createHome(),
+			dialect: openai,
 			schema: homeToolSchema,
 		}).tools;
 		if (!tool) {
@@ -1764,7 +1776,9 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 		});
 
 		try {
-			const tools = igniteTools(session.home, anthropic, {
+			const tools = igniteTools({
+				core: session.home,
+				dialect: anthropic,
 				schema: homeToolSchema,
 			});
 			const result = await tools.run({ name: "runScene", input: "movie" });
@@ -1803,7 +1817,9 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 		});
 
 		try {
-			const tools = igniteTools(session.home, anthropic, {
+			const tools = igniteTools({
+				core: session.home,
+				dialect: anthropic,
 				schema: homeToolSchema,
 			});
 			const first = await tools.run({ name: "unlockDoor", input: "front" });
@@ -1840,7 +1856,9 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 
 	it("fails actor-web commands after session close starts", async () => {
 		const session = await createActorWebHomeSession();
-		const tools = igniteTools(session.home, anthropic, {
+		const tools = igniteTools({
+			core: session.home,
+			dialect: anthropic,
 			schema: homeToolSchema,
 		});
 
@@ -1861,7 +1879,9 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 
 		try {
 			session = await createActorWebHomeSession();
-			const tools = igniteTools(session.home, anthropic, {
+			const tools = igniteTools({
+				core: session.home,
+				dialect: anthropic,
 				schema: homeToolSchema,
 			});
 			const firstResult = await tools.run({
@@ -1928,7 +1948,9 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 
 		try {
 			session = await createActorWebHomeSession();
-			const tools = igniteTools(session.home, anthropic, {
+			const tools = igniteTools({
+				core: session.home,
+				dialect: anthropic,
 				schema: homeToolSchema,
 			});
 			const timerCountBeforeTransition = vi.getTimerCount();

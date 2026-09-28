@@ -6,11 +6,12 @@ import type {
 	NeutralToolCall,
 	NeutralToolResult,
 	ToolDialect,
+	ToolSchema,
 	ToolStreamObservation,
 } from "../tools";
 import { buildManifest, igniteTools, isErr, isOk, resolveCall } from "../tools";
 import { type OpenAIChatCompletionResponse, openai } from "../tools/openai";
-import type { IgniteAgentSchema, IgniteSchemaObject } from "../types/schema";
+import type { IgniteAgentSchema } from "../types/schema";
 
 // --- Fakes (zero LLM, zero adapters, fully deterministic) ---------------------
 
@@ -21,7 +22,7 @@ type FakeEvents = {
 	"item-added": EventDescriptor<{ id: number }>;
 };
 
-const fakeSchema: { commands: Record<string, IgniteSchemaObject> } = {
+const fakeSchema: ToolSchema = {
 	commands: {
 		// The application explicitly declares this no-argument tool schema.
 		increment: {
@@ -503,20 +504,25 @@ describe("resolveCall input validation", () => {
 // --- igniteTools factory + run shell ------------------------------------------
 
 describe("igniteTools (neutral, no dialect)", () => {
-	it("rejects metadata-only automatic tools before executing anything", () => {
+	it("rejects positional and schema-less binds before executing anything", () => {
 		const component = createFakeComponent();
-		expect(() => igniteTools(component)).toThrow(/schema/i);
+		expect(() =>
+			(igniteTools as (value: unknown) => unknown)(component),
+		).toThrow(/schema/i);
 		expect(component.calls).toEqual([]);
 		expect(() => buildManifest({ commands: null })).toThrow(
 			/bound|unknown|schema/i,
 		);
 		expect(() =>
-			buildManifest({ commands: { unschematized: { input: null } } }),
+			buildManifest({
+				commands: { unschematized: { input: null as never } },
+			}),
 		).toThrow(/schema/i);
 	});
 	it("exposes manifest, resolveCall, and run", () => {
 		const component = createFakeComponent();
-		const tools = igniteTools(component, undefined, {
+		const tools = igniteTools({
+			core: component,
 			schema: fakeSchema,
 			canExecute: component.canExecute,
 		});
@@ -528,7 +534,8 @@ describe("igniteTools (neutral, no dialect)", () => {
 
 	it("run routes a valid call through execute and returns { snapshot, states, events }", async () => {
 		const component = createFakeComponent();
-		const { run } = igniteTools(component, undefined, {
+		const { run } = igniteTools({
+			core: component,
 			schema: fakeSchema,
 			canExecute: component.canExecute,
 		});
@@ -550,7 +557,8 @@ describe("igniteTools (neutral, no dialect)", () => {
 
 	it("binds runtime.execute before storage and calls getStates with runtime context", async () => {
 		const component = new ThisBoundFakeComponent();
-		const { run } = igniteTools(component, undefined, {
+		const { run } = igniteTools({
+			core: component,
 			schema: fakeSchema,
 			canExecute: component.canExecute,
 		});
@@ -568,7 +576,8 @@ describe("igniteTools (neutral, no dialect)", () => {
 
 	it("run does not call execute on an unknown command", async () => {
 		const component = createFakeComponent();
-		const { run } = igniteTools(component, undefined, {
+		const { run } = igniteTools({
+			core: component,
 			schema: fakeSchema,
 			canExecute: component.canExecute,
 		});
@@ -580,7 +589,8 @@ describe("igniteTools (neutral, no dialect)", () => {
 
 	it("run does not call execute on invalid input", async () => {
 		const component = createFakeComponent();
-		const { run } = igniteTools(component, undefined, {
+		const { run } = igniteTools({
+			core: component,
 			schema: fakeSchema,
 			canExecute: component.canExecute,
 		});
@@ -592,7 +602,8 @@ describe("igniteTools (neutral, no dialect)", () => {
 
 	it("run captures an execute rejection as ExecuteFailed (never throws across the seam)", async () => {
 		const component = createFakeComponent();
-		const { run } = igniteTools(component, undefined, {
+		const { run } = igniteTools({
+			core: component,
 			schema: fakeSchema,
 			canExecute: component.canExecute,
 		});
@@ -614,7 +625,8 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const component = createFakeComponent({
 			canExecute: (name) => name !== "adminOnly" || adminAvailable,
 		});
-		const { manifest, run } = igniteTools(component, undefined, {
+		const { manifest, run } = igniteTools({
+			core: component,
 			schema: fakeSchema,
 			canExecute: component.canExecute,
 		});
@@ -629,7 +641,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 	});
 
 	it("keeps projection authorship in commands instead of adding a projection registry surface", async () => {
-		const projectionSchema: { commands: Record<string, IgniteSchemaObject> } = {
+		const projectionSchema: ToolSchema = {
 			commands: {
 				upsertProjection: {
 					description: "Create or replace a projection document.",
@@ -657,8 +669,8 @@ describe("igniteTools (neutral, no dialect)", () => {
 			},
 		};
 		const calls: Array<{ name: string; payload: unknown }> = [];
-		const tools = igniteTools(
-			{
+		const tools = igniteTools({
+			core: {
 				get: catalogueReads(() => ({ count: calls.length }), {
 					schemaVersion: 1,
 					states: { schema: null },
@@ -679,9 +691,8 @@ describe("igniteTools (neutral, no dialect)", () => {
 				on: () => ({ unsubscribe: () => undefined }),
 				watch: () => ({ unsubscribe: () => undefined }),
 			},
-			undefined,
-			{ schema: projectionSchema },
-		);
+			schema: projectionSchema,
+		});
 
 		expect(tools.manifest.map((tool) => tool.name)).toEqual([
 			"patchProjection",
@@ -710,16 +721,32 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const component = createFakeComponent({
 			canExecute: (name) => name !== "adminOnly",
 		});
-		const { manifest } = igniteTools(component, undefined, {
+		const { manifest } = igniteTools({
+			core: component,
 			schema: fakeSchema,
 			canExecute: component.canExecute,
 		});
 		expect(manifest.find((t) => t.name === "adminOnly")).toBeUndefined();
 	});
 
+	it("defaults omitted canExecute to always-available, including gated commands", async () => {
+		const component = createFakeComponent();
+		const { manifest, run } = igniteTools({
+			core: component,
+			schema: fakeSchema,
+		});
+		expect(manifest.find((t) => t.name === "adminOnly")).toBeDefined();
+		const result = await run({ name: "adminOnly", input: undefined });
+		expect(isOk(result)).toBe(true);
+		expect(component.calls).toEqual([
+			{ name: "adminOnly", payload: undefined },
+		]);
+	});
+
 	it("observe streams schema-declared events and states changes between acts", () => {
 		const component = createFakeComponent();
-		const { observe } = igniteTools(component, undefined, {
+		const { observe } = igniteTools({
+			core: component,
 			schema: fakeSchema,
 			canExecute: component.canExecute,
 		});
@@ -761,7 +788,8 @@ describe("igniteTools (neutral, no dialect)", () => {
 		component.on = on as unknown as FakeComponent["on"];
 		component.watch = watchStates as unknown as FakeComponent["watch"];
 
-		const { observe } = igniteTools(component, undefined, {
+		const { observe } = igniteTools({
+			core: component,
 			schema: fakeSchema,
 			canExecute: component.canExecute,
 		});
@@ -776,7 +804,9 @@ describe("igniteTools (neutral, no dialect)", () => {
 describe("igniteTools (with a ToolDialect)", () => {
 	it("exposes provider tool defs plus toolCalls/toolResult helpers", () => {
 		const component = createFakeComponent();
-		const tools = igniteTools(component, fakeDialect, {
+		const tools = igniteTools({
+			core: component,
+			dialect: fakeDialect,
 			schema: fakeSchema,
 			canExecute: component.canExecute,
 		});
@@ -790,7 +820,9 @@ describe("igniteTools (with a ToolDialect)", () => {
 
 	it("round-trips a provider response: toolCalls -> run -> toolResult", async () => {
 		const component = createFakeComponent();
-		const { toolCalls, run, toolResult } = igniteTools(component, fakeDialect, {
+		const { toolCalls, run, toolResult } = igniteTools({
+			core: component,
+			dialect: fakeDialect,
 			schema: fakeSchema,
 			canExecute: component.canExecute,
 		});
@@ -814,7 +846,9 @@ describe("igniteTools (with a ToolDialect)", () => {
 
 	it("translates provider { name, arguments } calls into runtime.execute({ command, input })", async () => {
 		const component = createFakeComponent();
-		const tools = igniteTools(component, openai, {
+		const tools = igniteTools({
+			core: component,
+			dialect: openai,
 			schema: fakeSchema,
 			canExecute: component.canExecute,
 		});
@@ -852,7 +886,9 @@ describe("igniteTools (with a ToolDialect)", () => {
 
 	it("accepts provider {} for no-arg commands and rejects unexpected fields as a value", async () => {
 		const component = createFakeComponent();
-		const tools = igniteTools(component, openai, {
+		const tools = igniteTools({
+			core: component,
+			dialect: openai,
 			schema: fakeSchema,
 			canExecute: component.canExecute,
 		});
@@ -892,7 +928,9 @@ describe("igniteTools (with a ToolDialect)", () => {
 
 	it("maps a failed command into an error tool-result block", async () => {
 		const component = createFakeComponent();
-		const { run, toolResult } = igniteTools(component, fakeDialect, {
+		const { run, toolResult } = igniteTools({
+			core: component,
+			dialect: fakeDialect,
 			schema: fakeSchema,
 			canExecute: component.canExecute,
 		});
@@ -909,7 +947,9 @@ describe("igniteTools (with a ToolDialect)", () => {
 	it("never throws across the seam even when execute rejects", async () => {
 		const component = createFakeComponent();
 		const spy = vi.spyOn(component, "execute");
-		const { run } = igniteTools(component, fakeDialect, {
+		const { run } = igniteTools({
+			core: component,
+			dialect: fakeDialect,
 			schema: fakeSchema,
 			canExecute: component.canExecute,
 		});

@@ -1,10 +1,9 @@
 import type { EventMap, FacadeCommandResult } from "../RenderArgs";
 import type { IgniteCommandCall, RuntimeEvent } from "../types/agent";
-import type { IgniteSchemaObject } from "../types/schema";
 import { buildManifest, resolveCall } from "./core";
 import { err, ok, type Result } from "./result";
 import type {
-	AvailabilityPredicate,
+	CanExecuteOption,
 	IgniteToolsRuntime,
 	NeutralManifest,
 	NeutralToolCall,
@@ -12,7 +11,9 @@ import type {
 	Route,
 	ToolDialect,
 	ToolError,
+	ToolInputSchema,
 	ToolObservation,
+	ToolSchema,
 	ToolStreamHandler,
 	ToolStreamSubscription,
 } from "./types";
@@ -47,16 +48,36 @@ export type IgniteToolsWithDialect<
 	): ResultBlock;
 };
 
-type ToolOptions = {
-	schema: { commands: Readonly<Record<string, IgniteSchemaObject>> | null };
-	canExecute?: AvailabilityPredicate;
-};
+export type IgniteToolsBind<
+	State,
+	Commands extends FacadeCommandResult,
+	Events extends EventMap,
+	SchemaState,
+	States extends Record<string, unknown>,
+	S extends ToolSchema = ToolSchema,
+	Tools = unknown,
+	Response = unknown,
+	ResultBlock = unknown,
+> = {
+	core: IgniteToolsRuntime<State, Commands, Events, SchemaState, States>;
+	schema: S;
+	dialect?: ToolDialect<Tools, Response, ResultBlock>;
+} & CanExecuteOption<S>;
+
+const NAMED_BIND_ERROR =
+	"[igniteTools] Named bind only: igniteTools({ core, schema, canExecute?, dialect? }). Supply an explicit schema; discovery does not infer one. The positional igniteTools(core, dialect, opts) overload is removed.";
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isNoArgSchema(schema: IgniteSchemaObject): boolean {
+function isNamedBind(
+	value: unknown,
+): value is { core: unknown; schema: unknown } {
+	return isPlainObject(value) && "core" in value && "schema" in value;
+}
+
+function isNoArgSchema(schema: ToolInputSchema): boolean {
 	if (schema.type !== "object") {
 		return false;
 	}
@@ -70,7 +91,7 @@ function isNoArgSchema(schema: IgniteSchemaObject): boolean {
 
 function isIgniteCommandCall<Commands extends FacadeCommandResult>(
 	call: Route,
-	schema: IgniteSchemaObject,
+	schema: ToolInputSchema,
 ): call is IgniteCommandCall<Commands> {
 	if (!("input" in call)) {
 		return isNoArgSchema(schema);
@@ -85,10 +106,11 @@ export function igniteTools<
 	Events extends EventMap,
 	SchemaState,
 	States extends Record<string, unknown>,
+	S extends ToolSchema,
 >(
-	runtime: IgniteToolsRuntime<State, Commands, Events, SchemaState, States>,
-	dialect?: undefined,
-	options?: ToolOptions,
+	options: IgniteToolsBind<State, Commands, Events, SchemaState, States, S> & {
+		dialect?: undefined;
+	},
 ): IgniteToolsNeutral<
 	Awaited<ReturnType<Commands[keyof Commands]>>,
 	States,
@@ -100,13 +122,24 @@ export function igniteTools<
 	Events extends EventMap,
 	SchemaState,
 	States extends Record<string, unknown>,
+	S extends ToolSchema,
 	Tools,
 	Response,
 	ResultBlock,
 >(
-	runtime: IgniteToolsRuntime<State, Commands, Events, SchemaState, States>,
-	dialect: ToolDialect<Tools, Response, ResultBlock>,
-	options?: ToolOptions,
+	options: IgniteToolsBind<
+		State,
+		Commands,
+		Events,
+		SchemaState,
+		States,
+		S,
+		Tools,
+		Response,
+		ResultBlock
+	> & {
+		dialect: ToolDialect<Tools, Response, ResultBlock>;
+	},
 ): IgniteToolsWithDialect<
 	Awaited<ReturnType<Commands[keyof Commands]>>,
 	States,
@@ -116,11 +149,14 @@ export function igniteTools<
 	ResultBlock
 >;
 /**
- * Bridge the agent-runtime contract to LLM tool-use. The pure core builds a
- * neutral manifest from explicit tool definitions and routes validated calls; the shell
- * (`run`) performs the single `execute` side effect. With a `ToolDialect`,
- * the result also carries provider-shaped `tools` and the parse/result
- * translators — the consumer brings the SDK and runs the model loop.
+ * Bridge the agent-runtime contract to LLM tool-use. Bind with named options
+ * only: `{ core, schema, canExecute?, dialect? }`. The pure core builds a
+ * neutral manifest from explicit tool definitions and routes validated calls;
+ * the shell (`run`) performs the single `execute` side effect. `run` is
+ * act-plus-acknowledgement; long/async settle uses `observe`. With a
+ * `ToolDialect`, the result also carries provider-shaped `tools` and the
+ * parse/result translators — the consumer brings the SDK and runs the model
+ * loop.
  */
 export function igniteTools<
 	State,
@@ -128,17 +164,33 @@ export function igniteTools<
 	Events extends EventMap,
 	SchemaState,
 	States extends Record<string, unknown>,
+	S extends ToolSchema,
 	Tools,
 	Response,
 	ResultBlock,
 >(
-	runtime: IgniteToolsRuntime<State, Commands, Events, SchemaState, States>,
-	dialect?: ToolDialect<Tools, Response, ResultBlock>,
-	options?: ToolOptions,
+	options: IgniteToolsBind<
+		State,
+		Commands,
+		Events,
+		SchemaState,
+		States,
+		S,
+		Tools,
+		Response,
+		ResultBlock
+	>,
 ) {
-	const canExecute = options?.canExecute;
-	const schema = runtime.get("schema");
-	const manifest = buildManifest(options?.schema ?? schema, canExecute);
+	if (!isNamedBind(options)) {
+		throw new Error(NAMED_BIND_ERROR);
+	}
+
+	const runtime = options.core;
+	const schema = options.schema;
+	const dialect = options.dialect;
+	const canExecute = options.canExecute ?? (() => true);
+	const catalogue = runtime.get("schema");
+	const manifest = buildManifest(schema, canExecute);
 
 	const boundResolveCall = (
 		name: string,
@@ -232,7 +284,7 @@ export function igniteTools<
 		const subscriptions: ToolStreamSubscription[] = [];
 
 		try {
-			for (const eventDescriptor of schema.events) {
+			for (const eventDescriptor of catalogue.events) {
 				subscriptions.push(
 					on(eventDescriptor.type, (event) => {
 						handler({

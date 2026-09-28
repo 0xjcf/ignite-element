@@ -94,13 +94,10 @@ describe("tools public observation window", () => {
 			const f = fixture(phase, true);
 			const report = vi.spyOn(console, "error").mockImplementation(() => {});
 			try {
-				const tools = igniteTools<
-					unknown,
-					Record<string, () => unknown>,
-					Record<string, EventDescriptor<void>>,
-					unknown,
-					{ count: number }
-				>(f.runtime, undefined, options);
+				const tools = igniteTools({
+					core: f.runtime,
+					...options,
+				});
 				const outcome = await tools.run(call);
 				expect(outcome).toMatchObject({
 					ok: false,
@@ -127,7 +124,10 @@ describe("tools public observation window", () => {
 			Record<string, EventDescriptor<void>>,
 			unknown,
 			{ count: number }
-		>(f.runtime, undefined, options);
+		>({
+			core: f.runtime,
+			...options,
+		});
 		expect((await tools.run({ name: "missing", input: {} })).ok).toBe(false);
 		expect(f.handlers.size).toBe(0);
 		f.setEvents([{ type: "first", payload: null }]);
@@ -173,7 +173,7 @@ describe("tools public observation window", () => {
 		const native: unknown[] = [];
 		const handle = core.on("private", (event) => native.push(event));
 		try {
-			const tools = igniteTools(core, undefined, options);
+			const tools = igniteTools({ core: core, ...options });
 			const outcome = await tools.run(call);
 			expect(outcome).toEqual({
 				ok: true,
@@ -212,7 +212,10 @@ describe("tools public observation window", () => {
 			Record<string, EventDescriptor<void>>,
 			unknown,
 			{ count: number }
-		>(f.runtime, undefined, options);
+		>({
+			core: f.runtime,
+			...options,
+		});
 		const first = tools.run(call),
 			second = tools.run(call);
 		release[0]();
@@ -240,7 +243,7 @@ it("releases temporary handles when a pending core is disposed", async () => {
 		commands: () => ({ run: () => pending }),
 	});
 	const subscribe = vi.spyOn(core, "on");
-	const tools = igniteTools(core, undefined, options);
+	const tools = igniteTools({ core, ...options });
 	const outcome = tools.run(call);
 	const releases = subscribe.mock.results.map((entry) =>
 		vi.spyOn(entry.value, "unsubscribe"),

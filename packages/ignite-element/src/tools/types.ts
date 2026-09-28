@@ -8,8 +8,47 @@ import type {
 	IgniteAgentSubscription,
 	RuntimeEvent,
 } from "../types/agent";
-import type { IgniteSchemaObject, IgniteSchemaValue } from "../types/schema";
+import type { IgniteSchemaValue } from "../types/schema";
 import type { Result } from "./result";
+
+/**
+ * JSON-Schema-shaped input vocabulary retained by the built-in structural
+ * validator (number/string/boolean/object/array plus declared constraints).
+ * Not a claim of full JSON Schema compliance, and not a Zod schema.
+ */
+export type ToolInputSchema = {
+	type?: "number" | "string" | "boolean" | "object" | "array";
+	description?: string;
+	default?: unknown;
+	minimum?: number;
+	maximum?: number;
+	multipleOf?: number;
+	enum?: readonly string[];
+	minLength?: number;
+	maxLength?: number;
+	pattern?: string;
+	properties?: Readonly<Record<string, ToolInputSchema>>;
+	required?: readonly string[];
+	additionalProperties?: boolean;
+	items?: ToolInputSchema;
+	minItems?: number;
+	maxItems?: number;
+};
+
+/** One explicit application command offered as a tool. */
+export type ToolCommandSchema = {
+	description?: string;
+	input: ToolInputSchema;
+	gated?: boolean;
+};
+
+/**
+ * Application-owned tool definitions. Author with `satisfies ToolSchema` or
+ * `defineToolSchema(...)`. Core discovery does not infer this.
+ */
+export type ToolSchema = {
+	commands: Readonly<Record<string, ToolCommandSchema>>;
+};
 
 /**
  * A single neutral tool, derived from an explicit application schema entry. Provider
@@ -25,7 +64,7 @@ export type NeutralTool = {
 	 * properties: {} }` for a no-arg command. Provider-specific object-wrapping of
 	 * scalar inputs is an adapter concern, not the neutral core's.
 	 */
-	inputSchema: IgniteSchemaObject;
+	inputSchema: ToolInputSchema;
 	/**
 	 * Whether the command carries an availability predicate. A static meta-fact —
 	 * the dynamic per-snapshot decision is made by `canExecute` (see
@@ -154,6 +193,25 @@ export interface ToolDialect<
 
 /** Per-command availability predicate, evaluated against the current snapshot. */
 export type AvailabilityPredicate = (name: string) => boolean;
+
+/**
+ * When any command is marked `gated: true` on a specific schema, require the
+ * availability predicate at the type level. Runtime still defaults omitted
+ * predicates to always-available (`() => true`). `canExecute` is application
+ * preflight, not authentication or authorization.
+ */
+export type SchemaHasGatedCommand<S extends ToolSchema> = true extends {
+	[K in keyof S["commands"]]: S["commands"][K] extends { gated: true }
+		? true
+		: false;
+}[keyof S["commands"]]
+	? true
+	: false;
+
+export type CanExecuteOption<S extends ToolSchema> =
+	SchemaHasGatedCommand<S> extends true
+		? { canExecute: AvailabilityPredicate }
+		: { canExecute?: AvailabilityPredicate };
 
 /**
  * The source-backed runtime slice borrowed by tools: keyed discovery/state reads,

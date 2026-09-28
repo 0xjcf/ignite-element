@@ -1,18 +1,20 @@
-import type { IgniteSchemaObject } from "../types/schema";
 import { err, ok, type Result } from "./result";
 import type {
 	AvailabilityPredicate,
 	NeutralManifest,
 	NeutralTool,
 	Route,
+	ToolCommandSchema,
 	ToolError,
+	ToolInputSchema,
+	ToolSchema,
 } from "./types";
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isNoArgSchema(schema: IgniteSchemaObject): boolean {
+function isNoArgSchema(schema: ToolInputSchema): boolean {
 	if (schema.type !== "object") {
 		return false;
 	}
@@ -25,7 +27,7 @@ function isNoArgSchema(schema: IgniteSchemaObject): boolean {
 }
 
 function normalizeRouteInput(
-	schema: IgniteSchemaObject,
+	schema: ToolInputSchema,
 	input: unknown,
 ): { input?: unknown } {
 	if (isNoArgSchema(schema)) {
@@ -41,26 +43,31 @@ function normalizeRouteInput(
 
 // Explicit application input schema, scalar or object, mirrored verbatim.
 // Unknown discovery metadata must not fabricate an empty-object contract.
-function toInputSchema(metadata: IgniteSchemaObject): IgniteSchemaObject {
+function toInputSchema(metadata: ToolCommandSchema): ToolInputSchema {
 	const input = metadata.input;
 	if (!isPlainObject(input)) {
 		throw new Error(
 			"[igniteTools] Missing explicit command input schema. Supply tool/application definitions; discovery does not infer schemas.",
 		);
 	}
-	return input as IgniteSchemaObject;
+	return input;
 }
 
 /**
- * Pure: explicit application schema → neutral tool manifest, sorted by name. Gated commands
- * are omitted when an availability predicate reports them currently
- * unavailable; without a predicate, every command is offered.
+ * Advanced/testing helper. Everyday apps should bind with
+ * `igniteTools({ core, schema, canExecute?, dialect? })` instead of importing
+ * this.
+ *
+ * Pure: explicit application schema → neutral tool manifest, sorted by name.
+ * Gated commands are omitted when an availability predicate reports them
+ * currently unavailable; without a predicate, every command is offered
+ * (`() => true`).
  *
  * Only `schema.commands` is read. Minimal core discovery does not provide
  * input validation; missing explicit definitions fail before execution.
  */
 export function buildManifest(
-	schema: { commands: Readonly<Record<string, IgniteSchemaObject>> | null },
+	schema: ToolSchema | { commands: null },
 	canExecute?: AvailabilityPredicate,
 ): NeutralManifest {
 	if (schema.commands === null)
@@ -92,6 +99,9 @@ export function buildManifest(
 }
 
 /**
+ * Advanced/testing helper. Everyday apps should call `run` on a named
+ * `igniteTools({ core, schema })` bind instead of importing this.
+ *
  * Pure: validate a model-supplied input against a command's schema and route it
  * to `{ command, input? }`. Errors are returned as values — `UnknownCommand`
  * (not in the manifest), `Unavailable` (gated and currently unavailable — the
@@ -128,7 +138,7 @@ export function resolveCall(
  * scoped to the retained application input vocabulary.
  */
 export function validateToolInputValue(
-	schema: IgniteSchemaObject,
+	schema: ToolInputSchema,
 	value: unknown,
 	path: string,
 ): string[] {
@@ -223,11 +233,7 @@ export function validateToolInputValue(
 			for (const [key, propSchema] of Object.entries(properties)) {
 				if (key in value && isPlainObject(propSchema)) {
 					issues.push(
-						...validateToolInputValue(
-							propSchema as IgniteSchemaObject,
-							value[key],
-							`${path}.${key}`,
-						),
+						...validateToolInputValue(propSchema, value[key], `${path}.${key}`),
 					);
 				}
 			}
@@ -251,7 +257,7 @@ export function validateToolInputValue(
 				issues.push(`${path}: more than maxItems ${schema.maxItems}`);
 			}
 			if (isPlainObject(schema.items)) {
-				const itemSchema = schema.items as IgniteSchemaObject;
+				const itemSchema = schema.items;
 				value.forEach((item, index) => {
 					issues.push(
 						...validateToolInputValue(itemSchema, item, `${path}[${index}]`),

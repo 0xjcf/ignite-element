@@ -7,9 +7,10 @@ import type {
 	NeutralToolCall,
 	ToolDialect,
 	ToolError,
+	ToolSchema,
 	ToolStreamObservation,
 } from "../../tools";
-import { igniteTools } from "../../tools";
+import { defineToolSchema, igniteTools } from "../../tools";
 
 describe("igniteTools types", () => {
 	const machine = createMachine({
@@ -33,17 +34,16 @@ describe("igniteTools types", () => {
 	});
 
 	const options = {
+		core: component,
 		schema: {
-			commands: { toggle: { input: { type: "object", properties: {} } } },
+			commands: {
+				toggle: { input: { type: "object" as const, properties: {} } },
+			},
 		},
 	};
 
 	it("exposes a NeutralManifest and an errors-as-values run", () => {
-		const { manifest, resolveCall, run } = igniteTools(
-			component,
-			undefined,
-			options,
-		);
+		const { manifest, resolveCall, run } = igniteTools(options);
 
 		expectTypeOf(manifest).toEqualTypeOf<NeutralManifest>();
 		expectTypeOf(resolveCall).toBeFunction();
@@ -51,7 +51,7 @@ describe("igniteTools types", () => {
 	});
 
 	it("types the run observation from the command result + events", () => {
-		const { run } = igniteTools(component, undefined, options);
+		const { run } = igniteTools(options);
 
 		// Wrapped uncalled: the body is typechecked but never executed (these
 		// `.types.test.ts` files also run under vitest). The success branch carries
@@ -75,7 +75,7 @@ describe("igniteTools types", () => {
 	});
 
 	it("types observe() from the component's states + events", () => {
-		const { observe } = igniteTools(component, undefined, options);
+		const { observe } = igniteTools(options);
 
 		observe((observation) => {
 			expectTypeOf(observation).toEqualTypeOf<
@@ -108,11 +108,28 @@ describe("igniteTools types", () => {
 			toolResult: (result) => ({ id: result.id }),
 		};
 
-		const tools = igniteTools(component, dialect, options);
+		const tools = igniteTools({ ...options, dialect });
 
 		expectTypeOf(tools.tools).toEqualTypeOf<Defs>();
 		expectTypeOf(tools.toolCalls).parameter(0).toEqualTypeOf<Resp>();
 		expectTypeOf(tools.toolCalls).returns.toEqualTypeOf<NeutralToolCall[]>();
 		expectTypeOf(tools.toolResult).returns.toEqualTypeOf<Block>();
+	});
+
+	it("accepts satisfies ToolSchema and defineToolSchema factories", () => {
+		const satisfied = {
+			commands: {
+				toggle: { input: { type: "object", properties: {} } },
+			},
+		} satisfies ToolSchema;
+		const defined = defineToolSchema({
+			commands: {
+				toggle: { input: { type: "object", properties: {} } },
+			},
+		});
+		const fromSatisfied = igniteTools({ core: component, schema: satisfied });
+		const fromDefined = igniteTools({ core: component, schema: defined });
+		expectTypeOf(fromSatisfied.run).toBeFunction();
+		expectTypeOf(fromDefined.run).toBeFunction();
 	});
 });

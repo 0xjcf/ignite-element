@@ -1,4 +1,7 @@
-import type { IgniteToolsRuntime } from "ignite-element/tools";
+import {
+	defineToolSchema,
+	type IgniteToolsRuntime,
+} from "ignite-element/tools";
 import { igniteCore } from "ignite-element/xstate";
 import { assign, createActor, setup } from "xstate";
 
@@ -487,17 +490,16 @@ export function createLocalHomeSession(): HomeRuntimeSession {
 	};
 }
 
-export const homeToolSchema = {
+export const homeToolSchema = defineToolSchema({
 	commands: {
 		toggleLight: {
 			description: "Turn a room's light on or off.",
 			input: {
 				type: "object",
 				properties: {
-					room: { type: "string", enum: [...ROOMS], ...{} },
-					on: { type: "boolean", ...{} },
+					room: { type: "string", enum: [...ROOMS] },
+					on: { type: "boolean" },
 				},
-				...{},
 			},
 		},
 		setThermostat: {
@@ -505,10 +507,9 @@ export const homeToolSchema = {
 			input: {
 				type: "object",
 				properties: {
-					room: { type: "string", enum: [...ROOMS], ...{} },
-					temp: { type: "number", ...{ minimum: 50, maximum: 90 } },
+					room: { type: "string", enum: [...ROOMS] },
+					temp: { type: "number", minimum: 50, maximum: 90 },
 				},
-				...{},
 			},
 		},
 		setBlinds: {
@@ -516,10 +517,9 @@ export const homeToolSchema = {
 			input: {
 				type: "object",
 				properties: {
-					room: { type: "string", enum: [...ROOMS], ...{} },
-					percent: { type: "number", ...{ minimum: 0, maximum: 100 } },
+					room: { type: "string", enum: [...ROOMS] },
+					percent: { type: "number", minimum: 0, maximum: 100 },
 				},
-				...{},
 			},
 		},
 		lockDoor: {
@@ -527,7 +527,7 @@ export const homeToolSchema = {
 			input: {
 				type: "string",
 				enum: [...DOORS],
-				...{ description: "Door id to lock: front, back, or garage." },
+				description: "Door id to lock: front, back, or garage.",
 			},
 		},
 		unlockDoor: {
@@ -535,7 +535,7 @@ export const homeToolSchema = {
 			input: {
 				type: "string",
 				enum: [...DOORS],
-				...{ description: "Door id to unlock: front, back, or garage." },
+				description: "Door id to unlock: front, back, or garage.",
 			},
 		},
 		runScene: {
@@ -544,10 +544,7 @@ export const homeToolSchema = {
 			input: {
 				type: "string",
 				enum: [...SCENES],
-				...{
-					description:
-						"Scene name to activate: morning, away, movie, or night.",
-				},
+				description: "Scene name to activate: morning, away, movie, or night.",
 			},
 		},
 		dimRooms: {
@@ -558,13 +555,11 @@ export const homeToolSchema = {
 				items: {
 					type: "string",
 					enum: [...ROOMS],
-					...{ description: "Room id to dim." },
+					description: "Room id to dim.",
 				},
-				...{
-					description:
-						"Room ids to dim by turning lights off and closing blinds.",
-					minItems: 1,
-				},
+				description:
+					"Room ids to dim by turning lights off and closing blinds.",
+				minItems: 1,
 			},
 		},
 		transitionScene: {
@@ -573,10 +568,8 @@ export const homeToolSchema = {
 			input: {
 				type: "string",
 				enum: [...SCENES],
-				...{
-					description:
-						"Scene name to transition toward asynchronously: morning, away, movie, or night.",
-				},
+				description:
+					"Scene name to transition toward asynchronously: morning, away, movie, or night.",
 			},
 		},
 		status: {
@@ -584,4 +577,4 @@ export const homeToolSchema = {
 			input: { type: "object", properties: {} },
 		},
 	},
-};
+});

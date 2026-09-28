@@ -172,11 +172,18 @@ export async function startSmartHomeBridgeServer(
 
 	try {
 		const { home } = session;
-		const tools = igniteTools(home, undefined, { schema: homeToolSchema });
-		const agentTools = igniteTools(home, anthropic, {
+		const tools = igniteTools({
+			core: home,
+			schema: homeToolSchema,
+		});
+		const agentTools = igniteTools({
+			core: home,
+			dialect: anthropic,
 			schema: homeToolSchema,
 		}) as unknown as SharedHomeAgentTools;
-		const openAIAgentTools = igniteTools(home, openai, {
+		const openAIAgentTools = igniteTools({
+			core: home,
+			dialect: openai,
 			schema: homeToolSchema,
 		}) as unknown as SharedHomeOpenAICompatibleAgentTools;
 		vite = await createViteMiddleware();
