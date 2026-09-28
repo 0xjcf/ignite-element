@@ -57,6 +57,7 @@ const toolSchema = defineToolSchema({
   setLimit: {
     description: 'Set maximum count.',
     input: { type: 'number', minimum: 3, maximum: 12 },
+    gated: true,
   },
   renamePreset: {
     description: 'Rename the saved preset label.',
@@ -76,36 +77,36 @@ const toolSchema = defineToolSchema({
     },
   },
 });
-const { run } = igniteTools({
+const { run, observe } = igniteTools({
   core: component,
   schema: toolSchema,
   dialect: openai,
+  canExecute: (name) =>
+    name !== 'setLimit' || Boolean(component.get('states').canSetLimit),
 });
 ```
 
 These definitions belong to the application; they are not automatically derived or attached to the core catalogue.
 
-Do not fabricate an empty-object input schema for an unknown function signature.
-
 Supply an actual contract before offering a command to a model.
 
-`igniteTools({ core, schema: toolSchema, canExecute, dialect })` accepts the same explicit definitions and an independently supplied availability predicate.
+`igniteTools({ core, schema, canExecute?, dialect? })` is the named bind.
 
 Missing required input schemas cause tool construction to fail before any source command executes.
 
 Scalar provider wrapping and input validation remain in the tools boundary.
 
+See [Tools](/ignite-element/guides/tools/) for `run`, `observe`, and provider loops.
+
 ## Availability
 
-Project source-native capability into `states`, such as `canSubmit` or a `commandAvailability` map.
+Project source-native capability into `states` for views and for the tools predicate.
 
-A tool schema may explicitly set `gated: true` and provide `canExecute(name)` in tool options.
+A tool schema sets `gated: true` and `igniteTools` receives `canExecute(name)`.
 
 The predicate reads the current application projection; it is not a method on the core.
 
-Availability is a hint, not authorization.
-
-Keep guards, validation and asynchronous work in the source/application.
+`canExecute` is availability preflight; source guards still enforce.
 
 Rebuild a provider's offered tool list when the application needs a fresh availability view; invocation still rechecks its supplied predicate.
 
@@ -121,5 +122,6 @@ Execution awaits the callback and queued observation window, not all downstream 
 
 ## Related
 
+- [Tools](/ignite-element/guides/tools/) — named bind, `canExecute`, `run`, and `observe`.
 - [Build for agents](/ignite-element/guides/agent-runtime-v3/) — behavior and tool ownership.
 - [Headless runtime](/ignite-element/api/headless-runtime/) — discovery, observation and disposal.

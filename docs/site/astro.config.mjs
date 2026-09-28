@@ -100,6 +100,7 @@ export default defineConfig({
 						{ label: "Shared sources", slug: "guides/shared-source-ownership" },
 						{ label: "Routing", slug: "guides/routing" },
 						{ label: "Accessibility", slug: "guides/accessibility-first" },
+						{ label: "Tools", slug: "guides/tools" },
 						{ label: "Build for agents", slug: "guides/agent-runtime-v3" },
 					],
 				},

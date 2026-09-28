@@ -5,7 +5,7 @@ This is the v3 beta documentation site for Ignite Element, retaining the frozen 
 ## Project structure
 
 - `astro.config.mjs` – Starlight config, sidebar, theme, logo, and metadata.
-- `src/content/docs` – All docs content (eight primary handbook pages, supporting recipes/reference, migration, and archive).
+- `src/content/docs` – All docs content (eight primary handbook pages, Shared sources / Tools / Build for agents, supporting recipes/reference, migration, and archive).
 - `src/assets` – Logo and any shared imagery.
 - `src/styles/theme.css` – Custom theming to match the desired XState-like feel.
 
@@ -77,5 +77,5 @@ independent of the legacy per-fence guard's ambient placeholders and exclusions.
 
 `pnpm --filter docs-site check:handbook` checks all built legacy destinations,
 version selectors, banner links, and version-separated agent exports. The short
-agent index links only the eight primary pages; the full v3 text and v2 archive
+agent index links the handbook plus Shared sources, Tools, and Build for agents; the full v3 text and v2 archive
 are separate files. Static legacy pages work without server redirect support.

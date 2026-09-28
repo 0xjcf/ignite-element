@@ -1,5 +1,7 @@
 # Tools: named bind, explicit schema, consumer loop
 
+Published docs: [Tools](https://0xjcf.github.io/ignite-element/guides/tools/).
+
 Bind tools with named options. The right path is an explicit `ToolSchema` plus
 `igniteTools({ core, schema, canExecute?, dialect? })`. Ordinary core commands
 need no metadata. `get('schema')` is minimal discovery, not an input schema
@@ -26,19 +28,16 @@ const { tools: defs, toolCalls, run, toolResult, observe } = tools;
 ```
 
 `schema` may also be authored with `satisfies ToolSchema`. `ToolSchema` is a
-bare command map — `{ setLimit: { input, description?, gated? } }` — not
-`{ commands: { setLimit: … } }`. Retain JSON-Schema-shaped
-number/string/boolean/enum/object/array constraints. This is the built-in
-structural validator, not Zod and not full JSON Schema. Unknown `type` strings
-such as `"nubmer"` are rejected at `defineToolSchema` / construction. There is no
-Zod peer and no core Zod adapter.
+bare command map: `{ setLimit: { input, description?, gated? } }`. Retain
+JSON-Schema-shaped number/string/boolean/enum/object/array constraints. This is
+the built-in structural validator, not Zod and not full JSON Schema. Unknown
+`type` strings are rejected at `defineToolSchema`. There is no Zod peer and no
+core Zod adapter.
 
 `canExecute?: (name: string) => boolean` is one predicate for every
 `gated: true` command. Omit it and gated tools stay available (`() => true`).
-Do not treat `canExecute` as authentication or authorization; keep source
-enforcement. Rebuild the bind when a fresh provider list is needed.
-
-The positional `igniteTools(core, dialect, opts)` overload is removed.
+`canExecute` is availability preflight; source guards still enforce.
+Rebuild the bind when a fresh provider list is needed.
 
 ## Provider port
 
@@ -72,43 +71,34 @@ tagged ToolError. A returned promise gates command acknowledgement, not
 business-done. Detached work and remote snapshot delivery may still be pending.
 
 `observe(handler)` is the tools fan-in of `on` + `watch` for long/async settle.
-Release its handle. Do not invent `waitFor`, `gateFromStates`, or shared/isolated
-core factories for tools.
+Stay subscribed until the application-correlated settle you care about, then
+release the handle.
 
 ```ts
-import { igniteTools } from 'ignite-element/tools';
-import { anthropic, textOf } from 'ignite-element/tools/anthropic';
-
-const { tools, toolCalls, run, observe, toolResult } = igniteTools({
-  core,
-  schema: toolSchema,
-  dialect: anthropic,
-  canExecute,
+const { run, observe } = tools;
+const settled = new Promise((resolve) => {
+  const subscription = observe((observation) => {
+    if (observation.type === 'states' && observation.states.limit === 6) {
+      subscription.unsubscribe();
+      resolve(observation.states);
+    }
+  });
 });
-const subscription = observe(observation => {
-  if (observation.type === 'states') console.log(observation.states);
-  else console.log(observation.event);
-});
-try {
-  const response = await client.messages.create({ model, messages, tools });
-  const calls = toolCalls(response);
-  if (calls.length === 0) {
-    messages.push({ role: 'assistant', content: textOf(response) });
-  }
-  for (const call of calls) {
-    const result = await run(call);
-    blocks.push(toolResult({ id: call.id, name: call.name, result }));
-  }
-} finally {
-  subscription.unsubscribe();
+const result = await run({ name: 'setLimit', input: 6 });
+if (result.ok) {
+  console.log(result.value);
 }
+await settled;
 ```
 
 Without a dialect, `igniteTools({ core, schema })` still exposes `run` and
 `observe` for headless proof. UI registration uses the callable core:
-`home('smart-home', renderer)`. There is no `view:` callback on `igniteCore`.
+`home('smart-home', renderer)`.
 
 ## OpenAI-compatible and local-model loops
+
+The application owns the client, credentials, and requests.
+Push the user request onto `messages` before the loop.
 
 ```ts
 import { igniteTools } from 'ignite-element/tools';
@@ -119,6 +109,10 @@ const { tools, toolCalls, run, toolResult } = igniteTools({
   schema: toolSchema,
   dialect: openai,
   canExecute,
+});
+messages.push({
+  role: 'user',
+  content: 'Set the limit to 6 and increment until it is reached.',
 });
 for (let turn = 0; turn < 8; turn++) {
   const response = await client.chat.completions.create({
