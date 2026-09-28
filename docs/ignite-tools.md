@@ -71,35 +71,24 @@ tagged ToolError. A returned promise gates command acknowledgement, not
 business-done. Detached work and remote snapshot delivery may still be pending.
 
 `observe(handler)` is the tools fan-in of `on` + `watch` for long/async settle.
-Release its handle.
+Stay subscribed until the application-correlated settle you care about, then
+release the handle.
 
 ```ts
-import { igniteTools } from 'ignite-element/tools';
-import { anthropic, textOf } from 'ignite-element/tools/anthropic';
-
-const { tools, toolCalls, run, observe, toolResult } = igniteTools({
-  core,
-  schema: toolSchema,
-  dialect: anthropic,
-  canExecute,
+const { run, observe } = tools;
+const settled = new Promise((resolve) => {
+  const subscription = observe((observation) => {
+    if (observation.type === 'states' && observation.states.limit === 6) {
+      subscription.unsubscribe();
+      resolve(observation.states);
+    }
+  });
 });
-const subscription = observe(observation => {
-  if (observation.type === 'states') console.log(observation.states);
-  else console.log(observation.event);
-});
-try {
-  const response = await client.messages.create({ model, messages, tools });
-  const calls = toolCalls(response);
-  if (calls.length === 0) {
-    messages.push({ role: 'assistant', content: textOf(response) });
-  }
-  for (const call of calls) {
-    const result = await run(call);
-    blocks.push(toolResult({ id: call.id, name: call.name, result }));
-  }
-} finally {
-  subscription.unsubscribe();
+const result = await run({ name: 'setLimit', input: 6 });
+if (result.ok) {
+  console.log(result.value);
 }
+await settled;
 ```
 
 Without a dialect, `igniteTools({ core, schema })` still exposes `run` and
@@ -107,6 +96,9 @@ Without a dialect, `igniteTools({ core, schema })` still exposes `run` and
 `home('smart-home', renderer)`.
 
 ## OpenAI-compatible and local-model loops
+
+The application owns the client, credentials, and requests.
+Push the user request onto `messages` before the loop.
 
 ```ts
 import { igniteTools } from 'ignite-element/tools';
