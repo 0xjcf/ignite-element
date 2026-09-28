@@ -80,9 +80,10 @@ Open `examples/agents/smart-home/src/agentLoop.ts`.
 
 Narration:
 
-> The agent loop never queries the DOM. `igniteTools(home, dialect)` reads the
-> runtime schema, turns it into provider tool definitions, runs validated tool
+> The agent loop never queries the DOM. `igniteTools({ core: home, schema, dialect })`
+> turns the explicit schema into provider tool definitions, runs validated tool
 > calls through `execute()`, then gives the model the result as a tool response.
+> `run` is act-plus-acknowledgement; later settle uses `observe`.
 
 Show the loop shape:
 

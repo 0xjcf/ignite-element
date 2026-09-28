@@ -67,13 +67,11 @@ The always-on validation is deterministic:
 - OpenAI-compatible behavior is covered with scripted responses and injected
   `fetch`; no hosted API key or local MLX server is required.
 
-
 Live model validation is opt-in:
 
 - `npm run anthropic` uses the consumer-installed Anthropic SDK and API key.
 - `npm run mlx` and `npm run demo:mlx` call a running OpenAI-compatible server,
   usually `python -m mlx_lm.server`.
-
 
 That split is intentional. The example proves Ignite's side of the ecosystem:
 projection, headless command execution, observations, and provider-neutral tool
@@ -83,16 +81,21 @@ transport. Applications own those capabilities.
 ## The loop
 
 ```
-homeToolSchema → dialect.tools(manifest) → [ model ] → tool call
+homeToolSchema → dialect.tools() → [ model ] → tool call
      ▲                                                          │
      └──  tool result  ←  dialect.toolResult  ←  run()  ←  toolCalls()
 ```
 
-`igniteTools(home, anthropic, { schema: homeToolSchema })` and
-`igniteTools(home, openai, { schema: homeToolSchema })` both return
-`{ tools, toolCalls, run, observe, toolResult }`. The consumer brings the model
-seam in `src/model.ts`: a scripted mock, the real `@anthropic-ai/sdk`, or any
-OpenAI-compatible `/v1/chat/completions` server such as MLX.
+`igniteTools({ core: home, schema: homeToolSchema, dialect: anthropic })` and
+`igniteTools({ core: home, schema: homeToolSchema, dialect: openai })` both return
+`{ tools, toolCalls, run, observe, toolResult }`. Use dialect `textOf` for final
+assistant text. The consumer brings the model seam in `src/model.ts`: a scripted
+mock, the real `@anthropic-ai/sdk`, or any OpenAI-compatible `/v1/chat/completions`
+server such as MLX. Application loops do not import `buildManifest` or
+`resolveCall`.
+
+The browser UI registers the callable core as `home('smart-home-bridge', renderer)`.
+There is no `view:` callback on `igniteCore`. Manifest is not used by JSX.
 
 ## What it exercises
 

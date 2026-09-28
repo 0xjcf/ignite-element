@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { NeutralManifest, NeutralToolResult } from "../tools";
 import { err, ok } from "../tools";
 import type { OpenAIChatCompletionResponse } from "../tools/openai";
-import { openai } from "../tools/openai";
+import { openai, textOf } from "../tools/openai";
 
 // Golden neutral <-> OpenAI-compatible fixtures (zero SDK, zero network). The
 // adapter is a pure format translator for Chat Completions-compatible tool use:
@@ -438,5 +438,19 @@ describe("openai.toolResult (neutral result -> OpenAI-compatible tool message)",
 			}),
 		};
 		expect(() => openai.toolResult(result)).toThrow(/tool_call_id/);
+	});
+});
+
+describe("openai.textOf", () => {
+	it("concatenates assistant text and ignores missing content", () => {
+		expect(
+			textOf({
+				choices: [
+					{ message: { content: "Movie mode is ready." } },
+					{ message: { content: null } },
+					{ message: { content: "Enjoy." } },
+				],
+			}),
+		).toBe("Movie mode is ready.\nEnjoy.");
 	});
 });

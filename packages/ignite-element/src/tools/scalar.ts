@@ -1,4 +1,4 @@
-import type { IgniteSchemaObject } from "../types/schema";
+import type { ToolInputSchema } from "./types";
 
 /**
  * Shared, provider-agnostic scalar/object bridging for `ToolDialect` adapters.
@@ -27,8 +27,8 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * schema is wrapped under `value`.
  */
 export function toProviderInputSchema(
-	schema: IgniteSchemaObject,
-): IgniteSchemaObject {
+	schema: ToolInputSchema,
+): ToolInputSchema {
 	if (schema.type === "object") {
 		return schema;
 	}
@@ -49,7 +49,7 @@ export function toProviderInputSchema(
  */
 export function fromProviderInput(
 	input: unknown,
-	schema: IgniteSchemaObject | undefined,
+	schema: ToolInputSchema | undefined,
 ): unknown {
 	if (
 		schema !== undefined &&

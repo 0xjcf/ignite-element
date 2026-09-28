@@ -1,5 +1,4 @@
 import type { EmptyEventMap, EventMap } from "../../RenderArgs";
-import type { IgniteSchemaObject } from "../../types/schema";
 import { isOk } from "../result";
 import { fromProviderInput, toProviderInputSchema } from "../scalar";
 import type {
@@ -7,6 +6,7 @@ import type {
 	NeutralToolCall,
 	NeutralToolResult,
 	ToolDialect,
+	ToolInputSchema,
 } from "../types";
 
 /**
@@ -26,7 +26,7 @@ import type {
 export type AnthropicTool = {
 	name: string;
 	description?: string;
-	input_schema: IgniteSchemaObject;
+	input_schema: ToolInputSchema;
 };
 
 /** An Anthropic `tool_use` content block (the model's request to call a tool). */
@@ -126,3 +126,16 @@ export const anthropic: ToolDialect<
 		};
 	},
 };
+
+/**
+ * Concatenate text blocks from an Anthropic Messages response so agent loops
+ * do not copy-paste provider parsing.
+ */
+export function textOf(response: AnthropicResponse): string {
+	return response.content
+		.map((block) =>
+			block.type === "text" && typeof block.text === "string" ? block.text : "",
+		)
+		.filter(Boolean)
+		.join("\n");
+}

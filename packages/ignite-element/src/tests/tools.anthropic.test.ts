@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { NeutralManifest, NeutralToolResult } from "../tools";
 import { err, ok } from "../tools";
 import type { AnthropicResponse } from "../tools/anthropic";
-import { anthropic } from "../tools/anthropic";
+import { anthropic, textOf } from "../tools/anthropic";
 
 // Golden neutral <-> Anthropic fixtures (zero SDK, zero network). The adapter is
 // a pure format translator: it maps the neutral manifest to Anthropic tool defs,
@@ -173,5 +173,24 @@ describe("anthropic.toolResult (neutral result -> Anthropic tool_result block)",
 			}),
 		};
 		expect(() => anthropic.toolResult(result)).toThrow(/tool_use_id/);
+	});
+});
+
+describe("anthropic.textOf", () => {
+	it("concatenates text blocks and ignores tool_use", () => {
+		expect(
+			textOf({
+				content: [
+					{ type: "text", text: "Kitchen lights are on." },
+					{
+						type: "tool_use",
+						id: "toolu_1",
+						name: "toggleLight",
+						input: { room: "kitchen", on: true },
+					},
+					{ type: "text", text: "Ready." },
+				],
+			}),
+		).toBe("Kitchen lights are on.\nReady.");
 	});
 });

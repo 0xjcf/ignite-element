@@ -1,5 +1,4 @@
 import type { EmptyEventMap, EventMap } from "../../RenderArgs";
-import type { IgniteSchemaObject } from "../../types/schema";
 import { isOk } from "../result";
 import { fromProviderInput, toProviderInputSchema } from "../scalar";
 import type {
@@ -7,6 +6,7 @@ import type {
 	NeutralToolCall,
 	NeutralToolResult,
 	ToolDialect,
+	ToolInputSchema,
 } from "../types";
 
 /**
@@ -23,7 +23,7 @@ export type OpenAIChatTool = {
 	function: {
 		name: string;
 		description?: string;
-		parameters: IgniteSchemaObject;
+		parameters: ToolInputSchema;
 	};
 };
 
@@ -218,3 +218,16 @@ export const openai: ToolDialect<
 		};
 	},
 };
+
+/**
+ * Concatenate assistant text from an OpenAI-compatible Chat Completions
+ * response so agent loops do not copy-paste provider parsing.
+ */
+export function textOf(response: OpenAIChatCompletionResponse): string {
+	return response.choices
+		.map((choice) =>
+			typeof choice.message?.content === "string" ? choice.message.content : "",
+		)
+		.filter(Boolean)
+		.join("\n");
+}

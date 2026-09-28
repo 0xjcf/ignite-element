@@ -433,7 +433,8 @@ export const createWorkbenchModelTurnPort = (
 		request: ModelTurnPortRequest,
 		signal: AbortSignal,
 	): CapabilityOwner => {
-		const tools = igniteTools(workbench, undefined, {
+		const tools = igniteTools({
+			core: workbench,
 			schema: voiceWorkbenchModelSchema,
 			canExecute: (name) =>
 				Reflect.get(workbench.get("states").commandAvailability, name) === true,

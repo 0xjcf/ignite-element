@@ -1,13 +1,13 @@
 import { igniteTools, isOk } from "ignite-element/tools";
 import {
-	type AnthropicResponse,
 	type AnthropicToolResultBlock,
 	anthropic,
+	textOf,
 } from "ignite-element/tools/anthropic";
 import {
-	type OpenAIChatCompletionResponse,
 	type OpenAIChatToolResultMessage,
 	openai,
+	textOf as textOfOpenAI,
 } from "ignite-element/tools/openai";
 import {
 	createLocalHomeSession,
@@ -71,7 +71,9 @@ export async function runHomeAgent(
 
 	try {
 		const { home } = session;
-		const { tools, toolCalls, run, toolResult } = igniteTools(home, anthropic, {
+		const { tools, toolCalls, run, toolResult } = igniteTools({
+			core: home,
+			dialect: anthropic,
 			schema: homeToolSchema,
 		});
 
@@ -148,7 +150,9 @@ export async function runHomeOpenAICompatibleAgent(
 
 	try {
 		const { home } = session;
-		const { tools, toolCalls, run, toolResult } = igniteTools(home, openai, {
+		const { tools, toolCalls, run, toolResult } = igniteTools({
+			core: home,
+			dialect: openai,
 			schema: homeToolSchema,
 		});
 
@@ -230,25 +234,6 @@ async function closeIncompleteSession(
 		}
 		console.error("smart-home agent cleanup failed:", closeError);
 	}
-}
-
-/** Concatenate the text blocks of an Anthropic response. */
-function textOf(response: AnthropicResponse): string {
-	return response.content
-		.map((block) =>
-			block.type === "text" && typeof block.text === "string" ? block.text : "",
-		)
-		.filter(Boolean)
-		.join("\n");
-}
-
-function textOfOpenAI(response: OpenAIChatCompletionResponse): string {
-	return response.choices
-		.map((choice) =>
-			typeof choice.message?.content === "string" ? choice.message.content : "",
-		)
-		.filter(Boolean)
-		.join("\n");
 }
 
 async function resolveHomeSession(runtimeFactory?: HomeRuntimeFactory) {

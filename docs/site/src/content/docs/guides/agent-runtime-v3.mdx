@@ -157,24 +157,26 @@ Ordinary commands retain TypeScript inference and source-directed intent.
 Descriptions and input schemas belong at the application/tool boundary:
 
 ```ts title="agent-counter-tools.ts"
-import { buildManifest, resolveCall } from 'ignite-element/tools';
+import { defineToolSchema, igniteTools } from 'ignite-element/tools';
+import { openai } from 'ignite-element/tools/openai';
+import { counter } from './agent-counter';
 
-const counterToolSchema = {
-  commands: {
-    setLimit: {
-      description: 'Set maximum count',
-      input: { type: 'number', minimum: 3, maximum: 12 },
-    },
+export const counterToolSchema = defineToolSchema({
+  setLimit: {
+    description: 'Set maximum count',
+    input: { type: 'number', minimum: 3, maximum: 12 },
   },
-};
-const manifest = buildManifest(counterToolSchema);
-const validLimit = resolveCall(manifest, 'setLimit', 6);
-const invalidLimit = resolveCall(manifest, 'setLimit', 99);
+});
+export const counterTools = igniteTools({
+  core: counter,
+  schema: counterToolSchema,
+  dialect: openai,
+});
 ```
 
 Only offer definitions for commands the application's core actually exposes.
 
-Use `igniteTools(counter, dialect, { schema: counterToolSchema, canExecute })` for provider translation and validated invocation.
+Use `igniteTools({ core: counter, schema: counterToolSchema, canExecute, dialect })` for provider translation and validated invocation.
 
 The optional tool predicate reads projected availability; source guards still enforce behavior.
 

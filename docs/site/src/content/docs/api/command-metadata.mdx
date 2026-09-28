@@ -50,36 +50,37 @@ Define these schemas when exposing commands as tools.
 These examples validate numbers, strings, enumerations, and nested objects and arrays:
 
 ```ts
-import { buildManifest, resolveCall } from 'ignite-element/tools';
+import { defineToolSchema, igniteTools } from 'ignite-element/tools';
+import { openai } from 'ignite-element/tools/openai';
 
-const toolSchema = {
-  commands: {
-    setLimit: {
-      description: 'Set maximum count.',
-      input: { type: 'number', minimum: 3, maximum: 12 },
-    },
-    renamePreset: {
-      description: 'Rename the saved preset label.',
-      input: { type: 'string', minLength: 1, maxLength: 32 },
-    },
-    configureAlerts: {
-      description: 'Update alert routing rules.',
-      input: {
-        type: 'object',
-        properties: {
-          enabled: { type: 'boolean', default: true },
-          priority: { type: 'string', enum: ['low', 'high'], default: 'low' },
-          channels: { type: 'array', items: { type: 'string' }, minItems: 1 },
-        },
-        required: ['enabled', 'priority', 'channels'],
-        additionalProperties: false,
+const toolSchema = defineToolSchema({
+  setLimit: {
+    description: 'Set maximum count.',
+    input: { type: 'number', minimum: 3, maximum: 12 },
+  },
+  renamePreset: {
+    description: 'Rename the saved preset label.',
+    input: { type: 'string', minLength: 1, maxLength: 32 },
+  },
+  configureAlerts: {
+    description: 'Update alert routing rules.',
+    input: {
+      type: 'object',
+      properties: {
+        enabled: { type: 'boolean', default: true },
+        priority: { type: 'string', enum: ['low', 'high'], default: 'low' },
+        channels: { type: 'array', items: { type: 'string' }, minItems: 1 },
       },
+      required: ['enabled', 'priority', 'channels'],
+      additionalProperties: false,
     },
   },
-};
-const manifest = buildManifest(toolSchema);
-const valid = resolveCall(manifest, 'setLimit', 6);
-const invalid = resolveCall(manifest, 'setLimit', 99);
+});
+const { run } = igniteTools({
+  core: component,
+  schema: toolSchema,
+  dialect: openai,
+});
 ```
 
 These definitions belong to the application; they are not automatically derived or attached to the core catalogue.
@@ -88,7 +89,7 @@ Do not fabricate an empty-object input schema for an unknown function signature.
 
 Supply an actual contract before offering a command to a model.
 
-`igniteTools(core, dialect, { schema: toolSchema, canExecute })` accepts the same explicit definitions and an independently supplied availability predicate.
+`igniteTools({ core, schema: toolSchema, canExecute, dialect })` accepts the same explicit definitions and an independently supplied availability predicate.
 
 Missing required input schemas cause tool construction to fail before any source command executes.
 

@@ -30,7 +30,7 @@ import type {
 	ReduxStoreCommandActor,
 } from "../RenderArgs";
 import { toSchemaValue } from "../runtime/schema";
-import { igniteTools } from "../tools";
+import { igniteTools, type ToolSchema } from "../tools";
 import type { InferStateAndEvent } from "../utils/igniteRedux";
 import counterStore, { counterSlice } from "./fixtures/reduxCounterStore";
 
@@ -1281,19 +1281,17 @@ describe("igniteCore", () => {
 			}),
 		});
 		const schema = {
-			commands: {
-				addByAmount: {
-					description: "Add a bounded amount to the counter.",
-					input: {
-						type: "number",
-						minimum: 1,
-						maximum: 5,
-					},
+			addByAmount: {
+				description: "Add a bounded amount to the counter.",
+				input: {
+					type: "number",
+					minimum: 1,
+					maximum: 5,
 				},
-				increment: { input: { type: "object", properties: {} } },
 			},
-		};
-		const tools = igniteTools(register, undefined, { schema });
+			increment: { input: { type: "object", properties: {} } },
+		} satisfies ToolSchema;
+		const tools = igniteTools({ core: register, schema });
 		// Shared construction publishes metadata, but does not execute tools.
 		expect(register.get("commands")).toEqual({
 			addByAmount: { input: null },
@@ -1339,55 +1337,53 @@ describe("igniteCore", () => {
 			}),
 		});
 		const schema = {
-			commands: {
-				configureCounter: {
-					description: "Configure counter automation.",
-					input: {
-						type: "object",
-						properties: {
-							label: {
-								type: "string",
-								minLength: 1,
-								maxLength: 32,
+			configureCounter: {
+				description: "Configure counter automation.",
+				input: {
+					type: "object",
+					properties: {
+						label: {
+							type: "string",
+							minLength: 1,
+							maxLength: 32,
+						},
+						enabled: {
+							type: "boolean",
+							default: true,
+						},
+						mode: {
+							type: "string",
+							enum: ["apply", "skip"],
+							default: "apply",
+						},
+						values: {
+							type: "array",
+							items: {
+								type: "number",
+								minimum: 0,
 							},
-							enabled: {
-								type: "boolean",
-								default: true,
-							},
-							mode: {
-								type: "string",
-								enum: ["apply", "skip"],
-								default: "apply",
-							},
-							values: {
-								type: "array",
-								items: {
+							minItems: 1,
+						},
+						limits: {
+							type: "object",
+							properties: {
+								minimum: {
 									type: "number",
 									minimum: 0,
 								},
-								minItems: 1,
-							},
-							limits: {
-								type: "object",
-								properties: {
-									minimum: {
-										type: "number",
-										minimum: 0,
-									},
-									maximum: {
-										type: "number",
-										minimum: 0,
-									},
+								maximum: {
+									type: "number",
+									minimum: 0,
 								},
-								required: ["minimum", "maximum"],
 							},
+							required: ["minimum", "maximum"],
 						},
-						required: ["label", "enabled", "mode", "values", "limits"],
 					},
+					required: ["label", "enabled", "mode", "values", "limits"],
 				},
 			},
-		};
-		const tools = igniteTools(register, undefined, { schema });
+		} satisfies ToolSchema;
+		const tools = igniteTools({ core: register, schema });
 		const input = {
 			label: "shift-a",
 			enabled: true,
@@ -1425,7 +1421,7 @@ describe("igniteCore", () => {
 		expect(result.value.states.count).toBe(6);
 		expect(register.get("states")).toEqual({ count: 6 });
 		expect(tools.manifest[0].inputSchema).toEqual(
-			schema.commands.configureCounter.input,
+			schema.configureCounter.input,
 		);
 		expect(register.get("commands")).toEqual({
 			configureCounter: { input: null },
@@ -1444,26 +1440,24 @@ describe("igniteCore", () => {
 			commands: () => ({ addLarge: add, addSmall: add }),
 		});
 		const schema = {
-			commands: {
-				addLarge: {
-					description: "Add a larger amount.",
-					input: {
-						type: "number",
-						minimum: 5,
-						maximum: 10,
-					},
-				},
-				addSmall: {
-					description: "Add a smaller amount.",
-					input: {
-						type: "number",
-						minimum: 1,
-						maximum: 4,
-					},
+			addLarge: {
+				description: "Add a larger amount.",
+				input: {
+					type: "number",
+					minimum: 5,
+					maximum: 10,
 				},
 			},
-		};
-		const tools = igniteTools(register, undefined, { schema });
+			addSmall: {
+				description: "Add a smaller amount.",
+				input: {
+					type: "number",
+					minimum: 1,
+					maximum: 4,
+				},
+			},
+		} satisfies ToolSchema;
+		const tools = igniteTools({ core: register, schema });
 		expect((await tools.run({ name: "addSmall", input: 5 })).ok).toBe(false);
 		expect((await tools.run({ name: "addLarge", input: 2 })).ok).toBe(false);
 		expect(store.getState().counter.count).toBe(0);

@@ -136,17 +136,15 @@ Tool consumers preserve their explicit constraints separately from ordinary comm
 
 ```ts title="thermostat-tools.ts"
 export const thermostatToolSchema = {
-  commands: {
-    setTargetDraft: {
-      description: "Synchronize the actor-owned target draft.",
-      input: { type: "number", minimum: 58, maximum: 82 },
-      gated: true,
-    },
-    saveTarget: {
-      description: "Save the target temperature.",
-      input: { type: "number", minimum: 58, maximum: 82 },
-      gated: true,
-    },
+  setTargetDraft: {
+    description: "Synchronize the actor-owned target draft.",
+    input: { type: "number", minimum: 58, maximum: 82 },
+    gated: true,
+  },
+  saveTarget: {
+    description: "Save the target temperature.",
+    input: { type: "number", minimum: 58, maximum: 82 },
+    gated: true,
   },
 };
 ```
@@ -282,7 +280,7 @@ if (canSave) {
   }
 }
 
-console.log(thermostatToolSchema.commands.saveTarget.description);
+console.log(thermostatToolSchema.saveTarget.description);
 console.log(schema.commands); // names and unknown input schemas, not descriptions
 console.log(states.statusLabel);
 ```

@@ -24,7 +24,8 @@ const prompt = {
 const createRequest = (): ModelRequest => ({
 	prompt,
 	tools: modelTools(
-		igniteTools(component, undefined, {
+		igniteTools({
+			core: component,
 			schema: voiceWorkbenchModelSchema,
 			canExecute: (name) =>
 				Reflect.get(component.get("states").commandAvailability, name) === true,
