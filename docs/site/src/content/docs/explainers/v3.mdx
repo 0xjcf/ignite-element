@@ -1,0 +1,131 @@
+---
+title: Ignite Element v3
+description: One Smart Home core, three commands, and a scripted agent turn that uses run then until — no keys, no live model.
+---
+
+import SmartHomeExplainerDemo from '../../../components/SmartHomeExplainerDemo.astro';
+
+A house is easier to feel than a counter.
+
+One source owns the lights, the thermostat, and the scenes. A view can click those commands. A tool loop can call the same ones. Ignite does not need two houses for that.
+
+This page stays on three commands: `toggleLight`, `setThermostat`, and `runScene`.
+
+:::note[Guides stay the reference]
+Signatures and edge cases live in [Tools](/ignite-element/guides/tools/), [Shared sources](/ignite-element/guides/shared-source-ownership/), and [Build for agents](/ignite-element/guides/agent-runtime-v3/). This page teaches the path.
+:::
+
+## One home
+
+The panel below is a view of a real Smart Home core from the [canonical example](https://github.com/0xjcf/ignite-element/tree/beta/examples/agents/smart-home).
+
+The core is created once. The custom element registers with `home('ignite-v3-home', renderer)`. There is no `view:` on `igniteCore`.
+
+<SmartHomeExplainerDemo />
+
+That is the house. Everything else on this page points at it.
+
+## Click as a human
+
+Turn the living room on. Nudge a temperature. Press **Movie**.
+
+Those buttons are ordinary commands on the same core. The panel is not storing a second copy of the house. It is projecting `states` and sending `toggleLight`, `setThermostat`, or `runScene`.
+
+If the living light was on, movie night turns it off. The scene pill updates because the source did.
+
+## A scripted agent turn
+
+Press **Run agent: movie night**.
+
+Nothing leaves the browser. There is no API key and no live model. A scripted stand-in emits one tool call: `runScene("movie")`.
+
+Watch the beats in order:
+
+1. The bind offers the three tools.
+2. `run()` acknowledges the command.
+3. `until()` settles on the current projection — seed-safe, so a synchronous scene is not missed.
+4. The panel updates because it is the same home.
+
+`run` is act plus acknowledgement. It does not mean later work is finished. `until` is the everyday settle. This scene happens to be finished by the time `run` returns, and `until` still does the right thing.
+
+## Same command, two callers
+
+Click **Movie** yourself. Then reset, and let the agent take the turn.
+
+Both paths call `runScene`. One path is a button. The other is a tool call through `igniteTools`. Ignite does not need to know which one you used.
+
+The human click never builds a tool manifest. The agent never reaches into the DOM. They meet at the core.
+
+## The golden path
+
+The loop you just watched is this bind. One `run`, then one `until`.
+
+<details>
+<summary>Named igniteTools, then run, then until</summary>
+
+```ts title="movie-night.ts"
+import { defineToolSchema, igniteTools } from 'ignite-element/tools';
+
+const schema = defineToolSchema({
+  toggleLight: {
+    description: "Turn a room's light on or off.",
+    input: {
+      type: 'object',
+      properties: {
+        room: { type: 'string', enum: ['living', 'bedroom', 'kitchen'] },
+        on: { type: 'boolean' },
+      },
+    },
+  },
+  setThermostat: {
+    description: "Set a room's target temperature in °F.",
+    input: {
+      type: 'object',
+      properties: {
+        room: { type: 'string', enum: ['living', 'bedroom', 'kitchen'] },
+        temp: { type: 'number', minimum: 50, maximum: 90 },
+      },
+    },
+  },
+  runScene: {
+    description: 'Activate a scene that sets several devices at once.',
+    input: {
+      type: 'string',
+      enum: ['morning', 'away', 'movie', 'night'],
+    },
+  },
+});
+
+const home = component;
+const { run, until } = igniteTools({
+  core: home,
+  schema,
+});
+
+const result = await run({ name: 'runScene', input: 'movie' });
+if (result.ok) {
+  const states = await until((observation) =>
+    observation.type === 'states' && observation.states.activeScene === 'movie'
+      ? observation.states
+      : undefined,
+  );
+}
+```
+
+`canExecute` and `dialect` are optional on that named bind. This page does not use a provider dialect because the model is scripted.
+
+`observe` stays for ongoing fan-in — logging or long-lived listeners — not for this one settle.
+
+</details>
+
+## Honest limits
+
+Ignite owns the component runtime, the derived view, and the tool bind.
+
+It does not ship a model client. It does not hold API keys. It does not write your allowlist, your policy, or your provider loop.
+
+This page stops at a fake model so the loop is visible without a secret. The full Smart Home example is where an application adds Anthropic or a local MLX server on its side of the seam.
+
+[Open the Smart Home example](https://github.com/0xjcf/ignite-element/tree/beta/examples/agents/smart-home) when you want that next step.
+
+Keep [Tools](/ignite-element/guides/tools/) open while you copy the bind. Use [Shared sources](/ignite-element/guides/shared-source-ownership/) when a view and a loop should share one actor. Use [Build for agents](/ignite-element/guides/agent-runtime-v3/) when you want the headless contract first.
