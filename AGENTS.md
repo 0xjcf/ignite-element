@@ -332,10 +332,11 @@ The canonical flow is:
 - `igniteTools` is named-only: `igniteTools({ core, schema, canExecute?, dialect? })`.
   Author schemas as a bare command map with `satisfies ToolSchema` or
   `defineToolSchema({ toggleLight: { input } })`. `run` is
-  act-plus-acknowledgement; long/async settle uses `observe` (fan-in of `on` +
-  `watch`). Headless proof is the Smart Home example. Discovery does not infer
-  schemas. `canExecute` is availability preflight, not authentication.
-  `buildManifest` / `resolveCall` stay exported for advanced/testing only.
+  act-plus-acknowledgement; everyday settle uses `until` on the same stream as
+  `observe`. `observe` remains for ongoing fan-in. Headless proof is the Smart
+  Home example. Discovery does not infer schemas. `canExecute` is availability
+  preflight, not authentication. `buildManifest` / `resolveCall` stay exported
+  for advanced/testing only.
 - Routing remains separate from source behavior and projection.
 - Environmental I/O belongs in application/source ports, native actions,
   services, middleware, transports, or adapters.

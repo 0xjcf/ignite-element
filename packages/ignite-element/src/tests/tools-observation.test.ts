@@ -265,3 +265,46 @@ it("releases temporary handles when a pending core is disposed", async () => {
 	for (const release of releases) expect(release).toHaveBeenCalledOnce();
 	core.dispose();
 });
+
+it("until resolves from current states after run without a later transition", async () => {
+	const machine = setup({
+		types: {
+			context: {} as { count: number },
+			events: {} as { type: "SET"; count: number },
+		},
+	}).createMachine({
+		context: { count: 0 },
+		on: {
+			SET: {
+				actions: assign({ count: ({ event }) => event.count }),
+			},
+		},
+	});
+	const core = igniteCore({
+		source: machine,
+		states: (snapshot) => ({ count: snapshot.context.count }),
+		commands: ({ source }) => ({
+			setCount(count: number) {
+				source.send({ type: "SET", count });
+			},
+		}),
+	});
+	try {
+		const { run, until } = igniteTools({
+			core,
+			schema: defineToolSchema({
+				setCount: { input: { type: "number" } },
+			}),
+		});
+		const result = await run({ name: "setCount", input: 2 });
+		expect(result.ok).toBe(true);
+		const states = await until((observation) =>
+			observation.type === "states" && observation.states.count === 2
+				? observation.states
+				: undefined,
+		);
+		expect(states).toEqual({ count: 2 });
+	} finally {
+		core.dispose();
+	}
+});

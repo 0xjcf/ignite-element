@@ -1,6 +1,6 @@
 ---
 title: Tools
-description: Bind explicit command schemas to a core with named igniteTools, then run and observe.
+description: Bind explicit command schemas to a core with named igniteTools, then run and until.
 sidebar:
   label: Tools
   order: 4
@@ -83,7 +83,7 @@ Omit it and gated tools stay available.
 
 Rebuild the bind when the application needs a fresh provider list.
 
-## Run, then observe
+## Run, then until
 
 `run(call)` is act plus acknowledgement.
 
@@ -91,28 +91,33 @@ It routes validated input into `core.execute({ command, input })` and returns `{
 
 A fulfilled `run` does not mean detached work is finished.
 
-`observe(handler)` is the tools fan-in of `on` and `watch` for long or async settle.
+`until(match)` waits on the same observation stream as `observe` and resolves with the first defined match.
 
-Stay subscribed until the application-correlated settle you care about, then release the handle.
+On attach it seed-checks the current projection once, then waits for further emissions if that seed does not match.
+
+Match returning `undefined`, `false`, or nullish means keep waiting.
+
+Matchers are synchronous. It unsubscribes when it resolves.
+
+Pass `{ signal }` to cancel: abort unsubscribes and rejects with an `AbortError`.
+
+`observe(handler)` remains for ongoing fan-in — logging, multiple listeners, or long-lived loops.
 
 ```ts title="counter-tool-loop.ts"
-const { run, observe } = tools;
-const settled = new Promise((resolve) => {
-  const subscription = observe((observation) => {
-    if (observation.type === 'states' && observation.states.limit === 6) {
-      subscription.unsubscribe();
-      resolve(observation.states);
-    }
-  });
-});
+const { run, until, observe } = tools;
 const result = await run({ name: 'setLimit', input: 6 });
 if (result.ok) {
   console.log(result.value);
 }
-await settled;
+const states = await until(
+  (observation) =>
+    observation.type === 'states' && observation.states.limit === 6
+      ? observation.states
+      : undefined,
+);
 ```
 
-Without a dialect, `igniteTools({ core, schema })` still exposes `run` and `observe` for headless proof.
+Without a dialect, `igniteTools({ core, schema })` still exposes `run`, `until`, and `observe` for headless proof.
 
 UI registration stays on the callable core: `home('smart-home', renderer)`.
 

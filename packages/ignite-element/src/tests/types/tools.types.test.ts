@@ -95,6 +95,41 @@ describe("igniteTools types", () => {
 		});
 	});
 
+	it("types until() from the match return, excluding keep-waiting values", () => {
+		const { until } = igniteTools(options);
+
+		const probe = async () => {
+			const states = await until((observation) =>
+				observation.type === "states" && observation.states.isOn
+					? observation.states
+					: undefined,
+			);
+			expectTypeOf(states).toEqualTypeOf<{ isOn: boolean }>();
+
+			const matched = await until(
+				(observation) =>
+					observation.type === "event" && observation.event.type === "toggled",
+			);
+			expectTypeOf(matched).toEqualTypeOf<true>();
+
+			await until(
+				(observation) =>
+					observation.type === "states" ? observation.states : undefined,
+				{ signal: new AbortController().signal },
+			);
+		};
+		void probe;
+	});
+
+	it("rejects async until matchers at the type boundary", () => {
+		const { until } = igniteTools(options);
+		const author = async () => {
+			// @ts-expect-error until matchers must be synchronous
+			await until(async () => true);
+		};
+		void author;
+	});
+
 	it("types a dialect's tools and translators from the dialect generics", () => {
 		type Defs = Array<{ tool: string }>;
 		type Resp = { calls: NeutralToolCall[] };

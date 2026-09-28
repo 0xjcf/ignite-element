@@ -61,7 +61,9 @@ export const counterTools = igniteTools({
 
 It reads the current projection from this shared core.
 
-`run` acknowledges the command; `observe` stays attached while later source work settles.
+`run` acknowledges the command; `until` waits for later source work to settle.
+
+`observe` remains for ongoing fan-in.
 
 See [Build for agents](/ignite-element/guides/agent-runtime-v3/) and [Tools](/ignite-element/guides/tools/).
 

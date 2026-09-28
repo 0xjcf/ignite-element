@@ -88,7 +88,7 @@ homeToolSchema → dialect.tools() → [ model ] → tool call
 
 `igniteTools({ core: home, schema: homeToolSchema, dialect: anthropic })` and
 `igniteTools({ core: home, schema: homeToolSchema, dialect: openai })` both return
-`{ tools, toolCalls, run, observe, toolResult }`. Use dialect `textOf` for final
+`{ tools, toolCalls, run, until, observe, toolResult }`. Use dialect `textOf` for final
 assistant text. The consumer brings the model seam in `src/model.ts`: a scripted
 mock, the real `@anthropic-ai/sdk`, or any OpenAI-compatible `/v1/chat/completions`
 server such as MLX. Application loops do not import `buildManifest` or

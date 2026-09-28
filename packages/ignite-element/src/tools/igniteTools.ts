@@ -15,6 +15,7 @@ import type {
 	ToolObservation,
 	ToolSchema,
 	ToolStreamHandler,
+	ToolStreamObservation,
 	ToolStreamSubscription,
 } from "./types";
 
@@ -30,6 +31,12 @@ export type IgniteToolsNeutral<
 		call: NeutralToolCall,
 	): Promise<Result<ToolObservation<CommandResult, States, Events>, ToolError>>;
 	observe(handler: ToolStreamHandler<States, Events>): ToolStreamSubscription;
+	until<Matched>(
+		match: (
+			observation: ToolStreamObservation<States, Events>,
+		) => Matched extends PromiseLike<unknown> ? never : Matched,
+		options?: { signal?: AbortSignal },
+	): Promise<Exclude<Matched, undefined | null | false>>;
 };
 
 /** The neutral core plus a dialect's provider-shaped tools + translators. */
@@ -66,6 +73,22 @@ const NAMED_BIND_ERROR =
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isThenable(value: object): value is PromiseLike<unknown> {
+	return typeof (value as PromiseLike<unknown>).then === "function";
+}
+
+function abortReason(signal?: AbortSignal): unknown {
+	if (signal?.reason !== undefined) {
+		return signal.reason;
+	}
+	if (typeof DOMException === "function") {
+		return new DOMException("This operation was aborted.", "AbortError");
+	}
+	const error = new Error("This operation was aborted.");
+	error.name = "AbortError";
+	return error;
 }
 
 function isNamedBind(
@@ -118,10 +141,10 @@ type IgniteToolsResult<
  * only: `{ core, schema, canExecute?, dialect? }`. The pure core builds a
  * neutral manifest from explicit tool definitions and routes validated calls;
  * the shell (`run`) performs the single `execute` side effect. `run` is
- * act-plus-acknowledgement; long/async settle uses `observe`. With a
- * `ToolDialect`, the result also carries provider-shaped `tools` and the
- * parse/result translators — the consumer brings the SDK and runs the model
- * loop.
+ * act-plus-acknowledgement; everyday settle uses `until`, and `observe`
+ * remains for ongoing fan-in. With a `ToolDialect`, the result also carries
+ * provider-shaped `tools` and the parse/result translators — the consumer
+ * brings the SDK and runs the model loop.
  */
 export function igniteTools<
 	State,
@@ -282,7 +305,117 @@ export function igniteTools<
 		};
 	};
 
-	const neutral = { manifest, resolveCall: boundResolveCall, run, observe };
+	const until = <Matched>(
+		match: (
+			observation: ToolStreamObservation<States, Events>,
+		) => Matched extends PromiseLike<unknown> ? never : Matched,
+		options?: { signal?: AbortSignal },
+	): Promise<Exclude<Matched, undefined | null | false>> =>
+		new Promise((resolve, reject) => {
+			let settled = false;
+			let subscription: ToolStreamSubscription | undefined;
+			const signal = options?.signal;
+
+			function onAbort() {
+				finish(() => {
+					reject(abortReason(signal));
+				});
+			}
+
+			function release() {
+				try {
+					signal?.removeEventListener("abort", onAbort);
+				} catch (error) {
+					console.error(
+						"[igniteTools] Command observation cleanup failed.",
+						error,
+					);
+				}
+				try {
+					subscription?.unsubscribe();
+				} catch (error) {
+					console.error(
+						"[igniteTools] Command observation cleanup failed.",
+						error,
+					);
+				}
+			}
+
+			function finish(complete: () => void) {
+				if (settled) {
+					return;
+				}
+				settled = true;
+				release();
+				complete();
+			}
+
+			function consider(observation: ToolStreamObservation<States, Events>) {
+				if (settled) {
+					return;
+				}
+				try {
+					const matched = match(observation);
+					if (matched == null || matched === false) {
+						return;
+					}
+					if (typeof matched === "object" && isThenable(matched)) {
+						finish(() => {
+							reject(
+								new Error(
+									"[igniteTools] until(match) must return synchronously.",
+								),
+							);
+						});
+						return;
+					}
+					finish(() => {
+						resolve(matched as Exclude<Matched, undefined | null | false>);
+					});
+				} catch (error) {
+					finish(() => {
+						reject(error);
+					});
+				}
+			}
+
+			if (signal) {
+				signal.addEventListener("abort", onAbort);
+				if (signal.aborted) {
+					onAbort();
+					return;
+				}
+			}
+
+			try {
+				subscription = observe(consider);
+				if (!settled) {
+					const states = runtime.get("states");
+					consider({
+						type: "states",
+						states,
+						prevStates: states,
+					});
+				}
+			} catch (error) {
+				finish(() => {
+					reject(error);
+				});
+				return;
+			}
+
+			if (settled) {
+				release();
+			}
+		});
+
+	const neutral = {
+		manifest,
+		resolveCall: boundResolveCall,
+		run,
+		observe,
+		until,
+	};
 
 	if (!dialect) {
 		return neutral as IgniteToolsResult<
