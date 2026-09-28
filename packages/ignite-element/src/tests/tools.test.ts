@@ -833,6 +833,31 @@ describe("igniteTools (neutral, no dialect)", () => {
 		expect(unsubscribeEvent).toHaveBeenCalledTimes(1);
 	});
 
+	it("until resolves from the current projection without a later transition", async () => {
+		const component = createFakeComponent();
+		component.emitStates({ count: 2, label: "ready" });
+		const { until } = igniteTools({
+			core: component,
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
+		const match = vi.fn(
+			(observation: ToolStreamObservation<FakeStates, FakeEvents>) =>
+				observation.type === "states" && observation.states.count === 2
+					? observation.states
+					: undefined,
+		);
+
+		await expect(until(match)).resolves.toEqual({
+			count: 2,
+			label: "ready",
+		});
+		expect(match).toHaveBeenCalledTimes(1);
+		component.emitStates({ count: 2, label: "later" });
+		await Promise.resolve();
+		expect(match).toHaveBeenCalledTimes(1);
+	});
+
 	it("until resolves with the first defined match", async () => {
 		const component = createFakeComponent();
 		const { until } = igniteTools({
@@ -919,6 +944,25 @@ describe("igniteTools (neutral, no dialect)", () => {
 		await expect(pending).resolves.toEqual({ count: 4, label: "ready" });
 	});
 
+	it("until rejects when the seed match throws", async () => {
+		const component = createFakeComponent();
+		const { until } = igniteTools({
+			core: component,
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
+		const failure = new Error("seed failed");
+
+		await expect(
+			until((observation: ToolStreamObservation<FakeStates, FakeEvents>) => {
+				if (observation.type === "states") {
+					throw failure;
+				}
+				return undefined;
+			}),
+		).rejects.toBe(failure);
+	});
+
 	it("until rejects when match throws and unsubscribes", async () => {
 		const component = createFakeComponent();
 		const { until } = igniteTools({
@@ -929,7 +973,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const failure = new Error("match failed");
 		const match = vi.fn(
 			(observation: ToolStreamObservation<FakeStates, FakeEvents>) => {
-				if (observation.type === "states") {
+				if (observation.type === "states" && observation.states.count === 1) {
 					throw failure;
 				}
 				return undefined;
@@ -1034,10 +1078,12 @@ describe("igniteTools (neutral, no dialect)", () => {
 		});
 
 		const pending = until(
-			async (observation: ToolStreamObservation<FakeStates, FakeEvents>) =>
-				observation.type === "states" ? observation.states : undefined,
+			() =>
+				Promise.resolve({
+					count: 1,
+					label: "async",
+				}) as unknown as FakeStates,
 		);
-		component.emitStates({ count: 1, label: "async" });
 		await expect(pending).rejects.toThrow(/synchronously/);
 	});
 
@@ -1065,6 +1111,40 @@ describe("igniteTools (neutral, no dialect)", () => {
 			count: 2,
 			label: "nested",
 		});
+	});
+
+	it("until rejects when aborted while waiting", async () => {
+		const component = createFakeComponent();
+		const { until } = igniteTools({
+			core: component,
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
+		const controller = new AbortController();
+		const match = vi.fn(() => undefined);
+		const pending = until(match, { signal: controller.signal });
+		const seedCalls = match.mock.calls.length;
+		controller.abort();
+		await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+		component.emitStates({ count: 2, label: "later" });
+		await Promise.resolve();
+		expect(match).toHaveBeenCalledTimes(seedCalls);
+	});
+
+	it("until rejects an already-aborted signal without attaching", async () => {
+		const component = createFakeComponent();
+		const watch = vi.spyOn(component, "watch");
+		const { until } = igniteTools({
+			core: component,
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
+		const controller = new AbortController();
+		controller.abort();
+		await expect(
+			until(() => undefined, { signal: controller.signal }),
+		).rejects.toMatchObject({ name: "AbortError" });
+		expect(watch).not.toHaveBeenCalled();
 	});
 });
 

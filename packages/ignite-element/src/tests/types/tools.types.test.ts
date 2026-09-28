@@ -111,8 +111,23 @@ describe("igniteTools types", () => {
 					observation.type === "event" && observation.event.type === "toggled",
 			);
 			expectTypeOf(matched).toEqualTypeOf<true>();
+
+			await until(
+				(observation) =>
+					observation.type === "states" ? observation.states : undefined,
+				{ signal: new AbortController().signal },
+			);
 		};
 		void probe;
+	});
+
+	it("rejects async until matchers at the type boundary", () => {
+		const { until } = igniteTools(options);
+		const author = async () => {
+			// @ts-expect-error until matchers must be synchronous
+			await until(async () => true);
+		};
+		void author;
 	});
 
 	it("types a dialect's tools and translators from the dialect generics", () => {

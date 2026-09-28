@@ -32,7 +32,10 @@ export type IgniteToolsNeutral<
 	): Promise<Result<ToolObservation<CommandResult, States, Events>, ToolError>>;
 	observe(handler: ToolStreamHandler<States, Events>): ToolStreamSubscription;
 	until<Matched>(
-		match: (observation: ToolStreamObservation<States, Events>) => Matched,
+		match: (
+			observation: ToolStreamObservation<States, Events>,
+		) => Matched extends PromiseLike<unknown> ? never : Matched,
+		options?: { signal?: AbortSignal },
 	): Promise<Exclude<Matched, undefined | null | false>>;
 };
 
@@ -70,6 +73,22 @@ const NAMED_BIND_ERROR =
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isThenable(value: object): value is PromiseLike<unknown> {
+	return typeof (value as PromiseLike<unknown>).then === "function";
+}
+
+function abortReason(signal?: AbortSignal): unknown {
+	if (signal?.reason !== undefined) {
+		return signal.reason;
+	}
+	if (typeof DOMException === "function") {
+		return new DOMException("This operation was aborted.", "AbortError");
+	}
+	const error = new Error("This operation was aborted.");
+	error.name = "AbortError";
+	return error;
 }
 
 function isNamedBind(
@@ -287,13 +306,31 @@ export function igniteTools<
 	};
 
 	const until = <Matched>(
-		match: (observation: ToolStreamObservation<States, Events>) => Matched,
+		match: (
+			observation: ToolStreamObservation<States, Events>,
+		) => Matched extends PromiseLike<unknown> ? never : Matched,
+		options?: { signal?: AbortSignal },
 	): Promise<Exclude<Matched, undefined | null | false>> =>
 		new Promise((resolve, reject) => {
 			let settled = false;
 			let subscription: ToolStreamSubscription | undefined;
+			const signal = options?.signal;
 
-			const release = () => {
+			function onAbort() {
+				finish(() => {
+					reject(abortReason(signal));
+				});
+			}
+
+			function release() {
+				try {
+					signal?.removeEventListener("abort", onAbort);
+				} catch (error) {
+					console.error(
+						"[igniteTools] Command observation cleanup failed.",
+						error,
+					);
+				}
 				try {
 					subscription?.unsubscribe();
 				} catch (error) {
@@ -302,51 +339,68 @@ export function igniteTools<
 						error,
 					);
 				}
-			};
+			}
 
-			const finish = (complete: () => void) => {
+			function finish(complete: () => void) {
 				if (settled) {
 					return;
 				}
 				settled = true;
 				release();
 				complete();
-			};
+			}
 
-			try {
-				subscription = observe((observation) => {
-					if (settled) {
+			function consider(observation: ToolStreamObservation<States, Events>) {
+				if (settled) {
+					return;
+				}
+				try {
+					const matched = match(observation);
+					if (matched == null || matched === false) {
 						return;
 					}
-					try {
-						const matched = match(observation);
-						if (matched == null || matched === false) {
-							return;
-						}
-						if (
-							typeof matched === "object" &&
-							typeof (matched as PromiseLike<unknown>).then === "function"
-						) {
-							finish(() => {
-								reject(
-									new Error(
-										"[igniteTools] until(match) must return synchronously.",
-									),
-								);
-							});
-							return;
-						}
+					if (typeof matched === "object" && isThenable(matched)) {
 						finish(() => {
-							resolve(matched as Exclude<Matched, undefined | null | false>);
+							reject(
+								new Error(
+									"[igniteTools] until(match) must return synchronously.",
+								),
+							);
 						});
-					} catch (error) {
-						finish(() => {
-							reject(error);
-						});
+						return;
 					}
-				});
+					finish(() => {
+						resolve(matched as Exclude<Matched, undefined | null | false>);
+					});
+				} catch (error) {
+					finish(() => {
+						reject(error);
+					});
+				}
+			}
+
+			if (signal) {
+				signal.addEventListener("abort", onAbort);
+				if (signal.aborted) {
+					onAbort();
+					return;
+				}
+			}
+
+			try {
+				subscription = observe(consider);
+				if (!settled) {
+					const states = runtime.get("states");
+					consider({
+						type: "states",
+						states,
+						prevStates: states,
+					});
+				}
 			} catch (error) {
-				reject(error);
+				finish(() => {
+					reject(error);
+				});
 				return;
 			}
 

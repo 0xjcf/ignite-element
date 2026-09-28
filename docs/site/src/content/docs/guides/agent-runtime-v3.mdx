@@ -128,7 +128,7 @@ export const counterTools = igniteTools({
 
 `until` waits on the same stream as `observe` for later source work to settle.
 
-Start it before `run` so in-flight settle is not missed.
+It seed-checks the current projection once, so one `until` after `run` is enough.
 
 `observe` remains for ongoing fan-in.
 
@@ -136,17 +136,16 @@ Start it before `run` so in-flight settle is not missed.
 import { counterTools } from './agent-counter-tools';
 
 const { run, until, observe } = counterTools;
-const settled = until(
+const result = await run({ name: 'setLimit', input: 6 });
+if (result.ok) {
+  console.log(result.value);
+}
+const states = await until(
   (observation) =>
     observation.type === 'states' && observation.states.limit === 6
       ? observation.states
       : undefined,
 );
-const result = await run({ name: 'setLimit', input: 6 });
-if (result.ok) {
-  console.log(result.value);
-}
-const states = await settled;
 ```
 
 Only offer definitions for commands the core actually exposes.

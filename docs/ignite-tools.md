@@ -71,27 +71,27 @@ tagged ToolError. A returned promise gates command acknowledgement, not
 business-done. Detached work and remote snapshot delivery may still be pending.
 
 `until(match)` waits on the same observation stream as `observe` and resolves
-with the first defined match. Match returning `undefined`, `false`, or nullish
-means keep waiting. It unsubscribes when it resolves. Start `until` before
-`run` so in-flight settle is not missed; the stream does not replay the current
-projection.
+with the first defined match. On attach it seed-checks the current projection
+once, then waits for further emissions if that seed does not match. Match
+returning `undefined`, `false`, or nullish means keep waiting. Matchers are
+synchronous. It unsubscribes when it resolves. Pass `{ signal }` to cancel:
+abort unsubscribes and rejects with an `AbortError`.
 
 `observe(handler)` remains for ongoing fan-in — logging, multiple listeners, or
 long-lived loops.
 
 ```ts
 const { run, until, observe } = tools;
-const settled = until(
+const result = await run({ name: 'setLimit', input: 6 });
+if (result.ok) {
+  console.log(result.value);
+}
+const states = await until(
   (observation) =>
     observation.type === 'states' && observation.states.limit === 6
       ? observation.states
       : undefined,
 );
-const result = await run({ name: 'setLimit', input: 6 });
-if (result.ok) {
-  console.log(result.value);
-}
-const states = await settled;
 ```
 
 Without a dialect, `igniteTools({ core, schema })` still exposes `run`, `until`,
