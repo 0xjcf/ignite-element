@@ -4,7 +4,7 @@ import { home, offeredToolNames, tools } from "./session";
 
 export const movieNightCall: NeutralToolCall = {
 	name: "runScene",
-	input: { value: "movie" },
+	input: "movie",
 };
 
 export type AgentBeat =

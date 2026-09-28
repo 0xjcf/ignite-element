@@ -102,7 +102,7 @@ const { run, until } = igniteTools({
   schema,
 });
 
-const result = await run({ name: 'runScene', input: { value: 'movie' } });
+const result = await run({ name: 'runScene', input: 'movie' });
 if (result.ok) {
   const states = await until((observation) =>
     observation.type === 'states' && observation.states.activeScene === 'movie'
