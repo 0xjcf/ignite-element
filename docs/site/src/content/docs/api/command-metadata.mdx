@@ -106,6 +106,8 @@ A tool schema sets `gated: true` and `igniteTools` receives `canExecute(name)`.
 
 The predicate reads the current application projection; it is not a method on the core.
 
+`canExecute` is availability preflight; source guards still enforce.
+
 Rebuild a provider's offered tool list when the application needs a fresh availability view; invocation still rechecks its supplied predicate.
 
 ## Execution boundary

@@ -36,8 +36,8 @@ core Zod adapter.
 
 `canExecute?: (name: string) => boolean` is one predicate for every
 `gated: true` command. Omit it and gated tools stay available (`() => true`).
-Do not treat `canExecute` as authentication or authorization; keep source
-enforcement. Rebuild the bind when a fresh provider list is needed.
+`canExecute` is availability preflight; source guards still enforce.
+Rebuild the bind when a fresh provider list is needed.
 
 ## Provider port
 
@@ -117,6 +117,10 @@ const { tools, toolCalls, run, toolResult } = igniteTools({
   schema: toolSchema,
   dialect: openai,
   canExecute,
+});
+messages.push({
+  role: 'user',
+  content: 'Set the limit to 6 and increment until it is reached.',
 });
 for (let turn = 0; turn < 8; turn++) {
   const response = await client.chat.completions.create({

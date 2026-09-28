@@ -132,19 +132,19 @@ export const counterTools = igniteTools({
 import { counterTools } from './agent-counter-tools';
 
 const { run, observe } = counterTools;
-const subscription = observe((observation) => {
-  if (observation.type === 'states') {
-    console.log(observation.states);
-  }
+const settled = new Promise((resolve) => {
+  const subscription = observe((observation) => {
+    if (observation.type === 'states' && observation.states.limit === 6) {
+      subscription.unsubscribe();
+      resolve(observation.states);
+    }
+  });
 });
-try {
-  const result = await run({ name: 'setLimit', input: 6 });
-  if (result.ok) {
-    console.log(result.value);
-  }
-} finally {
-  subscription.unsubscribe();
+const result = await run({ name: 'setLimit', input: 6 });
+if (result.ok) {
+  console.log(result.value);
 }
+await settled;
 ```
 
 Only offer definitions for commands the core actually exposes.
