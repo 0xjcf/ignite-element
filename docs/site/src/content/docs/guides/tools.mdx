@@ -96,8 +96,6 @@ A fulfilled `run` does not mean detached work is finished.
 Release its handle.
 
 ```ts title="counter-tool-loop.ts"
-import { isOk } from 'ignite-element/tools';
-
 const { run, observe } = tools;
 const subscription = observe((observation) => {
   if (observation.type === 'states') {
@@ -108,8 +106,8 @@ const subscription = observe((observation) => {
 });
 try {
   const result = await run({ name: 'setLimit', input: 6 });
-  if (isOk(result)) {
-    console.log(result.value.states);
+  if (result.ok) {
+    console.log(result.value);
   }
 } finally {
   subscription.unsubscribe();
@@ -131,15 +129,17 @@ The application owns the client, credentials, and requests.
 
 ```ts title="openai-tool-loop.ts"
 import { igniteTools } from 'ignite-element/tools';
-import { openai, textOf } from 'ignite-element/tools/openai';
+import {
+  openai,
+  textOf,
+  type OpenAIChatCompletionResponse,
+} from 'ignite-element/tools/openai';
 import { toolSchema } from './counter-tool-schema';
 
 const client: {
   chat: {
     completions: {
-      create: (request: unknown) => Promise<{
-        choices: { message?: { content?: string | null; tool_calls?: unknown } }[];
-      }>;
+      create: (request: unknown) => Promise<OpenAIChatCompletionResponse>;
     };
   };
 } = globalThis as never;

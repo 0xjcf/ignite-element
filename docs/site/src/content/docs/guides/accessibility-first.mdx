@@ -274,7 +274,6 @@ The DOM projection expresses those facts with native semantics instead of trying
 Ignite's current runtime APIs are already enough to verify most of the contract before any DOM assertion:
 
 ```ts title="thermostat-headless.ts"
-import { isOk } from 'ignite-element/tools';
 import { thermostat } from './thermostat';
 import { thermostatToolSchema, thermostatTools } from './thermostat-tools';
 
@@ -286,9 +285,8 @@ const result = await run({
   name: "saveTarget",
   input: 70,
 });
-if (isOk(result)) {
-  console.log(result.value.result);
-  console.log(result.value.states);
+if (result.ok) {
+  console.log(result.value);
 } else {
   console.error(result.error);
 }

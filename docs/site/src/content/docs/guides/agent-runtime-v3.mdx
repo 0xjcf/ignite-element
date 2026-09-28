@@ -131,7 +131,6 @@ export const counterTools = igniteTools({
 `observe` stays attached while later source work settles.
 
 ```ts title="agent-counter-observe.ts"
-import { isOk } from 'ignite-element/tools';
 import { counterTools } from './agent-counter-tools';
 
 const { run, observe } = counterTools;
@@ -142,8 +141,8 @@ const subscription = observe((observation) => {
 });
 try {
   const result = await run({ name: 'setLimit', input: 6 });
-  if (isOk(result)) {
-    console.log(result.value.states);
+  if (result.ok) {
+    console.log(result.value);
   }
 } finally {
   subscription.unsubscribe();
