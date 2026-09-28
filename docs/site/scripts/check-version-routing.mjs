@@ -78,6 +78,7 @@ const requiredCurrentRoutes = [
 	"guides/tools",
 	"guides/agent-runtime-v3",
 	"explainers/v3",
+	"explainers/views-effects",
 	"migration/v3",
 ];
 

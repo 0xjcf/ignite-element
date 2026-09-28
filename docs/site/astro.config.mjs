@@ -66,7 +66,10 @@ export default defineConfig({
 				},
 				{
 					label: "Explainers",
-					items: [{ label: "Ignite Element v3", slug: "explainers/v3" }],
+					items: [
+						{ label: "Ignite Element v3", slug: "explainers/v3" },
+						{ label: "Views & effects", slug: "explainers/views-effects" },
+					],
 				},
 				{
 					label: "Sources",

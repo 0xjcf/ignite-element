@@ -1,0 +1,169 @@
+---
+title: Views & effects
+description: Same Smart Home core. A view projects states and commands; effects notify observers through declared events.
+---
+
+import SmartHomeViewsDemo from '../../../components/SmartHomeViewsDemo.astro';
+
+A view is a projection of the house, not a second house.
+
+The renderer reads `ctx` states and calls commands. Effects derive public notifications from accepted source updates. Events declare those public names and payloads. One producer per event: a native source or an effect, not both. Headless `core.on` and DOM forwarding are the listen path.
+
+This is the same Smart Home as [Ignite Element v3](/ignite-element/explainers/v3/). That page taught the shared core and the tool loop. This page stays on the view and the notifications.
+
+:::note[Guides stay the reference]
+Renderer `ctx` lives in [Views](/ignite-element/handbook/views/). Declarations, producers, and delivery live in [Events & effects](/ignite-element/handbook/events/). This page teaches the path.
+:::
+
+## Same house
+
+The panel below is a view of a real Smart Home core from the [canonical example](https://github.com/0xjcf/ignite-element/tree/beta/examples/agents/smart-home).
+
+The core is created once. The custom element registers with `home('ignite-views-home', renderer)`. There is no `view:` on `igniteCore`.
+
+<SmartHomeViewsDemo />
+
+That is the house. The strip beside it is an observer of the same core.
+
+## The panel is a view
+
+Turn the living room on. Nudge a temperature. Press **Movie**.
+
+Those buttons are ordinary commands on this core: `toggleLight`, `setThermostat`, and `runScene`. The lights, the temperatures, and the scene pill are `ctx` states. The panel is not storing a second copy of the house. It is projecting derived `states` and sending commands through renderer `ctx`.
+
+If the living light was on, movie night turns it off. The scene pill updates because the source did.
+
+## Something appears without a second click
+
+Watch the observer while you click.
+
+When the living light changes, a notice appears. When Movie applies, another notice appears. You do not press a second control to publish that occurrence.
+
+The button handler only calls the command. An **effect** compares accepted source snapshots and emits `light-changed` or `scene-applied`. The toast is that notification arriving, not extra logic in the click handler.
+
+## An observer hears the occurrence
+
+The log records two listen paths for the same public names:
+
+- Headless `core.on('scene-applied', handler)` receives `{ type, scene }`.
+- The custom element forwards the declared name as a DOM event. Flat `detail` is the payload: `{ scene: 'movie' }`.
+
+The events were already declared on the core: `light-changed`, `scene-applied`, and `security-changed`. Each has one producer — here, the effect. Subscribe before you click. Events are not replayed.
+
+## The golden path
+
+The house you just used is this bind. Derived `states`, callable `commands`, declared `events`, snapshot-derived `effects`, then `home(tag, renderer)` with `ctx`.
+
+<details>
+<summary>igniteCore with states, commands, events, effects, then a renderer</summary>
+
+```tsx title="views-home.tsx"
+import { igniteCore } from 'ignite-element/xstate';
+import { assign, createActor, setup } from 'xstate';
+
+type Room = 'living';
+type Scene = 'movie';
+
+const homeMachine = setup({
+  types: {
+    context: {} as {
+      lights: Record<Room, boolean>;
+      activeScene: Scene | null;
+    },
+    events: {} as
+      | { type: 'TOGGLE_LIGHT'; room: Room; on: boolean }
+      | { type: 'RUN_SCENE'; scene: Scene },
+  },
+}).createMachine({
+  context: { lights: { living: false }, activeScene: null },
+  on: {
+    TOGGLE_LIGHT: {
+      actions: assign(({ context, event }) => ({
+        lights: { ...context.lights, [event.room]: event.on },
+        activeScene: null,
+      })),
+    },
+    RUN_SCENE: {
+      actions: assign({
+        lights: { living: false },
+        activeScene: 'movie' as const,
+      }),
+    },
+  },
+});
+
+const actor = createActor(homeMachine).start();
+const home = igniteCore({
+  source: actor,
+  events: (event) => ({
+    'light-changed': event<{ room: Room; on: boolean }>(),
+    'scene-applied': event<{ scene: Scene }>(),
+  }),
+  states: (snapshot) => ({
+    lights: snapshot.context.lights,
+    activeScene: snapshot.context.activeScene,
+  }),
+  commands: ({ source: actor }) => ({
+    toggleLight: ({ room, on }: { room: Room; on: boolean }) =>
+      actor.send({ type: 'TOGGLE_LIGHT', room, on }),
+    runScene: (scene: Scene) => actor.send({ type: 'RUN_SCENE', scene }),
+  }),
+  effects: ({ emit, select }) => {
+    const lights = select((snapshot) => snapshot.context.lights);
+    if (lights.changed) {
+      if (lights.current.living !== lights.previous.living) {
+        emit({
+          type: 'light-changed',
+          room: 'living',
+          on: lights.current.living,
+        });
+      }
+    }
+    const scene = select((snapshot) => snapshot.context.activeScene);
+    if (scene.changed && scene.current) {
+      emit({ type: 'scene-applied', scene: scene.current });
+    }
+  },
+});
+
+home('ignite-views-home', (ctx) => (
+  <section>
+    <p>Living light: {ctx.lights.living ? 'On' : 'Off'}</p>
+    <p>Scene: {ctx.activeScene ?? 'Manual'}</p>
+    <button
+      onClick={() =>
+        ctx.toggleLight({ room: 'living', on: !ctx.lights.living })
+      }
+    >
+      Toggle living
+    </button>
+    <button onClick={() => ctx.runScene('movie')}>Movie</button>
+  </section>
+));
+
+home.on('scene-applied', (event) => {
+  console.log(event.type, event.scene);
+});
+```
+
+The live demo uses the full Smart Home example core — same `events` / `effects` shape, more rooms and scenes.
+
+`select(...).changed` compares with `Object.is`. The first activation records a baseline without emitting.
+
+</details>
+
+## Honest limits
+
+Effects are synchronous void notifications after source updates. They are not resource or commit hooks.
+
+Events are not replayed. They are not a durable command log. Subscribe before the occurrence you care about.
+
+Presentation work such as focus, layout, and canvas stays with the view's framework lifecycle.
+
+[Views](/ignite-element/handbook/views/) and [Events & effects](/ignite-element/handbook/events/) remain the reference for delivery, ownership, and edge cases.
+
+The full Smart Home example is where an application adds more devices, a live model, or a bridge.
+
+[Open the Smart Home example](https://github.com/0xjcf/ignite-element/tree/beta/examples/agents/smart-home) when you want that next step.
+
+Keep [Views](/ignite-element/handbook/views/) open while you write a renderer. Use [Events & effects](/ignite-element/handbook/events/) when you declare a public name. The first explainer, [Ignite Element v3](/ignite-element/explainers/v3/), is the shared-core and tool-loop lens.

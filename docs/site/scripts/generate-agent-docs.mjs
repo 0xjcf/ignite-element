@@ -73,6 +73,10 @@ function content(file) {
 			"<SmartHomeExplainerDemo />",
 			`[Try the live Smart Home explainer](${base}explainers/v3/)`,
 		)
+		.replaceAll(
+			"<SmartHomeViewsDemo />",
+			`[Try the live Views & effects explainer](${base}explainers/views-effects/)`,
+		)
 		.replaceAll("](/ignite-element/", `](${base}`);
 }
 const heading =
