@@ -72,23 +72,26 @@ business-done. Detached work and remote snapshot delivery may still be pending.
 
 `until(match)` waits on the same observation stream as `observe` and resolves
 with the first defined match. Match returning `undefined`, `false`, or nullish
-means keep waiting. It unsubscribes when it resolves.
+means keep waiting. It unsubscribes when it resolves. Start `until` before
+`run` so in-flight settle is not missed; the stream does not replay the current
+projection.
 
 `observe(handler)` remains for ongoing fan-in — logging, multiple listeners, or
 long-lived loops.
 
 ```ts
 const { run, until, observe } = tools;
-const result = await run({ name: 'setLimit', input: 6 });
-if (result.ok) {
-  console.log(result.value);
-}
-const states = await until(
+const settled = until(
   (observation) =>
     observation.type === 'states' && observation.states.limit === 6
       ? observation.states
       : undefined,
 );
+const result = await run({ name: 'setLimit', input: 6 });
+if (result.ok) {
+  console.log(result.value);
+}
+const states = await settled;
 ```
 
 Without a dialect, `igniteTools({ core, schema })` still exposes `run`, `until`,

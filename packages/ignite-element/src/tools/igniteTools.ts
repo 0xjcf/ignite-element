@@ -293,12 +293,23 @@ export function igniteTools<
 			let settled = false;
 			let subscription: ToolStreamSubscription | undefined;
 
+			const release = () => {
+				try {
+					subscription?.unsubscribe();
+				} catch (error) {
+					console.error(
+						"[igniteTools] Command observation cleanup failed.",
+						error,
+					);
+				}
+			};
+
 			const finish = (complete: () => void) => {
 				if (settled) {
 					return;
 				}
 				settled = true;
-				subscription?.unsubscribe();
+				release();
 				complete();
 			};
 
@@ -310,6 +321,19 @@ export function igniteTools<
 					try {
 						const matched = match(observation);
 						if (matched == null || matched === false) {
+							return;
+						}
+						if (
+							typeof matched === "object" &&
+							typeof (matched as PromiseLike<unknown>).then === "function"
+						) {
+							finish(() => {
+								reject(
+									new Error(
+										"[igniteTools] until(match) must return synchronously.",
+									),
+								);
+							});
 							return;
 						}
 						finish(() => {
@@ -327,7 +351,7 @@ export function igniteTools<
 			}
 
 			if (settled) {
-				subscription?.unsubscribe();
+				release();
 			}
 		});
 

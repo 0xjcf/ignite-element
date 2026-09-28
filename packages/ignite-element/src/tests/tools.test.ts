@@ -918,6 +918,154 @@ describe("igniteTools (neutral, no dialect)", () => {
 		component.emitStates({ count: 4, label: "ready" });
 		await expect(pending).resolves.toEqual({ count: 4, label: "ready" });
 	});
+
+	it("until rejects when match throws and unsubscribes", async () => {
+		const component = createFakeComponent();
+		const { until } = igniteTools({
+			core: component,
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
+		const failure = new Error("match failed");
+		const match = vi.fn(
+			(observation: ToolStreamObservation<FakeStates, FakeEvents>) => {
+				if (observation.type === "states") {
+					throw failure;
+				}
+				return undefined;
+			},
+		);
+
+		const pending = until(match);
+		component.emitStates({ count: 1, label: "ready" });
+		await expect(pending).rejects.toBe(failure);
+
+		const calls = match.mock.calls.length;
+		component.emitStates({ count: 2, label: "later" });
+		await Promise.resolve();
+		expect(match).toHaveBeenCalledTimes(calls);
+	});
+
+	it("until rejects when observation setup fails", async () => {
+		const component = createFakeComponent();
+		component.watch = (() => {
+			throw new Error("watch failed");
+		}) as FakeComponent["watch"];
+		const { until } = igniteTools({
+			core: component,
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
+
+		await expect(until(() => undefined)).rejects.toThrow("watch failed");
+	});
+
+	it("until settles a synchronous match during subscribe and ignores later emissions", async () => {
+		const component = createFakeComponent();
+		const originalWatch = component.watch;
+		component.watch = ((
+			handler: (states: FakeStates, prevStates: FakeStates) => void,
+		) => {
+			const subscription = originalWatch(handler);
+			handler({ count: 2, label: "ready" }, { count: 0, label: "zero" });
+			handler({ count: 2, label: "again" }, { count: 2, label: "ready" });
+			return subscription;
+		}) as FakeComponent["watch"];
+		const { until } = igniteTools({
+			core: component,
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
+		const match = vi.fn(
+			(observation: ToolStreamObservation<FakeStates, FakeEvents>) =>
+				observation.type === "states" && observation.states.count === 2
+					? observation.states
+					: undefined,
+		);
+
+		await expect(until(match)).resolves.toEqual({
+			count: 2,
+			label: "ready",
+		});
+		expect(match).toHaveBeenCalledTimes(1);
+		component.emitStates({ count: 2, label: "later" });
+		await Promise.resolve();
+		expect(match).toHaveBeenCalledTimes(1);
+	});
+
+	it("until still resolves when observation cleanup throws", async () => {
+		const component = createFakeComponent();
+		component.on = (() => ({
+			unsubscribe: () => {
+				throw new Error("cleanup");
+			},
+		})) as FakeComponent["on"];
+		const { until } = igniteTools({
+			core: component,
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
+		const report = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		try {
+			const pending = until(
+				(observation: ToolStreamObservation<FakeStates, FakeEvents>) =>
+					observation.type === "states" && observation.states.count === 2
+						? observation.states
+						: undefined,
+			);
+			component.emitStates({ count: 2, label: "ready" });
+			await expect(pending).resolves.toEqual({
+				count: 2,
+				label: "ready",
+			});
+			expect(report).toHaveBeenCalled();
+		} finally {
+			report.mockRestore();
+		}
+	});
+
+	it("until rejects a promise-returning match", async () => {
+		const component = createFakeComponent();
+		const { until } = igniteTools({
+			core: component,
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
+
+		const pending = until(
+			async (observation: ToolStreamObservation<FakeStates, FakeEvents>) =>
+				observation.type === "states" ? observation.states : undefined,
+		);
+		component.emitStates({ count: 1, label: "async" });
+		await expect(pending).rejects.toThrow(/synchronously/);
+	});
+
+	it("until settles once when a match re-enters the stream", async () => {
+		const component = createFakeComponent();
+		const { until } = igniteTools({
+			core: component,
+			schema: fakeSchema,
+			canExecute: component.canExecute,
+		});
+
+		const pending = until(
+			(observation: ToolStreamObservation<FakeStates, FakeEvents>) => {
+				if (observation.type !== "states" || observation.states.count !== 2) {
+					return undefined;
+				}
+				if (observation.states.label === "ready") {
+					component.emitStates({ count: 2, label: "nested" });
+				}
+				return observation.states;
+			},
+		);
+		component.emitStates({ count: 2, label: "ready" });
+		await expect(pending).resolves.toEqual({
+			count: 2,
+			label: "nested",
+		});
+	});
 });
 
 describe("igniteTools (with a ToolDialect)", () => {
