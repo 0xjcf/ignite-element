@@ -129,13 +129,13 @@ If another feature still needs the actor, dispose only this core and leave actor
 
 `createApp` owns the shared actor. Each feature factory borrows it and returns `{ core, dispose }`.
 
-Define views separately with `core(tag, renderer)`.
+`lightsView(core)` defines the view with `core(tag, renderer)`. Registration stays out of the factory.
 
 On unmount, dispose each core, then stop the house.
 
 A standalone feature could own its own actor. The guide teaches the shared house.
 
-[Own a feature module](/ignite-element/guides/shared-source-ownership/#own-a-feature-module) is the copyable factory.
+[Own a feature module](/ignite-element/guides/shared-source-ownership/#own-a-feature-module) is the factory, `lightsView`, and `createApp`.
 
 For an Ignite-created private actor, `core.dispose()` also releases that actor.
 
