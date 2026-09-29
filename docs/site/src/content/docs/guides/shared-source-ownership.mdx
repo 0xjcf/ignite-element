@@ -216,10 +216,10 @@ function createScenesFeature({
 }
 ```
 
-Define the view on the core. `<ignite-lights>` is already in the page.
+`lightsView` defines the view on the core. `<ignite-lights>` is already in the page.
 
 ```tsx title="lights-view.tsx"
-function defineLightsView(
+function lightsView(
   core: ReturnType<typeof createLightsFeature>['core'],
 ) {
   core('ignite-lights', (ctx) => (
@@ -230,7 +230,7 @@ function defineLightsView(
 }
 ```
 
-`createApp` creates the house, passes it to both factories, defines the view, and stops the house last:
+`createApp` creates the house, passes it to both factories, calls `lightsView`, and stops the house last:
 
 ```ts title="app.ts"
 import { createActor } from 'xstate';
@@ -239,7 +239,7 @@ export function createApp() {
   const house = createActor(houseMachine).start();
   const lights = createLightsFeature({ source: house });
   const scenes = createScenesFeature({ source: house });
-  defineLightsView(lights.core);
+  lightsView(lights.core);
   return {
     unmount() {
       scenes.dispose();
@@ -284,7 +284,7 @@ const scenesToolSchema = defineToolSchema({
 });
 ```
 
-Headless: no `defineLightsView`. Bind `igniteTools` on each core.
+Headless: no `lightsView`. Bind `igniteTools` on each core.
 
 ```ts title="headless-app.ts"
 import { createActor } from 'xstate';
@@ -343,7 +343,7 @@ export function createApp() {
   const house = createActor(houseMachine).start();
   const lights = createLightsFeature({ source: house });
   const scenes = createScenesFeature({ source: house });
-  defineLightsView(lights.core);
+  lightsView(lights.core);
   const tools = {
     lights: igniteTools({
       core: lights.core,
