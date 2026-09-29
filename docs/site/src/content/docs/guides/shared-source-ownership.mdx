@@ -109,7 +109,7 @@ When a feature or session permanently discards its core, dispose the core.
 
 Stop a borrowed actor only if that owner also created the actor and nothing else needs it.
 
-A feature module that owns the pair is in [Own a feature module](#own-a-feature-module).
+`createApp` owns that actor. Each feature factory borrows it. See [Own a feature module](#own-a-feature-module).
 
 This example shows the release order:
 
@@ -120,11 +120,8 @@ import { igniteCore } from 'ignite-element/xstate';
 const machine = createMachine({});
 const source = createActor(machine).start();
 const core = igniteCore({ source });
-try {
-  core.dispose();
-} finally {
-  source.stop();
-}
+core.dispose();
+source.stop();
 ```
 
 The core releases its observations; the application stops its actor.
@@ -135,70 +132,53 @@ The application must release any observations it created separately.
 
 ## Own a feature module
 
-A feature module owns its source and `igniteCore` pair.
+`createApp` owns the house. Each feature factory borrows that started actor and owns its `igniteCore`.
 
-Create the source, or borrow a shared started actor.
+Pass the shared source into `igniteCore` with `states`, `commands`, `events`, and `effects`.
 
-Pass that source into `igniteCore` with `states`, `commands`, `events`, and `effects`.
+The factory returns `{ core, dispose }`. `dispose()` is `core.dispose()`. It does not register a view and it does not stop the actor.
 
-The factory returns `{ core, source, dispose }`. It does not register a view.
+Define views separately with `core(tag, renderer)`. There is no `view:` on the core.
 
-Register views separately with `core(tag, renderer)`. There is no `view:` on the core.
-
-When the feature unmounts, the session ends, or a test tears down, dispose the core.
-
-Then stop the actor only if this owner created the source and nothing else needs it.
-
-A shared started actor keeps the house running. Dispose releases observation only.
+On unmount, dispose each core, then stop the house.
 
 The [ownership table](#own-the-source-lifetime) is that same rule: a started actor is application-owned; a machine definition creates isolated actors that Ignite releases.
 
-This factory is the owned pair. Hand-written dispose is the teardown:
+A standalone feature could own its own actor. This page teaches the shared house.
 
-```ts title="lights-feature.ts"
+```ts title="house.ts"
 import { assign, createActor, setup } from 'xstate';
 import { igniteCore } from 'ignite-element/xstate';
 
-const lightsMachine = setup({
+const houseMachine = setup({
   types: {
-    context: {} as { living: boolean },
-    events: {} as { type: 'TOGGLE'; on: boolean },
+    context: {} as { living: boolean; scene: 'movie' | null },
+    events: {} as
+      | { type: 'TOGGLE'; on: boolean }
+      | { type: 'RUN_SCENE'; scene: 'movie' },
   },
 }).createMachine({
-  context: { living: false },
+  context: { living: false, scene: null },
   on: {
     TOGGLE: {
-      actions: assign({ living: ({ event }) => event.on }),
+      actions: assign({
+        living: ({ event }) => event.on,
+        scene: null,
+      }),
+    },
+    RUN_SCENE: {
+      actions: assign({
+        living: false,
+        scene: 'movie' as const,
+      }),
     },
   },
 });
 
-function createLightsFeature() {
-  const actor = createActor(lightsMachine).start();
-  const core = igniteCore({
-    source: actor,
-    states: (snapshot) => ({ living: snapshot.context.living }),
-    commands: ({ source: actor }) => ({
-      toggle: (on: boolean) => actor.send({ type: 'TOGGLE', on }),
-    }),
-  });
-  return {
-    core,
-    source: actor,
-    dispose() {
-      try {
-        core.dispose();
-      } finally {
-        actor.stop();
-      }
-    },
-  };
-}
-
-function createScenesFeature({
+function createLightsFeature({
   source,
 }: {
-  source: ReturnType<typeof createActor<typeof lightsMachine>>;
+  source: ReturnType<typeof createActor<typeof houseMachine>>;
 }) {
   const core = igniteCore({
     source,
@@ -211,18 +191,37 @@ function createScenesFeature({
     core,
     dispose() {
       core.dispose();
-      // do not stop source
+    },
+  };
+}
+
+function createScenesFeature({
+  source,
+}: {
+  source: ReturnType<typeof createActor<typeof houseMachine>>;
+}) {
+  const core = igniteCore({
+    source,
+    states: (snapshot) => ({ scene: snapshot.context.scene }),
+    commands: ({ source: actor }) => ({
+      runScene: (scene: 'movie') => actor.send({ type: 'RUN_SCENE', scene }),
+    }),
+  });
+  return {
+    core,
+    dispose() {
+      core.dispose();
     },
   };
 }
 ```
 
-A scene feature that borrows `lights.source` disposes observation only. Do not stop the shared actor.
+Define the view on the core. `<ignite-lights>` is already in the page.
 
-Register the panel on the core. `<ignite-lights>` is already in the page.
-
-```tsx title="lights-panel.tsx"
-function registerLightsPanel(core: ReturnType<typeof createLightsFeature>['core']) {
+```tsx title="lights-view.tsx"
+function defineLightsView(
+  core: ReturnType<typeof createLightsFeature>['core'],
+) {
   core('ignite-lights', (ctx) => (
     <button onClick={() => ctx.toggle(!ctx.living)}>
       Living: {ctx.living ? 'On' : 'Off'}
@@ -231,17 +230,21 @@ function registerLightsPanel(core: ReturnType<typeof createLightsFeature>['core'
 }
 ```
 
-`createApp` creates the pair, registers the panel, and returns unmount:
+`createApp` creates the house, passes it to both factories, defines the view, and stops the house last:
 
 ```ts title="app.ts"
+import { createActor } from 'xstate';
+
 export function createApp() {
-  const lights = createLightsFeature();
-  const scenes = createScenesFeature({ source: lights.source });
-  registerLightsPanel(lights.core);
+  const house = createActor(houseMachine).start();
+  const lights = createLightsFeature({ source: house });
+  const scenes = createScenesFeature({ source: house });
+  defineLightsView(lights.core);
   return {
     unmount() {
       scenes.dispose();
       lights.dispose();
+      house.stop();
     },
   };
 }
@@ -254,6 +257,121 @@ The [Smart Home example](https://github.com/0xjcf/ignite-element/tree/beta/examp
 [Ownership & cleanup](/ignite-element/handbook/ownership/) is the lifetime reference.
 
 [Shared sources](/ignite-element/explainers/shared-sources/) is the same house through one started actor.
+
+## Run it headless, with views, or both
+
+The same features run without a view, with a view, or with both a view and tools.
+
+`canExecute` is one `(name) => boolean` function for every `gated: true` command.
+
+```ts title="house-tools.ts"
+import { defineToolSchema } from 'ignite-element/tools';
+
+const lightsToolSchema = defineToolSchema({
+  toggle: {
+    description: 'Turn the living light on or off.',
+    input: { type: 'boolean' },
+    gated: true,
+  },
+});
+
+const scenesToolSchema = defineToolSchema({
+  runScene: {
+    description: 'Run a lighting scene.',
+    input: { type: 'string', enum: ['movie'] },
+    gated: true,
+  },
+});
+```
+
+Headless: no `defineLightsView`. Bind `igniteTools` on each core.
+
+```ts title="headless-app.ts"
+import { createActor } from 'xstate';
+import { igniteTools } from 'ignite-element/tools';
+
+export function createHeadlessApp() {
+  const house = createActor(houseMachine).start();
+  const lights = createLightsFeature({ source: house });
+  const scenes = createScenesFeature({ source: house });
+  const tools = {
+    lights: igniteTools({
+      core: lights.core,
+      schema: lightsToolSchema,
+      canExecute: (name) => name === 'toggle',
+    }),
+    scenes: igniteTools({
+      core: scenes.core,
+      schema: scenesToolSchema,
+      canExecute: (name) => name === 'runScene',
+    }),
+  };
+  return {
+    tools,
+    unmount() {
+      scenes.dispose();
+      lights.dispose();
+      house.stop();
+    },
+  };
+}
+
+export async function runMovieHeadless() {
+  const { tools, unmount } = createHeadlessApp();
+  const result = await tools.scenes.run({ name: 'runScene', input: 'movie' });
+  if (result.ok) {
+    await tools.scenes.until((observation) =>
+      observation.type === 'states' && observation.states.scene === 'movie'
+        ? observation.states
+        : undefined,
+    );
+  }
+  unmount();
+}
+```
+
+`run` acknowledges the command. `until` waits for later source work to settle.
+
+Web with both: define the view and bind tools on the same cores.
+
+```ts title="app-with-tools.ts"
+import { createActor } from 'xstate';
+import { igniteTools } from 'ignite-element/tools';
+import { openai } from 'ignite-element/tools/openai';
+
+export function createApp() {
+  const house = createActor(houseMachine).start();
+  const lights = createLightsFeature({ source: house });
+  const scenes = createScenesFeature({ source: house });
+  defineLightsView(lights.core);
+  const tools = {
+    lights: igniteTools({
+      core: lights.core,
+      schema: lightsToolSchema,
+      dialect: openai,
+      canExecute: (name) => name === 'toggle',
+    }),
+    scenes: igniteTools({
+      core: scenes.core,
+      schema: scenesToolSchema,
+      dialect: openai,
+      canExecute: (name) => name === 'runScene',
+    }),
+  };
+  return {
+    tools,
+    unmount() {
+      scenes.dispose();
+      lights.dispose();
+      house.stop();
+    },
+  };
+}
+```
+
+If `observe` or a dialect `tools` list is registered with an outside host, release that registration in `unmount`.
+
+See [Tools](/ignite-element/guides/tools/) for `run`, `until`, and named `igniteTools({ core, schema, canExecute, dialect? })`.
 
 ## React and React Native
 

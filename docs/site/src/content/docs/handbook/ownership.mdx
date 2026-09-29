@@ -119,26 +119,21 @@ import { core, source } from './counter-core';
 Place this code inside the session's existing end handler:
 
 ```ts title="Inside the session-end handler"
-try {
-  core.dispose();
-} finally {
-  source.stop();
-}
+core.dispose();
+source.stop();
 ```
 
 Here the session created and exclusively owns the actor, so it also stops that actor.
 
 If another feature still needs the actor, dispose only this core and leave actor shutdown to its owner.
 
-A feature module owns that pair.
+`createApp` owns the shared actor. Each feature factory borrows it and returns `{ core, dispose }`.
 
-Create or borrow the source and pass it to `igniteCore`. The factory returns `{ core, source, dispose }`.
+Define views separately with `core(tag, renderer)`.
 
-Register views separately with `core(tag, renderer)`.
+On unmount, dispose each core, then stop the house.
 
-`createApp` wires the pair and unmounts through `dispose()`.
-
-A shared started actor stays running; dispose releases observation only.
+A standalone feature could own its own actor. The guide teaches the shared house.
 
 [Own a feature module](/ignite-element/guides/shared-source-ownership/#own-a-feature-module) is the copyable factory.
 
@@ -181,9 +176,7 @@ Pending effect evaluations are discarded.
 
 Borrowed sources remain application-owned.
 
-For an application-owned XState actor, call `core.dispose()` inside `try` and `source.stop()` in `finally`.
-
-This stops the source even if observation cleanup throws.
+For an application-owned XState actor, call `core.dispose()` then `source.stop()`.
 
 An Ignite-created private XState actor is stopped exactly once after its observations drain; an unused core does not create one.
 
