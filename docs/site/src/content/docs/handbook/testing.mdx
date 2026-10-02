@@ -66,6 +66,8 @@ Remove hosts, unsubscribe temporary observers, and terminally dispose test-owned
 
 Stop borrowed sources only when the test owns them.
 
+A test-owned app disposes each feature core, then stops a house it created. See [Own a feature module](/ignite-element/guides/shared-source-ownership/#own-a-feature-module).
+
 Use `try/finally` around the entire acquisition/use boundary so failed assertions still clean up.
 
 Test real disconnect/reconnect and same-tick moves when your behavior depends on them.
