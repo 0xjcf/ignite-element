@@ -10,6 +10,8 @@ Offer commands to a model through an explicit schema.
 
 The default bind is named `igniteTools({ core, schema, canExecute?, dialect? })`.
 
+Earlier betas used a positional bind. See the [named-only migration](/ignite-element/migration/ignite-tools/).
+
 `ToolSchema` is a bare command map.
 
 Author it with `defineToolSchema({ setLimit: { input } })` or `satisfies ToolSchema`.
@@ -197,6 +199,7 @@ Application loops import `igniteTools` instead.
 
 ## Related
 
+- [Named-only tools migration](/ignite-element/migration/ignite-tools/)
 - [Build for agents](/ignite-element/guides/agent-runtime-v3/)
 - [Shared sources](/ignite-element/guides/shared-source-ownership/)
 - [Commands and tool schemas](/ignite-element/api/command-metadata/)

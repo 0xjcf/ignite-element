@@ -1,0 +1,110 @@
+---
+title: Named-only igniteTools
+description: Migrate a positional igniteTools bind to the named schema bind published in 3.0.0-beta.17.
+---
+
+Published in `3.0.0-beta.17`, this migration replaces the positional
+`igniteTools(core, dialect, opts)` bind. Earlier betas retain that historical
+call shape.
+
+## Named bind and a bare command map
+
+The removed call took the core, an optional dialect, and options whose schema
+wrapped commands:
+
+```ts title="Positional bind (removed)" no-check
+import { igniteTools } from 'ignite-element/tools';
+import { openai } from 'ignite-element/tools/openai';
+
+const tools = igniteTools(core, openai, {
+  schema: {
+    commands: {
+      toggleLight: {
+        description: 'Toggle one light.',
+        input: {
+          type: 'object',
+          properties: { room: { type: 'string' } },
+          required: ['room'],
+        },
+        gated: true,
+      },
+    },
+  },
+  canExecute: (name) => name === 'toggleLight',
+});
+
+const subscription = tools.observe((observation) => {
+  if (observation.type === 'states' && observation.states.lightsOn === 1) {
+    subscription.unsubscribe();
+  }
+});
+```
+
+Bind with named options only. `ToolSchema` is a bare command map,
+`{ toggleLight: { input, description?, gated? } }`, not `{ commands: { ... } }`.
+Author it with `satisfies ToolSchema` or `defineToolSchema`. Discovery does not
+infer tool schemas.
+
+```ts
+import {
+  defineToolSchema,
+  igniteTools,
+  type ToolSchema,
+} from 'ignite-element/tools';
+import { openai, textOf } from 'ignite-element/tools/openai';
+
+const toolSchema = {
+  toggleLight: {
+    description: 'Toggle one light.',
+    input: {
+      type: 'object',
+      properties: { room: { type: 'string' } },
+      required: ['room'],
+    },
+    gated: true,
+  },
+} satisfies ToolSchema;
+
+const { run, until } = igniteTools({
+  core: component,
+  schema: defineToolSchema(toolSchema),
+  canExecute: (name) => name === 'toggleLight',
+  dialect: openai,
+});
+
+const acknowledged = await run({
+  name: 'toggleLight',
+  input: { room: 'kitchen' },
+});
+
+const settled = await until((observation) =>
+  observation.type === 'states' && observation.states.lightsOn === 1
+    ? observation.states
+    : undefined,
+);
+
+const reply = textOf({
+  choices: [{ message: { content: 'Kitchen light toggled.' } }],
+});
+```
+
+`canExecute` remains one `(name: string) => boolean` predicate for gated tools.
+Omit it and gated tools stay available. `ignite-element/tools/anthropic` exports
+`textOf` the same way as `ignite-element/tools/openai`.
+
+## Act, then settle
+
+`run` stays act-plus-acknowledgement. It returns the command value, the current
+projected states, and declared events from the call window. A fulfilled `run`
+does not mean detached work has finished.
+
+`until(match)` was added for settle waits. It uses the same observation stream
+as `observe`, seed-checks the current projection once, and unsubscribes on the
+first defined match. `undefined`, `false`, and nullish keep waiting. Matchers
+are synchronous. Pass `{ signal }` to cancel. `observe` remains for ongoing
+fan-in.
+
+The historical fragment above waited by calling `observe` and unsubscribing by
+hand. Prefer `run`, then `until`.
+
+See [Tools](/ignite-element/guides/tools/) for the consumer loop.
