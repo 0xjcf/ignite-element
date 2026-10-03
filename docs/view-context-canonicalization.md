@@ -4,8 +4,8 @@
 
 Implemented for the v3 beta contract. **Breaking.**
 
-The historical execution observation shape below is superseded by the
-[command-results candidate](site/src/content/docs/migration/command-results.mdx):
+The historical execution observation shape below is superseded by
+[command-defined execution results shipped in beta.16](site/src/content/docs/migration/command-results.mdx):
 execute returns the authored value; tools observes result/states/declared events.
 
 ## Decision

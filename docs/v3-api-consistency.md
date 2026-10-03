@@ -7,8 +7,10 @@
 Historical pre-stable vocabulary index. The approved core API/bindings candidate
 supersedes the getter/watch/helper and automatic-tool-schema vocabulary below;
 see [the current migration](./core-api-bindings.md). Source-native snapshots remain
-valid in source authoring and projections. The command-results candidate removes
-execution receipts; see [the migration](site/src/content/docs/migration/command-results.mdx). These task references are not current lifecycle or release authority.
+valid in source authoring and projections. Command-defined execution results
+shipped in beta.16, removing execution receipts; see
+[the migration](site/src/content/docs/migration/command-results.mdx). These task
+references are not current lifecycle or release authority.
 
 ## Why
 
