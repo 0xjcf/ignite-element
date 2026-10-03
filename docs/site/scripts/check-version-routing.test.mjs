@@ -82,14 +82,6 @@ test("verified beta.16 publication and exact installation are permitted", () =>
 		),
 	));
 
-test("verified beta.17 publication and exact installation are permitted", () =>
-	passes(({ append }) =>
-		append(
-			historicalInstallation,
-			"3.0.0-beta.17 is published. Install with `pnpm add ignite-element@3.0.0-beta.17`.",
-		),
-	));
-
 test("current headless guidance defines core-owned effect timing", () => {
 	const content = fs.readFileSync(
 		path.join(site, "src/content/docs/api/headless-runtime.mdx"),
@@ -145,7 +137,6 @@ test("current lifetime guides retain the published registered-disposal contract"
 
 for (const selector of [
 	"beta",
-	"3.0.0-beta.17",
 	"3.0.0-beta.16",
 	"3.0.0-beta.15",
 	"3.0.0-beta.14",
@@ -157,14 +148,14 @@ for (const selector of [
 		passes(({ append }) => {
 			append(
 				"src/content/docs/api/compatibility.mdx",
-				`Verified public 3.0.0-beta.17; historical releases 3.0.0-beta.16, 3.0.0-beta.15, 3.0.0-beta.14, 3.0.0-beta.13, 3.0.0-beta.12 and 3.0.0-beta.11.\n\n\`npm install --save react "ignite-element@${selector}"\``,
+				`Verified public 3.0.0-beta.16; historical releases 3.0.0-beta.15, 3.0.0-beta.14, 3.0.0-beta.13, 3.0.0-beta.12 and 3.0.0-beta.11.\n\n\`npm install --save react "ignite-element@${selector}"\``,
 			);
 		}));
 }
 
 for (const selector of [
 	"beta.12",
-	"3.0.0-beta.18",
+	"3.0.0-beta.17",
 	"3.0.0-beta.120",
 	"3.0.0-beta.12-extra",
 	"3.0.0-beta.11-extra",
@@ -294,7 +285,7 @@ test("mutable main source links fail", () =>
 		/mutable main link/,
 	));
 for (const version of [
-	"3.0.0-beta.18",
+	"3.0.0-beta.17",
 	"3.0.0-beta.100",
 	"3.0.0-rc.1",
 	"3.0.0-beta.12-extra",

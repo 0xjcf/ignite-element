@@ -1,11 +1,12 @@
 ---
 title: Named-only igniteTools
-description: Migrate a positional igniteTools bind to the named schema bind published in 3.0.0-beta.17.
+description: Migrate a positional igniteTools bind to the named schema bind in public beta 17.
 ---
 
-Published in `3.0.0-beta.17`, this migration replaces the positional
-`igniteTools(core, dialect, opts)` bind. Earlier betas retain that historical
-call shape.
+The named-only bind is in the public beta 17 packages on dist-tag `beta`.
+Scoped `latest` is still `3.0.0-beta.16`, so `release:beta:verify` does not
+accept beta 17 and this page does not raise the verified install ceiling.
+Earlier betas retain the positional call below.
 
 ## Named bind and a bare command map
 
@@ -49,6 +50,8 @@ infer tool schemas.
 import {
   defineToolSchema,
   igniteTools,
+  isErr,
+  isOk,
   type ToolSchema,
 } from 'ignite-element/tools';
 import { openai, textOf } from 'ignite-element/tools/openai';
@@ -77,11 +80,18 @@ const acknowledged = await run({
   input: { room: 'kitchen' },
 });
 
-const settled = await until((observation) =>
-  observation.type === 'states' && observation.states.lightsOn === 1
-    ? observation.states
-    : undefined,
-);
+if (isErr(acknowledged)) {
+  console.log(acknowledged.error);
+} else if (isOk(acknowledged)) {
+  const { result, states, events } = acknowledged.value;
+  console.log(result, states, events);
+  const settled = await until((observation) =>
+    observation.type === 'states' && observation.states.lightsOn === 1
+      ? observation.states
+      : undefined,
+  );
+  console.log(settled);
+}
 
 const reply = textOf({
   choices: [{ message: { content: 'Kitchen light toggled.' } }],
@@ -94,9 +104,13 @@ Omit it and gated tools stay available. `ignite-element/tools/anthropic` exports
 
 ## Act, then settle
 
-`run` stays act-plus-acknowledgement. It returns the command value, the current
-projected states, and declared events from the call window. A fulfilled `run`
-does not mean detached work has finished.
+`run` stays act-plus-acknowledgement. It resolves to a tagged Result, not the
+observation itself. On success, `acknowledged.value` is
+`{ result, states, events }`: the command value, the projected states at
+acknowledgement, and declared events from the call window. `UnknownCommand`,
+`InvalidInput`, `Unavailable`, and `ExecuteFailed` are `acknowledged.error`.
+Check `isOk(acknowledged)` before waiting; an error does not imply a later states
+transition. A successful `run` does not mean detached work has finished.
 
 `until(match)` was added for settle waits. It uses the same observation stream
 as `observe`, seed-checks the current projection once, and unsubscribes on the
@@ -105,6 +119,6 @@ are synchronous. Pass `{ signal }` to cancel. `observe` remains for ongoing
 fan-in.
 
 The historical fragment above waited by calling `observe` and unsubscribing by
-hand. Prefer `run`, then `until`.
+hand. Prefer a successful `run`, then `until`.
 
 See [Tools](/ignite-element/guides/tools/) for the consumer loop.
