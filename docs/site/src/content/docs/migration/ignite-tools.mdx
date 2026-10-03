@@ -1,12 +1,11 @@
 ---
 title: Named-only igniteTools
-description: Migrate a positional igniteTools bind to the named schema bind in public beta 17.
+description: Migrate a positional igniteTools bind to the named schema bind published in 3.0.0-beta.17.
 ---
 
-The named-only bind is in the public beta 17 packages on dist-tag `beta`.
-Scoped `latest` is still `3.0.0-beta.16`, so `release:beta:verify` does not
-accept beta 17 and this page does not raise the verified install ceiling.
-Earlier betas retain the positional call below.
+The named-only bind was published in `3.0.0-beta.17`. It replaces the positional
+`igniteTools(core, dialect, opts)` bind. Earlier betas retain that historical
+call shape.
 
 ## Named bind and a bare command map
 
