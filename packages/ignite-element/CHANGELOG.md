@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.0.0-beta.17
+
+### Minor Changes
+
+- 4c6447e: BREAKING (beta): `igniteTools` is named-only — `igniteTools({ core, schema, canExecute?, dialect? })`. The positional `igniteTools(core, dialect, opts)` overload is removed. `ToolSchema` is a bare command map (`{ toggleLight: { input, description?, gated? } }`), not `{ commands: { toggleLight: … } }`. Author with `satisfies ToolSchema` or `defineToolSchema`; discovery does not infer them. `canExecute` remains one `(name: string) => boolean` predicate for gated tools and defaults to always-available when omitted. Provider dialects export `textOf` so loops do not copy-paste response parsing. `run` stays act-plus-acknowledgement; async settle uses `observe`. `buildManifest` / `resolveCall` remain exported for advanced/testing only. Smart Home and everyday docs teach the consumer path.
+- 9b0b00c: Add `until(match)` on the `igniteTools` bind next to `run` and `observe`. Everyday settle waits on the same observation stream as `observe` and unsubscribes on the first defined match (`undefined` / `false` / nullish keep waiting). `observe` remains for ongoing fan-in. Docs teach `run` + `until` instead of Promise + observe + unsubscribe boilerplate.
+
+### Patch Changes
+
+- @ignite-element/core@3.0.0-beta.17
+- @ignite-element/adapters@3.0.0-beta.17
+- @ignite-element/renderer@3.0.0-beta.17
+
 ## 3.0.0-beta.16
 
 ### Minor Changes
