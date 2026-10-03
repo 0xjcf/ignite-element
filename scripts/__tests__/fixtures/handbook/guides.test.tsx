@@ -22,7 +22,7 @@ it("the thermostat's headless and rendered consumers share the supplied actor", 
 		expect(thermostat.get("schema").commands?.saveTarget).toEqual({
 			input: null,
 		});
-		expect(thermostatToolSchema.commands.saveTarget.description).toBe(
+		expect(thermostatToolSchema.saveTarget.description).toBe(
 			"Save the target temperature.",
 		);
 		ui.getByRole("button", { name: "Save target" }).click();

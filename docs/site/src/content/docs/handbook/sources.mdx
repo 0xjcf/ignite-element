@@ -171,15 +171,16 @@ For shared state, pass an existing observable; see [Shared MobX observable](/ign
 
 ## Related guides
 
-- [Shared sources](/ignite-element/guides/shared-source-ownership/): share state between views and own its lifetime.
+- [Shared sources](/ignite-element/guides/shared-source-ownership/): share state between views, tests, and agents. The [Shared sources explainer](/ignite-element/explainers/shared-sources/) shows that on the Smart Home.
 - [Routing](/ignite-element/guides/routing/): connect navigation to source behavior.
+- [Tools](/ignite-element/guides/tools/): offer the same commands through a named tool bind.
 
 Find these pages again in the sidebar's __Guides__ group.
 
 ## Where next
 
 - [Views](/ignite-element/handbook/views/): render the values and commands exposed by your core.
-- [Ownership & cleanup](/ignite-element/handbook/ownership/): choose shared or isolated state and place cleanup at its owner boundary.
+- [Ownership & cleanup](/ignite-element/handbook/ownership/): choose shared or isolated state and place cleanup at its owner boundary. [Own a feature module](/ignite-element/guides/shared-source-ownership/#own-a-feature-module) is the copyable factory.
 
 When the owning feature or session permanently discards a core, call `core.dispose()`.
 

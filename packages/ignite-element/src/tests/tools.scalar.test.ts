@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { isErr, resolveCall } from "../tools";
+import { isErr, resolveCall, type ToolInputSchema } from "../tools";
 import { fromProviderInput, toProviderInputSchema } from "../tools/scalar";
-import type { IgniteSchemaObject } from "../types/schema";
 
 // Every tool-calling provider (Anthropic / OpenAI / Ollama) requires OBJECT-shaped
 // tool inputs, but the neutral manifest carries SCALAR inputSchema for single-arg
@@ -11,7 +10,7 @@ import type { IgniteSchemaObject } from "../types/schema";
 
 describe("toProviderInputSchema", () => {
 	it("object-wraps a scalar schema under a `value` property", () => {
-		const scalar: IgniteSchemaObject = {
+		const scalar: ToolInputSchema = {
 			type: "number",
 			minimum: 3,
 			maximum: 12,
@@ -25,7 +24,7 @@ describe("toProviderInputSchema", () => {
 	});
 
 	it("wraps a scalar enum the same way", () => {
-		const scalar: IgniteSchemaObject = {
+		const scalar: ToolInputSchema = {
 			type: "string",
 			enum: ["red", "blue"],
 		};
@@ -38,7 +37,7 @@ describe("toProviderInputSchema", () => {
 	});
 
 	it("passes an object schema through unchanged (same reference)", () => {
-		const obj: IgniteSchemaObject = {
+		const obj: ToolInputSchema = {
 			type: "object",
 			properties: { name: { type: "string" }, qty: { type: "number" } },
 			required: ["name"],
@@ -47,7 +46,7 @@ describe("toProviderInputSchema", () => {
 	});
 
 	it("passes the no-arg empty-object schema through unchanged", () => {
-		const empty: IgniteSchemaObject = { type: "object", properties: {} };
+		const empty: ToolInputSchema = { type: "object", properties: {} };
 		expect(toProviderInputSchema(empty)).toBe(empty);
 	});
 });
@@ -62,7 +61,7 @@ describe("fromProviderInput", () => {
 		// An object command that legitimately has its own `value` field must NOT be
 		// unwrapped — the manifest schema (type: object) is what prevents it.
 		const input = { value: 7 };
-		const schema: IgniteSchemaObject = {
+		const schema: ToolInputSchema = {
 			type: "object",
 			properties: { value: { type: "number" } },
 			required: ["value"],
@@ -80,7 +79,7 @@ describe("fromProviderInput", () => {
 
 	it("rejects a scalar envelope with extra keys by leaving it for command validation", () => {
 		const input = { value: 7, extra: true };
-		const schema: IgniteSchemaObject = { type: "number" };
+		const schema: ToolInputSchema = { type: "number" };
 		const providerInput = fromProviderInput(input, schema);
 		const result = resolveCall(
 			[{ name: "setLimit", inputSchema: schema, gated: false }],

@@ -17,7 +17,9 @@ Test behavior headlessly, then verify accessibility in the browser.
 :::note[Related docs]
 For exact runtime signatures, see [Headless runtime](/ignite-element/api/headless-runtime/).
 
-For the agent framing, see [Ignite Element for AI Agents](/ignite-element/guides/agent-runtime-v3/).
+For the named tool bind, see [Tools](/ignite-element/guides/tools/).
+
+For the agent framing, see [Build for agents](/ignite-element/guides/agent-runtime-v3/).
 
 For test workflows, see [Testing guide](/ignite-element/handbook/testing/).
 :::
@@ -135,23 +137,33 @@ export const thermostat = igniteCore({
 Tool consumers preserve their explicit constraints separately from ordinary commands:
 
 ```ts title="thermostat-tools.ts"
-export const thermostatToolSchema = {
-  commands: {
-    setTargetDraft: {
-      description: "Synchronize the actor-owned target draft.",
-      input: { type: "number", minimum: 58, maximum: 82 },
-      gated: true,
-    },
-    saveTarget: {
-      description: "Save the target temperature.",
-      input: { type: "number", minimum: 58, maximum: 82 },
-      gated: true,
-    },
-  },
-};
-```
+import { defineToolSchema, igniteTools } from 'ignite-element/tools';
+import { thermostat } from './thermostat';
 
-Pass this schema and a current availability predicate reading `canEditTarget` or `canSave` to `igniteTools`; unknown names are unavailable.
+export const thermostatToolSchema = defineToolSchema({
+  setTargetDraft: {
+    description: "Synchronize the actor-owned target draft.",
+    input: { type: "number", minimum: 58, maximum: 82 },
+    gated: true,
+  },
+  saveTarget: {
+    description: "Save the target temperature.",
+    input: { type: "number", minimum: 58, maximum: 82 },
+    gated: true,
+  },
+});
+
+export const thermostatTools = igniteTools({
+  core: thermostat,
+  schema: thermostatToolSchema,
+  canExecute: (name) => {
+    const states = thermostat.get('states');
+    if (name === 'setTargetDraft') return states.canEditTarget;
+    if (name === 'saveTarget') return states.canSave;
+    return false;
+  },
+});
+```
 
 The core catalogue has null input schemas and is not a substitute for these application definitions.
 
@@ -261,28 +273,23 @@ Ignite's current runtime APIs are already enough to verify most of the contract 
 
 ```ts title="thermostat-headless.ts"
 import { thermostat } from './thermostat';
-import { thermostatToolSchema } from './thermostat-tools';
+import { thermostatToolSchema, thermostatTools } from './thermostat-tools';
 
 const schema = thermostat.get("schema");
 const states = thermostat.get("states");
-const canSave = states.canSave;
+const { run } = thermostatTools;
 
-if (canSave) {
-  try {
-    const result = await thermostat.execute({
-      command: "saveTarget",
-      input: 70,
-    });
-    console.log(result); // Authored command value or void.
-    console.log(thermostat.get('states'));
-  } catch (error) {
-    // Availability can change; source guards enforce behavior.
-    // Fulfillment alone does not confirm that persistence succeeded.
-    console.error("Saving the target was rejected or failed.", error);
-  }
+const result = await run({
+  name: "saveTarget",
+  input: 70,
+});
+if (result.ok) {
+  console.log(result.value);
+} else {
+  console.error(result.error);
 }
 
-console.log(thermostatToolSchema.commands.saveTarget.description);
+console.log(thermostatToolSchema.saveTarget.description);
 console.log(schema.commands); // names and unknown input schemas, not descriptions
 console.log(states.statusLabel);
 ```

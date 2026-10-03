@@ -8,8 +8,54 @@ import type {
 	IgniteAgentSubscription,
 	RuntimeEvent,
 } from "../types/agent";
-import type { IgniteSchemaObject, IgniteSchemaValue } from "../types/schema";
+import type { IgniteSchemaValue } from "../types/schema";
 import type { Result } from "./result";
+
+/**
+ * JSON-Schema-shaped input vocabulary retained by the built-in structural
+ * validator (number/string/boolean/object/array plus declared constraints).
+ * Not a claim of full JSON Schema compliance, and not a Zod schema.
+ */
+export type ToolInputType =
+	| "number"
+	| "string"
+	| "boolean"
+	| "object"
+	| "array";
+
+export type ToolInputSchema = {
+	type?: ToolInputType;
+	description?: string;
+	default?: unknown;
+	minimum?: number;
+	maximum?: number;
+	multipleOf?: number;
+	enum?: readonly string[];
+	minLength?: number;
+	maxLength?: number;
+	pattern?: string;
+	properties?: Readonly<Record<string, ToolInputSchema>>;
+	required?: readonly string[];
+	additionalProperties?: boolean;
+	items?: ToolInputSchema;
+	minItems?: number;
+	maxItems?: number;
+};
+
+/** One explicit application command offered as a tool. */
+export type ToolCommandSchema = {
+	description?: string;
+	input: ToolInputSchema;
+	gated?: boolean;
+};
+
+/**
+ * Application-owned tool definitions as a bare command map. Author with
+ * `satisfies ToolSchema` or `defineToolSchema({ toggleLight: { input } })`.
+ * Core discovery does not infer this. Schema-wide concerns (`canExecute`,
+ * `dialect`) belong on `igniteTools(...)`, not on the schema object.
+ */
+export type ToolSchema = Readonly<Record<string, ToolCommandSchema>>;
 
 /**
  * A single neutral tool, derived from an explicit application schema entry. Provider
@@ -25,7 +71,7 @@ export type NeutralTool = {
 	 * properties: {} }` for a no-arg command. Provider-specific object-wrapping of
 	 * scalar inputs is an adapter concern, not the neutral core's.
 	 */
-	inputSchema: IgniteSchemaObject;
+	inputSchema: ToolInputSchema;
 	/**
 	 * Whether the command carries an availability predicate. A static meta-fact —
 	 * the dynamic per-snapshot decision is made by `canExecute` (see

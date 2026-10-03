@@ -36,18 +36,17 @@ A tool/application boundary can independently supply an availability predicate.
 The `canExecute` option name remains valid there; it is not a method on the core.
 
 ```ts
-import { igniteTools } from 'ignite-element/tools';
+import { defineToolSchema, igniteTools } from 'ignite-element/tools';
 
-const schema = {
-  commands: {
-    setLimit: {
-      description: 'Set the counter limit.',
-      input: { type: 'number', minimum: 3, maximum: 12 },
-      gated: true,
-    },
+const schema = defineToolSchema({
+  setLimit: {
+    description: 'Set the counter limit.',
+    input: { type: 'number', minimum: 3, maximum: 12 },
+    gated: true,
   },
-};
-const tools = igniteTools(core, undefined, {
+});
+const tools = igniteTools({
+  core,
   schema,
   canExecute: name =>
     name === 'setLimit' && core.get('states').canSetLimit,
@@ -55,10 +54,10 @@ const tools = igniteTools(core, undefined, {
 ```
 
 The provider list omits unavailable explicitly gated commands; invocation
-rechecks the predicate. Refresh offered tools when the application needs a fresh
-availability list. Source enforcement must still handle state changes after
-preflight. Keep invalid-input, unavailable, rejected-source and async/stale-result
-tests.
+rechecks the predicate. Omit `canExecute` and gated tools stay available
+(`() => true`). `canExecute` is application preflight, never authentication.
+Refresh offered tools when the application needs a fresh availability list.
+Source enforcement must still handle state changes after preflight.
 
 The minimal core catalogue has `{ input: null }` for bound command names and
 does not supply schemas or gating rules. Null means unknown, not an empty-object
@@ -74,4 +73,5 @@ Preserve source-native methods and independently supplied policy predicates.
 
 The historical testing/story availability surface remains retired. Use ordinary
 assertions over projected states, native source behavior and actual tool results.
-See [tools](ignite-tools.md) and [core API](core-api-bindings.md).
+See [tools](https://0xjcf.github.io/ignite-element/guides/tools/) ([source](ignite-tools.md))
+and [core API](core-api-bindings.md).

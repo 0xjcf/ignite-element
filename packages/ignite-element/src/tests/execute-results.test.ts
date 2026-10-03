@@ -36,9 +36,10 @@ describe("command-defined execution results", () => {
 	});
 	it("tools explicitly observes states alongside the authored result", async () => {
 		const core = makeCore();
-		const tools = igniteTools(core, undefined, {
+		const tools = igniteTools({
+			core,
 			schema: {
-				commands: { noop: { input: { type: "object", properties: {} } } },
+				noop: { input: { type: "object", properties: {} } },
 			},
 		});
 		try {

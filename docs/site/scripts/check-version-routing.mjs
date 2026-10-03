@@ -76,6 +76,11 @@ const requiredCurrentRoutes = [
 	"guides/routing",
 	"guides/shared-source-ownership",
 	"guides/accessibility-first",
+	"guides/tools",
+	"guides/agent-runtime-v3",
+	"explainers/v3",
+	"explainers/views-effects",
+	"explainers/shared-sources",
 	"migration/v3",
 ];
 

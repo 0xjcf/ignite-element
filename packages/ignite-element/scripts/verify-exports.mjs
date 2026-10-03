@@ -116,10 +116,13 @@ const requiredExports = [
 	["./jsx/jsx-dev-runtime", { Fragment: "symbol", jsxDEV: "function" }],
 	["./react", { useIgnite: "function" }],
 	["./react/web", { igniteReact: "function" }],
+	// defineToolSchema is the locked public DX factory (with satisfies ToolSchema).
+	// Dialect textOf is the baked-in response helper so app loops do not copy-paste parsing.
 	[
 		"./tools",
 		{
 			buildManifest: "function",
+			defineToolSchema: "function",
 			resolveCall: "function",
 			igniteTools: "function",
 			ok: "function",
@@ -128,8 +131,8 @@ const requiredExports = [
 			isErr: "function",
 		},
 	],
-	["./tools/anthropic", { anthropic: "object" }],
-	["./tools/openai", { openai: "object" }],
+	["./tools/anthropic", { anthropic: "object", textOf: "function" }],
+	["./tools/openai", { openai: "object", textOf: "function" }],
 ];
 
 const recursiveImportPattern =

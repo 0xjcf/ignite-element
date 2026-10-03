@@ -755,7 +755,7 @@ async function main() {
 					theme,
 				);
 				const page = await context.newPage();
-				for (const [slug, label] of [
+				for (const [slug] of [
 					["shared-source-ownership", "Shared sources"],
 					["routing", "Routing"],
 				]) {
@@ -767,10 +767,7 @@ async function main() {
 							.getByRole("button", { name: "Menu", exact: true })
 							.click();
 					const sidebar = page.locator(".sidebar-pane");
-					const active = sidebar.getByRole("link", {
-						name: label,
-						exact: true,
-					});
+					const active = sidebar.locator(`a[href="${BASE}/guides/${slug}/"]`);
 					await expect(active).toBeVisible();
 					await expect(active).toHaveAttribute("aria-current", "page");
 					await capture(page, `guides-${slug}-${theme}-${width}`);
@@ -789,7 +786,7 @@ async function main() {
 						await group.locator("summary").focus();
 						await page.keyboard.press("Enter");
 					}
-					await sidebar.getByRole("link", { name: label, exact: true }).click();
+					await sidebar.locator(`a[href="${BASE}/guides/${slug}/"]`).click();
 					await page.waitForURL(`${origin}/guides/${slug}/`);
 				}
 				await context.close();

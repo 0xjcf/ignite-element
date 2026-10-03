@@ -90,7 +90,8 @@ const finishCurrentTurn = () => {
 };
 
 const executeModelTurn = async (response: ModelResult) => {
-	const tools = igniteTools(component, undefined, {
+	const tools = igniteTools({
+		core: component,
 		schema: voiceWorkbenchModelSchema,
 		canExecute: (name) =>
 			Reflect.get(component.get("states").commandAvailability, name) === true,
@@ -470,7 +471,8 @@ describe("voice/text workbench model turn", () => {
 	it("uses direct component tools across allowed and rejected turns", async () => {
 		const requests: ModelRequest[] = [];
 		const request = (prompt: ModelRequest["prompt"]): ModelRequest => {
-			const tools = igniteTools(component, undefined, {
+			const tools = igniteTools({
+				core: component,
 				schema: voiceWorkbenchModelSchema,
 				canExecute: (name) =>
 					Reflect.get(component.get("states").commandAvailability, name) ===

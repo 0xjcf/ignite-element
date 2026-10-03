@@ -14,6 +14,9 @@ const primary = [
 	"handbook/testing",
 	"handbook/api",
 	"handbook/examples",
+	"guides/shared-source-ownership",
+	"guides/tools",
+	"guides/agent-runtime-v3",
 ];
 function walk(dir) {
 	return fs
@@ -65,6 +68,18 @@ function content(file) {
 		.replaceAll(
 			'<ReactCounterDemo kind="events" />',
 			`[Try the live custom-element events](${base}handbook/views/#react-to-an-emitted-event)`,
+		)
+		.replaceAll(
+			"<SmartHomeExplainerDemo />",
+			`[Try the live Smart Home explainer](${base}explainers/v3/)`,
+		)
+		.replaceAll(
+			"<SmartHomeViewsDemo />",
+			`[Try the live Views & effects explainer](${base}explainers/views-effects/)`,
+		)
+		.replaceAll(
+			"<SmartHomeSharedDemo />",
+			`[Try the live Shared sources explainer](${base}explainers/shared-sources/)`,
 		)
 		.replaceAll("](/ignite-element/", `](${base}`);
 }

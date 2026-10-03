@@ -7,9 +7,10 @@ import type {
 	NeutralToolCall,
 	ToolDialect,
 	ToolError,
+	ToolSchema,
 	ToolStreamObservation,
 } from "../../tools";
-import { igniteTools } from "../../tools";
+import { defineToolSchema, igniteTools } from "../../tools";
 
 describe("igniteTools types", () => {
 	const machine = createMachine({
@@ -33,17 +34,14 @@ describe("igniteTools types", () => {
 	});
 
 	const options = {
+		core: component,
 		schema: {
-			commands: { toggle: { input: { type: "object", properties: {} } } },
-		},
+			toggle: { input: { type: "object", properties: {} } },
+		} satisfies ToolSchema,
 	};
 
 	it("exposes a NeutralManifest and an errors-as-values run", () => {
-		const { manifest, resolveCall, run } = igniteTools(
-			component,
-			undefined,
-			options,
-		);
+		const { manifest, resolveCall, run } = igniteTools(options);
 
 		expectTypeOf(manifest).toEqualTypeOf<NeutralManifest>();
 		expectTypeOf(resolveCall).toBeFunction();
@@ -51,7 +49,7 @@ describe("igniteTools types", () => {
 	});
 
 	it("types the run observation from the command result + events", () => {
-		const { run } = igniteTools(component, undefined, options);
+		const { run } = igniteTools(options);
 
 		// Wrapped uncalled: the body is typechecked but never executed (these
 		// `.types.test.ts` files also run under vitest). The success branch carries
@@ -75,7 +73,7 @@ describe("igniteTools types", () => {
 	});
 
 	it("types observe() from the component's states + events", () => {
-		const { observe } = igniteTools(component, undefined, options);
+		const { observe } = igniteTools(options);
 
 		observe((observation) => {
 			expectTypeOf(observation).toEqualTypeOf<
@@ -97,6 +95,41 @@ describe("igniteTools types", () => {
 		});
 	});
 
+	it("types until() from the match return, excluding keep-waiting values", () => {
+		const { until } = igniteTools(options);
+
+		const probe = async () => {
+			const states = await until((observation) =>
+				observation.type === "states" && observation.states.isOn
+					? observation.states
+					: undefined,
+			);
+			expectTypeOf(states).toEqualTypeOf<{ isOn: boolean }>();
+
+			const matched = await until(
+				(observation) =>
+					observation.type === "event" && observation.event.type === "toggled",
+			);
+			expectTypeOf(matched).toEqualTypeOf<true>();
+
+			await until(
+				(observation) =>
+					observation.type === "states" ? observation.states : undefined,
+				{ signal: new AbortController().signal },
+			);
+		};
+		void probe;
+	});
+
+	it("rejects async until matchers at the type boundary", () => {
+		const { until } = igniteTools(options);
+		const author = async () => {
+			// @ts-expect-error until matchers must be synchronous
+			await until(async () => true);
+		};
+		void author;
+	});
+
 	it("types a dialect's tools and translators from the dialect generics", () => {
 		type Defs = Array<{ tool: string }>;
 		type Resp = { calls: NeutralToolCall[] };
@@ -108,11 +141,43 @@ describe("igniteTools types", () => {
 			toolResult: (result) => ({ id: result.id }),
 		};
 
-		const tools = igniteTools(component, dialect, options);
+		const tools = igniteTools({
+			core: component,
+			schema: options.schema,
+			dialect,
+		});
 
 		expectTypeOf(tools.tools).toEqualTypeOf<Defs>();
 		expectTypeOf(tools.toolCalls).parameter(0).toEqualTypeOf<Resp>();
 		expectTypeOf(tools.toolCalls).returns.toEqualTypeOf<NeutralToolCall[]>();
 		expectTypeOf(tools.toolResult).returns.toEqualTypeOf<Block>();
+	});
+
+	it("accepts satisfies ToolSchema and defineToolSchema factories", () => {
+		const satisfied = {
+			toggle: { input: { type: "object", properties: {} } },
+		} satisfies ToolSchema;
+		const defined = defineToolSchema({
+			toggle: { input: { type: "object", properties: {} } },
+		});
+		const fromSatisfied = igniteTools({ core: component, schema: satisfied });
+		const fromDefined = igniteTools({ core: component, schema: defined });
+		expectTypeOf(fromSatisfied.run).toBeFunction();
+		expectTypeOf(fromDefined.run).toBeFunction();
+	});
+
+	it("rejects unknown input types at the ToolSchema boundary", () => {
+		const author = () => {
+			const schema = {
+				setLimit: {
+					input: {
+						// @ts-expect-error typo is not in the validator vocabulary
+						type: "nubmer",
+					},
+				},
+			} satisfies ToolSchema;
+			return schema;
+		};
+		void author;
 	});
 });

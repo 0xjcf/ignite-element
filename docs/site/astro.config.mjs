@@ -3,9 +3,8 @@
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import remarkGfm from "remark-gfm";
-import scrollableTables from "./src/rehype-scrollable-tables.mjs";
-
 import starlightVersions from "starlight-versions";
+import scrollableTables from "./src/rehype-scrollable-tables.mjs";
 
 // https://astro.build/config
 export default defineConfig({
@@ -66,6 +65,14 @@ export default defineConfig({
 					slug: "index",
 				},
 				{
+					label: "Explainers",
+					items: [
+						{ label: "Ignite Element v3", slug: "explainers/v3" },
+						{ label: "Views & effects", slug: "explainers/views-effects" },
+						{ label: "Shared sources", slug: "explainers/shared-sources" },
+					],
+				},
+				{
 					label: "Sources",
 					slug: "handbook/sources",
 				},
@@ -100,6 +107,7 @@ export default defineConfig({
 						{ label: "Shared sources", slug: "guides/shared-source-ownership" },
 						{ label: "Routing", slug: "guides/routing" },
 						{ label: "Accessibility", slug: "guides/accessibility-first" },
+						{ label: "Tools", slug: "guides/tools" },
 						{ label: "Build for agents", slug: "guides/agent-runtime-v3" },
 					],
 				},

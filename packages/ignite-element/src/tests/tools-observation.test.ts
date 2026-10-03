@@ -1,16 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
 import { assign, emit, setup } from "xstate";
 import type { EventDescriptor, EventMember } from "../RenderArgs";
-import { igniteTools } from "../tools";
+import type { IgniteToolsRuntime } from "../tools";
+import { defineToolSchema, igniteTools } from "../tools";
 import { anthropic } from "../tools/anthropic";
 import { openai } from "../tools/openai";
 import type { IgniteAgentSchema } from "../types/schema";
 import { igniteCore } from "../xstate";
 
 const options = {
-	schema: { commands: { run: { input: { type: "object", properties: {} } } } },
+	schema: defineToolSchema({
+		run: { input: { type: "object", properties: {} } },
+	}),
 };
 const call = { name: "run", input: {} };
+type ObservationRuntime = IgniteToolsRuntime<
+	unknown,
+	Record<string, () => unknown>,
+	Record<string, EventDescriptor<void>>,
+	unknown,
+	{ count: number }
+>;
 
 function fixture(fail?: "setup" | "command" | "read", cleanupFails = false) {
 	const failure = { primary: fail };
@@ -94,13 +104,10 @@ describe("tools public observation window", () => {
 			const f = fixture(phase, true);
 			const report = vi.spyOn(console, "error").mockImplementation(() => {});
 			try {
-				const tools = igniteTools<
-					unknown,
-					Record<string, () => unknown>,
-					Record<string, EventDescriptor<void>>,
-					unknown,
-					{ count: number }
-				>(f.runtime, undefined, options);
+				const tools = igniteTools({
+					core: f.runtime as ObservationRuntime,
+					schema: options.schema,
+				});
 				const outcome = await tools.run(call);
 				expect(outcome).toMatchObject({
 					ok: false,
@@ -121,13 +128,10 @@ describe("tools public observation window", () => {
 	);
 	it("validates before subscribing and reads the current catalogue on each run", async () => {
 		const f = fixture();
-		const tools = igniteTools<
-			unknown,
-			Record<string, () => unknown>,
-			Record<string, EventDescriptor<void>>,
-			unknown,
-			{ count: number }
-		>(f.runtime, undefined, options);
+		const tools = igniteTools({
+			core: f.runtime as ObservationRuntime,
+			schema: options.schema,
+		});
 		expect((await tools.run({ name: "missing", input: {} })).ok).toBe(false);
 		expect(f.handlers.size).toBe(0);
 		f.setEvents([{ type: "first", payload: null }]);
@@ -173,7 +177,10 @@ describe("tools public observation window", () => {
 		const native: unknown[] = [];
 		const handle = core.on("private", (event) => native.push(event));
 		try {
-			const tools = igniteTools(core, undefined, options);
+			const tools = igniteTools({
+				core,
+				schema: options.schema,
+			});
 			const outcome = await tools.run(call);
 			expect(outcome).toEqual({
 				ok: true,
@@ -206,13 +213,10 @@ describe("tools public observation window", () => {
 			for (const h of f.handlers.get("first") ?? []) h({ type: "first" });
 			return { id: "created" };
 		};
-		const tools = igniteTools<
-			unknown,
-			Record<string, () => unknown>,
-			Record<string, EventDescriptor<void>>,
-			unknown,
-			{ count: number }
-		>(f.runtime, undefined, options);
+		const tools = igniteTools({
+			core: f.runtime as ObservationRuntime,
+			schema: options.schema,
+		});
 		const first = tools.run(call),
 			second = tools.run(call);
 		release[0]();
@@ -240,7 +244,10 @@ it("releases temporary handles when a pending core is disposed", async () => {
 		commands: () => ({ run: () => pending }),
 	});
 	const subscribe = vi.spyOn(core, "on");
-	const tools = igniteTools(core, undefined, options);
+	const tools = igniteTools({
+		core,
+		schema: options.schema,
+	});
 	const outcome = tools.run(call);
 	const releases = subscribe.mock.results.map((entry) =>
 		vi.spyOn(entry.value, "unsubscribe"),
@@ -257,4 +264,47 @@ it("releases temporary handles when a pending core is disposed", async () => {
 	});
 	for (const release of releases) expect(release).toHaveBeenCalledOnce();
 	core.dispose();
+});
+
+it("until resolves from current states after run without a later transition", async () => {
+	const machine = setup({
+		types: {
+			context: {} as { count: number },
+			events: {} as { type: "SET"; count: number },
+		},
+	}).createMachine({
+		context: { count: 0 },
+		on: {
+			SET: {
+				actions: assign({ count: ({ event }) => event.count }),
+			},
+		},
+	});
+	const core = igniteCore({
+		source: machine,
+		states: (snapshot) => ({ count: snapshot.context.count }),
+		commands: ({ source }) => ({
+			setCount(count: number) {
+				source.send({ type: "SET", count });
+			},
+		}),
+	});
+	try {
+		const { run, until } = igniteTools({
+			core,
+			schema: defineToolSchema({
+				setCount: { input: { type: "number" } },
+			}),
+		});
+		const result = await run({ name: "setCount", input: 2 });
+		expect(result.ok).toBe(true);
+		const states = await until((observation) =>
+			observation.type === "states" && observation.states.count === 2
+				? observation.states
+				: undefined,
+		);
+		expect(states).toEqual({ count: 2 });
+	} finally {
+		core.dispose();
+	}
 });
