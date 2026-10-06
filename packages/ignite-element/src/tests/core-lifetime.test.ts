@@ -87,10 +87,12 @@ describe("terminal core lifetime", () => {
 			watched = vi.fn();
 		const releaseFramework = requireBindingStore(core).subscribe(framework);
 		const handle = core.watch(watched);
+		expect(watched).toHaveBeenCalledTimes(1);
+		expect(watched).toHaveBeenCalledWith({ count: 0 }, undefined);
 		core.dispose();
 		for (const callback of callbacks) callback({ count: 42 });
 		expect(framework).not.toHaveBeenCalled();
-		expect(watched).not.toHaveBeenCalled();
+		expect(watched).toHaveBeenCalledTimes(1);
 		expect(create).toHaveBeenCalledOnce();
 		const releases = release.mock.calls.length;
 		releaseFramework();

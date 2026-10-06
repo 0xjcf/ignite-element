@@ -97,7 +97,7 @@ A fulfilled `run` does not mean detached work is finished.
 
 `until(match)` waits on the same observation stream as `observe` and resolves with the first defined match.
 
-On attach it seed-checks the current projection once, then waits for further emissions if that seed does not match.
+On attach, `watch` delivers the current projection once with `prevStates === undefined`, then waits for further emissions if that delivery does not match.
 
 Match returning `undefined`, `false`, or nullish means keep waiting.
 

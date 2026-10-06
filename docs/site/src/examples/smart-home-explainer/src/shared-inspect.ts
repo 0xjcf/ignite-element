@@ -50,12 +50,9 @@ function publish(slice: SourceSlice): void {
 	}
 }
 
-home.watch(
-	(states: {
-		lights: Record<Room, boolean>;
-		thermostat: Record<Room, number>;
-		activeScene: string | null;
-	}) => {
+home.watch((states: SourceSlice, previous: SourceSlice | undefined) => {
+		// Subscribe replays the current house. That is not a write.
+		if (previous === undefined) return;
 		const slice = sliceFrom(states);
 		if (restoring) {
 			publish(slice);

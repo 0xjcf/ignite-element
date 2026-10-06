@@ -71,9 +71,9 @@ tagged ToolError. A returned promise gates command acknowledgement, not
 business-done. Detached work and remote snapshot delivery may still be pending.
 
 `until(match)` waits on the same observation stream as `observe` and resolves
-with the first defined match. On attach it seed-checks the current projection
-once, then waits for further emissions if that seed does not match. Match
-returning `undefined`, `false`, or nullish means keep waiting. Matchers are
+with the first defined match. On attach, `watch` delivers the current projection
+once with `prevStates === undefined`, then waits for further emissions if that
+delivery does not match. Match returning `undefined`, `false`, or nullish means keep waiting. Matchers are
 synchronous. It unsubscribes when it resolves. Pass `{ signal }` to cancel:
 abort unsubscribes and rejects with an `AbortError`.
 

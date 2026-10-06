@@ -52,7 +52,7 @@ Host capabilities and environmental I/O are not callback inputs.
 | `core.get('schema')` | Immutable minimal catalogue |
 | `core.get('commands')` | Command catalogue, not callable functions |
 | `core.get('events')` | Event catalogue, not event history |
-| `core.watch((next, previous) => ...)` | `{ unsubscribe() }`; no initial user delivery |
+| `core.watch((next, previous) => ..., options?)` | `{ unsubscribe() }`; current states on subscribe (`previous === undefined`); `{ emitCurrent: false }` for transitions only |
 | `core.on(name, event => ...)` | `{ unsubscribe() }`; outward occurrence, no replay |
 | `await core.execute({ command, input? })` | The command-defined awaited value or void; use `get('states')` for reads |
 | `core.dispose()` | Terminal owning cleanup; registered cores included |

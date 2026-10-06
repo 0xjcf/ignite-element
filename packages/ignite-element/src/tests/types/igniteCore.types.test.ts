@@ -945,8 +945,11 @@ describe("igniteCore type inference", () => {
 		});
 		register.watch((states, prevStates) => {
 			expectTypeOf(states).toEqualTypeOf<{ count: number }>();
-			expectTypeOf(prevStates).toEqualTypeOf<{ count: number }>();
+			expectTypeOf(prevStates).toEqualTypeOf<{ count: number } | undefined>();
 		});
+		register.watch(() => {}, { emitCurrent: false });
+		// @ts-expect-error emitCurrent is boolean
+		register.watch(() => {}, { emitCurrent: "no" });
 
 		const expectRuntimeValidation = () => {
 			// @ts-expect-error - command name should be validated

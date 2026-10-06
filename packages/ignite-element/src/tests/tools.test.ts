@@ -117,7 +117,7 @@ function createFakeComponent(
 		(event: { type: "item-added"; id: number }) => void
 	>();
 	const viewHandlers = new Set<
-		(states: FakeStates, prevStates: FakeStates) => void
+		(states: FakeStates, prevStates: FakeStates | undefined) => void
 	>();
 	const component: ObservableFakeComponent = {
 		calls,
@@ -143,11 +143,18 @@ function createFakeComponent(
 				unsubscribe: () => eventHandlers.delete(handler),
 			};
 		}) as FakeComponent["on"],
-		watch: ((handler: (states: FakeStates, prevStates: FakeStates) => void) => {
+		watch: ((
+			handler: (states: FakeStates, prevStates: FakeStates | undefined) => void,
+		) => {
 			viewHandlers.add(handler);
-			return {
-				unsubscribe: () => viewHandlers.delete(handler),
-			};
+			const unsubscribe = () => viewHandlers.delete(handler);
+			try {
+				handler(states, undefined);
+			} catch (error) {
+				unsubscribe();
+				throw error;
+			}
+			return { unsubscribe };
 		}) as FakeComponent["watch"],
 		emitEvent: (event) => {
 			for (const handler of eventHandlers) {
@@ -792,6 +799,11 @@ describe("igniteTools (neutral, no dialect)", () => {
 
 		expect(seen).toEqual([
 			{
+				type: "states",
+				states: { count: 0, label: "zero" },
+				prevStates: undefined,
+			},
+			{
 				type: "event",
 				event: { type: "item-added", id: 2 },
 			},
@@ -807,7 +819,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		component.emitEvent({ type: "item-added", id: 3 });
 		component.emitStates({ count: 3, label: "ignored" });
 
-		expect(seen).toHaveLength(2);
+		expect(seen).toHaveLength(3);
 	});
 
 	it("observe cleans up partial subscriptions when registration fails", () => {
@@ -1008,7 +1020,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const component = createFakeComponent();
 		const originalWatch = component.watch;
 		component.watch = ((
-			handler: (states: FakeStates, prevStates: FakeStates) => void,
+			handler: (states: FakeStates, prevStates: FakeStates | undefined) => void,
 		) => {
 			const subscription = originalWatch(handler);
 			handler({ count: 2, label: "ready" }, { count: 0, label: "zero" });
@@ -1031,10 +1043,10 @@ describe("igniteTools (neutral, no dialect)", () => {
 			count: 2,
 			label: "ready",
 		});
-		expect(match).toHaveBeenCalledTimes(1);
+		expect(match).toHaveBeenCalledTimes(2);
 		component.emitStates({ count: 2, label: "later" });
 		await Promise.resolve();
-		expect(match).toHaveBeenCalledTimes(1);
+		expect(match).toHaveBeenCalledTimes(2);
 	});
 
 	it("until still resolves when observation cleanup throws", async () => {

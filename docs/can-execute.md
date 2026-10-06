@@ -26,8 +26,10 @@ booleans from their native state.
 Do not move guards, admission, authorization or transport authority into Ignite.
 Availability is descriptive preflight, never permission or proof of completion.
 
-Read `core.get('states')`, or observe `core.watch((next, previous) => ...)`
-without initial user delivery. Native source snapshots remain on the source,
+Read `core.get('states')`, or observe `core.watch((next, previous) => ...)`.
+The first watch delivery is the current projection, with `previous === undefined`.
+`{ emitCurrent: false }` observes later transitions only.
+Native source snapshots remain on the source,
 not a restored public Ignite raw getter.
 
 ## Explicit tools

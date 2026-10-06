@@ -111,6 +111,39 @@ describe("prepared useIgnite binding", () => {
 		await act(async () => hook.unmount());
 		core.dispose();
 	});
+	it("does not double-apply under StrictMode when watch replays the current states", () => {
+		const core = makeCore();
+		core.get("states");
+		const applied: number[] = [];
+		const hook = renderHook(
+			() => {
+				const ctx = useIgnite(core);
+				React.useEffect(() => {
+					const handle = core.watch((next, previous) => {
+						applied.push(
+							previous === undefined ? next.count : next.count - previous.count,
+						);
+					});
+					return () => handle.unsubscribe();
+				}, []);
+				return ctx;
+			},
+			{
+				wrapper: ({ children }) =>
+					React.createElement(React.StrictMode, null, children),
+			},
+		);
+		expect(hook.result.current.count).toBe(0);
+		expect(applied.length).toBeGreaterThan(0);
+		expect(applied.every((value) => value === 0)).toBe(true);
+		act(() => {
+			hook.result.current.add();
+		});
+		expect(hook.result.current.count).toBe(1);
+		expect(applied.filter((value) => value !== 0)).toEqual([1]);
+		hook.unmount();
+		core.dispose();
+	});
 	it("borrows through StrictMode and multiple consumers without disposing the owner", () => {
 		const core = makeCore();
 		core.get("states");

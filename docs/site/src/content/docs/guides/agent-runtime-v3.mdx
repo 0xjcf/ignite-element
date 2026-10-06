@@ -130,7 +130,7 @@ export const counterTools = igniteTools({
 
 `until` waits on the same stream as `observe` for later source work to settle.
 
-It seed-checks the current projection once, so one `until` after `run` is enough.
+It receives the current projection once from `watch` (`prevStates === undefined`), so one `until` after `run` is enough.
 
 `observe` remains for ongoing fan-in.
 

@@ -85,7 +85,9 @@ describe("igniteTools types", () => {
 
 			if (observation.type === "states") {
 				expectTypeOf(observation.states).toEqualTypeOf<{ isOn: boolean }>();
-				expectTypeOf(observation.prevStates).toEqualTypeOf<{ isOn: boolean }>();
+				expectTypeOf(observation.prevStates).toEqualTypeOf<
+					{ isOn: boolean } | undefined
+				>();
 			} else {
 				expectTypeOf(observation.event).toEqualTypeOf<{
 					type: "toggled";

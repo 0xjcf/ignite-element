@@ -48,9 +48,10 @@ let handle;
 try {
 	assert.deepEqual(core.get("commands"), { add: { input: null } });
 	assert.equal(core.get("states").count, 0);
-	handle = core.watch((next, previous) =>
-		seen.push([previous.count, next.count]),
-	);
+	handle = core.watch((next, previous) => {
+		if (previous === undefined) return;
+		seen.push([previous.count, next.count]);
+	});
 	const result = await core.execute({ command: "add", input: 2 });
 	assert.equal(result, undefined);
 	assert.equal(core.get("states").count, 2);

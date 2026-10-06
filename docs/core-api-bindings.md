@@ -20,7 +20,7 @@ Source-backed owners retain registration and opaque projection-target call forms
 | `get('schema')` | Pure immutable minimal catalogue, never source acquisition |
 | `get('commands')` | Bound own command names with `{ input: null }`, not functions |
 | `get('events')` | Declared names with `{ type, payload: null }`, not history |
-| `watch((next, previous) => …)` | Derived observations without initial user delivery or global deep equality |
+| `watch((next, previous) => …, options?)` | Current derived states on subscribe (`previous === undefined`); `{ emitCurrent: false }` for transitions only; no global deep equality |
 | `on(name, handler)` | Flat outward occurrences; independently idempotent unsubscribe handle |
 | `execute({ command, input })` | One payload argument; command-defined awaited value or void |
 | `dispose()` | Terminal owning cleanup, including registered views; tag definitions are not reusable |

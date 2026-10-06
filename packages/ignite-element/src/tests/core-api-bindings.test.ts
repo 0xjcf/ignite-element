@@ -56,6 +56,8 @@ describe("owning core keyed API", () => {
 			secondDelivery = vi.fn();
 		const oldHandle = first.watch(firstDelivery);
 		second.watch(secondDelivery);
+		firstDelivery.mockClear();
+		secondDelivery.mockClear();
 		first.dispose();
 		oldHandle.unsubscribe();
 		actor.send({ type: "ADD" });
@@ -104,16 +106,121 @@ describe("owning core keyed API", () => {
 		expect(() => core.watch(() => {})).toThrow(/disposed/i);
 		core.dispose();
 	});
-	it("watches next and previous states without initial user delivery", async () => {
+	it("delivers current states on subscribe with previous undefined", async () => {
 		const core = makeCore();
 		const handler = vi.fn();
 		const handle = core.watch(handler);
+		expect(handler).toHaveBeenCalledTimes(1);
+		expect(handler).toHaveBeenCalledWith({ count: 0 }, undefined);
+		await core.execute({ command: "add" });
+		expect(handler).toHaveBeenCalledTimes(2);
+		expect(handler).toHaveBeenLastCalledWith({ count: 1 }, { count: 0 });
+		const later = vi.fn();
+		core.watch(later);
+		expect(later).toHaveBeenCalledTimes(1);
+		expect(later).toHaveBeenCalledWith({ count: 1 }, undefined);
+		handle.unsubscribe();
+		handle.unsubscribe();
+		await core.execute({ command: "add" });
+		expect(handler).toHaveBeenCalledTimes(2);
+		core.dispose();
+	});
+	it("skips the current delivery when emitCurrent is false", async () => {
+		const core = makeCore();
+		const handler = vi.fn();
+		const handle = core.watch(handler, { emitCurrent: false });
 		expect(handler).not.toHaveBeenCalled();
 		await core.execute({ command: "add" });
+		expect(handler).toHaveBeenCalledTimes(1);
 		expect(handler).toHaveBeenCalledWith({ count: 1 }, { count: 0 });
 		handle.unsubscribe();
+		core.dispose();
+	});
+	it("releases a subscription whose initial handler throws", () => {
+		const core = makeCore();
+		const reason = new Error("initial failed");
+		expect(() =>
+			core.watch(() => {
+				throw reason;
+			}),
+		).toThrow(reason);
+		const handler = vi.fn();
+		const handle = core.watch(handler);
+		expect(handler).toHaveBeenCalledTimes(1);
 		handle.unsubscribe();
 		core.dispose();
+	});
+	it("rolls back a factory runtime when the initial watch handler throws", () => {
+		const start = vi.fn();
+		const stop = vi.fn();
+		const commands = vi.fn(() => ({ ping: () => undefined }));
+		const privateMachine = createMachine({
+			invoke: {
+				src: fromCallback(() => {
+					start();
+					return stop;
+				}),
+			},
+		});
+		const core = igniteCore({
+			source: privateMachine,
+			commands,
+			states: () => ({ ready: true }),
+		});
+		const reason = new Error("initial failed");
+		expect(() =>
+			core.watch(() => {
+				throw reason;
+			}),
+		).toThrow(reason);
+		expect(start).toHaveBeenCalledOnce();
+		expect(commands).toHaveBeenCalledOnce();
+		expect(stop).toHaveBeenCalledOnce();
+		const handler = vi.fn();
+		const handle = core.watch(handler);
+		expect(handler).toHaveBeenCalledWith({ ready: true }, undefined);
+		expect(start).toHaveBeenCalledTimes(2);
+		expect(commands).toHaveBeenCalledTimes(2);
+		handle.unsubscribe();
+		core.dispose();
+		expect(stop).toHaveBeenCalledTimes(2);
+	});
+	it("keeps an already acquired runtime when a later watch handler throws", async () => {
+		const start = vi.fn();
+		const stop = vi.fn();
+		const privateMachine = createMachine({
+			context: { count: 0 },
+			invoke: {
+				src: fromCallback(() => {
+					start();
+					return stop;
+				}),
+			},
+			on: {
+				ADD: {
+					actions: assign({ count: ({ context }) => context.count + 1 }),
+				},
+			},
+		});
+		const core = igniteCore({
+			source: privateMachine,
+			states: (snapshot) => ({ count: snapshot.context.count }),
+			commands: ({ source: actor }) => ({
+				add: () => actor.send({ type: "ADD" }),
+			}),
+		});
+		expect(core.get("states")).toEqual({ count: 0 });
+		expect(start).toHaveBeenCalledOnce();
+		expect(() =>
+			core.watch(() => {
+				throw new Error("later watch failed");
+			}),
+		).toThrow(/later watch failed/);
+		expect(stop).not.toHaveBeenCalled();
+		await core.execute({ command: "add" });
+		expect(core.get("states").count).toBe(1);
+		core.dispose();
+		expect(stop).toHaveBeenCalledOnce();
 	});
 	it("does not stop borrowed actors or create an unused private actor", () => {
 		const actor = createActor(machine).start();

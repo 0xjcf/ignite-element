@@ -40,6 +40,10 @@ const counter = igniteCore({
 });
 try {
   const subscription = counter.watch((next, previous) => {
+    if (previous === undefined) {
+      console.log('current', next.isOn);
+      return;
+    }
     console.log(previous.isOn, '->', next.isOn);
   });
   const result = await counter.execute({ command: 'toggle' });
@@ -85,17 +89,27 @@ Native snapshots remain in source authoring, projections and effects; execution 
 
 Separate public reads are not an atomic multi-read transaction.
 
-### `watch(handler)`
+### `watch(handler, options?)`
 
-Observes derived states as `(next, previous)` with no initial user delivery.
+Observes derived states as `(next, previous)`.
 
-Synchronous source replay seeds the previous value.
+The first call delivers the current derived states synchronously, with `previous === undefined`.
+
+Later calls pass the previous value this subscription has recorded.
+
+By default that recorded value is the last value delivered to the handler.
+
+`{ emitCurrent: false }` skips the initial delivery and observes transitions only. The subscription still records the subscribe-time states as its baseline before any handler call. The first later transition receives that undelivered baseline as `previous`. After that call, `previous` is the last value delivered to the handler.
+
+Synchronous adapter replay is folded into the single initial delivery. It is not a second call.
 
 Every delivered source observation follows the adapter's existing notification/error boundary; Ignite does not add global deep equality.
 
 The returned `{ unsubscribe() }` handle is independently idempotent.
 
-For an imperative initial render, subscribe first, then call `get('states')`, and unsubscribe if that render throws.
+Do not also invoke the handler with `get('states')` after subscribing. That applies the current projection twice.
+
+`get('states')` remains the read to use when you are not subscribing.
 
 When a read first acquires an isolated headless runtime, it may return its captured initial value while synchronous replay has already updated the framework cache.
 

@@ -4,13 +4,8 @@ export function observe(
 	core: Core,
 	render: (states: States) => void,
 ): () => void {
+	// watch delivers the current states on subscribe, including a throwing render.
 	const subscription = core.watch((next) => render(next));
-	try {
-		render(core.get("states"));
-	} catch (error) {
-		subscription.unsubscribe();
-		throw error;
-	}
 	return () => subscription.unsubscribe();
 }
 export async function inspectPreference(core: Core): Promise<States> {

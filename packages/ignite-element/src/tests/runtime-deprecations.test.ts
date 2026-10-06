@@ -62,7 +62,16 @@ describe("headless runtime keyed reads and native-source observation", () => {
 
 		expect(store.getState().counter.count).toBe(2);
 		expect(register.get("states").count).toBe(2);
-		expect(snapshotListener).toHaveBeenCalledTimes(1);
+		expect(snapshotListener).toHaveBeenNthCalledWith(
+			1,
+			{ count: 0, isEven: true },
+			undefined,
+		);
+		expect(snapshotListener).toHaveBeenNthCalledWith(
+			2,
+			{ count: 2, isEven: true },
+			{ count: 0, isEven: true },
+		);
 
 		subscription.unsubscribe();
 	});

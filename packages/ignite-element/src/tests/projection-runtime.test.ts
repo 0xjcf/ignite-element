@@ -1677,6 +1677,57 @@ describe("projection targets", () => {
 		}
 	});
 
+	it("delivers current derived states once when subscribe replays synchronously", () => {
+		type Snapshot = { value: number };
+		let current: Snapshot = { value: 0 };
+		let notify: (value: Snapshot) => void = () => undefined;
+		const unsubscribe = vi.fn();
+		const adapter: IgniteAdapter<Snapshot, InspectionEvent> = {
+			scope: StateScope.Isolated,
+			subscribeSnapshots: (listener) => {
+				notify = listener;
+				listener({ value: 1 });
+				listener({ value: 1 });
+				return { unsubscribe };
+			},
+			send: () => undefined,
+			getSnapshot: () => current,
+			stop: vi.fn(),
+		};
+		const handler = vi.fn();
+		const lifetime = createLifetime();
+		const owned = createAgentRuntime({
+			lifetime,
+			dispose: () => lifetime.dispose(),
+			eventTypes: [],
+			resolveRuntime: () => ({
+				adapter,
+				additionalArgs: {},
+				host: new EventTarget(),
+			}),
+			resolveStates: () => ({ count: current.value }),
+			resolveDeliveredStates: (snapshot: Snapshot) => ({
+				count: snapshot.value,
+			}),
+		});
+
+		const subscription = owned.runtime.watch(handler);
+		expect(handler).toHaveBeenCalledTimes(1);
+		expect(handler).toHaveBeenCalledWith({ count: 1 }, undefined);
+
+		current = { value: 4 };
+		notify(current);
+		expect(handler).toHaveBeenCalledTimes(2);
+		expect(handler).toHaveBeenLastCalledWith({ count: 4 }, { count: 1 });
+
+		const quiet = vi.fn();
+		owned.runtime.watch(quiet, { emitCurrent: false });
+		expect(quiet).not.toHaveBeenCalled();
+
+		subscription.unsubscribe();
+		lifetime.dispose();
+	});
+
 	it("uses one transformed inspection pair for execution and projection availability", async () => {
 		type SourceSnapshot = { sequence: number };
 		type FacadeSnapshot = InspectionSnapshot & { sequence: number };
