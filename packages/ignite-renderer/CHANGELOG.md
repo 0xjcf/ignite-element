@@ -1,5 +1,7 @@
 # ignite-renderer
 
+## 3.0.0-beta.18
+
 ## 3.0.0-beta.17
 
 ## 3.0.0-beta.16

@@ -51,20 +51,19 @@ function publish(slice: SourceSlice): void {
 }
 
 home.watch((states: SourceSlice, previous: SourceSlice | undefined) => {
-		// Subscribe replays the current house. That is not a write.
-		if (previous === undefined) return;
-		const slice = sliceFrom(states);
-		if (restoring) {
-			publish(slice);
-			return;
-		}
-		const caller = pendingCaller;
-		pendingCaller = "panel";
-		lastCaller = caller;
-		records = [{ caller, summary: summarize(slice) }, ...records].slice(0, 8);
+	// Subscribe replays the current house. That is not a write.
+	if (previous === undefined) return;
+	const slice = sliceFrom(states);
+	if (restoring) {
 		publish(slice);
-	},
-);
+		return;
+	}
+	const caller = pendingCaller;
+	pendingCaller = "panel";
+	lastCaller = caller;
+	records = [{ caller, summary: summarize(slice) }, ...records].slice(0, 8);
+	publish(slice);
+});
 
 export function watchSource(listener: SourceListener): () => void {
 	listeners.add(listener);
