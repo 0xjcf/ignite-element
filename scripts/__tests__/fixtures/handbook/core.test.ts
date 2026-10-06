@@ -9,10 +9,11 @@ it("reads projected states and observes external source changes", async () => {
 		expect(result).toBeUndefined();
 		expect(core.get("states").count).toBe(1);
 		source.dispatch({ type: "counter/increment" });
-		expect(seen).toEqual([1, 2]);
+		// Subscribe delivers the current count (0), then each later change.
+		expect(seen).toEqual([0, 1, 2]);
 		subscription.unsubscribe();
 		source.dispatch({ type: "counter/increment" });
-		expect(seen).toEqual([1, 2]);
+		expect(seen).toEqual([0, 1, 2]);
 	} finally {
 		core.dispose();
 	}

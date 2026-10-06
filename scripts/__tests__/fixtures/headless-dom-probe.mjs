@@ -167,6 +167,8 @@ if (scenario.includes("-live") || scenario.includes("-factory")) {
 		const second = core.watch(() => {
 			delivered += 1;
 		});
+		// Default watch delivers the current states once on subscribe.
+		assert.equal(delivered, 1);
 		const events = core.on("changed", (fact) => facts.push(fact));
 		first.unsubscribe();
 		first.unsubscribe();
@@ -175,7 +177,7 @@ if (scenario.includes("-live") || scenario.includes("-factory")) {
 		assert.equal(result, undefined);
 		assert.equal(core.get("states").count, 1);
 		assert.deepEqual(facts, [{ type: "changed", count: 1 }]);
-		assert.equal(delivered, 1);
+		assert.equal(delivered, 2);
 		unchanged();
 		second.unsubscribe();
 		second.unsubscribe();
@@ -183,7 +185,7 @@ if (scenario.includes("-live") || scenario.includes("-factory")) {
 		events.unsubscribe();
 		await core.execute({ command: "increment" });
 		assert.equal(core.get("states").count, 2);
-		assert.equal(delivered, 1);
+		assert.equal(delivered, 2);
 		assert.equal(facts.length, 1);
 		unchanged();
 		await assert.rejects(
