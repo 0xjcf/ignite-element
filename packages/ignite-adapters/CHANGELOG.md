@@ -1,5 +1,11 @@
 # ignite-adapters
 
+## 3.0.0-beta.18
+
+### Patch Changes
+
+- @ignite-element/core@3.0.0-beta.18
+
 ## 3.0.0-beta.17
 
 ### Patch Changes

@@ -59,6 +59,7 @@
 		"typed-view-test-dsl",
 		"v3-public-api-boundary",
 		"view-context-snapshot-spread",
+		"watch-emit-current",
 		"xstate-command-actor-getsnapshot"
 	]
 }
