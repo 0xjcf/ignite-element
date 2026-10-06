@@ -201,16 +201,19 @@ for (const kind of ["xstate", "redux", "mobx", "actor-web"]) {
 				expect(received).toHaveBeenCalledTimes(withEffects ? 2 : 0);
 				const otherDelivery = vi.fn();
 				other.watch(otherDelivery);
-				const late = core.watch(() => {
-					throw Error("late delivery");
-				});
+				const late = core.watch(
+					() => {
+						throw Error("late delivery");
+					},
+					{ emitCurrent: false },
+				);
 				core.dispose();
 				core.dispose();
 				expect(stop).not.toHaveBeenCalled();
 				expect(actorWeb.close).not.toHaveBeenCalled();
 				late.unsubscribe();
 				await other.execute({ command: "increment" });
-				expect(otherDelivery).toHaveBeenCalledOnce();
+				expect(otherDelivery).toHaveBeenCalledTimes(2);
 				expect(other.get("states").count).toBe(4);
 				expect(received).toHaveBeenCalledTimes(withEffects ? 2 : 0);
 			} finally {

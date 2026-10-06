@@ -172,6 +172,7 @@ describe("agent runtime is DOM-free (pure Node, no jsdom)", () => {
 
 		eventSubscription.unsubscribe();
 		viewSubscription.unsubscribe();
+		viewHandler.mockClear();
 
 		await counter.execute({ command: "increment" });
 

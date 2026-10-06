@@ -262,7 +262,7 @@ export function igniteTools<
 			handler: (event: RuntimeEvent<Events>) => void,
 		) => ToolStreamSubscription;
 		const watchStates = runtime.watch.bind(runtime) as unknown as (
-			handler: (states: States, prevStates: States) => void,
+			handler: (states: States, prevStates: States | undefined) => void,
 		) => ToolStreamSubscription;
 		const subscriptions: ToolStreamSubscription[] = [];
 
@@ -388,15 +388,9 @@ export function igniteTools<
 			}
 
 			try {
+				// watch delivers the current projection once, with prevStates
+				// undefined. Seeding again from get("states") would double-apply.
 				subscription = observe(consider);
-				if (!settled) {
-					const states = runtime.get("states");
-					consider({
-						type: "states",
-						states,
-						prevStates: states,
-					});
-				}
 			} catch (error) {
 				finish(() => {
 					reject(error);

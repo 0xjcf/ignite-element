@@ -2,6 +2,7 @@ import type { IgniteAdapter } from "@ignite-element/core";
 import type {
 	IgniteAgentSubscription,
 	IgniteCommandCall,
+	IgniteWatchOptions,
 } from "../types/agent";
 import type {
 	IgniteAgentCommandSchema,
@@ -251,23 +252,31 @@ export function createAgentRuntime<
 	const createWatcher = <Value>(
 		read: (adapter: IgniteAdapter<State, Event>) => Value,
 		delivered: (value: State) => Value,
-		handler: (next: Value, previous: Value) => void,
+		handler: (next: Value, previous: Value | undefined) => void,
+		options?: IgniteWatchOptions,
 	): IgniteAgentSubscription => {
+		const emitCurrent = options?.emitCurrent !== false;
 		lifetime.assertActive();
 		let active = true;
 		let rollback: (() => void) | undefined;
+		let current: Value;
+		let previous: Value | undefined;
+		let unsubscribe!: () => void;
 		try {
 			const resources = resolveRuntime();
 			rollback = resources.rollback;
 			activateHostEffects(resources.host);
 			const { adapter } = resources;
-			let previous = read(adapter);
+			current = read(adapter);
+			// Adapters replay the current snapshot inside subscribeSnapshots.
+			// Swallow that synchronous replay so it cannot double-emit, then
+			// deliver the settled value once when emitCurrent is left on.
 			let installing = true;
 			const subscription = adapter.subscribeSnapshots((value) => {
 				if (!active || !lifetime.active) return;
 				const next = delivered(value);
 				if (installing) {
-					previous = next;
+					current = next;
 					return;
 				}
 				const last = previous;
@@ -275,11 +284,11 @@ export function createAgentRuntime<
 				handler(next, last);
 			});
 			installing = false;
-			const unsubscribe = lifetime.own(() => {
+			previous = current;
+			unsubscribe = lifetime.own(() => {
 				active = false;
 				subscription.unsubscribe();
 			});
-			return { unsubscribe };
 		} catch (error) {
 			active = false;
 			try {
@@ -289,12 +298,29 @@ export function createAgentRuntime<
 			}
 			throw error;
 		}
+		if (emitCurrent && active && lifetime.active) {
+			try {
+				handler(current, undefined);
+			} catch (error) {
+				try {
+					unsubscribe();
+				} catch (cleanupError) {
+					console.error("[igniteCore] Watch rollback failed.", cleanupError);
+				}
+				throw error;
+			}
+		}
+		return { unsubscribe };
 	};
 	const watchSnapshot = (handler: (value: State, previous: State) => void) =>
 		createWatcher(
 			(adapter) => adapter.getSnapshot(),
 			(value) => value,
-			handler,
+			(next, previous) => {
+				if (previous === undefined) return;
+				handler(next, previous);
+			},
+			{ emitCurrent: false },
 		);
 
 	const listen = (
@@ -400,8 +426,11 @@ export function createAgentRuntime<
 				"[igniteCore] Unknown read key; expected states, schema, commands or events.",
 			);
 		},
-		watch(handler: (next: States, previous: States) => void) {
-			return createWatcher(resolveStates, derive, handler);
+		watch(
+			handler: (next: States, previous: States | undefined) => void,
+			options?: IgniteWatchOptions,
+		) {
+			return createWatcher(resolveStates, derive, handler, options);
 		},
 		on(name: string, handler: (event: RuntimeEventMember) => void) {
 			return listen([name], handler);

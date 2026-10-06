@@ -1068,7 +1068,11 @@ describe("igniteCore", () => {
 			expect(state.counter.count).toBe(3);
 		});
 		const watchStatesListener = vi.fn(
-			(states: StoreStates, prevStates: StoreStates) => {
+			(states: StoreStates, prevStates: StoreStates | undefined) => {
+				if (prevStates === undefined) {
+					expect(states).toEqual({ count: 0, isEven: true });
+					return;
+				}
 				expect(prevStates).toEqual({ count: 0, isEven: true });
 				expect(states).toEqual({ count: 3, isEven: false });
 			},
@@ -1097,7 +1101,7 @@ describe("igniteCore", () => {
 		]);
 		expect(listener).toHaveBeenCalledTimes(1);
 		expect(watchListener).toHaveBeenCalledTimes(1);
-		expect(watchStatesListener).toHaveBeenCalledTimes(1);
+		expect(watchStatesListener).toHaveBeenCalledTimes(2);
 
 		eventSubscription.unsubscribe();
 		stateSubscription.unsubscribe();
@@ -1106,7 +1110,7 @@ describe("igniteCore", () => {
 
 		expect(listener).toHaveBeenCalledTimes(1);
 		expect(watchListener).toHaveBeenCalledTimes(1);
-		expect(watchStatesListener).toHaveBeenCalledTimes(1);
+		expect(watchStatesListener).toHaveBeenCalledTimes(2);
 	});
 
 	it("rejects failed commands and removes event listeners", async () => {

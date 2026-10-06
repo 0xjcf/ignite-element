@@ -556,12 +556,16 @@ it("keeps private native and effect events out of the explicit headless event st
 	expect(evaluated).toHaveBeenCalledTimes(1);
 	expect(native).not.toHaveBeenCalled();
 	expect(effect).not.toHaveBeenCalled();
-	expect(watch).not.toHaveBeenCalled();
+	expect(watch).toHaveBeenCalledTimes(1);
+	expect(watch).toHaveBeenCalledWith(
+		expect.objectContaining({ count: 0 }),
+		undefined,
+	);
 	await core.execute({ command: "add" });
 	expect(core.get("states").count).toBe(1);
 	expect(native).toHaveBeenCalledTimes(1);
 	expect(effect).toHaveBeenCalledTimes(1);
-	expect(watch).toHaveBeenCalledTimes(1);
+	expect(watch).toHaveBeenCalledTimes(2);
 	await act(async () => hook.unmount());
 	await core.execute({ command: "add" });
 	expect(evaluated).toHaveBeenCalledTimes(3);

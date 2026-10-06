@@ -124,7 +124,8 @@ export type ToolStreamObservation<
 	| {
 			type: "states";
 			states: States;
-			prevStates: States;
+			/** `undefined` on the subscribe delivery from `watch`. */
+			prevStates: States | undefined;
 	  };
 
 export type ToolStreamHandler<

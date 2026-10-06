@@ -26,6 +26,7 @@ export type {
 	IgniteAgentRuntime,
 	IgniteAgentSubscription,
 	IgniteCommandCall,
+	IgniteWatchOptions,
 	RuntimeEvent,
 } from "./types/agent";
 export type {

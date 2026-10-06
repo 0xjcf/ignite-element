@@ -112,7 +112,8 @@ Check `isOk(acknowledged)` before waiting; an error does not imply a later state
 transition. A successful `run` does not mean detached work has finished.
 
 `until(match)` was added for settle waits. It uses the same observation stream
-as `observe`, seed-checks the current projection once, and unsubscribes on the
+as `observe`, receives the current projection once from `watch`
+(`prevStates === undefined`), and unsubscribes on the
 first defined match. `undefined`, `false`, and nullish keep waiting. Matchers
 are synchronous. Pass `{ signal }` to cancel. `observe` remains for ongoing
 fan-in.

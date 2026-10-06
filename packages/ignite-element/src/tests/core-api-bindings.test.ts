@@ -56,6 +56,8 @@ describe("owning core keyed API", () => {
 			secondDelivery = vi.fn();
 		const oldHandle = first.watch(firstDelivery);
 		second.watch(secondDelivery);
+		firstDelivery.mockClear();
+		secondDelivery.mockClear();
 		first.dispose();
 		oldHandle.unsubscribe();
 		actor.send({ type: "ADD" });
@@ -104,14 +106,47 @@ describe("owning core keyed API", () => {
 		expect(() => core.watch(() => {})).toThrow(/disposed/i);
 		core.dispose();
 	});
-	it("watches next and previous states without initial user delivery", async () => {
+	it("delivers current states on subscribe with previous undefined", async () => {
 		const core = makeCore();
 		const handler = vi.fn();
 		const handle = core.watch(handler);
+		expect(handler).toHaveBeenCalledTimes(1);
+		expect(handler).toHaveBeenCalledWith({ count: 0 }, undefined);
+		await core.execute({ command: "add" });
+		expect(handler).toHaveBeenCalledTimes(2);
+		expect(handler).toHaveBeenLastCalledWith({ count: 1 }, { count: 0 });
+		const later = vi.fn();
+		core.watch(later);
+		expect(later).toHaveBeenCalledTimes(1);
+		expect(later).toHaveBeenCalledWith({ count: 1 }, undefined);
+		handle.unsubscribe();
+		handle.unsubscribe();
+		await core.execute({ command: "add" });
+		expect(handler).toHaveBeenCalledTimes(2);
+		core.dispose();
+	});
+	it("skips the current delivery when emitCurrent is false", async () => {
+		const core = makeCore();
+		const handler = vi.fn();
+		const handle = core.watch(handler, { emitCurrent: false });
 		expect(handler).not.toHaveBeenCalled();
 		await core.execute({ command: "add" });
+		expect(handler).toHaveBeenCalledTimes(1);
 		expect(handler).toHaveBeenCalledWith({ count: 1 }, { count: 0 });
 		handle.unsubscribe();
+		core.dispose();
+	});
+	it("releases a subscription whose initial handler throws", () => {
+		const core = makeCore();
+		const reason = new Error("initial failed");
+		expect(() =>
+			core.watch(() => {
+				throw reason;
+			}),
+		).toThrow(reason);
+		const handler = vi.fn();
+		const handle = core.watch(handler);
+		expect(handler).toHaveBeenCalledTimes(1);
 		handle.unsubscribe();
 		core.dispose();
 	});

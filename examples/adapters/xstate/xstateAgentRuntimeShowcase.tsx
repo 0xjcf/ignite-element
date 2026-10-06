@@ -250,9 +250,11 @@ const createRuntimeReport = async (
 		eventLog.push(`on("api-reset") -> ${formatEventFields(event)}`);
 	});
 	const stateSubscription = apiShowcase.watch((state, prevState) => {
+		if (prevState === undefined) return;
 		stateLog.push(`watch(...) count ${prevState.count} -> ${state.count}`);
 	});
 	const statesSubscription = apiShowcase.watch((states, prevStates) => {
+		if (prevStates === undefined) return;
 		statesLog.push(
 			`watch(...) ${prevStates.stateLabel} -> ${states.stateLabel}`,
 		);

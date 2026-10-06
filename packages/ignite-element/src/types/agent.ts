@@ -55,8 +55,18 @@ export type IgniteAgentEventListener<
 
 export type IgniteAgentSnapshotListener<Snapshot> = (
 	snapshot: Snapshot,
-	prevSnapshot: Snapshot,
+	prevSnapshot: Snapshot | undefined,
 ) => void;
+
+/** Options for `watch`. `emitCurrent` defaults to true. */
+export type IgniteWatchOptions = {
+	/**
+	 * Deliver the current derived states when the handler is subscribed.
+	 * That first call uses `previous === undefined`.
+	 * Set false to observe later transitions only.
+	 */
+	emitCurrent?: boolean;
+};
 
 export type IgniteAgentSubscription = {
 	unsubscribe: () => void;
@@ -81,7 +91,10 @@ export type IgniteAgentRuntime<
 		eventName: Type,
 		handler: IgniteAgentEventListener<Events, Type>,
 	): IgniteAgentSubscription;
-	watch(handler: IgniteAgentSnapshotListener<States>): IgniteAgentSubscription;
+	watch(
+		handler: IgniteAgentSnapshotListener<States>,
+		options?: IgniteWatchOptions,
+	): IgniteAgentSubscription;
 };
 
 export type ProjectionNodeBase = {

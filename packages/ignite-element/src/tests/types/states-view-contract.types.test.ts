@@ -35,7 +35,7 @@ describe("v3 states/view contract types", () => {
 		expectTypeOf(counter.get("states")).toEqualTypeOf<{ count: number }>();
 		counter.watch((states, prevStates) => {
 			expectTypeOf(states).toEqualTypeOf<{ count: number }>();
-			expectTypeOf(prevStates).toEqualTypeOf<{ count: number }>();
+			expectTypeOf(prevStates).toEqualTypeOf<{ count: number } | undefined>();
 		});
 		expectTypeOf(counter.get("schema").states.schema).toEqualTypeOf<null>();
 
@@ -148,9 +148,9 @@ describe("v3 states/view contract types", () => {
 			>();
 			if (observation.type === "states") {
 				expectTypeOf(observation.states).toEqualTypeOf<{ idle: boolean }>();
-				expectTypeOf(observation.prevStates).toEqualTypeOf<{
-					idle: boolean;
-				}>();
+				expectTypeOf(observation.prevStates).toEqualTypeOf<
+					{ idle: boolean } | undefined
+				>();
 			}
 		});
 	});

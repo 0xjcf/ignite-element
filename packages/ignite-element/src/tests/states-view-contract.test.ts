@@ -133,11 +133,14 @@ describe("v3 states/view public contract", () => {
 				increment: () => commandActor.send({ type: "INC" }),
 			}),
 		});
-		const transitions: Array<[{ count: number }, { count: number }]> = [];
+		const transitions: Array<
+			[{ count: number }, { count: number } | undefined]
+		> = [];
 		const subscription = counter.watch((states, prevStates) => {
 			transitions.push([states, prevStates]);
 		});
 
+		expect(transitions[0]).toEqual([{ count: 0 }, undefined]);
 		await counter.execute({ command: "increment" });
 
 		expect(transitions[transitions.length - 1]).toEqual([

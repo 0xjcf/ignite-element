@@ -17,6 +17,7 @@ export function createCore(
 	});
 	const count: number = core.get("states").count;
 	core.watch((next, previous) => {
+		if (previous === undefined) return;
 		const delta: number = next.count - previous.count;
 		void delta;
 	});
