@@ -95,9 +95,11 @@ Observes derived states as `(next, previous)`.
 
 The first call delivers the current derived states synchronously, with `previous === undefined`.
 
-Later calls pass the previous value delivered to this subscription.
+Later calls pass the previous value this subscription has recorded.
 
-`{ emitCurrent: false }` skips that initial delivery and observes transitions only.
+By default that recorded value is the last value delivered to the handler.
+
+`{ emitCurrent: false }` skips the initial delivery and observes transitions only. The subscription still records the subscribe-time states as its baseline before any handler call. The first later transition receives that undelivered baseline as `previous`. After that call, `previous` is the last value delivered to the handler.
 
 Synchronous adapter replay is folded into the single initial delivery. It is not a second call.
 

@@ -302,8 +302,11 @@ export function createAgentRuntime<
 			try {
 				handler(current, undefined);
 			} catch (error) {
+				active = false;
 				try {
-					unsubscribe();
+					// No handle is returned, so a runtime this call just acquired
+					// must be released along with the snapshot subscription.
+					releaseAll([() => unsubscribe(), () => rollback?.()]);
 				} catch (cleanupError) {
 					console.error("[igniteCore] Watch rollback failed.", cleanupError);
 				}
