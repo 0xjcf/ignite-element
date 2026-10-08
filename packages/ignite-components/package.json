@@ -1,0 +1,51 @@
+{
+	"name": "@ignite-element/components",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"description": "Private Ignite catalog components. Not published.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/0xjcf/ignite-element.git",
+		"directory": "packages/ignite-components"
+	},
+	"sideEffects": false,
+	"files": [
+		"dist"
+	],
+	"module": "dist/ignite-components.es.js",
+	"types": "dist/types/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/types/index.d.ts",
+			"import": "./dist/ignite-components.es.js",
+			"default": "./dist/ignite-components.es.js"
+		}
+	},
+	"scripts": {
+		"build:types": "tsc",
+		"build:js": "vite build",
+		"build": "pnpm run build:types && pnpm run build:js",
+		"typecheck": "tsc --noEmit --pretty false --project tsconfig.typecheck.json",
+		"test": "vitest --run"
+	},
+	"peerDependencies": {
+		"ignite-element": ">=3.0.0-beta.18",
+		"xstate": ">=5.19.0"
+	},
+	"devDependencies": {
+		"@testing-library/dom": "10.4.1",
+		"@types/node": "25.0.3",
+		"ignite-element": "workspace:*",
+		"jsdom": "27.4.0",
+		"typescript": "5.9.3",
+		"vite": "7.3.0",
+		"vite-plugin-dts": "4.5.4",
+		"vitest": "4.0.16",
+		"xstate": "5.32.1"
+	},
+	"engines": {
+		"node": ">=22"
+	}
+}

@@ -1,0 +1,33 @@
+{
+	"extends": "../../configs/tsconfig/base.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"types": ["node"],
+		"jsx": "react-jsx",
+		"jsxImportSource": "ignite-element/jsx",
+		"paths": {
+			"ignite-element/xstate": ["../ignite-element/src/xstate.ts"],
+			"ignite-element/jsx": ["../ignite-element/src/jsx/index.ts"],
+			"ignite-element/jsx/*": ["../ignite-element/src/jsx/*"],
+			"@ignite-element/core": ["../ignite-core/src/index.ts"],
+			"@ignite-element/adapters": ["../ignite-adapters/src/index.ts"],
+			"@ignite-element/adapters/*": ["../ignite-adapters/src/*"],
+			"@ignite-element/renderer/jsx-runtime": [
+				"../ignite-renderer/src/jsx/jsx-runtime.ts"
+			],
+			"@ignite-element/renderer/jsx-dev-runtime": [
+				"../ignite-renderer/src/jsx/jsx-dev-runtime.ts"
+			],
+			"@ignite-element/renderer/jsx/index": [
+				"../ignite-renderer/src/jsx/index.ts"
+			],
+			"@ignite-element/renderer/jsx": [
+				"../ignite-renderer/src/renderers/ignite-jsx.ts"
+			],
+			"@ignite-element/renderer": ["../ignite-renderer/src/index.ts"],
+			"@ignite-element/renderer/*": ["../ignite-renderer/src/*"]
+		}
+	},
+	"include": ["src"]
+}
