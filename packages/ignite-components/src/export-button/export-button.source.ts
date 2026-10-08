@@ -43,9 +43,18 @@ export function exportFormat(format: string | null): string {
 	return next.length === 0 ? "json" : next;
 }
 
+/** A real initial reason starts failed. Whitespace-only is absent. */
+export function initialExportReason(
+	reason: string | null | undefined,
+): string | null {
+	if (reason == null) return null;
+	const trimmed = reason.trim();
+	return trimmed.length === 0 ? null : trimmed;
+}
+
 /**
  * The host is the download. This machine asks for a file and waits.
- * It does not write the file. ready means the host finished. failed keeps the reason.
+ * It does not write the file. Retry and success clear the failure reason.
  */
 export const exportButtonMachine = setup({
 	types: {
@@ -87,6 +96,9 @@ export const exportButtonMachine = setup({
 			format: context.format,
 		})),
 	},
+	guards: {
+		hasConfiguredReason: ({ context }) => context.reason !== null,
+	},
 }).createMachine({
 	id: "export-button",
 	initial: "idle",
@@ -99,7 +111,7 @@ export const exportButtonMachine = setup({
 			? input.readyLabel
 			: DEFAULT_READY_LABEL,
 		format: exportFormat(input?.format ?? "json"),
-		reason: null,
+		reason: initialExportReason(input?.reason),
 	}),
 	on: {
 		SET_LABEL: { actions: "applyLabel" },
@@ -109,27 +121,39 @@ export const exportButtonMachine = setup({
 	},
 	states: {
 		idle: {
-			entry: "clearReason",
+			always: {
+				guard: "hasConfiguredReason",
+				target: "failed",
+			},
 			on: {
-				EXPORT: { target: "preparing", actions: "announceExport" },
+				EXPORT: {
+					target: "preparing",
+					actions: ["clearReason", "announceExport"],
+				},
 			},
 		},
 		preparing: {
 			on: {
-				SUCCEED: "ready",
+				SUCCEED: { target: "ready", actions: "clearReason" },
 				FAIL: { target: "failed", actions: "applyFailure" },
 			},
 		},
 		ready: {
 			on: {
-				EXPORT: { target: "preparing", actions: "announceExport" },
-				RESET: "idle",
+				EXPORT: {
+					target: "preparing",
+					actions: ["clearReason", "announceExport"],
+				},
+				RESET: { target: "idle", actions: "clearReason" },
 			},
 		},
 		failed: {
 			on: {
-				EXPORT: { target: "preparing", actions: "announceExport" },
-				RESET: "idle",
+				EXPORT: {
+					target: "preparing",
+					actions: ["clearReason", "announceExport"],
+				},
+				RESET: { target: "idle", actions: "clearReason" },
 			},
 		},
 	},

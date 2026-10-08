@@ -1,6 +1,7 @@
 // @vitest-environment node
 
 import { describe, expect, it } from "vitest";
+import { createActor } from "xstate";
 import {
 	assertFlagReasons,
 	assertGalleryCoversStates,
@@ -15,6 +16,7 @@ import {
 	type ExportButtonFixtureInput,
 	exportButtonGallery,
 } from "./export-button.gallery";
+import { exportButtonMachine } from "./export-button.source";
 
 async function show(input: ExportButtonFixtureInput) {
 	const core = createExportButtonCore();
@@ -58,6 +60,46 @@ describe("ExportButton states", () => {
 			} finally {
 				core.dispose();
 			}
+		}
+	});
+
+	it("starts failed when given a reason and clears it after retry", () => {
+		const blocked = createActor(exportButtonMachine, {
+			input: { reason: "  Export unavailable  " },
+		});
+		blocked.start();
+		try {
+			expect(blocked.getSnapshot().value).toBe("failed");
+			expect(blocked.getSnapshot().context.reason).toBe("Export unavailable");
+		} finally {
+			blocked.stop();
+		}
+
+		const blank = createActor(exportButtonMachine, {
+			input: { reason: "   " },
+		});
+		blank.start();
+		try {
+			expect(blank.getSnapshot().value).toBe("idle");
+			expect(blank.getSnapshot().context.reason).toBeNull();
+		} finally {
+			blank.stop();
+		}
+
+		const actor = createActor(exportButtonMachine);
+		actor.start();
+		try {
+			actor.send({ type: "EXPORT" });
+			actor.send({ type: "FAIL", reason: "Disk full." });
+			expect(actor.getSnapshot().context.reason).toBe("Disk full.");
+			actor.send({ type: "EXPORT" });
+			expect(actor.getSnapshot().value).toBe("preparing");
+			expect(actor.getSnapshot().context.reason).toBeNull();
+			actor.send({ type: "SUCCEED" });
+			expect(actor.getSnapshot().value).toBe("ready");
+			expect(actor.getSnapshot().context.reason).toBeNull();
+		} finally {
+			actor.stop();
 		}
 	});
 
