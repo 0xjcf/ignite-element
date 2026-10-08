@@ -162,3 +162,23 @@ export {
 	statusPillView,
 } from "./status-pill/status-pill.view";
 export { catalogColors, catalogTokens } from "./styles";
+export { tabsContract } from "./tabs/tabs.contract";
+export {
+	createTabsCore,
+	projectTabs,
+	type TabsCommands,
+	type TabsStateName,
+	type TabsStates,
+	tabsCommands,
+	tabsProjection,
+} from "./tabs/tabs.core";
+export { type TabsFixtureInput, tabsGallery } from "./tabs/tabs.gallery";
+export {
+	activeIn,
+	parseTabs,
+	type TabsContext,
+	type TabsEvent,
+	type TabsInput,
+	tabsMachine,
+} from "./tabs/tabs.source";
+export { type TabsViewContext, tabsView } from "./tabs/tabs.view";
