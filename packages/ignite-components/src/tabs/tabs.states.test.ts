@@ -1,6 +1,7 @@
 // @vitest-environment node
 
 import { describe, expect, it } from "vitest";
+import { createActor } from "xstate";
 import {
 	assertFlagReasons,
 	assertGalleryCoversStates,
@@ -9,6 +10,7 @@ import { expectCloneable } from "../testing/host-seal";
 import { tabsContract } from "./tabs.contract";
 import { createTabsCore, tabsProjection } from "./tabs.core";
 import { type TabsFixtureInput, tabsGallery } from "./tabs.gallery";
+import { tabsMachine } from "./tabs.source";
 
 async function show(input: TabsFixtureInput) {
 	const core = createTabsCore();
@@ -74,6 +76,23 @@ describe("Tabs states", () => {
 			});
 		} finally {
 			core.dispose();
+		}
+	});
+
+	it("normalizes initial items the same way as setItems", () => {
+		const actor = createActor(tabsMachine, {
+			input: {
+				items: [" Gallery ", "Gallery", "", "  "],
+				active: " Gallery ",
+			},
+		});
+		actor.start();
+		try {
+			expect(actor.getSnapshot().context.items).toEqual(["Gallery"]);
+			expect(actor.getSnapshot().context.active).toBe("Gallery");
+			expect(actor.getSnapshot().value).toBe("selected");
+		} finally {
+			actor.stop();
 		}
 	});
 

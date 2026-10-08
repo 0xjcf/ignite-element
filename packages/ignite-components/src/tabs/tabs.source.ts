@@ -21,17 +21,22 @@ export type TabsEvent =
 export type TabsEmitted = { type: "select"; id: string };
 
 /** Trim, drop blanks, and keep the first copy of a repeated name. */
-export function parseTabs(value: string | null): string[] {
-	if (value === null) return [];
+export function normalizeTabItems(items: readonly string[]): string[] {
 	const seen = new Set<string>();
-	const items: string[] = [];
-	for (const part of value.split("\n")) {
-		const name = part.trim();
+	const next: string[] = [];
+	for (const item of items) {
+		const name = item.trim();
 		if (name.length === 0 || seen.has(name)) continue;
 		seen.add(name);
-		items.push(name);
+		next.push(name);
 	}
-	return items;
+	return next;
+}
+
+/** Trim, drop blanks, and keep the first copy of a repeated name. */
+export function parseTabs(value: string | null): string[] {
+	if (value === null) return [];
+	return normalizeTabItems(value.split("\n"));
 }
 
 export function activeIn(
@@ -92,7 +97,7 @@ export const tabsMachine = setup({
 	id: "tabs",
 	initial: "empty",
 	context: ({ input }) => {
-		const items = input?.items ? [...input.items] : [];
+		const items = normalizeTabItems(input?.items ?? []);
 		return {
 			label: input?.label?.trim() ? input.label : "Tabs",
 			items,
