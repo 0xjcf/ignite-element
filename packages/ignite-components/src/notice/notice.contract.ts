@@ -54,6 +54,12 @@ export const noticeContract = {
 		{ name: "setMessage", kind: "configuration", attribute: "message" },
 		{ name: "setActions", kind: "configuration", attribute: "actions" },
 		{ name: "setDismissible", kind: "configuration", attribute: "dismissible" },
+		{ name: "setFocusTarget", kind: "configuration" },
+		{
+			name: "setFocustarget",
+			kind: "configuration",
+			attribute: "focustarget",
+		},
 	],
 	events: ["recover"],
 	slots: [],
@@ -74,4 +80,21 @@ export const noticeContract = {
 		cli: "M3",
 		mcp: "M3",
 	},
+	a11y: [
+		{
+			web: "After dismiss or recover, focus moves to a defined target.",
+			cli: "Print the next suggested command.",
+			mcp: "focusTarget in the result.",
+		},
+		{
+			web: "Two notices on one page use different ids.",
+			cli: "Instance id in the output.",
+			mcp: "instanceId in the result.",
+		},
+		{
+			web: "Recover fires once.",
+			cli: "The recover command is idempotent.",
+			mcp: "A repeat returns the first outcome.",
+		},
+	],
 } as const satisfies ComponentContract;

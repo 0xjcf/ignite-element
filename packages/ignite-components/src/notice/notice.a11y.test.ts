@@ -17,6 +17,7 @@ function mount() {
 		setTone: (tone: string | null) => void;
 		setActions: (actions: string | null) => void;
 		setDismissible: (value: string | null) => void;
+		setFocustarget: (target: string | null) => void;
 	};
 	element.setAttribute("message", "Which Friday?");
 	document.body.appendChild(element);
@@ -71,6 +72,55 @@ describe("Notice accessibility", () => {
 		});
 		view.getByRole("button", { name: "This Friday" }).click();
 		expect(labels).toEqual(["This Friday"]);
+	});
+
+	it("moves focus once and does not collide with a second notice", () => {
+		const { element, view } = mount();
+		const next = document.createElement("button");
+		next.id = "after-notice";
+		next.textContent = "Continue";
+		document.body.appendChild(next);
+		element.setFocustarget("after-notice");
+		const first: Array<{ label: string; instanceId: string }> = [];
+		element.addEventListener("recover", (event) => {
+			first.push(
+				(event as CustomEvent<{ label: string; instanceId: string }>).detail,
+			);
+		});
+		const action = view.getByRole("button", { name: "This Friday" });
+		action.click();
+		action.click();
+		expect(first).toHaveLength(1);
+		expect(first[0]?.label).toBe("This Friday");
+		expect(first[0]?.instanceId).toMatch(/^notice-/);
+		expect(document.activeElement).toBe(next);
+
+		const other = document.createElement(TAG) as HTMLElement & {
+			setTone: (tone: string | null) => void;
+			setActions: (actions: string | null) => void;
+		};
+		other.setAttribute("message", "Reconnect to the page.");
+		document.body.appendChild(other);
+		other.setTone("warning");
+		other.setActions("Reconnect");
+		const otherView = within(other.shadowRoot as unknown as HTMLElement);
+		const otherMessage = otherView.getByText("Reconnect to the page.");
+		expect(otherMessage.id).not.toBe(view.getByText("Which Friday?").id);
+		const second: string[] = [];
+		other.addEventListener("recover", (event) => {
+			second.push((event as CustomEvent<{ label: string }>).detail.label);
+		});
+		otherView.getByRole("button", { name: "Reconnect" }).click();
+		expect(second).toEqual(["Reconnect"]);
+		expect(first).toHaveLength(1);
+	});
+
+	it("moves focus to the host when dismiss has no external target", () => {
+		const { element, view } = mount();
+		view.getByRole("button", { name: "Dismiss" }).click();
+		expect(document.activeElement).toBe(element);
+		expect(element.tabIndex).toBe(-1);
+		expect(view.getByRole("alert", { hidden: true }).hidden).toBe(true);
 	});
 
 	it("keeps tone fills at WCAG AA against the ink", () => {

@@ -62,7 +62,7 @@ button.dismiss {
  * The tone word is text. Color only tints the panel.
  * Recovery asks the host. Dismiss hides the notice until the host shows it again.
  */
-function recoveryHost(labels: readonly string[]): string {
+function recoveryHost(instanceId: string, labels: readonly string[]): string {
 	let hash = 2166136261;
 	for (const label of labels) {
 		for (let index = 0; index < label.length; index++) {
@@ -72,12 +72,51 @@ function recoveryHost(labels: readonly string[]): string {
 		hash ^= 0x1f;
 		hash = Math.imul(hash, 16777619);
 	}
-	return `x-recover-${(hash >>> 0).toString(36)}`;
+	return `x-recover-${instanceId}-${(hash >>> 0).toString(36)}`;
+}
+
+function hostOf(current: EventTarget | null): HTMLElement | null {
+	if (!(current instanceof Node)) return null;
+	const root = current.getRootNode();
+	return root instanceof ShadowRoot && root.host instanceof HTMLElement
+		? root.host
+		: null;
+}
+
+/**
+ * After dismiss the panel is hidden, so the fallback is the host.
+ * Capture the host before the command. A re-render detaches the button.
+ * An external id wins when the page named one.
+ */
+function focusDefinedTarget(
+	current: EventTarget | null,
+	host: HTMLElement | null,
+	targetId: string | null,
+) {
+	const node = current instanceof HTMLElement ? current : null;
+	const doc = node?.ownerDocument ?? host?.ownerDocument ?? null;
+	if (targetId && doc) {
+		const external = doc.getElementById(targetId);
+		const root = node?.getRootNode();
+		const internal =
+			root instanceof ShadowRoot ? root.getElementById(targetId) : null;
+		const found = external ?? internal;
+		if (found instanceof HTMLElement && found.isConnected) {
+			if (found.tabIndex < 0) found.tabIndex = -1;
+			found.focus();
+			return;
+		}
+	}
+	if (host instanceof HTMLElement && host.isConnected) {
+		if (!host.hasAttribute("tabindex")) host.setAttribute("tabindex", "-1");
+		host.focus();
+	}
 }
 
 function recoveryButtons(
 	tag: string,
 	labels: readonly string[],
+	targetId: string | null,
 	recover: (label: string) => void,
 ): IgniteJsxElement {
 	return jsx(tag, {
@@ -85,8 +124,11 @@ function recoveryButtons(
 		children: labels.map((label) =>
 			jsx("button", {
 				type: "button",
-				onClick: () => {
+				onClick: (event: Event) => {
+					const current = event.currentTarget;
+					const host = hostOf(current);
 					recover(label);
+					focusDefinedTarget(current, host, targetId);
 				},
 				children: [label],
 			}),
@@ -100,19 +142,24 @@ export function noticeView(ctx: NoticeViewContext): IgniteJsxElement {
 		<>
 			<style>{styles}</style>
 			<section
+				id={`${ctx.instanceId}-notice`}
 				class="notice"
 				data-tone={ctx.tone}
 				role={assertive ? "alert" : "status"}
+				aria-labelledby={`${ctx.instanceId}-message`}
 				hidden={ctx.showNotice ? undefined : true}
 			>
 				<p class="tone">{toneWord(ctx.tone)}</p>
-				<p class="message">{ctx.message}</p>
+				<p id={`${ctx.instanceId}-message`} class="message">
+					{ctx.message}
+				</p>
 				{ctx.actions.length > 0 || ctx.canDismiss ? (
 					<div class="actions">
 						{ctx.actions.length > 0
 							? recoveryButtons(
-									recoveryHost(ctx.actions),
+									recoveryHost(ctx.instanceId, ctx.actions),
 									ctx.actions,
+									ctx.focusTarget,
 									(label) => {
 										if (ctx.canRecover) ctx.recover(label);
 									},
@@ -122,8 +169,11 @@ export function noticeView(ctx: NoticeViewContext): IgniteJsxElement {
 							<button
 								type="button"
 								class="dismiss"
-								onClick={() => {
+								onClick={(event: Event) => {
+									const current = event.currentTarget;
+									const host = hostOf(current);
 									ctx.dismiss();
+									focusDefinedTarget(current, host, ctx.focusTarget);
 								}}
 							>
 								Dismiss

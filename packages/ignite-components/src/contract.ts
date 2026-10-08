@@ -29,6 +29,33 @@ export type CatalogSurface = {
 	mcp: string;
 };
 
+/**
+ * One web behavior and the CLI and MCP equivalents.
+ * The hosts are still M3. Headless `states` carry the live values.
+ */
+export type A11yEquivalent = {
+	web: string;
+	cli: string;
+	mcp: string;
+};
+
+/** Values a headless host can read without a document. */
+export type HeadlessA11y = {
+	cli: string | null;
+	mcp: {
+		value: string;
+		tone: string;
+		label: string;
+		reason: string | null;
+		status: string;
+		instanceId: string;
+		warnings: readonly string[];
+		focusTarget: string | null;
+		errors: readonly { field: string; message: string; hint: string | null }[];
+		isError: boolean;
+	};
+};
+
 export type ComponentContract = {
 	name: string;
 	states: readonly string[];
@@ -49,6 +76,8 @@ export type ComponentContract = {
 		cli: "M3";
 		mcp: "M3";
 	};
+	/** Present on components whose accessibility gaps are closed. */
+	a11y?: readonly A11yEquivalent[];
 };
 
 export type GalleryApp = "DevTools" | "Twilight" | "Booster Budget";
