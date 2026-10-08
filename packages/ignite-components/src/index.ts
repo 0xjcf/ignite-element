@@ -103,6 +103,7 @@ export {
 	type FieldEvent,
 	type FieldInput,
 	fieldMachine,
+	normalizeError,
 	normalizeOptional,
 } from "./field/field.source";
 export { type FieldViewContext, fieldView } from "./field/field.view";

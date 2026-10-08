@@ -87,6 +87,37 @@ describe("Field states", () => {
 		}
 	});
 
+	it("treats a whitespace-only error as no error and keeps the draft", async () => {
+		const core = await show({
+			label: "Title",
+			value: "  Buy milk  ",
+			hint: "Short name.",
+			error: "   ",
+			required: true,
+			multiline: false,
+			touched: true,
+		});
+		try {
+			expect(core.get("states")).toMatchObject({
+				state: "clean",
+				value: "  Buy milk  ",
+				error: null,
+				showError: false,
+				showErrorRefusal: "There is no error.",
+			});
+			await core.execute({ command: "setError", input: "Title is required." });
+			await core.execute({ command: "setError", input: " \n " });
+			expect(core.get("states")).toMatchObject({
+				state: "clean",
+				value: "  Buy milk  ",
+				error: null,
+				isInvalid: false,
+			});
+		} finally {
+			core.dispose();
+		}
+	});
+
 	it("accepts the igniteCore commands facade", () => {
 		const sent: unknown[] = [];
 		fieldProjection

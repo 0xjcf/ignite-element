@@ -4,6 +4,7 @@ import {
 	exactDraft,
 	type FieldEvent,
 	fieldMachine,
+	normalizeError,
 	normalizeOptional,
 } from "./field.source";
 
@@ -53,7 +54,7 @@ export function projectField(
 	snapshot: SnapshotFrom<typeof fieldMachine>,
 ): FieldStates {
 	const invalid = snapshot.matches("invalid");
-	const error = invalid ? normalizeOptional(snapshot.context.error) : null;
+	const error = invalid ? normalizeError(snapshot.context.error) : null;
 	const hint = normalizeOptional(snapshot.context.hint);
 	const required = snapshot.context.required;
 	const touched = snapshot.context.touched;
@@ -96,7 +97,7 @@ export function fieldCommands(source: {
 			source.send({ type: "SET_HINT", hint: normalizeOptional(hint) });
 		},
 		setError: (error) => {
-			source.send({ type: "SET_ERROR", error: normalizeOptional(error) });
+			source.send({ type: "SET_ERROR", error: normalizeError(error) });
 		},
 		setRequired: (required) => {
 			source.send({ type: "SET_REQUIRED", required: required === "true" });

@@ -39,6 +39,14 @@ export function normalizeOptional(value: string | null): string | null {
 	return value;
 }
 
+/** A whitespace-only error is absent. A real sentence is trimmed. */
+export function normalizeError(value: string | null): string | null {
+	if (value === null) return null;
+	const trimmed = value.trim();
+	if (trimmed.length === 0) return null;
+	return trimmed;
+}
+
 /**
  * The host owns the validation rule.
  * SET_VALUE stores the draft and does not clear or invent an error.
@@ -63,7 +71,7 @@ export const fieldMachine = setup({
 		}),
 		applyError: assign({
 			error: ({ event }) =>
-				event.type === "SET_ERROR" ? normalizeOptional(event.error) : null,
+				event.type === "SET_ERROR" ? normalizeError(event.error) : null,
 		}),
 		clearError: assign({
 			error: () => null,
@@ -82,8 +90,8 @@ export const fieldMachine = setup({
 	},
 	guards: {
 		hasError: ({ event }) =>
-			event.type === "SET_ERROR" && normalizeOptional(event.error) !== null,
-		contextHasError: ({ context }) => normalizeOptional(context.error) !== null,
+			event.type === "SET_ERROR" && normalizeError(event.error) !== null,
+		contextHasError: ({ context }) => normalizeError(context.error) !== null,
 	},
 }).createMachine({
 	id: "field",
@@ -92,7 +100,7 @@ export const fieldMachine = setup({
 		label: input?.label ?? "",
 		value: exactDraft(input?.value ?? ""),
 		hint: normalizeOptional(input?.hint ?? null),
-		error: normalizeOptional(input?.error ?? null),
+		error: normalizeError(input?.error ?? null),
 		required: input?.required ?? false,
 		multiline: input?.multiline ?? false,
 		touched: input?.touched ?? false,
