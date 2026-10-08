@@ -5,12 +5,15 @@ import {
 	cliTone,
 	isLivePoliteness,
 	isLiveProgress,
+	isLiveTone,
 	type LivePoliteness,
 	type LiveProgress,
 	type LiveStatusEvent,
+	type LiveTone,
 	liveStatusMachine,
 	normalizeLine,
 	normalizeOptionalLine,
+	toneLabel,
 } from "./live-status.source";
 
 export type LiveStatusStateName =
@@ -28,7 +31,7 @@ export type LiveStatusStates = {
 	busy: boolean;
 	progress: LiveProgress;
 	settled: string | null;
-	tone: string;
+	tone: LiveTone;
 	reason: string | null;
 	duplicateBusy: boolean;
 	isBusy: boolean;
@@ -48,6 +51,10 @@ export type LiveStatusCommands = {
 	setSettled: (settled: string | null) => void;
 	setTone: (tone: string | null) => void;
 	setReason: (reason: string | null) => void;
+	announce: (
+		spec: { message?: string | null; politeness?: string | null } | null,
+	) => void;
+	reveal: () => void;
 	clear: () => void;
 };
 
@@ -112,14 +119,14 @@ export function projectLiveStatus(
 			mcp: {
 				value,
 				tone,
-				label: tone,
+				label: toneLabel(tone),
 				reason,
 				status: busy ? "busy" : state,
 				instanceId: snapshot.context.instanceId,
 				warnings: [],
 				focusTarget: null,
 				errors: [],
-				isError: state === "assertive",
+				isError: tone === "error",
 			},
 		},
 	};
@@ -154,16 +161,32 @@ export function liveStatusCommands(source: {
 			});
 		},
 		setTone: (tone) => {
-			source.send({
-				type: "SET_TONE",
-				tone: tone?.trim() ? tone.trim() : "neutral",
-			});
+			const trimmed = tone?.trim().toLowerCase() ?? "";
+			if (trimmed.length === 0) {
+				source.send({ type: "SET_TONE", tone: "neutral" });
+				return;
+			}
+			if (!isLiveTone(trimmed)) return;
+			source.send({ type: "SET_TONE", tone: trimmed });
 		},
 		setReason: (reason) => {
 			source.send({
 				type: "SET_REASON",
 				reason: normalizeOptionalLine(reason),
 			});
+		},
+		announce: (spec) => {
+			if (spec === null) return;
+			const candidate = spec.politeness ?? null;
+			const politeness = isLivePoliteness(candidate) ? candidate : "off";
+			source.send({
+				type: "SET_ANNOUNCEMENT",
+				message: normalizeLine(spec.message ?? null),
+				politeness,
+			});
+		},
+		reveal: () => {
+			source.send({ type: "REVEAL" });
 		},
 		clear: () => {
 			source.send({ type: "CLEAR" });

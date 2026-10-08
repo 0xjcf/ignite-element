@@ -4,6 +4,7 @@ import { within } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
 import { createLiveStatusCore } from "./live-status.core";
 import { liveStatusGallery } from "./live-status.gallery";
+import { cliTone } from "./live-status.source";
 import { liveStatusView } from "./live-status.view";
 
 const TAG = "live-status";
@@ -45,25 +46,17 @@ describe("LiveStatus DOM", () => {
 				element.setMessage(fixture.input.message);
 			}
 			if (fixture.input.busy) element.setBusy("true");
-			if (fixture.input.settled) {
-				expect(view.getByText(fixture.input.settled)).toBeTruthy();
-			}
-			if (fixture.input.busy) {
-				const label =
-					fixture.input.message.length > 0 &&
-					fixture.input.message !== "in progress"
-						? fixture.input.message
-						: "In progress";
-				expect(view.getAllByText(label).length).toBeGreaterThan(0);
-			}
-			if (
-				!fixture.input.busy &&
-				!fixture.input.settled &&
-				fixture.input.message
-			) {
-				expect(view.getAllByText(fixture.input.message).length).toBeGreaterThan(
-					0,
-				);
+			const line = fixture.input.settled
+				? fixture.input.settled
+				: fixture.input.busy
+					? fixture.input.message.length > 0
+						? cliTone(fixture.input.tone, fixture.input.message)
+						: "in progress"
+					: fixture.input.message
+						? cliTone(fixture.input.tone, fixture.input.message)
+						: "";
+			if (line.length > 0) {
+				expect(view.getAllByText(line)).toHaveLength(1);
 			}
 		}
 	});

@@ -2,7 +2,12 @@
 import type { IgniteJsxElement } from "ignite-element/jsx";
 import { catalogHostStyles } from "../styles";
 import type { LiveStatusCommands, LiveStatusStates } from "./live-status.core";
-import { liveStatusRegion, liveStatusRegionStyles } from "./live-status.region";
+import {
+	liveStatusRegion,
+	liveStatusRegionStyles,
+	spokenOnThisPaint,
+} from "./live-status.region";
+import { cliTone } from "./live-status.source";
 
 export type LiveStatusViewContext = LiveStatusStates & LiveStatusCommands;
 
@@ -10,32 +15,42 @@ const styles = `${catalogHostStyles()}${liveStatusRegionStyles()}
 :host { display: block; position: relative; max-width: 36rem; }
 `;
 
+function politeLine(ctx: LiveStatusViewContext): string | null {
+	if (ctx.state === "settled") return ctx.settled;
+	if (ctx.state === "busy" || ctx.duplicateBusy) {
+		if (ctx.message.length === 0) return "in progress";
+		return cliTone(ctx.tone, ctx.message);
+	}
+	if (ctx.state === "polite") return cliTone(ctx.tone, ctx.message);
+	return null;
+}
+
+function assertiveLine(ctx: LiveStatusViewContext): string | null {
+	if (ctx.state !== "assertive") return null;
+	return cliTone(ctx.tone, ctx.message);
+}
+
 /**
- * Polite and assertive regions, a busy region, and a settled line.
- * The words carry the status. The host decides when they change.
+ * The live region is the visible status. Busy work does not repeat it
+ * on the progressbar. The first paint stays empty, then a later update fills it.
  */
 export function liveStatusView(ctx: LiveStatusViewContext): IgniteJsxElement {
-	const polite =
-		ctx.state === "polite" || ctx.state === "busy" || ctx.duplicateBusy
-			? ctx.message
-			: null;
-	const assertive = ctx.state === "assertive" ? ctx.message : null;
-	const busyText =
-		ctx.message.length > 0 && ctx.message !== "in progress"
-			? ctx.message
-			: "In progress";
+	const polite = politeLine(ctx);
+	const assertive = assertiveLine(ctx);
+	const fingerprint = `${polite ?? ""}|${assertive ?? ""}|${ctx.busy}|${ctx.progress}`;
+	const show = spokenOnThisPaint(ctx.instanceId, fingerprint, () => {
+		ctx.reveal();
+	});
 	return (
 		<>
 			<style>{styles}</style>
 			{liveStatusRegion({
 				instanceId: ctx.instanceId,
-				polite,
-				assertive,
+				polite: show ? polite : null,
+				assertive: show ? assertive : null,
 				busy: ctx.busy,
 				progress: ctx.progress,
-				settled: ctx.showSettled ? ctx.settled : null,
-				busyText,
-				visiblePolite: ctx.duplicateBusy,
+				settled: null,
 			})}
 		</>
 	);

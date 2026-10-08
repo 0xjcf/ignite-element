@@ -9,27 +9,51 @@ export type LiveStatusRegion = {
 	busy: boolean;
 	progress: LiveProgress;
 	settled: string | null;
-	/** Visible busy sentence. Defaults to "In progress". */
+	/** Unused. Busy text is the polite line, not a second progress label. */
 	busyText?: string | null;
-	/** When true, the polite line stays on screen. Otherwise it is clipped. */
+	/** Unused. The live region is the visible status. */
 	visiblePolite?: boolean;
 };
+
+type PaintGate = {
+	fingerprint: string;
+	ready: boolean;
+};
+
+const paintGates = new Map<string, PaintGate>();
+
+/**
+ * The first paint of a region is empty. A later update fills it so a
+ * screen reader hears the change. A fingerprint that differs from that
+ * first paint is shown at once, because the region is already mounted.
+ */
+export function spokenOnThisPaint(
+	instanceId: string,
+	fingerprint: string,
+	release: () => void,
+): boolean {
+	const existing = paintGates.get(instanceId);
+	if (!existing) {
+		const gate: PaintGate = { fingerprint, ready: false };
+		paintGates.set(instanceId, gate);
+		queueMicrotask(() => {
+			if (gate.ready) return;
+			gate.ready = true;
+			try {
+				release();
+			} catch {
+				// The host can disconnect before the region fills.
+			}
+		});
+		return false;
+	}
+	return existing.ready || existing.fingerprint !== fingerprint;
+}
 
 export function liveStatusRegionStyles(): string {
 	return `
 .live-region { display: grid; gap: 0.35rem; }
-.live-clip {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-.live-settled, .live-busy-label {
+.live-polite, .live-assertive {
   margin: 0;
   color: var(--catalog-fg, #1c1915);
   font: 400 0.875rem/1.35 var(--catalog-font, "Segoe UI", sans-serif);
@@ -45,24 +69,24 @@ export function liveStatusRegionStyles(): string {
 }
 
 /**
- * The shared announcer surface. Callers pass the lines. This does not decide them.
+ * One visible live region. Busy work keeps aria-busy on the progressbar
+ * and does not repeat the sentence there.
  */
 export function liveStatusRegion(input: LiveStatusRegion): IgniteJsxElement {
-	const polite = input.polite ?? "";
-	const assertive = input.assertive ?? "";
-	const showBusy = input.busy || input.progress === "skeleton";
-	const politeClass = input.visiblePolite
-		? "live-polite"
-		: "live-polite live-clip";
-	const busyText =
-		input.busyText && input.busyText.trim().length > 0
-			? input.busyText
-			: "In progress";
+	const politeText = (input.polite ?? "").trim();
+	const settledText = (input.settled ?? "").trim();
+	const polite =
+		politeText.length > 0
+			? politeText
+			: settledText.length > 0
+				? settledText
+				: "";
+	const assertive = (input.assertive ?? "").trim();
 	return (
 		<div class="live-region">
 			<output
 				id={`${input.instanceId}-polite`}
-				class={politeClass}
+				class="live-polite"
 				aria-live="polite"
 				aria-atomic="true"
 			>
@@ -70,29 +94,26 @@ export function liveStatusRegion(input: LiveStatusRegion): IgniteJsxElement {
 			</output>
 			<div
 				id={`${input.instanceId}-assertive`}
-				class="live-assertive live-clip"
+				class="live-assertive"
 				role="alert"
 				aria-live="assertive"
 				aria-atomic="true"
 			>
 				{assertive}
 			</div>
-			{showBusy ? (
+			{input.busy ? (
 				<div
 					id={`${input.instanceId}-busy`}
 					class="live-busy"
 					role="progressbar"
-					aria-busy={input.busy ? "true" : "false"}
-					aria-valuetext={input.busy ? busyText : undefined}
+					aria-busy="true"
 					aria-label="Progress"
 				>
 					{input.progress === "skeleton" ? (
 						<span class="live-skeleton" aria-hidden="true"></span>
 					) : null}
-					{input.busy ? <p class="live-busy-label">{busyText}</p> : null}
 				</div>
 			) : null}
-			{input.settled ? <p class="live-settled">{input.settled}</p> : null}
 		</div>
 	);
 }

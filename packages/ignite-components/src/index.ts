@@ -183,20 +183,25 @@ export {
 	type LiveStatusRegion,
 	liveStatusRegion,
 	liveStatusRegionStyles,
+	spokenOnThisPaint,
 } from "./live-status/live-status.region";
 export {
 	cliTone,
 	createInstanceId,
 	isLivePoliteness,
 	isLiveProgress,
+	isLiveTone,
 	type LivePoliteness,
 	type LiveProgress,
 	type LiveStatusContext,
 	type LiveStatusEvent,
 	type LiveStatusInput,
+	type LiveTone,
 	livePoliteness,
 	liveProgress,
 	liveStatusMachine,
+	liveTones,
+	toneLabel,
 } from "./live-status/live-status.source";
 export {
 	type LiveStatusViewContext,

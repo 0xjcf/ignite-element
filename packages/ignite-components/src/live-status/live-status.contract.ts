@@ -2,8 +2,8 @@ import type { ComponentContract } from "../contract";
 import { catalogTokens } from "../styles";
 
 /**
- * Shared announcer. StatusPill, Field, and ExportButton use this
- * instead of their own live regions. CLI and MCP hosts are still M3.
+ * Shared announcer. StatusPill, Field, and ExportButton adopt it in
+ * their own PRs. CLI and MCP hosts are still M3.
  */
 export const liveStatusContract = {
 	name: "LiveStatus",
@@ -41,6 +41,7 @@ export const liveStatusContract = {
 		{ name: "setSettled", kind: "configuration", attribute: "settled" },
 		{ name: "setTone", kind: "configuration", attribute: "tone" },
 		{ name: "setReason", kind: "configuration", attribute: "reason" },
+		{ name: "announce", kind: "action" },
 	],
 	events: [],
 	slots: [],
@@ -63,7 +64,7 @@ export const liveStatusContract = {
 	},
 	a11y: [
 		{
-			web: "Polite and assertive live regions, plus a settled status line.",
+			web: "One visible polite or assertive region. Settled text is announced there.",
 			cli: "Plain status lines on stderr. No spinner when not a TTY. Honour NO_COLOR.",
 			mcp: "status {value, tone, reason}; progress notifications for long work.",
 		},

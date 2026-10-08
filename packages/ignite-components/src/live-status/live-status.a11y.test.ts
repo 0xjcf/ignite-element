@@ -47,7 +47,7 @@ describe("LiveStatus accessibility", () => {
 		first.element.setPoliteness("polite");
 		first.element.setMessage("Connecting");
 		const polite = first.root.querySelector("[aria-live='polite']");
-		expect(polite?.textContent).toContain("Connecting");
+		expect(polite?.textContent).toContain("warning: Connecting");
 		expect(first.root.querySelector("[aria-busy='true']")).toBeNull();
 
 		const second = mount();
@@ -56,7 +56,7 @@ describe("LiveStatus accessibility", () => {
 		second.element.setMessage("Could not save.");
 		expect(
 			second.root.querySelector("[aria-live='assertive']")?.textContent,
-		).toContain("Could not save.");
+		).toContain("error: Could not save.");
 		expect(first.root.querySelector("[aria-live='polite']")?.id).not.toBe(
 			second.root.querySelector("[aria-live='polite']")?.id,
 		);
@@ -69,8 +69,15 @@ describe("LiveStatus accessibility", () => {
 		const busy = root.querySelector("[aria-busy='true']");
 		expect(busy?.getAttribute("role")).toBe("progressbar");
 		expect(busy?.tagName).not.toBe("BUTTON");
-		expect(view.getByText("In progress")).toBeTruthy();
+		expect(busy?.getAttribute("aria-valuetext")).toBeNull();
+		expect(busy?.textContent?.trim() ?? "").toBe("");
+		expect(view.getAllByText("in progress")).toHaveLength(1);
 		expect(busy?.getAttribute("aria-valuenow")).toBeNull();
+		element.setMessage("Preparing the export.");
+		element.setBusy("true");
+		expect(view.getAllByText("Preparing the export.")).toHaveLength(1);
+		expect(view.queryByText("already running")).toBeNull();
+		expect(busy?.textContent ?? "").not.toContain("Preparing");
 	});
 
 	it("hides the skeleton from the accessible name and shows the settled line", () => {
@@ -81,9 +88,32 @@ describe("LiveStatus accessibility", () => {
 			root.querySelector(".live-skeleton")?.getAttribute("aria-hidden"),
 		).toBe("true");
 		element.setBusy("false");
-		element.setSettled("Exported");
-		expect(view.getByText("Exported")).toBeTruthy();
+		expect(root.querySelector(".live-skeleton")).toBeNull();
+		expect(root.querySelector("[role='progressbar']")).toBeNull();
 		expect(root.querySelector("[aria-busy='true']")).toBeNull();
+		element.setSettled("Exported");
+		const polite = root.querySelector("[aria-live='polite']");
+		expect(polite?.textContent).toContain("Exported");
+		expect(root.querySelector(".live-settled")).toBeNull();
+		expect(view.getAllByText("Exported")).toHaveLength(1);
+	});
+
+	it("mounts configured text only after the region is empty", async () => {
+		if (!customElements.get(TAG)) {
+			createLiveStatusCore()(TAG, liveStatusView);
+		}
+		const element = document.createElement(TAG);
+		element.setAttribute("message", "Connecting");
+		element.setAttribute("politeness", "polite");
+		element.setAttribute("tone", "warning");
+		document.body.appendChild(element);
+		const root = element.shadowRoot as unknown as HTMLElement;
+		const polite = root.querySelector("[aria-live='polite']");
+		expect(polite?.textContent ?? "").not.toContain("Connecting");
+		await new Promise<void>((resolve) => {
+			queueMicrotask(() => resolve());
+		});
+		expect(polite?.textContent).toContain("warning: Connecting");
 	});
 
 	it("keeps announcer ink at WCAG AA", () => {

@@ -6,6 +6,15 @@ export type LivePoliteness = (typeof livePoliteness)[number];
 export const liveProgress = ["none", "indeterminate", "skeleton"] as const;
 export type LiveProgress = (typeof liveProgress)[number];
 
+export const liveTones = [
+	"neutral",
+	"info",
+	"success",
+	"warning",
+	"error",
+] as const;
+export type LiveTone = (typeof liveTones)[number];
+
 export type LiveStatusInput = {
 	message?: string;
 	politeness?: LivePoliteness;
@@ -23,20 +32,28 @@ export type LiveStatusContext = {
 	busy: boolean;
 	progress: LiveProgress;
 	settled: string | null;
-	tone: string;
+	tone: LiveTone;
 	reason: string | null;
-	/** A second busy request while one is already running. */
+	/** A second busy request while one is already running. The message stays. */
 	duplicateBusy: boolean;
+	/** Bumped so the first paint can stay empty, then fill on a later update. */
+	paintNonce: number;
 };
 
 export type LiveStatusEvent =
 	| { type: "SET_MESSAGE"; message: string }
 	| { type: "SET_POLITENESS"; politeness: LivePoliteness }
+	| {
+			type: "SET_ANNOUNCEMENT";
+			message: string;
+			politeness: LivePoliteness;
+	  }
 	| { type: "SET_BUSY"; busy: boolean }
 	| { type: "SET_PROGRESS"; progress: LiveProgress }
 	| { type: "SET_SETTLED"; settled: string | null }
 	| { type: "SET_TONE"; tone: string }
 	| { type: "SET_REASON"; reason: string | null }
+	| { type: "REVEAL" }
 	| { type: "CLEAR" };
 
 export function createInstanceId(prefix: string): string {
@@ -55,8 +72,21 @@ export function isLiveProgress(value: string | null): value is LiveProgress {
 	return liveProgress.some((item) => item === value);
 }
 
+export function isLiveTone(value: string | null): value is LiveTone {
+	return liveTones.some((item) => item === value);
+}
+
+export function toneLabel(tone: LiveTone): string {
+	if (tone === "info") return "Info";
+	if (tone === "success") return "Success";
+	if (tone === "warning") return "Warning";
+	if (tone === "error") return "Error";
+	return "Neutral";
+}
+
+/** Whitespace-only text is quiet. */
 export function normalizeLine(value: string | null): string {
-	return value ?? "";
+	return (value ?? "").trim();
 }
 
 export function normalizeOptionalLine(value: string | null): string | null {
@@ -65,7 +95,12 @@ export function normalizeOptionalLine(value: string | null): string | null {
 	return trimmed.length === 0 ? null : trimmed;
 }
 
-/** Leading CLI tone word. No color codes. */
+export function normalizeTone(value: string | null | undefined): LiveTone {
+	const trimmed = value?.trim().toLowerCase() ?? "";
+	return isLiveTone(trimmed) ? trimmed : "neutral";
+}
+
+/** Leading CLI tone word. No color codes. Neutral and info stay plain. */
 export function cliTone(tone: string, message: string): string {
 	const word = tone.trim().toLowerCase();
 	if (word.length === 0 || word === "neutral" || word === "info") {
@@ -116,44 +151,52 @@ export const liveStatusMachine = setup({
 			politeness: ({ event }) =>
 				event.type === "SET_POLITENESS" ? event.politeness : "off",
 		}),
+		applyAnnouncement: assign({
+			message: ({ event }) =>
+				event.type === "SET_ANNOUNCEMENT" ? normalizeLine(event.message) : "",
+			politeness: ({ event }) =>
+				event.type === "SET_ANNOUNCEMENT" ? event.politeness : "off",
+			duplicateBusy: () => false,
+		}),
 		applyBusy: assign(({ context, event }) => {
 			if (event.type !== "SET_BUSY") return {};
 			if (event.busy && context.busy) {
-				return {
-					duplicateBusy: true,
-					message: "already running",
-				};
+				return { duplicateBusy: true };
 			}
 			if (!event.busy) {
 				return { busy: false, duplicateBusy: false };
 			}
-			return {
-				busy: true,
-				duplicateBusy: false,
-				message: context.message.length > 0 ? context.message : "in progress",
-			};
+			return { busy: true, duplicateBusy: false };
 		}),
 		applyProgress: assign({
 			progress: ({ event }) =>
 				event.type === "SET_PROGRESS" ? event.progress : "none",
 		}),
-		applySettled: assign({
-			settled: ({ event }) =>
-				event.type === "SET_SETTLED"
-					? normalizeOptionalLine(event.settled)
-					: null,
-			busy: () => false,
-			duplicateBusy: () => false,
-			politeness: () => "off" as const,
+		applySettled: assign(({ context, event }) => {
+			if (event.type !== "SET_SETTLED") return {};
+			const settled = normalizeOptionalLine(event.settled);
+			if (settled === null) return { settled: null };
+			return {
+				settled,
+				busy: false,
+				duplicateBusy: false,
+				politeness: context.politeness,
+			};
 		}),
-		applyTone: assign({
-			tone: ({ event }) => (event.type === "SET_TONE" ? event.tone : "neutral"),
+		applyTone: assign(({ context, event }) => {
+			if (event.type !== "SET_TONE") return {};
+			const trimmed = event.tone.trim().toLowerCase();
+			if (!isLiveTone(trimmed)) return { tone: context.tone };
+			return { tone: trimmed };
 		}),
 		applyReason: assign({
 			reason: ({ event }) =>
 				event.type === "SET_REASON"
 					? normalizeOptionalLine(event.reason)
 					: null,
+		}),
+		reveal: assign({
+			paintNonce: ({ context }) => context.paintNonce + 1,
 		}),
 		clearAll: assign({
 			message: () => "",
@@ -185,18 +228,21 @@ export const liveStatusMachine = setup({
 		busy: input?.busy ?? false,
 		progress: input?.progress ?? "none",
 		settled: normalizeOptionalLine(input?.settled ?? null),
-		tone: input?.tone?.trim() ? input.tone : "neutral",
+		tone: normalizeTone(input?.tone),
 		reason: normalizeOptionalLine(input?.reason ?? null),
 		duplicateBusy: false,
+		paintNonce: 0,
 	}),
 	on: {
 		SET_MESSAGE: { actions: "applyMessage" },
 		SET_POLITENESS: { actions: "applyPoliteness" },
+		SET_ANNOUNCEMENT: { actions: "applyAnnouncement" },
 		SET_BUSY: { actions: "applyBusy" },
 		SET_PROGRESS: { actions: "applyProgress" },
 		SET_SETTLED: { actions: "applySettled" },
 		SET_TONE: { actions: "applyTone" },
 		SET_REASON: { actions: "applyReason" },
+		REVEAL: { actions: "reveal" },
 		CLEAR: { actions: "clearAll" },
 	},
 	states: {

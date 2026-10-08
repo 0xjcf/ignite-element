@@ -87,17 +87,154 @@ describe("LiveStatus states", () => {
 		const core = createLiveStatusCore();
 		try {
 			core.watch(() => {});
+			await core.execute({
+				command: "setMessage",
+				input: "Preparing the export.",
+			});
 			await core.execute({ command: "setBusy", input: "true" });
 			expect(core.get("states")).toMatchObject({
 				state: "busy",
+				message: "Preparing the export.",
 				isBusy: true,
 				a11y: { cli: "in progress", mcp: { status: "busy" } },
 			});
 			await core.execute({ command: "setBusy", input: "true" });
 			expect(core.get("states")).toMatchObject({
 				state: "busy",
+				message: "Preparing the export.",
 				duplicateBusy: true,
 				a11y: { cli: "already running", mcp: { status: "busy" } },
+			});
+			await core.execute({ command: "setBusy", input: "false" });
+			expect(core.get("states")).toMatchObject({
+				state: "quiet",
+				message: "Preparing the export.",
+				busy: false,
+				duplicateBusy: false,
+			});
+		} finally {
+			core.dispose();
+		}
+	});
+
+	it("clears a synthesized in-progress line when work stops", async () => {
+		const core = createLiveStatusCore();
+		try {
+			core.watch(() => {});
+			await core.execute({ command: "setBusy", input: "true" });
+			expect(core.get("states")).toMatchObject({
+				state: "busy",
+				message: "",
+				a11y: { cli: "in progress" },
+			});
+			await core.execute({ command: "setBusy", input: "false" });
+			expect(core.get("states")).toMatchObject({
+				state: "quiet",
+				message: "",
+				busy: false,
+				a11y: { cli: null },
+			});
+		} finally {
+			core.dispose();
+		}
+	});
+
+	it("keeps whitespace quiet and rejects an unknown tone", async () => {
+		const core = createLiveStatusCore();
+		try {
+			core.watch(() => {});
+			await core.execute({ command: "setTone", input: "warning" });
+			await core.execute({ command: "setPoliteness", input: "polite" });
+			await core.execute({ command: "setMessage", input: "   " });
+			expect(core.get("states")).toMatchObject({
+				state: "quiet",
+				message: "",
+				tone: "warning",
+				isLive: false,
+				a11y: { cli: null, mcp: { label: "Warning", isError: false } },
+			});
+			await core.execute({ command: "setTone", input: "urgent" });
+			expect(core.get("states").tone).toBe("warning");
+		} finally {
+			core.dispose();
+		}
+	});
+
+	it("follows the error tone for isError, not the politeness", async () => {
+		const core = createLiveStatusCore();
+		try {
+			core.watch(() => {});
+			await core.execute({
+				command: "announce",
+				input: { message: "Check the date.", politeness: "assertive" },
+			});
+			expect(core.get("states")).toMatchObject({
+				state: "assertive",
+				a11y: { mcp: { tone: "neutral", isError: false, status: "assertive" } },
+			});
+			await core.execute({ command: "setTone", input: "warning" });
+			expect(core.get("states").a11y.mcp.isError).toBe(false);
+			await core.execute({
+				command: "announce",
+				input: { message: "Could not save.", politeness: "polite" },
+			});
+			await core.execute({ command: "setTone", input: "error" });
+			expect(core.get("states")).toMatchObject({
+				state: "polite",
+				a11y: {
+					cli: "error: Could not save.",
+					mcp: {
+						tone: "error",
+						label: "Error",
+						isError: true,
+						status: "polite",
+					},
+				},
+			});
+		} finally {
+			core.dispose();
+		}
+	});
+
+	it("updates the message and politeness in one announcement", async () => {
+		const core = createLiveStatusCore();
+		try {
+			const seen: string[] = [];
+			core.watch((states) => {
+				seen.push(`${states.politeness}|${states.message}|${states.state}`);
+			});
+			await core.execute({
+				command: "announce",
+				input: { message: "Connecting", politeness: "polite" },
+			});
+			expect(seen).toEqual(["off||quiet", "polite|Connecting|polite"]);
+		} finally {
+			core.dispose();
+		}
+	});
+
+	it("clears only the settled line when settle is null", async () => {
+		const core = createLiveStatusCore();
+		try {
+			core.watch(() => {});
+			await core.execute({ command: "setPoliteness", input: "polite" });
+			await core.execute({ command: "setMessage", input: "Working" });
+			await core.execute({ command: "setBusy", input: "true" });
+			await core.execute({ command: "setSettled", input: null });
+			expect(core.get("states")).toMatchObject({
+				state: "busy",
+				busy: true,
+				politeness: "polite",
+				settled: null,
+				message: "Working",
+			});
+			await core.execute({ command: "setSettled", input: "Exported" });
+			expect(core.get("states")).toMatchObject({
+				state: "settled",
+				busy: false,
+				politeness: "polite",
+				settled: "Exported",
+				a11y: { cli: "Exported" },
 			});
 		} finally {
 			core.dispose();
