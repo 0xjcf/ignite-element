@@ -50,6 +50,31 @@
 			"name": "ignite-element-no-ignite-devtools",
 			"from": "packages/ignite-element/src",
 			"cannotImport": "packages/ignite-devtools/src"
+		},
+		{
+			"name": "ignite-core-no-ignite-components",
+			"from": "packages/ignite-core/src",
+			"cannotImport": "packages/ignite-components/src"
+		},
+		{
+			"name": "ignite-adapters-no-ignite-components",
+			"from": "packages/ignite-adapters/src",
+			"cannotImport": "packages/ignite-components/src"
+		},
+		{
+			"name": "ignite-renderer-no-ignite-components",
+			"from": "packages/ignite-renderer/src",
+			"cannotImport": "packages/ignite-components/src"
+		},
+		{
+			"name": "ignite-element-no-ignite-components",
+			"from": "packages/ignite-element/src",
+			"cannotImport": "packages/ignite-components/src"
+		},
+		{
+			"name": "ignite-components-no-ignite-devtools",
+			"from": "packages/ignite-components/src",
+			"cannotImport": "packages/ignite-devtools/src"
 		}
 	]
 }

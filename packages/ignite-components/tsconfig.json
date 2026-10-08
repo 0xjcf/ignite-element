@@ -1,0 +1,20 @@
+{
+	"extends": "../../configs/tsconfig/lib.json",
+	"compilerOptions": {
+		"rootDir": "src",
+		"declarationDir": "./dist/types",
+		"tsBuildInfoFile": "dist/.tsbuildinfo",
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"types": ["node"],
+		"jsx": "react-jsx",
+		"jsxImportSource": "ignite-element/jsx"
+	},
+	"include": ["src"],
+	"exclude": [
+		"node_modules",
+		"dist",
+		"src/**/*.test.ts",
+		"src/**/*.test.tsx",
+		"src/testing/**"
+	]
+}
