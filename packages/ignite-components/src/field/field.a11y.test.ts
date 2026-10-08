@@ -39,12 +39,45 @@ describe("Field accessibility", () => {
 		expect(control.getAttribute("aria-required")).toBe("true");
 		expect(control.hasAttribute("disabled")).toBe(false);
 		const describedBy = control.getAttribute("aria-describedby") ?? "";
-		expect(describedBy).toContain("field-hint");
-		expect(describedBy).toContain("field-error");
+		const hint = view.getByText("Short name.");
+		const error = view
+			.getAllByText("Title is required.")
+			.find((node) => node.tagName === "P");
+		expect(error).toBeTruthy();
+		expect(describedBy).toContain(hint.id);
+		expect(describedBy).toContain(error?.id);
+		expect(hint.id).not.toBe("field-hint");
+		expect(view.getByRole("alert").textContent).toContain("Title is required.");
 		expect(view.getByText("Required")).toBeTruthy();
-		expect(view.getByText("Title is required.")).toBeTruthy();
 		control.focus();
 		expect(element.shadowRoot?.activeElement).toBe(control);
+	});
+
+	it("announces the error when it is set and when it is cleared", () => {
+		const { element, view } = mount();
+		const host = element as HTMLElement & {
+			setError: (error: string | null) => void;
+		};
+		expect(view.getByRole("alert").textContent).toContain("Title is required.");
+		host.setError(null);
+		expect(view.queryByText("Title is required.")).toBeNull();
+		expect(view.getByRole("alert").textContent).toContain("Error cleared.");
+		host.setError("Title is required.");
+		const second = document.createElement(TAG) as HTMLElement & {
+			setHint: (hint: string | null) => void;
+			setError: (error: string | null) => void;
+		};
+		second.setAttribute("label", "Payee");
+		document.body.appendChild(second);
+		second.setHint("Who was paid.");
+		second.setError("Payee is required.");
+		const firstHint = view.getByText("Short name.");
+		const secondRoot = second.shadowRoot as unknown as HTMLElement;
+		const secondHint = within(secondRoot).getByText("Who was paid.");
+		expect(firstHint.id).not.toBe(secondHint.id);
+		expect(
+			view.getByRole("textbox").getAttribute("aria-describedby"),
+		).not.toContain(secondHint.id);
 	});
 
 	it("keeps field ink at WCAG AA", () => {

@@ -1,4 +1,5 @@
 import { assign, emit, setup } from "xstate";
+import { createInstanceId } from "../live-status/live-status.source";
 
 export type FieldInput = {
 	label?: string;
@@ -11,10 +12,12 @@ export type FieldInput = {
 };
 
 export type FieldContext = {
+	instanceId: string;
 	label: string;
 	value: string;
 	hint: string | null;
 	error: string | null;
+	errorAnnouncement: string | null;
 	required: boolean;
 	multiline: boolean;
 	touched: boolean;
@@ -36,13 +39,16 @@ export function exactDraft(value: string | null): string {
 
 export type FieldEmitted =
 	| { type: "input"; value: string }
-	| { type: "change"; value: string }
 	| { type: "touch"; value: string };
 
+/** A whitespace-only hint is absent. A hint with words is kept exact. */
 export function normalizeOptional(value: string | null): string | null {
-	if (value === null || value.length === 0) return null;
+	if (value === null) return null;
+	if (value.trim().length === 0) return null;
 	return value;
 }
+
+export const ERROR_CLEARED = "Error cleared.";
 
 /** A whitespace-only error is absent. A real sentence is trimmed. */
 export function normalizeError(value: string | null): string | null {
@@ -79,9 +85,12 @@ export const fieldMachine = setup({
 		applyError: assign({
 			error: ({ event }) =>
 				event.type === "SET_ERROR" ? normalizeError(event.error) : null,
+			errorAnnouncement: ({ event }) =>
+				event.type === "SET_ERROR" ? normalizeError(event.error) : null,
 		}),
 		clearError: assign({
 			error: () => null,
+			errorAnnouncement: () => ERROR_CLEARED,
 		}),
 		applyRequired: assign({
 			required: ({ event }) =>
@@ -96,10 +105,6 @@ export const fieldMachine = setup({
 		}),
 		announceInput: emit(({ context }) => ({
 			type: "input" as const,
-			value: exactDraft(context.value),
-		})),
-		announceChange: emit(({ context }) => ({
-			type: "change" as const,
 			value: exactDraft(context.value),
 		})),
 		announceTouch: emit(({ context }) => ({
@@ -117,21 +122,26 @@ export const fieldMachine = setup({
 }).createMachine({
 	id: "field",
 	initial: "clean",
-	context: ({ input }) => ({
-		label: input?.label ?? "",
-		value: exactDraft(input?.value ?? ""),
-		hint: normalizeOptional(input?.hint ?? null),
-		error: normalizeError(input?.error ?? null),
-		required: input?.required ?? false,
-		multiline: input?.multiline ?? false,
-		touched: input?.touched ?? false,
-	}),
+	context: ({ input }) => {
+		const error = normalizeError(input?.error ?? null);
+		return {
+			instanceId: createInstanceId("field"),
+			label: input?.label ?? "",
+			value: exactDraft(input?.value ?? ""),
+			hint: normalizeOptional(input?.hint ?? null),
+			error,
+			errorAnnouncement: error,
+			required: input?.required ?? false,
+			multiline: input?.multiline ?? false,
+			touched: input?.touched ?? false,
+		};
+	},
 	on: {
 		SET_LABEL: { actions: "applyLabel" },
 		SET_VALUE: [
 			{
 				guard: "draftChanged",
-				actions: ["applyValue", "announceInput", "announceChange"],
+				actions: ["applyValue", "announceInput"],
 			},
 			{ actions: "applyValue" },
 		],

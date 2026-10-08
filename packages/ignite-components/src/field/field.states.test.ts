@@ -32,7 +32,7 @@ async function show(input: FieldFixtureInput) {
 describe("Field states", () => {
 	it("covers every declared state and consumer preset", async () => {
 		assertGalleryCoversStates(fieldContract, fieldGallery);
-		expect(fieldContract.events).toEqual(["input", "change", "touch"]);
+		expect(fieldContract.events).toEqual(["input", "touch"]);
 		expect(fieldContract.slots).toEqual([]);
 		for (const app of ["Twilight", "Booster Budget"] as const) {
 			expect(fieldGallery.some((fixture) => fixture.app === app)).toBe(true);
@@ -119,16 +119,12 @@ describe("Field states", () => {
 		}
 	});
 
-	it("emits the exact draft on input and the touch on blur", async () => {
+	it("emits the exact draft once on input and the touch on blur", async () => {
 		const core = createFieldCore();
 		const inputs: string[] = [];
-		const changes: string[] = [];
 		const touches: string[] = [];
 		core.on("input", (event) => {
 			inputs.push(event.value);
-		});
-		core.on("change", (event) => {
-			changes.push(event.value);
 		});
 		core.on("touch", (event) => {
 			touches.push(event.value);
@@ -145,7 +141,6 @@ describe("Field states", () => {
 				touched: false,
 			});
 			expect(inputs).toEqual(["  Buy milk  "]);
-			expect(changes).toEqual(["  Buy milk  "]);
 			await core.execute({ command: "touch" });
 			expect(touches).toEqual(["  Buy milk  "]);
 			expect(core.get("states")).toMatchObject({
@@ -156,6 +151,55 @@ describe("Field states", () => {
 		} finally {
 			core.dispose();
 		}
+	});
+
+	it("announces an error when it is set and when it is cleared", async () => {
+		const core = createFieldCore();
+		try {
+			core.watch(() => {});
+			await core.execute({ command: "setLabel", input: "Title" });
+			await core.execute({ command: "setHint", input: "   " });
+			expect(core.get("states")).toMatchObject({
+				hint: null,
+				showHint: false,
+				showHintRefusal: "There is no hint.",
+			});
+			await core.execute({ command: "setError", input: "Title is required." });
+			expect(core.get("states")).toMatchObject({
+				errorAnnouncement: "Title is required.",
+				a11y: {
+					cli: "error: Title is required.",
+					mcp: {
+						isError: true,
+						errors: [
+							{
+								field: "Title",
+								message: "Title is required.",
+								hint: null,
+							},
+						],
+					},
+				},
+			});
+			await core.execute({ command: "setError", input: null });
+			expect(core.get("states")).toMatchObject({
+				state: "clean",
+				error: null,
+				errorAnnouncement: "Error cleared.",
+				a11y: { cli: "Error cleared.", mcp: { isError: false, errors: [] } },
+			});
+		} finally {
+			core.dispose();
+		}
+	});
+
+	it("records CLI and MCP equivalents for the error region", () => {
+		expect(fieldContract.a11y?.map((row) => row.mcp)).toEqual([
+			"errors[{field, message, hint}].",
+			"Whitespace hint stays in the schema description only when it has words.",
+			"One errors entry per field.",
+			"instanceId in the result.",
+		]);
 	});
 
 	it("accepts the igniteCore commands facade", () => {

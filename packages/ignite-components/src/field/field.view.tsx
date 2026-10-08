@@ -1,11 +1,15 @@
 /** @jsxImportSource ignite-element/jsx */
 import type { IgniteJsxElement } from "ignite-element/jsx";
+import {
+	liveStatusRegion,
+	liveStatusRegionStyles,
+} from "../live-status/live-status.region";
 import { catalogHostStyles } from "../styles";
 import type { FieldCommands, FieldStates } from "./field.core";
 
 export type FieldViewContext = FieldStates & FieldCommands;
 
-const styles = `${catalogHostStyles()}
+const styles = `${catalogHostStyles()}${liveStatusRegionStyles()}
 :host { display: block; max-width: 36rem; }
 .field { display: grid; gap: 0.35rem; }
 .label {
@@ -48,8 +52,8 @@ function readControl(event: Event): string | null {
 
 function describedBy(ctx: FieldViewContext): string | undefined {
 	const ids = [
-		ctx.showHint ? "field-hint" : null,
-		ctx.showError ? "field-error" : null,
+		ctx.showHint ? `${ctx.instanceId}-hint` : null,
+		ctx.showError ? `${ctx.instanceId}-error` : null,
 	].filter((id) => id !== null);
 	return ids.length > 0 ? ids.join(" ") : undefined;
 }
@@ -59,8 +63,9 @@ function describedBy(ctx: FieldViewContext): string | undefined {
  * The host clears the error when the draft is valid. Typing does not.
  */
 export function fieldView(ctx: FieldViewContext): IgniteJsxElement {
+	const controlId = `${ctx.instanceId}-control`;
 	const controlProps = {
-		id: "field-control",
+		id: controlId,
 		class: "control",
 		value: ctx.value,
 		"aria-invalid": ctx.showError ? "true" : "false",
@@ -79,7 +84,7 @@ export function fieldView(ctx: FieldViewContext): IgniteJsxElement {
 		<>
 			<style>{styles}</style>
 			<div class="field">
-				<label class="label" for="field-control">
+				<label class="label" for={controlId}>
 					{ctx.label}
 					{ctx.required ? <span class="required"> Required</span> : null}
 				</label>
@@ -89,15 +94,23 @@ export function fieldView(ctx: FieldViewContext): IgniteJsxElement {
 					<input type="text" {...controlProps} />
 				)}
 				{ctx.showHint ? (
-					<p id="field-hint" class="hint">
+					<p id={`${ctx.instanceId}-hint`} class="hint">
 						{ctx.hint}
 					</p>
 				) : null}
 				{ctx.showError ? (
-					<p id="field-error" class="error">
+					<p id={`${ctx.instanceId}-error`} class="error">
 						{ctx.error}
 					</p>
 				) : null}
+				{liveStatusRegion({
+					instanceId: ctx.instanceId,
+					polite: null,
+					assertive: ctx.errorAnnouncement,
+					busy: false,
+					progress: "none",
+					settled: null,
+				})}
 			</div>
 		</>
 	);

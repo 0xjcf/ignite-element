@@ -55,8 +55,10 @@ describe("Field DOM", () => {
 				expect(view.getByText(fixture.input.hint)).toBeTruthy();
 			}
 			if (fixture.input.error) {
-				const error = view.getByText(fixture.input.error);
-				expect(control.getAttribute("aria-describedby")).toContain(error.id);
+				const error = view
+					.getAllByText(fixture.input.error)
+					.find((node) => node.tagName === "P");
+				expect(control.getAttribute("aria-describedby")).toContain(error?.id);
 			}
 		}
 	});
@@ -82,11 +84,11 @@ describe("Field DOM", () => {
 		control.dispatchEvent(new Event("blur"));
 		expect(control.value).toBe("  Buy milk  ");
 		expect(inputs).toEqual(["  Buy milk  "]);
-		expect(changes).toEqual(["  Buy milk  "]);
+		expect(changes).toEqual([]);
 		expect(touches).toEqual(["  Buy milk  "]);
-		expect(view.getByText("Title is required.")).toBeTruthy();
+		expect(view.getAllByText("Title is required.").length).toBeGreaterThan(0);
 		element.setError(null);
-		expect(view.queryByText("Title is required.")).toBeNull();
+		expect(view.queryAllByText("Title is required.")).toEqual([]);
 	});
 
 	it("delivers one host input event per keystroke", () => {
