@@ -1,4 +1,5 @@
 import type { EventMap, FacadeCommandResult } from "../RenderArgs";
+import type { DevtoolsGlobalSlot } from "../runtime/devtoolsHook";
 import type { IgniteCommandCall, RuntimeEvent } from "../types/agent";
 import { buildManifest, resolveCall } from "./core";
 import { err, ok, type Result } from "./result";
@@ -18,6 +19,12 @@ import type {
 	ToolStreamObservation,
 	ToolStreamSubscription,
 } from "./types";
+
+function installedDevtools(): DevtoolsGlobalSlot | undefined {
+	return (globalThis as { [key: symbol]: DevtoolsGlobalSlot | undefined })[
+		Symbol.for("ignite-element.devtools")
+	];
+}
 
 /** The neutral core surface, usable directly without a provider dialect. */
 export type IgniteToolsNeutral<
@@ -228,6 +235,9 @@ export function igniteTools<
 					}),
 				);
 			}
+			if (process.env.NODE_ENV !== "production") {
+				installedDevtools()?.pushOrigin?.("tools");
+			}
 			const result = await runtime.execute(routed.value);
 			const states = runtime.get("states");
 			return ok({ result, states, events });
@@ -239,6 +249,9 @@ export function igniteTools<
 				cause,
 			});
 		} finally {
+			if (process.env.NODE_ENV !== "production") {
+				installedDevtools()?.clearOrigin?.("tools");
+			}
 			observing = false;
 			for (const subscription of subscriptions) {
 				try {
