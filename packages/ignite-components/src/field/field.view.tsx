@@ -55,7 +55,7 @@ function describedBy(ctx: FieldViewContext): string | undefined {
 }
 
 /**
- * The control shows the exact draft. Typing emits that draft. Blur emits touch.
+ * The control shows the exact draft. Typing emits that draft once. Blur emits touch.
  * The host clears the error when the draft is valid. Typing does not.
  */
 export function fieldView(ctx: FieldViewContext): IgniteJsxElement {
@@ -67,6 +67,7 @@ export function fieldView(ctx: FieldViewContext): IgniteJsxElement {
 		"aria-describedby": describedBy(ctx),
 		"aria-required": ctx.required ? "true" : "false",
 		onInput: (event: Event) => {
+			event.stopPropagation();
 			const value = readControl(event);
 			if (value !== null) ctx.setValue(value);
 		},

@@ -88,4 +88,27 @@ describe("Field DOM", () => {
 		element.setError(null);
 		expect(view.queryByText("Title is required.")).toBeNull();
 	});
+
+	it("delivers one host input event per keystroke", () => {
+		const { element, view } = mount("Title");
+		const received: Array<{ contract: boolean; value?: string }> = [];
+		element.addEventListener("input", (event) => {
+			if (
+				event instanceof CustomEvent &&
+				event.detail !== null &&
+				typeof event.detail === "object" &&
+				"value" in event.detail
+			) {
+				received.push({ contract: true, value: String(event.detail.value) });
+				return;
+			}
+			received.push({ contract: false });
+		});
+		const control = view.getByRole("textbox") as HTMLInputElement;
+		control.value = "a";
+		control.dispatchEvent(
+			new Event("input", { bubbles: true, composed: true }),
+		);
+		expect(received).toEqual([{ contract: true, value: "a" }]);
+	});
 });
