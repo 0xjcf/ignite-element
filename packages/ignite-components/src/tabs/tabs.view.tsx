@@ -82,7 +82,14 @@ function tabList(ctx: TabsViewContext): IgniteJsxElement {
 					: key === "End"
 						? ctx.items[ctx.items.length - 1]
 						: move(ctx.items, ctx.active, key === "ArrowRight" ? 1 : -1);
-			if (id) ctx.select(id);
+			if (!id) return;
+			ctx.select(id);
+			const list = event.currentTarget;
+			if (!(list instanceof HTMLElement)) return;
+			const next = [...list.querySelectorAll("[role='tab']")].find(
+				(tab) => tab.textContent === id,
+			);
+			if (next instanceof HTMLElement) next.focus();
 		},
 		children: ctx.items.map((item) => {
 			const selected = item === ctx.active;
