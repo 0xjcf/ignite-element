@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>ActionButton</title>
+		<style>
+			:root {
+				color: #1c1915;
+				background: #f7f4ee;
+				font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+			}
+			body { margin: 0; }
+			main {
+				box-sizing: border-box;
+				padding: 28px 24px 40px;
+				max-width: 880px;
+			}
+			h1 {
+				margin: 0 0 8px;
+				font-size: 1.6rem;
+				font-weight: 650;
+				letter-spacing: -0.02em;
+			}
+			.lede {
+				margin: 0 0 20px;
+				max-width: 40rem;
+				color: #4a453c;
+			}
+			h2 {
+				margin: 22px 0 0;
+				font-size: 0.78rem;
+				font-weight: 650;
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+				color: #4a453c;
+			}
+			.fixture {
+				display: grid;
+				grid-template-columns: minmax(8rem, 14rem) 1fr;
+				gap: 8px 16px;
+				align-items: center;
+				padding: 12px 0;
+				border-bottom: 1px solid #d9d2c5;
+			}
+			.meta { font-size: 0.85rem; color: #4a453c; }
+			@media (max-width: 640px) {
+				main { padding: 20px 16px 32px; }
+				.fixture { grid-template-columns: 1fr; gap: 6px; }
+			}
+		</style>
+	</head>
+	<body>
+		<main>
+			<h1>ActionButton</h1>
+			<p class="lede">
+				The button stays in the tab order when it cannot run. The reason is text next to it, not a tooltip hidden by the disabled attribute.
+			</p>
+			<div id="gallery"></div>
+		</main>
+		<script type="module" src="./action-button.ts"></script>
+	</body>
+</html>

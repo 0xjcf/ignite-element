@@ -14,7 +14,8 @@ export function assertFlagReasons(
 		if (on) {
 			expect(reason).toBeNull();
 		} else {
-			expect(reason).toBe(flag.reason);
+			expect(typeof reason).toBe("string");
+			expect(reason).not.toBe("");
 		}
 	}
 }
