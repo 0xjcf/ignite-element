@@ -124,17 +124,15 @@ export function filterBarView(ctx: FilterBarViewContext): IgniteJsxElement {
 					}}
 				/>
 				{ctx.showFilters ? chips(ctx) : null}
-				{ctx.warnings.length > 0
-					? liveStatusRegion({
-							instanceId: ctx.instanceId,
-							polite: ctx.warnings.join(" "),
-							assertive: null,
-							busy: false,
-							progress: "none",
-							settled: null,
-							visiblePolite: true,
-						})
-					: null}
+				{liveStatusRegion({
+					instanceId: ctx.instanceId,
+					polite: ctx.warnings.length > 0 ? ctx.warnings.join(" ") : null,
+					assertive: null,
+					busy: false,
+					progress: "none",
+					settled: null,
+					visiblePolite: true,
+				})}
 				{ctx.canClear ? (
 					<button
 						type="button"

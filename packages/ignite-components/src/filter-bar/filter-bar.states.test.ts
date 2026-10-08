@@ -80,6 +80,8 @@ describe("FilterBar states", () => {
 				active: [],
 				canClear: false,
 				canClearRefusal: "Nothing is filtered.",
+				warnings: [],
+				a11y: { cli: null, mcp: { warnings: [], status: "quiet" } },
 			});
 		} finally {
 			core.dispose();

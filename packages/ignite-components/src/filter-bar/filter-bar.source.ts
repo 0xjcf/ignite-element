@@ -180,7 +180,7 @@ export const filterBarMachine = setup({
 		],
 		CLEAR: {
 			guard: "filtered",
-			actions: ["clearCriteria", "announceClear"],
+			actions: ["clearCriteria", "clearWarnings", "announceClear"],
 		},
 	},
 	states: {

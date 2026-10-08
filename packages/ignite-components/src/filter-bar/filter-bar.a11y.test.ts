@@ -16,6 +16,8 @@ function mount() {
 	const element = document.createElement(TAG) as HTMLElement & {
 		setFilters: (filters: string | null) => void;
 		setActive: (active: string | null) => void;
+		setQuery: (query: string | null) => void;
+		clear: () => void;
 	};
 	element.setAttribute("label", "Filter the event log");
 	document.body.appendChild(element);
@@ -45,10 +47,18 @@ describe("FilterBar accessibility", () => {
 		const { element, view } = mount();
 		const host = element as HTMLElement & {
 			setFilters: (filters: string | null) => void;
+			clear: () => void;
+			setQuery: (query: string | null) => void;
 		};
+		const polite = element.shadowRoot?.querySelector("[aria-live='polite']");
+		expect(polite?.textContent?.trim() ?? "").toBe("");
 		host.setFilters("Surface");
-		expect(view.getByText(/Unknown filter "Type"/)).toBeTruthy();
-		expect(view.getByRole("status").textContent).toContain("Valid filters");
+		expect(view.getAllByText(/Unknown filter "Type"/)).toHaveLength(1);
+		expect(polite?.textContent).toContain("Valid filters");
+		host.setQuery("rent");
+		host.clear();
+		expect(polite?.textContent?.trim() ?? "").toBe("");
+		expect(view.queryByText(/Unknown filter/)).toBeNull();
 	});
 
 	it("does not leave focus on a chip that was renamed by a new list", () => {
