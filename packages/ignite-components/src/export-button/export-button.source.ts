@@ -1,4 +1,5 @@
 import { assign, emit, setup } from "xstate";
+import { createInstanceId } from "../live-status/live-status.source";
 
 export const DEFAULT_EXPORT_LABEL = "Export JSON";
 export const DEFAULT_PENDING_LABEL = "Preparing…";
@@ -14,11 +15,14 @@ export type ExportButtonInput = {
 };
 
 export type ExportButtonContext = {
+	instanceId: string;
 	label: string;
 	pendingLabel: string;
 	readyLabel: string;
 	format: string;
 	reason: string | null;
+	statusLine: string | null;
+	duplicateExport: boolean;
 };
 
 export type ExportButtonEvent =
@@ -41,6 +45,15 @@ export function exportReason(reason: string | null): string {
 export function exportFormat(format: string | null): string {
 	const next = format?.trim().toLowerCase() ?? "";
 	return next.length === 0 ? "json" : next;
+}
+
+/** Default button label for a format. A host label that differs is kept. */
+export function formatLabel(format: string): string {
+	return `Export ${format.toUpperCase()}`;
+}
+
+export function isGeneratedLabel(label: string, format: string): boolean {
+	return label === formatLabel(format) || label === DEFAULT_EXPORT_LABEL;
 }
 
 /** A real initial reason starts failed. Whitespace-only is absent. */
@@ -80,16 +93,35 @@ export const exportButtonMachine = setup({
 					? event.readyLabel
 					: DEFAULT_READY_LABEL,
 		}),
-		applyFormat: assign({
-			format: ({ event }) =>
-				event.type === "SET_FORMAT" ? exportFormat(event.format) : "json",
+		applyFormat: assign(({ context, event }) => {
+			if (event.type !== "SET_FORMAT") return {};
+			const format = exportFormat(event.format);
+			const label = isGeneratedLabel(context.label, context.format)
+				? formatLabel(format)
+				: context.label;
+			return { format, label };
 		}),
 		applyFailure: assign({
 			reason: ({ event }) =>
 				event.type === "FAIL" ? exportReason(event.reason) : FAILED_REASON,
+			statusLine: ({ event }) =>
+				event.type === "FAIL" ? exportReason(event.reason) : FAILED_REASON,
+			duplicateExport: () => false,
 		}),
 		clearReason: assign({
 			reason: () => null,
+		}),
+		markExporting: assign({
+			statusLine: () => "in progress",
+			duplicateExport: () => false,
+		}),
+		markReady: assign({
+			statusLine: ({ context }) => context.readyLabel,
+			duplicateExport: () => false,
+		}),
+		noteDuplicate: assign({
+			duplicateExport: () => true,
+			statusLine: () => "already running",
 		}),
 		announceExport: emit(({ context }) => ({
 			type: "export" as const,
@@ -103,6 +135,7 @@ export const exportButtonMachine = setup({
 	id: "export-button",
 	initial: "idle",
 	context: ({ input }) => ({
+		instanceId: createInstanceId("export"),
 		label: input?.label?.trim() ? input.label : DEFAULT_EXPORT_LABEL,
 		pendingLabel: input?.pendingLabel?.trim()
 			? input.pendingLabel
@@ -112,6 +145,8 @@ export const exportButtonMachine = setup({
 			: DEFAULT_READY_LABEL,
 		format: exportFormat(input?.format ?? "json"),
 		reason: initialExportReason(input?.reason),
+		statusLine: null,
+		duplicateExport: false,
 	}),
 	on: {
 		SET_LABEL: { actions: "applyLabel" },
@@ -128,13 +163,14 @@ export const exportButtonMachine = setup({
 			on: {
 				EXPORT: {
 					target: "preparing",
-					actions: ["clearReason", "announceExport"],
+					actions: ["clearReason", "announceExport", "markExporting"],
 				},
 			},
 		},
 		preparing: {
 			on: {
-				SUCCEED: { target: "ready", actions: "clearReason" },
+				EXPORT: { actions: "noteDuplicate" },
+				SUCCEED: { target: "ready", actions: ["clearReason", "markReady"] },
 				FAIL: { target: "failed", actions: "applyFailure" },
 			},
 		},
@@ -142,7 +178,7 @@ export const exportButtonMachine = setup({
 			on: {
 				EXPORT: {
 					target: "preparing",
-					actions: ["clearReason", "announceExport"],
+					actions: ["clearReason", "announceExport", "markExporting"],
 				},
 				RESET: { target: "idle", actions: "clearReason" },
 			},
@@ -151,7 +187,7 @@ export const exportButtonMachine = setup({
 			on: {
 				EXPORT: {
 					target: "preparing",
-					actions: ["clearReason", "announceExport"],
+					actions: ["clearReason", "announceExport", "markExporting"],
 				},
 				RESET: { target: "idle", actions: "clearReason" },
 			},

@@ -64,7 +64,9 @@ describe("ExportButton DOM", () => {
 							: fixture.input.label;
 			expect(view.getByRole("button", { name })).toBeTruthy();
 			if (fixture.input.reason) {
-				expect(view.getByText(fixture.input.reason)).toBeTruthy();
+				expect(view.getAllByText(fixture.input.reason).length).toBeGreaterThan(
+					0,
+				);
 			}
 		}
 	});

@@ -1,5 +1,7 @@
 import { igniteCore } from "ignite-element/xstate";
 import type { SnapshotFrom } from "xstate";
+import type { HeadlessA11y } from "../contract";
+import { cliTone } from "../live-status/live-status.source";
 import {
 	DEFAULT_EXPORT_LABEL,
 	DEFAULT_PENDING_LABEL,
@@ -14,6 +16,7 @@ export type ExportButtonStateName = "idle" | "preparing" | "ready" | "failed";
 
 export type ExportButtonStates = {
 	state: ExportButtonStateName;
+	instanceId: string;
 	label: string;
 	pendingLabel: string;
 	readyLabel: string;
@@ -30,6 +33,9 @@ export type ExportButtonStates = {
 	isFailedRefusal: string | null;
 	showReason: boolean;
 	showReasonRefusal: string | null;
+	statusLine: string | null;
+	duplicateExport: boolean;
+	a11y: HeadlessA11y;
 };
 
 export type ExportButtonCommands = {
@@ -64,6 +70,8 @@ export function projectExportButton(
 	const ready = snapshot.matches("ready");
 	const failed = snapshot.matches("failed");
 	const reason = failed ? snapshot.context.reason : null;
+	const statusLine = snapshot.context.statusLine;
+	const duplicateExport = snapshot.context.duplicateExport;
 	const buttonLabel = preparing
 		? snapshot.context.pendingLabel
 		: ready
@@ -71,14 +79,25 @@ export function projectExportButton(
 			: failed
 				? "Try again"
 				: snapshot.context.label;
+	const state: ExportButtonStateName = preparing
+		? "preparing"
+		: ready
+			? "ready"
+			: failed
+				? "failed"
+				: "idle";
+	const cli = duplicateExport
+		? "already running"
+		: preparing
+			? "in progress"
+			: failed && reason
+				? cliTone("error", reason)
+				: ready
+					? snapshot.context.readyLabel
+					: null;
 	return {
-		state: preparing
-			? "preparing"
-			: ready
-				? "ready"
-				: failed
-					? "failed"
-					: "idle",
+		state,
+		instanceId: snapshot.context.instanceId,
 		label: snapshot.context.label,
 		pendingLabel: snapshot.context.pendingLabel,
 		readyLabel: snapshot.context.readyLabel,
@@ -95,6 +114,23 @@ export function projectExportButton(
 		isFailedRefusal: failed ? null : NOT_FAILED,
 		showReason: reason !== null,
 		showReasonRefusal: reason !== null ? null : NO_REASON,
+		statusLine,
+		duplicateExport,
+		a11y: {
+			cli,
+			mcp: {
+				value: buttonLabel,
+				tone: failed ? "error" : ready ? "success" : "neutral",
+				label: buttonLabel,
+				reason: failed ? reason : preparing ? RUNNING : null,
+				status: preparing ? "busy" : state,
+				instanceId: snapshot.context.instanceId,
+				warnings: [],
+				focusTarget: null,
+				errors: [],
+				isError: failed,
+			},
+		},
 	};
 }
 

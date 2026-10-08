@@ -32,19 +32,43 @@ afterEach(() => {
 describe("ExportButton accessibility", () => {
 	it("puts the failure in text and marks the button busy only while preparing", () => {
 		const { element, view } = mount();
-		const reason = view.getByText("Could not write the file.");
-		expect(reason.getAttribute("aria-hidden")).not.toBe("true");
+		const reasons = view.getAllByText("Could not write the file.");
+		expect(reasons.length).toBeGreaterThan(0);
+		expect(
+			reasons.some((node) => node.getAttribute("aria-hidden") !== "true"),
+		).toBe(true);
 		const retry = view.getByRole("button", { name: "Try again" });
 		expect(retry.getAttribute("aria-disabled")).toBe("false");
 		retry.click();
-		expect(
-			view
-				.getByRole("button", { name: "Preparing…" })
-				.getAttribute("aria-disabled"),
-		).toBe("true");
+		const preparing = view.getByRole("button", { name: "Preparing…" });
+		expect(preparing.getAttribute("aria-disabled")).toBe("true");
+		expect(preparing.hasAttribute("aria-busy")).toBe(false);
+		expect(view.getByText("This export is already running.")).toBeTruthy();
+		const busy = element.shadowRoot?.querySelector("[aria-busy='true']");
+		expect(busy?.getAttribute("role")).toBe("progressbar");
+		expect(busy?.tagName).not.toBe("BUTTON");
 		expect(
 			element.shadowRoot?.querySelector("[aria-hidden='true']"),
 		).toBeNull();
+	});
+
+	it("follows setFormat and announces ready and failed", () => {
+		const { element, view } = mount();
+		const host = element as unknown as HTMLElement & {
+			setFormat: (format: string | null) => void;
+			succeed: () => void;
+			reset: () => void;
+		};
+		host.reset();
+		host.setFormat("csv");
+		expect(view.getByRole("button", { name: "Export CSV" })).toBeTruthy();
+		view.getByRole("button", { name: "Export CSV" }).click();
+		expect(view.getByRole("progressbar").getAttribute("aria-busy")).toBe(
+			"true",
+		);
+		host.succeed();
+		expect(view.getAllByText("Exported").length).toBeGreaterThan(0);
+		expect(element.shadowRoot?.querySelector("[aria-busy='true']")).toBeNull();
 	});
 
 	it("keeps button ink on both fills at WCAG AA", () => {
