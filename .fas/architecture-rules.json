@@ -30,6 +30,26 @@
 			"name": "ignite-renderer-no-ignite-element",
 			"from": "packages/ignite-renderer/src",
 			"cannotImport": "packages/ignite-element/src"
+		},
+		{
+			"name": "ignite-core-no-ignite-devtools",
+			"from": "packages/ignite-core/src",
+			"cannotImport": "packages/ignite-devtools/src"
+		},
+		{
+			"name": "ignite-adapters-no-ignite-devtools",
+			"from": "packages/ignite-adapters/src",
+			"cannotImport": "packages/ignite-devtools/src"
+		},
+		{
+			"name": "ignite-renderer-no-ignite-devtools",
+			"from": "packages/ignite-renderer/src",
+			"cannotImport": "packages/ignite-devtools/src"
+		},
+		{
+			"name": "ignite-element-no-ignite-devtools",
+			"from": "packages/ignite-element/src",
+			"cannotImport": "packages/ignite-devtools/src"
 		}
 	]
 }

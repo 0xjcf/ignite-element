@@ -12,4 +12,12 @@ Ports are passed to the XState machine with `.provide()`. They are not an `ignit
 
 The package peers `ignite-element` at `3.0.0-beta.18` and `xstate` at `>=5.19.0`.
 
-Core packages must not import this package. That architecture rule is not applied in this change.
+Catalog component entries use the PascalCase name as `id`. A separate id field will only be added if renames need it.
+
+`ignite-core`, `ignite-adapters`, `ignite-renderer`, and `ignite-element` `src` cannot import `packages/ignite-devtools/src`. Those four rules are in `.fas/architecture-rules.json`.
+
+Follow-ups outside M0:
+
+- Enforcing that DevTools imports only public `ignite-element` entrypoints needs a checker change. The current checker resolves specifiers such as `ignite-element/xstate` into `packages/ignite-element/src`, so that rule is deferred.
+- The manifest-versus-`get("schema")` drift check is deferred to M1.
+- Hosted CI coverage for `test:packages` is a separate change (`ci/experimental-devtools`). This package does not edit workflows.
