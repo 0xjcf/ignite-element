@@ -84,6 +84,22 @@ describe("ActionButton states", () => {
 		}
 	});
 
+	it("uses the visible fallback when refuse is only whitespace", async () => {
+		const core = createActionButtonCore();
+		try {
+			core.watch(() => {});
+			await core.execute({ command: "refuse", input: "   " });
+			expect(core.get("states")).toMatchObject({
+				state: "unavailable",
+				reason: "This action is unavailable.",
+				showReason: true,
+				canPressRefusal: "This action is unavailable.",
+			});
+		} finally {
+			core.dispose();
+		}
+	});
+
 	it("returns to idle when the host settles or allows", async () => {
 		const pending = await show({
 			label: "Save",

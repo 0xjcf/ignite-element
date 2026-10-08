@@ -30,8 +30,10 @@ export const UNAVAILABLE_REASON = "This action is unavailable.";
 export type ActionButtonEmitted = { type: "press"; label: string };
 
 export function refusalReason(reason: string | null): string {
-	if (reason === null || reason.length === 0) return UNAVAILABLE_REASON;
-	return reason;
+	if (reason === null) return UNAVAILABLE_REASON;
+	const trimmed = reason.trim();
+	if (trimmed.length === 0) return UNAVAILABLE_REASON;
+	return trimmed;
 }
 
 /**
