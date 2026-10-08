@@ -169,6 +169,8 @@ describe("Notice states", () => {
 			expect(labels).toEqual(["Retry"]);
 			expect(core.get("states")).toMatchObject({
 				recoveryRequested: "Retry",
+				canRecover: false,
+				canRecoverRefusal: "Recovery was already requested.",
 				focusTarget: "after-notice",
 				a11y: {
 					cli: "next: after-notice",

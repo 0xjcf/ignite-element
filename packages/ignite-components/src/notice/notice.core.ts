@@ -53,7 +53,13 @@ const DISMISSED = "This notice was dismissed.";
 const STAYS = "This notice stays until the host clears it.";
 const STILL_SHOWING = "This notice is still showing.";
 const NO_RECOVERY = "There is no recovery action.";
+const ALREADY_REQUESTED = "Recovery was already requested.";
 const NO_REQUEST = "No recovery was requested.";
+
+/** Id of the element that receives focus when the page names none. */
+export function noticeFallbackFocusId(instanceId: string): string {
+	return instanceId;
+}
 
 export function projectNotice(
 	snapshot: SnapshotFrom<typeof noticeMachine>,
@@ -63,12 +69,14 @@ export function projectNotice(
 	const dismissible = snapshot.context.dismissible;
 	const showActions = shown && actions.length > 0;
 	const canDismiss = shown && dismissible;
-	const recoveryRequested = shown ? snapshot.context.recoveryRequested : null;
+	const requested = snapshot.context.recoveryRequested;
+	const recoveryRequested = shown ? requested : null;
 	const isRecoveryRequested = recoveryRequested !== null;
+	const canRecover = showActions && requested === null;
 	const instanceId = snapshot.context.instanceId;
 	const focusTarget = snapshot.context.focusTarget;
-	const moved = !shown || snapshot.context.recoveryRequested !== null;
-	const next = focusTarget ?? instanceId;
+	const moved = !shown || requested !== null;
+	const next = focusTarget ?? noticeFallbackFocusId(instanceId);
 	return {
 		state: shown ? "shown" : "dismissed",
 		instanceId,
@@ -86,8 +94,14 @@ export function projectNotice(
 		isDismissedRefusal: shown ? STILL_SHOWING : null,
 		showActions,
 		showActionsRefusal: showActions ? null : shown ? NO_RECOVERY : DISMISSED,
-		canRecover: showActions,
-		canRecoverRefusal: showActions ? null : shown ? NO_RECOVERY : DISMISSED,
+		canRecover,
+		canRecoverRefusal: canRecover
+			? null
+			: !shown
+				? DISMISSED
+				: requested !== null
+					? ALREADY_REQUESTED
+					: NO_RECOVERY,
 		isRecoveryRequested,
 		isRecoveryRequestedRefusal: isRecoveryRequested ? null : NO_REQUEST,
 		a11y: {

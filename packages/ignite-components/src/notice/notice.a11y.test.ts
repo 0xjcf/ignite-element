@@ -89,7 +89,11 @@ describe("Notice accessibility", () => {
 		});
 		const action = view.getByRole("button", { name: "This Friday" });
 		action.click();
-		action.click();
+		const again = view.getByRole("button", { name: "This Friday" });
+		expect(again.hasAttribute("disabled")).toBe(true);
+		const stayed = document.activeElement;
+		again.click();
+		expect(document.activeElement).toBe(stayed);
 		expect(first).toHaveLength(1);
 		expect(first[0]?.label).toBe("This Friday");
 		expect(first[0]?.instanceId).toMatch(/^notice-/);
@@ -119,8 +123,23 @@ describe("Notice accessibility", () => {
 		const { element, view } = mount();
 		view.getByRole("button", { name: "Dismiss" }).click();
 		expect(document.activeElement).toBe(element);
+		expect(element.id).toMatch(/^notice-/);
 		expect(element.tabIndex).toBe(-1);
 		expect(view.getByRole("alert", { hidden: true }).hidden).toBe(true);
+	});
+
+	it("finds a focus target in a parent shadow root", () => {
+		const { element, view } = mount();
+		const shell = document.createElement("div");
+		const shadow = shell.attachShadow({ mode: "open" });
+		const target = document.createElement("button");
+		target.id = "inside-shell";
+		target.textContent = "After";
+		shadow.append(target, element);
+		document.body.appendChild(shell);
+		element.setFocustarget("inside-shell");
+		view.getByRole("button", { name: "Dismiss" }).click();
+		expect(shadow.activeElement).toBe(target);
 	});
 
 	it("keeps tone fills at WCAG AA against the ink", () => {
