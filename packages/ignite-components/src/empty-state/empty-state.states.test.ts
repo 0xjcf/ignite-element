@@ -136,6 +136,8 @@ describe("EmptyState states", () => {
 			expect(labels).toEqual(["Add a thought"]);
 			expect(core.get("states")).toMatchObject({
 				actionRequested: true,
+				canAct: false,
+				canActRefusal: "The first step was already requested.",
 				focusTarget: "after-empty",
 				a11y: {
 					cli: "next: after-empty",
@@ -158,6 +160,25 @@ describe("EmptyState states", () => {
 			} finally {
 				other.dispose();
 			}
+		} finally {
+			core.dispose();
+		}
+	});
+
+	it("reports the rendered region when no focus target is set", async () => {
+		const core = await show({
+			kind: "empty",
+			title: "Today is empty",
+			message: "Capacity 0/3.",
+			actionLabel: "Add a thought",
+		});
+		try {
+			await core.execute({ command: "act" });
+			const id = `${core.get("states").instanceId}-root`;
+			expect(core.get("states").a11y).toMatchObject({
+				cli: `next: ${id}`,
+				mcp: { focusTarget: id },
+			});
 		} finally {
 			core.dispose();
 		}

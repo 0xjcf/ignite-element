@@ -44,7 +44,13 @@ export type EmptyStateCommands = {
 };
 
 const NO_STEP = "There is no first step.";
+const ALREADY = "The first step was already requested.";
 const NO_REQUEST = "No first step was requested.";
+
+/** Id of the region that receives focus when the page names none. */
+export function emptyStateFallbackFocusId(instanceId: string): string {
+	return `${instanceId}-root`;
+}
 const NOT_FILTERED = "This is not a filtered empty.";
 const NOT_OUTSIDE = "This is not outside the range.";
 
@@ -62,6 +68,9 @@ export function projectEmptyState(
 	const isFiltered = state === "filtered";
 	const isOutsideRange = state === "outside-range";
 	const focusTarget = snapshot.context.focusTarget;
+	const canAct = showAction && !snapshot.context.actionRequested;
+	const next =
+		focusTarget ?? emptyStateFallbackFocusId(snapshot.context.instanceId);
 	return {
 		state,
 		instanceId: snapshot.context.instanceId,
@@ -72,8 +81,8 @@ export function projectEmptyState(
 		focusTarget,
 		showAction,
 		showActionRefusal: showAction ? null : NO_STEP,
-		canAct: showAction,
-		canActRefusal: showAction ? null : NO_STEP,
+		canAct,
+		canActRefusal: canAct ? null : showAction ? ALREADY : NO_STEP,
 		isActionRequested: actionRequested,
 		isActionRequestedRefusal: actionRequested ? null : NO_REQUEST,
 		isFiltered,
@@ -81,9 +90,7 @@ export function projectEmptyState(
 		isOutsideRange,
 		isOutsideRangeRefusal: isOutsideRange ? null : NOT_OUTSIDE,
 		a11y: {
-			cli: actionRequested
-				? `next: ${focusTarget ?? snapshot.context.instanceId}`
-				: null,
+			cli: actionRequested ? `next: ${next}` : null,
 			mcp: {
 				value: snapshot.context.title,
 				tone: "neutral",
@@ -92,9 +99,7 @@ export function projectEmptyState(
 				status: actionRequested ? "settled" : "quiet",
 				instanceId: snapshot.context.instanceId,
 				warnings: [],
-				focusTarget: actionRequested
-					? (focusTarget ?? snapshot.context.instanceId)
-					: null,
+				focusTarget: actionRequested ? next : null,
 				errors: [],
 				isError: false,
 			},

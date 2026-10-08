@@ -58,7 +58,11 @@ describe("EmptyState accessibility", () => {
 		});
 		const step = view.getByRole("button", { name: "Add a thought" });
 		step.click();
-		step.click();
+		const again = view.getByRole("button", { name: "Add a thought" });
+		expect(again.hasAttribute("disabled")).toBe(true);
+		const stayed = document.activeElement;
+		again.click();
+		expect(document.activeElement).toBe(stayed);
 		expect(labels).toEqual(["Add a thought"]);
 		expect(document.activeElement).toBe(next);
 
@@ -75,6 +79,23 @@ describe("EmptyState accessibility", () => {
 		expect(otherTitle.id).not.toBe(
 			view.getByRole("heading", { name: "Today is empty" }).id,
 		);
+	});
+
+	it("finds a focus target in a parent shadow root", () => {
+		const { element, view } = mount();
+		const shell = document.createElement("div");
+		const shadow = shell.attachShadow({ mode: "open" });
+		const target = document.createElement("button");
+		target.id = "inside-shell";
+		target.textContent = "After";
+		shadow.append(target, element);
+		document.body.appendChild(shell);
+		const host = element as unknown as HTMLElement & {
+			setFocustarget: (target: string | null) => void;
+		};
+		host.setFocustarget("inside-shell");
+		view.getByRole("button", { name: "Add a thought" }).click();
+		expect(shadow.activeElement).toBe(target);
 	});
 
 	it("keeps the message ink at WCAG AA", () => {

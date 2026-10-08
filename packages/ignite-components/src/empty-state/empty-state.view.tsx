@@ -1,7 +1,11 @@
 /** @jsxImportSource ignite-element/jsx */
 import type { IgniteJsxElement } from "ignite-element/jsx";
 import { catalogHostStyles } from "../styles";
-import type { EmptyStateCommands, EmptyStateStates } from "./empty-state.core";
+import {
+	type EmptyStateCommands,
+	type EmptyStateStates,
+	emptyStateFallbackFocusId,
+} from "./empty-state.core";
 
 export type EmptyStateViewContext = EmptyStateStates & EmptyStateCommands;
 
@@ -40,24 +44,26 @@ p { margin: 0; color: var(--catalog-fg); }
 }
 `;
 
-function focusDefinedTarget(event: Event, targetId: string | null) {
-	const current = event.currentTarget;
-	if (!(current instanceof HTMLElement)) return;
-	const root = current.getRootNode();
-	const doc = current.ownerDocument;
-	if (targetId) {
-		const external = doc.getElementById(targetId);
-		const internal =
-			root instanceof ShadowRoot ? root.getElementById(targetId) : null;
-		const found = external ?? internal;
-		if (found instanceof HTMLElement) {
-			if (found.tabIndex < 0) found.tabIndex = -1;
-			found.focus();
-			return;
-		}
+function placeFocus(found: HTMLElement) {
+	if (found.tabIndex < 0) found.tabIndex = -1;
+	found.focus();
+}
+
+/** Walk out through host shadow roots. Call before the command detaches the button. */
+function findFocusTarget(start: Node, id: string): HTMLElement | null {
+	const light = start.ownerDocument?.getElementById(id) ?? null;
+	if (light instanceof HTMLElement && light.isConnected) return light;
+	let node: Node | null = start;
+	const seen = new Set<Node>();
+	while (node && !seen.has(node)) {
+		seen.add(node);
+		const root = node.getRootNode();
+		if (!(root instanceof ShadowRoot)) break;
+		const found = root.getElementById(id);
+		if (found instanceof HTMLElement && found.isConnected) return found;
+		node = root.host;
 	}
-	const section = current.closest("section");
-	if (section instanceof HTMLElement) section.focus();
+	return null;
 }
 
 function kindWords(state: EmptyStateStates["state"]): string {
@@ -87,9 +93,27 @@ export function emptyStateView(ctx: EmptyStateViewContext): IgniteJsxElement {
 					<button
 						type="button"
 						class="step"
+						disabled={ctx.canAct ? undefined : true}
 						onClick={(event: Event) => {
+							if (!ctx.canAct) return;
+							const current = event.currentTarget;
+							const start = current instanceof Node ? current : null;
+							const named =
+								ctx.focusTarget && start
+									? findFocusTarget(start, ctx.focusTarget)
+									: null;
+							const section =
+								current instanceof HTMLElement
+									? current.closest("section")
+									: null;
 							ctx.act();
-							focusDefinedTarget(event, ctx.focusTarget ?? ctx.instanceId);
+							const fallback =
+								section instanceof HTMLElement &&
+								section.id === emptyStateFallbackFocusId(ctx.instanceId)
+									? section
+									: null;
+							const found = named ?? fallback;
+							if (found) placeFocus(found);
 						}}
 					>
 						{ctx.actionLabel}
