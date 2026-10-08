@@ -134,7 +134,10 @@ describe("StatusPill states", () => {
 				announcement: null,
 				toneLabel: "Warning",
 				accessibleName: "Warning Paused — Inspection is paused.",
-				a11y: { cli: null, mcp: { tone: "warning", label: "Warning" } },
+				a11y: {
+					cli: "warning: Paused — Inspection is paused.",
+					mcp: { tone: "warning", label: "Warning", status: "quiet" },
+				},
 			});
 			await core.execute({ command: "setAnnounce", input: "true" });
 			expect(core.get("states").announcement).toBeNull();

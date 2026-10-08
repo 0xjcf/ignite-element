@@ -51,6 +51,7 @@ export function projectStatusPill(
 	const announce = snapshot.context.announce;
 	const announcement = announce ? snapshot.context.announcement : null;
 	const accessibleName = statusSentence(value, tone, reason);
+	const cliLine = statusCliLine(value, tone, reason);
 	return {
 		state,
 		instanceId: snapshot.context.instanceId,
@@ -64,7 +65,7 @@ export function projectStatusPill(
 		showReason,
 		showReasonRefusal: showReason ? null : NO_REASON,
 		a11y: {
-			cli: announcement ? statusCliLine(value, tone, reason) : null,
+			cli: cliLine.length > 0 ? cliLine : null,
 			mcp: {
 				value,
 				tone,

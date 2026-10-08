@@ -1,9 +1,6 @@
 /** @jsxImportSource ignite-element/jsx */
 import type { IgniteJsxElement } from "ignite-element/jsx";
-import {
-	liveStatusRegion,
-	liveStatusRegionStyles,
-} from "../live-status/live-status.region";
+import { liveStatusRegionStyles } from "../live-status/live-status.region";
 import { catalogHostStyles } from "../styles";
 import type { StatusPillCommands, StatusPillStates } from "./status-pill.core";
 
@@ -45,30 +42,51 @@ const styles = `${catalogHostStyles()}${liveStatusRegionStyles()}
  * The tone word is text. Color only tints the chip.
  * A live announcement is opt-in, so a row of pills does not spam.
  */
+function chip(ctx: StatusPillViewContext): IgniteJsxElement {
+	return (
+		<span class="status-pill" data-tone={ctx.tone}>
+			<span class="status-pill-tone">{ctx.toneLabel}</span>{" "}
+			<span class="status-pill-value">{ctx.value}</span>
+			{ctx.showReason ? (
+				<>
+					<span class="status-pill-sep"> — </span>
+					<span class="status-pill-reason">{ctx.reason}</span>
+				</>
+			) : null}
+		</span>
+	);
+}
+
+/**
+ * The tone word is text. Color only tints the chip.
+ * Opt-in announcements use that same chip as the live region, once.
+ */
 export function statusPillView(ctx: StatusPillViewContext): IgniteJsxElement {
+	const spoken = ctx.announce ? ctx.announcement : null;
 	return (
 		<>
 			<style>{styles}</style>
-			<span class="status-pill" data-tone={ctx.tone}>
-				<span class="status-pill-tone">{ctx.toneLabel}</span>{" "}
-				<span class="status-pill-value">{ctx.value}</span>
-				{ctx.showReason ? (
-					<>
-						<span class="status-pill-sep"> — </span>
-						<span class="status-pill-reason">{ctx.reason}</span>
-					</>
-				) : null}
-			</span>
-			{ctx.announce
-				? liveStatusRegion({
-						instanceId: ctx.instanceId,
-						polite: ctx.announcement,
-						assertive: null,
-						busy: false,
-						progress: "none",
-						settled: null,
-					})
-				: null}
+			{spoken ? (
+				<output
+					id={`${ctx.instanceId}-polite`}
+					class="status-pill"
+					data-tone={ctx.tone}
+					aria-live="polite"
+					aria-atomic="true"
+				>
+					{spoken}
+				</output>
+			) : (
+				chip(ctx)
+			)}
+			{ctx.announce && !spoken ? (
+				<output
+					id={`${ctx.instanceId}-polite`}
+					class="live-polite"
+					aria-live="polite"
+					aria-atomic="true"
+				></output>
+			) : null}
 		</>
 	);
 }
