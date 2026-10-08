@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, type PluginOption } from "vite";
 import { createLibConfig } from "../../configs/vite/lib";
 
 type ViteCommand = "build" | "serve";
@@ -13,8 +13,20 @@ const resolveNodeEnv = (
 		: semanticNodeEnv;
 };
 
-export default defineConfig(({ command }) => ({
-	...createLibConfig({
+function withoutDeclarationPlugin(plugins: PluginOption[] | undefined) {
+	return (plugins ?? []).filter((plugin) => {
+		if (!plugin || typeof plugin !== "object" || !("name" in plugin))
+			return true;
+		return plugin.name !== "vite:dts";
+	});
+}
+
+export default defineConfig(({ command }) => {
+	const developmentArtifact =
+		process.env.IGNITE_DEVTOOLS_BUILD === "development";
+	const skipDeclarations =
+		developmentArtifact || process.env.IGNITE_SKIP_DTS === "1";
+	const lib = createLibConfig({
 		name: "ignite-element",
 		entry: {
 			index: "src/index.ts",
@@ -36,6 +48,7 @@ export default defineConfig(({ command }) => ({
 			tools: "src/tools/index.ts",
 			"tools/anthropic": "src/tools/anthropic/index.ts",
 			"tools/openai": "src/tools/openai/index.ts",
+			"devtools-hook": "src/devtools-hook.ts",
 		},
 		external: [
 			"@ignite-element/core",
@@ -62,8 +75,21 @@ export default defineConfig(({ command }) => ({
 			"lit-html": "LitHTML",
 			"@reduxjs/toolkit": "RTK",
 		},
-	}),
-	define: {
-		"process.env.NODE_ENV": JSON.stringify(resolveNodeEnv(command)),
-	},
-}));
+	});
+	return {
+		...lib,
+		plugins: skipDeclarations
+			? withoutDeclarationPlugin(lib.plugins)
+			: lib.plugins,
+		build: {
+			...lib.build,
+			emptyOutDir: true,
+			outDir: developmentArtifact ? "dist/development" : lib.build?.outDir,
+		},
+		define: {
+			"process.env.NODE_ENV": JSON.stringify(
+				developmentArtifact ? "development" : resolveNodeEnv(command),
+			),
+		},
+	};
+});

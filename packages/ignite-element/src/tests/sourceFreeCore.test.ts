@@ -142,9 +142,11 @@ describe("source-free root igniteCore", () => {
 	it("preserves duplicate registration and native name validation", () => {
 		const core = publicApi.igniteCore();
 		const name = tag();
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		core(name, () => jsx("p", { children: "first" }));
 		const duplicate = vi.fn();
 		core(name, duplicate);
+		expect(warn).toHaveBeenCalledOnce();
 		const element = document.createElement(name);
 		document.body.append(element);
 		expect(element.shadowRoot?.textContent).toBe("first");

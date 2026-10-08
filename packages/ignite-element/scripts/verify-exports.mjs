@@ -28,6 +28,7 @@ const expectedPublicSubpaths = [
 	"./tools",
 	"./tools/anthropic",
 	"./tools/openai",
+	"./devtools-hook",
 	"./package.json",
 ];
 
@@ -45,6 +46,7 @@ const expectedTypesVersions = [
 	"tools",
 	"tools/anthropic",
 	"tools/openai",
+	"devtools-hook",
 ];
 
 const removedStableSubpaths = [
@@ -133,6 +135,7 @@ const requiredExports = [
 	],
 	["./tools/anthropic", { anthropic: "object", textOf: "function" }],
 	["./tools/openai", { openai: "object", textOf: "function" }],
+	["./devtools-hook", { installDevtoolsHook: "function" }],
 ];
 
 const recursiveImportPattern =
@@ -140,6 +143,10 @@ const recursiveImportPattern =
 
 const declarationImportPattern =
 	/\bfrom\s+["']([^"']+)["']|\bimport\s+["']([^"']+)["']|\bimport\(\s*["']([^"']+)["']\s*\)/g;
+
+const developmentConditionSubpaths = expectedPublicSubpaths.filter(
+	(subpath) => subpath !== "./package.json",
+);
 
 function assertDistGraphDoesNotReference(entryFile, forbiddenMarkers) {
 	const pending = [entryFile];
@@ -333,6 +340,31 @@ for (const subpath of removedStableSubpaths) {
 	await assertSubpathIsNotExported(subpath);
 }
 
+function assertDistGraphReferences(entryFile, marker) {
+	const pending = [entryFile];
+	const seen = new Set();
+	while (pending.length > 0) {
+		const nextFile = pending.pop();
+		if (!nextFile || seen.has(nextFile)) continue;
+		seen.add(nextFile);
+		const source = readFileSync(
+			new URL(`./../dist/${nextFile}`, import.meta.url),
+			"utf8",
+		);
+		if (source.includes(marker)) return;
+		for (const match of source.matchAll(recursiveImportPattern)) {
+			const relativeImport = match[1] ?? match[2];
+			if (!relativeImport) continue;
+			pending.push(
+				path.posix.normalize(
+					path.posix.join(path.posix.dirname(nextFile), relativeImport),
+				),
+			);
+		}
+	}
+	assert.fail(`Expected dist/${entryFile} to reach ${marker}.`);
+}
+
 assertDistGraphDoesNotReference("xstate.es.js", ["mobx", "@reduxjs/toolkit"]);
 assertDeclarationGraphDoesNotReference("types/index.d.ts", [
 	"@ignite-element/adapters",
@@ -352,6 +384,57 @@ assertDistGraphDoesNotReference("actor-web.es.js", [
 	"@reduxjs/toolkit",
 	'"mobx"',
 ]);
+
+const productionDevtoolsMarkers = [
+	"devtools-core-",
+	"ignite-element.devtools",
+	"already defined by a different component",
+];
+for (const entry of [
+	"xstate.es.js",
+	"ignite-element.es.js",
+	"devtools-hook.es.js",
+]) {
+	assertDistGraphDoesNotReference(entry, productionDevtoolsMarkers);
+}
+assertDistGraphReferences("development/devtools-hook.es.js", "devtools-core-");
+assertDistGraphReferences(
+	"development/xstate.es.js",
+	"ignite-element.devtools",
+);
+assertDistGraphReferences(
+	"development/ignite-element.es.js",
+	"already defined by a different component",
+);
+
+for (const subpath of developmentConditionSubpaths) {
+	const development = packageJson.exports[subpath].development;
+	assert.equal(typeof development?.types, "string");
+	assert.equal(development.default, development.import);
+	assert.ok(
+		existsSync(new URL(`./../${development.import}`, import.meta.url)),
+		`Missing development artifact for ${subpath}: ${development.import}.`,
+	);
+	const resolved = execFileSync(
+		process.execPath,
+		[
+			"--conditions=development",
+			"--input-type=module",
+			"-e",
+			`console.log(import.meta.resolve(${JSON.stringify(
+				subpath === "."
+					? packageJson.name
+					: `${packageJson.name}/${subpath.slice(2)}`,
+			)}))`,
+		],
+		{ cwd: new URL("./../", import.meta.url), encoding: "utf8" },
+	).trim();
+	assert.equal(
+		resolved,
+		new URL(`./../${development.import}`, import.meta.url).href,
+		`${subpath} development condition must select its development artifact.`,
+	);
+}
 
 // Keep legitimate renderer/projection registrations, never fabricated browser globals.
 function sideEffectGlobToRegExp(glob) {
@@ -407,17 +490,20 @@ for (const name of [
 	"./jsx",
 	"./jsx/jsx-runtime",
 	"./jsx/jsx-dev-runtime",
+	"./devtools-hook",
 ]) {
-	const entry = new URL(
-		`../${packageJson.exports[name].import}`,
-		import.meta.url,
-	).href;
-	execFileSync(
-		process.execPath,
-		[
-			"--input-type=module",
-			"-e",
-			`
+	const targets = [packageJson.exports[name].import];
+	if (packageJson.exports[name].development) {
+		targets.push(packageJson.exports[name].development.import);
+	}
+	for (const target of targets) {
+		const entry = new URL(`../${target}`, import.meta.url).href;
+		execFileSync(
+			process.execPath,
+			[
+				"--input-type=module",
+				"-e",
+				`
 import assert from "node:assert/strict";
 const names = ["HTMLElement", "customElements", "document", "window"];
 const before = names.map(name => Object.getOwnPropertyDescriptor(globalThis, name));
@@ -427,9 +513,10 @@ await import(${JSON.stringify(entry)});
 assert.deepEqual(names.map(name => Object.getOwnPropertyDescriptor(globalThis, name)), before);
 assert.deepEqual([EventTarget, Event, CustomEvent], native);
 `,
-		],
-		{ stdio: "pipe" },
-	);
+			],
+			{ stdio: "pipe" },
+		);
+	}
 }
 console.info(
 	"[verify:exports] Package exports and fresh Node initialization resolved successfully.",
