@@ -25,6 +25,31 @@ export {
 	type ActionButtonViewContext,
 	actionButtonView,
 } from "./action-button/action-button.view";
+export { appShellContract } from "./app-shell/app-shell.contract";
+export {
+	type AppShellCommands,
+	type AppShellStateName,
+	type AppShellStates,
+	appShellCommands,
+	appShellProjection,
+	createAppShellCore,
+	projectAppShell,
+} from "./app-shell/app-shell.core";
+export {
+	type AppShellFixtureInput,
+	appShellGallery,
+} from "./app-shell/app-shell.gallery";
+export {
+	type AppShellContext,
+	type AppShellEvent,
+	type AppShellInput,
+	appShellMachine,
+	normalizeReturnTo,
+} from "./app-shell/app-shell.source";
+export {
+	type AppShellViewContext,
+	appShellView,
+} from "./app-shell/app-shell.view";
 export type {
 	ComponentContract,
 	ContractCommand,
