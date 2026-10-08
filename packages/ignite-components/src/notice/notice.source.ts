@@ -40,12 +40,16 @@ export function isNoticeTone(value: string | null): value is NoticeTone {
 	return noticeTones.some((tone) => tone === value);
 }
 
-export function parseActions(value: string | null): string[] {
-	if (value === null || value.length === 0) return [];
-	return value
-		.split("\n")
+/** Trim each label and drop blanks. The same rule as setActions. */
+export function normalizeActions(actions: readonly string[]): string[] {
+	return actions
 		.map((label) => label.trim())
 		.filter((label) => label.length > 0);
+}
+
+export function parseActions(value: string | null): string[] {
+	if (value === null || value.length === 0) return [];
+	return normalizeActions(value.split("\n"));
 }
 
 export function toneWord(tone: NoticeTone): string {
@@ -108,7 +112,7 @@ export const noticeMachine = setup({
 	context: ({ input }) => ({
 		tone: input?.tone ?? "info",
 		message: input?.message ?? "",
-		actions: [...(input?.actions ?? [])],
+		actions: normalizeActions(input?.actions ?? []),
 		dismissible: input?.dismissible ?? false,
 		recoveryRequested: null,
 	}),

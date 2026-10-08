@@ -1,6 +1,7 @@
 // @vitest-environment node
 
 import { describe, expect, it } from "vitest";
+import { createActor } from "xstate";
 import {
 	assertFlagReasons,
 	assertGalleryCoversStates,
@@ -9,6 +10,7 @@ import { expectCloneable } from "../testing/host-seal";
 import { noticeContract } from "./notice.contract";
 import { createNoticeCore } from "./notice.core";
 import { type NoticeFixtureInput, noticeGallery } from "./notice.gallery";
+import { noticeMachine } from "./notice.source";
 
 async function show(input: NoticeFixtureInput) {
 	const core = createNoticeCore();
@@ -144,6 +146,18 @@ describe("Notice states", () => {
 			});
 		} finally {
 			core.dispose();
+		}
+	});
+
+	it("trims initial actions and drops blanks", () => {
+		const actor = createActor(noticeMachine, {
+			input: { actions: [" Retry ", " ", ""] },
+		});
+		actor.start();
+		try {
+			expect(actor.getSnapshot().context.actions).toEqual(["Retry"]);
+		} finally {
+			actor.stop();
 		}
 	});
 });
