@@ -32,17 +32,22 @@ export function exactQuery(value: string | null): string {
 }
 
 /** Trim, drop blanks, and keep the first copy of a repeated name. */
+export function normalizeFilterNames(names: readonly string[]): string[] {
+	const seen = new Set<string>();
+	const next: string[] = [];
+	for (const name of names) {
+		const trimmed = name.trim();
+		if (trimmed.length === 0 || seen.has(trimmed)) continue;
+		seen.add(trimmed);
+		next.push(trimmed);
+	}
+	return next;
+}
+
+/** Trim, drop blanks, and keep the first copy of a repeated name. */
 export function parseFilters(value: string | null): string[] {
 	if (value === null) return [];
-	const seen = new Set<string>();
-	const filters: string[] = [];
-	for (const part of value.split("\n")) {
-		const name = part.trim();
-		if (name.length === 0 || seen.has(name)) continue;
-		seen.add(name);
-		filters.push(name);
-	}
-	return filters;
+	return normalizeFilterNames(value.split("\n"));
 }
 
 export function activeWithin(
@@ -121,12 +126,12 @@ export const filterBarMachine = setup({
 	id: "filter-bar",
 	initial: "idle",
 	context: ({ input }) => {
-		const filters = input?.filters ? [...input.filters] : [];
+		const filters = normalizeFilterNames(input?.filters ?? []);
 		return {
 			label: input?.label?.trim() ? input.label : "Filter",
 			query: exactQuery(input?.query ?? ""),
 			filters,
-			active: activeWithin(filters, input?.active ? [...input.active] : []),
+			active: activeWithin(filters, normalizeFilterNames(input?.active ?? [])),
 		};
 	},
 	on: {

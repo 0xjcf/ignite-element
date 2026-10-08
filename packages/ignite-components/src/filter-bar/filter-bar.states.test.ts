@@ -1,6 +1,7 @@
 // @vitest-environment node
 
 import { describe, expect, it } from "vitest";
+import { createActor } from "xstate";
 import {
 	assertFlagReasons,
 	assertGalleryCoversStates,
@@ -12,6 +13,7 @@ import {
 	type FilterBarFixtureInput,
 	filterBarGallery,
 } from "./filter-bar.gallery";
+import { filterBarMachine } from "./filter-bar.source";
 
 function names(value: string): string[] {
 	return value.split("\n").filter((name) => name.length > 0);
@@ -95,6 +97,22 @@ describe("FilterBar states", () => {
 			})
 			.clear();
 		expect(sent).toEqual([{ type: "CLEAR" }]);
+	});
+
+	it("normalizes initial filters the same way as setFilters", () => {
+		const actor = createActor(filterBarMachine, {
+			input: {
+				filters: [" Type ", "Type", ""],
+				active: [" Type "],
+			},
+		});
+		actor.start();
+		try {
+			expect(actor.getSnapshot().context.filters).toEqual(["Type"]);
+			expect(actor.getSnapshot().context.active).toEqual(["Type"]);
+		} finally {
+			actor.stop();
+		}
 	});
 
 	it("records CLI and MCP on the contract and ships no host", () => {
