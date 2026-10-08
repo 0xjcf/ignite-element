@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>AppShell</title>
+		<style>
+			:root {
+				color: #1c1915;
+				background: #f7f4ee;
+				font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+			}
+			body { margin: 0; }
+			main {
+				box-sizing: border-box;
+				padding: 28px 24px 40px;
+				max-width: 960px;
+			}
+			h1 {
+				margin: 0 0 8px;
+				font-size: 1.6rem;
+				font-weight: 650;
+				letter-spacing: -0.02em;
+			}
+			.lede {
+				margin: 0 0 20px;
+				max-width: 40rem;
+				color: #4a453c;
+			}
+			h2 {
+				margin: 22px 0 0;
+				font-size: 0.78rem;
+				font-weight: 650;
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+				color: #4a453c;
+			}
+			.fixture { padding: 12px 0 16px; border-bottom: 1px solid #d9d2c5; }
+			.meta { margin: 0 0 8px; font-size: 0.85rem; color: #4a453c; }
+			a[slot="nav"] {
+				display: block;
+				padding: 0.35rem 0;
+				color: #1c1915;
+			}
+			@media (max-width: 640px) {
+				main { padding: 20px 16px 32px; }
+			}
+		</style>
+	</head>
+	<body>
+		<main>
+			<h1>AppShell</h1>
+			<p class="lede">
+				A frame with a skip link, a menu, and three slots. The app fills the nav, the page, and the side panel. This shell does not include Inspector, Log, or Workbench.
+			</p>
+			<div id="gallery"></div>
+		</main>
+		<script type="module" src="./app-shell.ts"></script>
+	</body>
+</html>
