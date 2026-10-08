@@ -46,6 +46,12 @@ export const emptyStateContract = {
 		{ name: "setTitle", kind: "configuration", attribute: "title" },
 		{ name: "setMessage", kind: "configuration", attribute: "message" },
 		{ name: "setActionLabel", kind: "configuration" },
+		{ name: "setFocusTarget", kind: "configuration" },
+		{
+			name: "setFocustarget",
+			kind: "configuration",
+			attribute: "focustarget",
+		},
 	],
 	events: ["act"],
 	slots: [],
@@ -66,4 +72,21 @@ export const emptyStateContract = {
 		cli: "M3",
 		mcp: "M3",
 	},
+	a11y: [
+		{
+			web: "After the primary action, focus moves to a defined target.",
+			cli: "Print the next suggested command.",
+			mcp: "focusTarget in the result.",
+		},
+		{
+			web: "Two empty states on one page use different ids.",
+			cli: "Instance id in the output.",
+			mcp: "instanceId in the result.",
+		},
+		{
+			web: "The primary action fires once.",
+			cli: "The suggested command is idempotent.",
+			mcp: "A repeat returns the first outcome.",
+		},
+	],
 } as const satisfies ComponentContract;

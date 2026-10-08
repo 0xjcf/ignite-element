@@ -1,5 +1,6 @@
 import { igniteCore } from "ignite-element/xstate";
 import type { SnapshotFrom } from "xstate";
+import type { HeadlessA11y } from "../contract";
 import {
 	type EmptyStateEvent,
 	type EmptyStateKind,
@@ -12,10 +13,12 @@ export type EmptyStateName = EmptyStateKind;
 
 export type EmptyStateStates = {
 	state: EmptyStateName;
+	instanceId: string;
 	title: string;
 	message: string;
 	actionLabel: string | null;
 	actionRequested: boolean;
+	focusTarget: string | null;
 	showAction: boolean;
 	showActionRefusal: string | null;
 	canAct: boolean;
@@ -26,6 +29,7 @@ export type EmptyStateStates = {
 	isFilteredRefusal: string | null;
 	isOutsideRange: boolean;
 	isOutsideRangeRefusal: string | null;
+	a11y: HeadlessA11y;
 };
 
 export type EmptyStateCommands = {
@@ -34,6 +38,9 @@ export type EmptyStateCommands = {
 	setMessage: (message: string | null) => void;
 	setActionLabel: (actionLabel: string | null) => void;
 	act: () => void;
+	setFocusTarget: (focusTarget: string | null) => void;
+	/** HTML lowercases `focusTarget`. Same setter. */
+	setFocustarget: (focusTarget: string | null) => void;
 };
 
 const NO_STEP = "There is no first step.";
@@ -54,12 +61,15 @@ export function projectEmptyState(
 	const actionRequested = snapshot.context.actionRequested && showAction;
 	const isFiltered = state === "filtered";
 	const isOutsideRange = state === "outside-range";
+	const focusTarget = snapshot.context.focusTarget;
 	return {
 		state,
+		instanceId: snapshot.context.instanceId,
 		title: snapshot.context.title,
 		message: snapshot.context.message,
 		actionLabel,
 		actionRequested,
+		focusTarget,
 		showAction,
 		showActionRefusal: showAction ? null : NO_STEP,
 		canAct: showAction,
@@ -70,6 +80,25 @@ export function projectEmptyState(
 		isFilteredRefusal: isFiltered ? null : NOT_FILTERED,
 		isOutsideRange,
 		isOutsideRangeRefusal: isOutsideRange ? null : NOT_OUTSIDE,
+		a11y: {
+			cli: actionRequested
+				? `next: ${focusTarget ?? snapshot.context.instanceId}`
+				: null,
+			mcp: {
+				value: snapshot.context.title,
+				tone: "neutral",
+				label: actionLabel ?? snapshot.context.title,
+				reason: null,
+				status: actionRequested ? "settled" : "quiet",
+				instanceId: snapshot.context.instanceId,
+				warnings: [],
+				focusTarget: actionRequested
+					? (focusTarget ?? snapshot.context.instanceId)
+					: null,
+				errors: [],
+				isError: false,
+			},
+		},
 	};
 }
 
@@ -97,6 +126,20 @@ export function emptyStateCommands(source: {
 		act: () => {
 			source.send({ type: "ACT" });
 		},
+		setFocusTarget: (focusTarget) => {
+			const next = focusTarget?.trim() ?? "";
+			source.send({
+				type: "SET_FOCUS_TARGET",
+				focusTarget: next.length > 0 ? next : null,
+			});
+		},
+		setFocustarget: (focusTarget) => {
+			const next = focusTarget?.trim() ?? "";
+			source.send({
+				type: "SET_FOCUS_TARGET",
+				focusTarget: next.length > 0 ? next : null,
+			});
+		},
 	};
 }
 
@@ -115,7 +158,7 @@ export function createEmptyStateCore() {
 		states: projectEmptyState,
 		commands: ({ source }) => emptyStateCommands(source),
 		events: (event) => ({
-			act: event<{ label: string }>(),
+			act: event<{ label: string; instanceId: string }>(),
 		}),
 	});
 }

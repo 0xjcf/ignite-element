@@ -12,10 +12,12 @@ export type EmptyStateInput = {
 };
 
 export type EmptyStateContext = {
+	instanceId: string;
 	title: string;
 	message: string;
 	actionLabel: string | null;
 	actionRequested: boolean;
+	focusTarget: string | null;
 	/** Consumed once so a later move back to empty does not bounce. */
 	startKind: EmptyStateKind;
 };
@@ -25,9 +27,20 @@ export type EmptyStateEvent =
 	| { type: "SET_TITLE"; title: string }
 	| { type: "SET_MESSAGE"; message: string }
 	| { type: "SET_ACTION_LABEL"; actionLabel: string | null }
+	| { type: "SET_FOCUS_TARGET"; focusTarget: string | null }
 	| { type: "ACT" };
 
-export type EmptyStateEmitted = { type: "act"; label: string };
+export type EmptyStateEmitted = {
+	type: "act";
+	label: string;
+	instanceId: string;
+};
+
+function createInstanceId(prefix: string): string {
+	const random =
+		globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
+	return `${prefix}-${random}`;
+}
 
 export function isEmptyStateKind(
 	value: string | null,
@@ -79,13 +92,19 @@ export const emptyStateMachine = setup({
 		announceAction: emit(({ context }) => ({
 			type: "act" as const,
 			label: context.actionLabel ?? "",
+			instanceId: context.instanceId,
 		})),
+		applyFocusTarget: assign({
+			focusTarget: ({ event }) =>
+				event.type === "SET_FOCUS_TARGET" ? event.focusTarget : null,
+		}),
 		clearStartKind: assign({
 			startKind: () => "empty",
 		}),
 	},
 	guards: {
-		hasAction: ({ context }) => context.actionLabel !== null,
+		canRequest: ({ context }) =>
+			context.actionLabel !== null && !context.actionRequested,
 		startFiltered: ({ context }) => context.startKind === "filtered",
 		startOutside: ({ context }) => context.startKind === "outside-range",
 		isFiltered: ({ event }) =>
@@ -98,16 +117,19 @@ export const emptyStateMachine = setup({
 	id: "empty-state",
 	initial: "empty",
 	context: ({ input }) => ({
+		instanceId: createInstanceId("empty"),
 		title: input?.title ?? "",
 		message: input?.message ?? "",
 		actionLabel: normalizeActionLabel(input?.actionLabel ?? null),
 		actionRequested: false,
+		focusTarget: null,
 		startKind: input?.kind ?? "empty",
 	}),
 	on: {
 		SET_TITLE: { actions: "applyTitle" },
 		SET_MESSAGE: { actions: "applyMessage" },
 		SET_ACTION_LABEL: { actions: "applyActionLabel" },
+		SET_FOCUS_TARGET: { actions: "applyFocusTarget" },
 	},
 	states: {
 		empty: {
@@ -137,7 +159,7 @@ export const emptyStateMachine = setup({
 					},
 				],
 				ACT: {
-					guard: "hasAction",
+					guard: "canRequest",
 					actions: ["requestAction", "announceAction"],
 				},
 			},
@@ -153,7 +175,7 @@ export const emptyStateMachine = setup({
 					},
 				],
 				ACT: {
-					guard: "hasAction",
+					guard: "canRequest",
 					actions: ["requestAction", "announceAction"],
 				},
 			},
@@ -165,7 +187,7 @@ export const emptyStateMachine = setup({
 					{ guard: "isFiltered", target: "filtered", actions: "clearRequest" },
 				],
 				ACT: {
-					guard: "hasAction",
+					guard: "canRequest",
 					actions: ["requestAction", "announceAction"],
 				},
 			},

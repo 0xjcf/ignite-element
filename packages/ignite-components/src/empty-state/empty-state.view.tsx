@@ -40,6 +40,26 @@ p { margin: 0; color: var(--catalog-fg); }
 }
 `;
 
+function focusDefinedTarget(event: Event, targetId: string | null) {
+	const current = event.currentTarget;
+	if (!(current instanceof HTMLElement)) return;
+	const root = current.getRootNode();
+	const doc = current.ownerDocument;
+	if (targetId) {
+		const external = doc.getElementById(targetId);
+		const internal =
+			root instanceof ShadowRoot ? root.getElementById(targetId) : null;
+		const found = external ?? internal;
+		if (found instanceof HTMLElement) {
+			if (found.tabIndex < 0) found.tabIndex = -1;
+			found.focus();
+			return;
+		}
+	}
+	const section = current.closest("section");
+	if (section instanceof HTMLElement) section.focus();
+}
+
 function kindWords(state: EmptyStateStates["state"]): string {
 	if (state === "filtered") return "Nothing matches";
 	if (state === "outside-range") return "Outside this range";
@@ -54,16 +74,22 @@ export function emptyStateView(ctx: EmptyStateViewContext): IgniteJsxElement {
 	return (
 		<>
 			<style>{styles}</style>
-			<section class="empty" aria-labelledby="empty-title">
+			<section
+				id={`${ctx.instanceId}-root`}
+				class="empty"
+				aria-labelledby={`${ctx.instanceId}-title`}
+				tabindex="-1"
+			>
 				<p class="kind">{kindWords(ctx.state)}</p>
-				<h2 id="empty-title">{ctx.title}</h2>
+				<h2 id={`${ctx.instanceId}-title`}>{ctx.title}</h2>
 				<p>{ctx.message}</p>
 				{ctx.showAction ? (
 					<button
 						type="button"
 						class="step"
-						onClick={() => {
-							if (ctx.canAct) ctx.act();
+						onClick={(event: Event) => {
+							ctx.act();
+							focusDefinedTarget(event, ctx.focusTarget ?? ctx.instanceId);
 						}}
 					>
 						{ctx.actionLabel}
