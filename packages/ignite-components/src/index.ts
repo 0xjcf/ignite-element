@@ -107,6 +107,34 @@ export {
 	normalizeOptional,
 } from "./field/field.source";
 export { type FieldViewContext, fieldView } from "./field/field.view";
+export { filterBarContract } from "./filter-bar/filter-bar.contract";
+export {
+	createFilterBarCore,
+	type FilterBarCommands,
+	type FilterBarStateName,
+	type FilterBarStates,
+	filterBarCommands,
+	filterBarProjection,
+	projectFilterBar,
+} from "./filter-bar/filter-bar.core";
+export {
+	type FilterBarFixtureInput,
+	filterBarGallery,
+} from "./filter-bar/filter-bar.gallery";
+export {
+	activeWithin,
+	exactQuery,
+	type FilterBarContext,
+	type FilterBarEvent,
+	type FilterBarInput,
+	filterBarMachine,
+	parseFilters,
+	toggled,
+} from "./filter-bar/filter-bar.source";
+export {
+	type FilterBarViewContext,
+	filterBarView,
+} from "./filter-bar/filter-bar.view";
 export { noticeContract } from "./notice/notice.contract";
 export {
 	createNoticeCore,
