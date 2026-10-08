@@ -27,8 +27,10 @@ export type AppShellEvent =
 export type AppShellEmitted = { type: "return-request"; returnTo: string };
 
 export function normalizeReturnTo(value: string | null): string | null {
-	if (value === null || value.length === 0) return null;
-	return value;
+	if (value === null) return null;
+	const trimmed = value.trim();
+	if (trimmed.length === 0) return null;
+	return trimmed;
 }
 
 /**

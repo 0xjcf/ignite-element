@@ -72,6 +72,34 @@ describe("AppShell states", () => {
 		}
 	});
 
+	it("treats a whitespace return target as absent", async () => {
+		const core = createAppShellCore();
+		const requests: string[] = [];
+		core.on("return-request", (event) => {
+			requests.push(event.returnTo);
+		});
+		try {
+			core.watch(() => {});
+			await core.execute({ command: "setReturnTo", input: "  \n  " });
+			expect(core.get("states")).toMatchObject({
+				returnTo: null,
+				canReturn: false,
+				showReturn: false,
+				canReturnRefusal: "There is no return target.",
+			});
+			await core.execute({ command: "requestReturn" });
+			expect(requests).toEqual([]);
+			expect(core.get("states").isReturnRequested).toBe(false);
+			await core.execute({ command: "setReturnTo", input: "  Capture  " });
+			expect(core.get("states")).toMatchObject({
+				returnTo: "Capture",
+				canReturn: true,
+			});
+		} finally {
+			core.dispose();
+		}
+	});
+
 	it("does not request a return when there is no target", async () => {
 		const core = createAppShellCore();
 		try {
