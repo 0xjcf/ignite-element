@@ -86,7 +86,7 @@ describe("ExportButton states", () => {
 			blank.stop();
 		}
 
-		const actor = createActor(exportButtonMachine);
+		const actor = createActor(exportButtonMachine, { input: {} });
 		actor.start();
 		try {
 			actor.send({ type: "EXPORT" });
