@@ -38,6 +38,9 @@ jobs:
       - name: Typecheck packages
         run: pnpm run typecheck:packages
 
+      - name: Typecheck catalog components
+        run: pnpm --filter @ignite-element/components typecheck
+
       - name: Build packages
         run: pnpm run build
 
@@ -52,11 +55,11 @@ jobs:
       - name: Run tests and generate coverage
         run: pnpm run test:coverage
 
-      # ignite-element is already covered by test:coverage above. Every other
-      # packages/* test script runs here. --if-present keeps the step green
-      # until one exists; @ignite-element/devtools is included once it lands.
-      - name: Run package tests outside ignite-element
-        run: pnpm --filter "./packages/**" --filter '!ignite-element' --if-present test
+      # ignite-element and @ignite-element/components are already covered by
+      # test:coverage above. Every other packages/* test script runs here.
+      # --if-present keeps the step green until one exists.
+      - name: Run package tests outside coverage
+        run: pnpm --filter "./packages/**" --filter '!ignite-element' --filter '!@ignite-element/components' --if-present test
 
       - name: Run script tests
         run: pnpm run test:scripts
@@ -68,7 +71,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: true
-          files: ./packages/ignite-element/coverage/clover.xml
+          files: ./packages/ignite-element/coverage/clover.xml,./packages/ignite-components/coverage/clover.xml
           flags: unittests
           verbose: true
 
