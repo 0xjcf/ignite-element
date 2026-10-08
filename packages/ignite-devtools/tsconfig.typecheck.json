@@ -1,0 +1,17 @@
+{
+	"extends": "../../configs/tsconfig/base.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"types": ["node"],
+		"paths": {
+			"ignite-element/xstate": ["../ignite-element/src/xstate.ts"],
+			"@ignite-element/core": ["../ignite-core/src/index.ts"],
+			"@ignite-element/adapters": ["../ignite-adapters/src/index.ts"],
+			"@ignite-element/adapters/*": ["../ignite-adapters/src/*"],
+			"@ignite-element/renderer": ["../ignite-renderer/src/index.ts"],
+			"@ignite-element/renderer/*": ["../ignite-renderer/src/*"]
+		}
+	},
+	"include": ["src"]
+}

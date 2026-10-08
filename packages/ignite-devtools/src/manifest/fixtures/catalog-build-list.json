@@ -1,0 +1,1914 @@
+{
+  "schema": "ignite-catalog-build-list/v1 (proposed)",
+  "generated": "2026-10-08",
+  "package": {
+    "name": "@ignite-element/components",
+    "decision": "Separate package, not a core subpath (Jose, Oct 8 2026, open question 12).",
+    "workspacePath": "packages/ignite-components (proposed; Jose suggested packages/components; pnpm-workspace.yaml globs packages/*)",
+    "versioning": "Own 0.x line, outside the changesets fixed group; private (0.0.0, unpublished) until its first 0.x release.",
+    "peerDependencies": {
+      "ignite-element": ">=3.0.0-beta.18",
+      "xstate": ">=5.19.0 (proposed)"
+    },
+    "importPath": "@ignite-element/components"
+  },
+  "naming": "Plain PascalCase names, no prefix. Tag names are chosen where the app registers the element (see plan §4 \"Tag names\").",
+  "requirement": "Every component is built with ignite-element@3.0.0-beta.18: an igniteCore source from ignite-element/xstate (ports bound with XState .provide()) plus ignite-element projections (web custom element; useIgnite only where a consuming app is React; CLI and MCP through igniteTools). No React-only or Lit-only components.",
+  "rules": {
+    "wave1": "Used by 2+ consumer apps (DevTools counts as an app), or blocks DevTools M1.",
+    "wave2": "DevTools-only, needed for M2-M5.",
+    "wave3": "Used by one product app only; built inside that app with ignite-element; stays app-local.",
+    "orderWithinWave": "Consumer count (desc), then dependency depth (primitives first).",
+    "graduation": "A component moves into @ignite-element/components when a second app uses it. Until then it lives with its only consumer."
+  },
+  "definitionOfDone": [
+    "source + headless boot test",
+    "contract",
+    "gallery preview (every declared state)",
+    "tests (headless states, DOM, a11y)",
+    "surfaces (web, PWA, CLI/MCP only where it maps to a command)"
+  ],
+  "statusVocabulary": {
+    "v8-preview": "v8 preview (static mock, example checks)",
+    "v8-workbench-mock": "mock only (v8 workbench)",
+    "devtools-mock": "mock only (earlier DevTools or catalog mocks, v2 to v8)",
+    "app-mock": "mock only (app static mocks)",
+    "plan-only": "not started (plan only)"
+  },
+  "evidenceRoots": {
+    "plan": "ignite-devtools/plans/ignite-devtools-implementation-plan.md (Oct 7 version)",
+    "v8": "ignite-devtools/v8/src/data.js",
+    "v8r": "ignite-devtools/v8/README.md",
+    "v7": "ignite-devtools/v7/booster-budget-capability-inventory.json",
+    "bbrev": "research/booster-budget-pr3/review.md",
+    "bbm": "booster-budget/experiments/budget-assistant-mocks/",
+    "twrev": "research/twilight-pr20/review.md",
+    "tw": "twilight PR #21 @ ee5e7a7: docs/living-specs/twilight/"
+  },
+  "summary": {
+    "total": 50,
+    "byWave": {
+      "1": 25,
+      "2": 9,
+      "3": 16
+    },
+    "wave1Shared": 20,
+    "wave1DevtoolsLocal": 5,
+    "byConsumer": {
+      "DevTools": 25,
+      "Twilight": 19,
+      "Booster Budget": 32
+    },
+    "byConsumerCount": {
+      "3": 6,
+      "2": 14,
+      "1": 30
+    },
+    "appLocal": {
+      "DevTools": 14,
+      "Twilight": 4,
+      "Booster Budget": 12
+    },
+    "byStatus": {
+      "v8-preview": 6,
+      "v8-workbench-mock": 9,
+      "devtools-mock": 3,
+      "app-mock": 30,
+      "plan-only": 2
+    }
+  },
+  "components": [
+    {
+      "name": "StatusPill",
+      "wave": 1,
+      "milestone": "M1a",
+      "scope": "shared",
+      "purpose": "Short text label for where something stands, with an optional reason (tone never carries meaning alone).",
+      "merges": [
+        "Badge / ReasonBadge (v8)",
+        "SurfaceTag (plan M1)",
+        "Twilight placement badge",
+        "Booster reviewed-input / preview badge"
+      ],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Connection state, event surface tags (web/pwa/cli/mcp/workbench), catalog statuses, finding types",
+          "cite": "plan §3 table rows M1 and M5"
+        },
+        {
+          "app": "Twilight",
+          "where": "Task card placement badge and status line (Saved / In Today / Done)",
+          "cite": "tw assets/assisted.js:860, :1719"
+        },
+        {
+          "app": "Booster Budget",
+          "where": "Period chip, reviewed-input badge, preview badge",
+          "cite": "bbm observed-parts.md:8, :16"
+        }
+      ],
+      "source": "statusPill machine (isolated per element): value, tone, reason. Display only, no commands of its own.",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "text label in command output",
+        "mcp": "n/a (rendered as a field in structured results)"
+      },
+      "status": "v8-preview",
+      "depends": [],
+      "consumerCount": 3,
+      "statusLabel": "v8 preview (static mock, example checks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 0,
+      "rank": 1
+    },
+    {
+      "name": "ActionButton",
+      "wave": 1,
+      "milestone": "M1a",
+      "scope": "shared",
+      "purpose": "Button bound to one command and its can* flag: shows a visible reason when unavailable, an inline pending label while the operation runs, and stays focusable (aria-disabled).",
+      "merges": [
+        "Button-with-reason",
+        "pending button (Saving… / Adding… / Starting…)",
+        "held Save naming the original Task (TW-F05)",
+        "Done button labelled with the finish line"
+      ],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Workbench commands, pause/resume/clear/export, guard-off refusal shown as a disabled button with reason",
+          "cite": "plan §6 M3 \"Done when\"; plan §3 sources table (canPause, canClear)"
+        },
+        {
+          "app": "Twilight",
+          "where": "Save / Add to Today / Start 5 minutes / Done with visible disabled reasons and inline pending labels",
+          "cite": "tw assets/assisted.js:2768-2776, :935-942; twrev §5 and §6 (:336)"
+        },
+        {
+          "app": "Booster Budget",
+          "where": "Apply and form actions; disabled controls carry visible reasons",
+          "cite": "bbm observed-parts.md:16; bbrev §5 (disabled Back looks enabled), §6 item 7"
+        }
+      ],
+      "source": "actionButton machine (isolated): idle | pending | unavailable(reason). Reads the host core's can* flag and reason; never decides permission (guards stay in the host source).",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "n/a itself; the bound command is the CLI verb (exit code on refusal)",
+        "mcp": "n/a itself; the bound command is the MCP tool (isError on refusal)"
+      },
+      "status": "app-mock",
+      "depends": [],
+      "consumerCount": 3,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 0,
+      "rank": 2
+    },
+    {
+      "name": "AppShell",
+      "wave": 1,
+      "milestone": "M1a (minimal)",
+      "scope": "shared",
+      "purpose": "Frame of the app: navigation (sidebar on desktop, menu or tabs on mobile), skip link, main area, optional side panel.",
+      "merges": [
+        "DevTools dock",
+        "Twilight workspace rail + mobile four-tab nav",
+        "Booster sidebar + mobile menu"
+      ],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "In-page dock and panel layout (Inspector, Log, Workbench, Surfaces, Catalog)",
+          "cite": "plan §3 table row M1; plan §6 M1 scope"
+        },
+        {
+          "app": "Twilight",
+          "where": "Desktop workspace rail + right inspector; mobile four-tab navigation",
+          "cite": "tw README.md (MVP coverage section, \"Desktop keeps Twilight’s workspace rail\")"
+        },
+        {
+          "app": "Booster Budget",
+          "where": "Workspace navigation, skip link, mobile menu; one sidebar IA across pages",
+          "cite": "bbm docs/living-specs/household-component-inventory.md:7; bbrev §6 item 12"
+        }
+      ],
+      "source": "shell machine (isolated per app): activeRoute, menuOpen, returnTo. Routing policy stays in the app.",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed (installed shell, offline badge)",
+        "cli": "n/a",
+        "mcp": "n/a"
+      },
+      "status": "app-mock",
+      "depends": [],
+      "consumerCount": 3,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 0,
+      "rank": 3
+    },
+    {
+      "name": "EmptyState",
+      "wave": 1,
+      "milestone": "M1a",
+      "scope": "shared",
+      "purpose": "Friendly message plus one first step when there is nothing to show yet.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "No runtime attached; empty event log; nothing matches the filter",
+          "cite": "plan §3 table row M1"
+        },
+        {
+          "app": "Twilight",
+          "where": "Empty Today (\"capacity 0/3\") and empty capture",
+          "cite": "tw data/assisted-contract.json screens.assist-today/assist-capture presets \"empty\"; assets/assisted.js:1373"
+        },
+        {
+          "app": "Booster Budget",
+          "where": "No-activity and outside-horizon messages (calendar, lists)",
+          "cite": "bbm docs/living-specs/mvp-component-inventory.md:12"
+        }
+      ],
+      "source": "emptyState machine (isolated): kind (empty | filtered | outside-range), primary action command.",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "one-line message + suggested command",
+        "mcp": "n/a"
+      },
+      "status": "v8-preview",
+      "depends": [
+        "ActionButton"
+      ],
+      "consumerCount": 3,
+      "statusLabel": "v8 preview (static mock, example checks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 4
+    },
+    {
+      "name": "Notice",
+      "wave": 1,
+      "milestone": "M1a",
+      "scope": "shared",
+      "purpose": "Inline or banner message about a state (info, warning, error, stale, AI off) with optional recovery actions.",
+      "merges": [
+        "InlineWarning (v8)",
+        "ErrorState + Retry (v8)",
+        "reconnect banner",
+        "status/recovery notice",
+        "last-known-data banner"
+      ],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Reconnect banner, stale inspector, ErrorState + Retry",
+          "cite": "plan §3 sources table (showReconnectBanner, isStale); plan §3 table row M3"
+        },
+        {
+          "app": "Twilight",
+          "where": "\"Which Friday?\", empty-thought error, suggestions unavailable",
+          "cite": "tw assets/assisted.js:900, :914, :916"
+        },
+        {
+          "app": "Booster Budget",
+          "where": "State notice with recovery/manual links (stale forecast, uncertain income, AI off); last-known-data banner",
+          "cite": "bbm docs/living-specs/household-component-inventory.md:15; observed-parts.md:38"
+        }
+      ],
+      "source": "notice machine (isolated): tone, message, actions[], dismissible. The host source decides the reason; the notice only shows it.",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "stderr line / warning field",
+        "mcp": "warning field in structured result"
+      },
+      "status": "app-mock",
+      "depends": [
+        "ActionButton"
+      ],
+      "consumerCount": 3,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 5
+    },
+    {
+      "name": "PageHeader",
+      "wave": 1,
+      "milestone": "M2",
+      "scope": "shared",
+      "purpose": "Page title with a back link, context line and at most one primary action.",
+      "merges": [
+        "Twilight route-line",
+        "Booster header / breadcrumb"
+      ],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Panel headers in the workbench and catalog",
+          "cite": "plan §3 table row M2"
+        },
+        {
+          "app": "Twilight",
+          "where": "Route line: Back + screen title",
+          "cite": "tw assets/assisted.js:2849"
+        },
+        {
+          "app": "Booster Budget",
+          "where": "Header / breadcrumb / context chip",
+          "cite": "bbm docs/living-specs/mvp-component-inventory.md:7"
+        }
+      ],
+      "source": "pageHeader machine (isolated): title, backTarget, primary action command.",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "n/a",
+        "mcp": "n/a"
+      },
+      "status": "app-mock",
+      "depends": [
+        "ActionButton"
+      ],
+      "consumerCount": 3,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 6
+    },
+    {
+      "name": "Field",
+      "wave": 1,
+      "milestone": "M1a",
+      "scope": "shared",
+      "purpose": "Labelled text input or textarea with hint and a linked inline error that clears when corrected; keeps the exact draft.",
+      "merges": [
+        "TextField (v8)",
+        "linked validation message"
+      ],
+      "consumers": [
+        {
+          "app": "Twilight",
+          "where": "Thought textarea; Task title and \"Finished when…\" with inline errors (TW-F03)",
+          "cite": "tw assets/assisted.js:981, :1089; ASSISTED-WORKFLOW-CORRECTIONS.md:11"
+        },
+        {
+          "app": "Booster Budget",
+          "where": "Entry forms with linked validation/error message and persistent field cue",
+          "cite": "bbm docs/living-specs/mvp-component-inventory.md:7; specialist-observed-components.md:8"
+        }
+      ],
+      "candidates": [
+        {
+          "app": "DevTools",
+          "where": "Search box inside FilterBar",
+          "cite": "inferred from plan eventLog filter",
+          "inferred": true
+        }
+      ],
+      "source": "field machine (isolated): value, touched, error, required. Validation rules come from the host source.",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "flag / prompt",
+        "mcp": "tool input property (schema from the host command)"
+      },
+      "status": "app-mock",
+      "depends": [],
+      "consumerCount": 2,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "depDepth": 0,
+      "rank": 7
+    },
+    {
+      "name": "Tabs",
+      "wave": 1,
+      "milestone": "M1a",
+      "scope": "shared",
+      "purpose": "Switch between a few related views in place (tabs or segmented control).",
+      "merges": [
+        "segmented control (Month / Two weeks / Week)"
+      ],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Panel switcher; Contract / Gallery / Controls tabs",
+          "cite": "plan §3 table row M1"
+        },
+        {
+          "app": "Booster Budget",
+          "where": "Calendar period selector and Calendar/Agenda toggle",
+          "cite": "bbrev §3 row 3; bbm docs/living-specs/mvp-component-inventory.md:12"
+        }
+      ],
+      "source": "tabs machine (isolated): items, active.",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "n/a",
+        "mcp": "n/a"
+      },
+      "status": "app-mock",
+      "depends": [],
+      "consumerCount": 2,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 0,
+      "rank": 8
+    },
+    {
+      "name": "BeforeAfter",
+      "wave": 1,
+      "milestone": "M1b",
+      "scope": "shared",
+      "purpose": "Show named values before and after a change, highlighting what changed.",
+      "merges": [
+        "DiffView (plan M2)",
+        "what-if before/after table"
+      ],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Inspector diff of previous vs current states; flag delta per transition",
+          "cite": "plan §3 sources table (inspector: showDiff); plan §6 M1 \"Done when\""
+        },
+        {
+          "app": "Booster Budget",
+          "where": "What-if before/after ($900→$960) with explicit Apply",
+          "cite": "bbrev §3 row 8; v7 families f8 aiOff"
+        }
+      ],
+      "source": "beforeAfter machine (isolated): rows[{label, before, after}], showUnchanged.",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "table output",
+        "mcp": "structured content"
+      },
+      "status": "app-mock",
+      "depends": [],
+      "consumerCount": 2,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 0,
+      "rank": 9
+    },
+    {
+      "name": "DateField",
+      "wave": 1,
+      "milestone": "M2b",
+      "scope": "shared",
+      "purpose": "Pick or type one local date, clear it, and keep due / cash / posted / as-of dates distinctly labelled.",
+      "merges": [
+        "DateField (v8)"
+      ],
+      "consumers": [
+        {
+          "app": "Twilight",
+          "where": "Due date with clear and focus return (TW-F07, C05.calendar / C05.clear)",
+          "cite": "tw ASSISTED-WORKFLOW-CORRECTIONS.md:15; data/assisted-contract.json screens.assist-review stories"
+        },
+        {
+          "app": "Booster Budget",
+          "where": "Local-date fields; due, cash, posted and as-of dates",
+          "cite": "bbm docs/living-specs/mvp-component-inventory.md:7; household-component-inventory.md:11"
+        }
+      ],
+      "source": "dateField machine (isolated): value (ISO local date), timezone, min/max, cleared. Timezone is never defaulted silently (bbrev §6 item 11).",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "--date flag (ISO)",
+        "mcp": "tool input property"
+      },
+      "status": "app-mock",
+      "depends": [
+        "Field"
+      ],
+      "consumerCount": 2,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 10
+    },
+    {
+      "name": "FilterBar",
+      "wave": 1,
+      "milestone": "M1a",
+      "scope": "shared",
+      "purpose": "Narrow a list by type, text, status or date, with a visible \"clear filters\".",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Event log filters (type, surface, runtime)",
+          "cite": "plan §3 sources table (eventLog: filter, isFiltered)"
+        },
+        {
+          "app": "Booster Budget",
+          "where": "Filter/sort on lists",
+          "cite": "bbm docs/living-specs/mvp-component-inventory.md:9"
+        }
+      ],
+      "source": "filterBar machine (isolated): activeFilters, query.",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "--filter flags",
+        "mcp": "tool input property"
+      },
+      "status": "app-mock",
+      "depends": [
+        "Field"
+      ],
+      "consumerCount": 2,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 11
+    },
+    {
+      "name": "ExportButton",
+      "wave": 1,
+      "milestone": "M1a",
+      "scope": "shared",
+      "purpose": "Download data as a file (JSON first) with an honest pending / failed state.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Export the event log as JSON (M1 done-when), export catalog.json",
+          "cite": "plan §6 M1 \"Done when\"; plan §3 table row M4"
+        },
+        {
+          "app": "Booster Budget",
+          "where": "Privacy and data controls: export",
+          "cite": "bbrev §3 row 11; bbm data-controls.html"
+        }
+      ],
+      "source": "export machine (isolated): idle | preparing | ready | failed; port Download bound via .provide().",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "writes file, exit code",
+        "mcp": "returns structured content"
+      },
+      "status": "app-mock",
+      "depends": [
+        "ActionButton"
+      ],
+      "consumerCount": 2,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 12
+    },
+    {
+      "name": "DataTable",
+      "wave": 1,
+      "milestone": "M2",
+      "scope": "shared",
+      "purpose": "Accessible table with real headers and captions; sort and select where needed.",
+      "merges": [
+        "ParityTable (plan M3)",
+        "CatalogStatusRow (plan M5)",
+        "Booster semantic / source table"
+      ],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Catalog panel rows, Surfaces parity table, findings list",
+          "cite": "plan §3 table rows M3, M4, M5"
+        },
+        {
+          "app": "Booster Budget",
+          "where": "Planned events, comparison, expected bills; inspectable source table",
+          "cite": "bbm observed-parts.md:13; docs/living-specs/household-component-inventory.md:10"
+        }
+      ],
+      "source": "dataTable machine (isolated): columns, rows, sort, selection.",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "table / --json",
+        "mcp": "structured content"
+      },
+      "status": "app-mock",
+      "depends": [
+        "StatusPill"
+      ],
+      "consumerCount": 2,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 13
+    },
+    {
+      "name": "Dialog",
+      "wave": 1,
+      "milestone": "M2b",
+      "scope": "shared",
+      "purpose": "Native modal for a choice or help: focus trap, Escape, focus back to the opener.",
+      "merges": [
+        "ConfirmDialog (v8)",
+        "leave/keep-draft dialog",
+        "scoped help dialog"
+      ],
+      "consumers": [
+        {
+          "app": "Twilight",
+          "where": "Scoped \"Help with this step\" modal",
+          "cite": "tw assets/assisted.js:965, :2987; twrev §5 positives"
+        },
+        {
+          "app": "Booster Budget",
+          "where": "Keep/Discard draft on navigation; source/draft review dialog",
+          "cite": "bbm docs/living-specs/specialist-observed-components.md:7; household-component-inventory.md:14; observed-parts.md:15"
+        }
+      ],
+      "source": "dialog machine (isolated): closed | open(reason) ; result keep | discard | cancel.",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "interactive prompt",
+        "mcp": "n/a (user decision)"
+      },
+      "status": "app-mock",
+      "depends": [
+        "ActionButton"
+      ],
+      "consumerCount": 2,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 14
+    },
+    {
+      "name": "ChoiceGroup",
+      "wave": 1,
+      "milestone": "M2b",
+      "scope": "shared",
+      "purpose": "One explicit question with 2 to 4 answers (including \"Not sure\") that advances on selection.",
+      "merges": [
+        "Twilight spare question",
+        "Booster scope chooser (this occurrence / this and future)",
+        "purchase vs card payment selector"
+      ],
+      "consumers": [
+        {
+          "app": "Twilight",
+          "where": "Is there a spare? Yes / No / Not sure",
+          "cite": "tw assets/assisted.js:1026-1029; twrev §3 rows 4-5"
+        },
+        {
+          "app": "Booster Budget",
+          "where": "Explicit scope chooser for recurring edits; purchase vs payment selector",
+          "cite": "bbm docs/living-specs/household-component-inventory.md:12; v7 families f6 and f4 aiOff"
+        }
+      ],
+      "source": "question machine (isolated): unanswered | answered(value) | changed.",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "flag or prompt",
+        "mcp": "read-only: the model may ask, never answer for the user (v7 surfaces reason)"
+      },
+      "status": "app-mock",
+      "depends": [
+        "ActionButton"
+      ],
+      "consumerCount": 2,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 15
+    },
+    {
+      "name": "AssumptionChip",
+      "wave": 1,
+      "milestone": "M2b",
+      "scope": "shared",
+      "purpose": "A guessed value shown dashed until the person confirms, changes or clears it; can offer candidate values (e.g. which Friday).",
+      "merges": [
+        "Twilight dashed \"by Friday\" guess + \"Which Friday?\" date choices",
+        "Booster assumption chip (unconfirmed income)",
+        "Proposal<T>.assumptions"
+      ],
+      "consumers": [
+        {
+          "app": "Twilight",
+          "where": "Due date guessed from \"by Friday\", on the replacement step; This Friday / Next Friday / No date",
+          "cite": "tw assets/assisted.js:900, :903, :1719; README.md (top, PR #21 revision)"
+        },
+        {
+          "app": "Booster Budget",
+          "where": "Unconfirmed $1,600 income as a dashed tappable chip; assumption conditions on the answer",
+          "cite": "bbrev §3 row 7 and §7 P0 item 1; v7 proposal.typescript (Assumption<T>), conditionalAnswer.conditions"
+        }
+      ],
+      "source": "assumption machine (isolated or child of the proposal actor): assumed | confirmed | changed | cleared; fields field, value, why, candidates[].",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "shown as \"assumed\" in output; confirm via flag",
+        "mcp": "read-only (assistant can cite assumptions, cannot confirm)"
+      },
+      "status": "app-mock",
+      "depends": [
+        "StatusPill",
+        "ChoiceGroup",
+        "ActionButton"
+      ],
+      "consumerCount": 2,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 2,
+      "rank": 16
+    },
+    {
+      "name": "Composer",
+      "wave": 1,
+      "milestone": "M2b",
+      "scope": "shared",
+      "purpose": "Text box that hands a thought or question to the assistant, keeps unsent text, and shows unavailable / AI-off honestly.",
+      "merges": [
+        "Twilight capture box",
+        "Booster \"Ask your budget\" composer"
+      ],
+      "consumers": [
+        {
+          "app": "Twilight",
+          "where": "Capture a thought → Continue",
+          "cite": "tw data/assisted-contract.json screens.assist-capture; assets/assisted.js:981"
+        },
+        {
+          "app": "Booster Budget",
+          "where": "Conversation composer; retains unsent text",
+          "cite": "bbm docs/living-specs/assistant-mock-iteration.md:44; household-component-inventory.md:17"
+        }
+      ],
+      "source": "composer machine (isolated): draft, submitting, unavailable, aiOff. Model port bound via .provide(); no port when AI is off.",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed (draft kept offline)",
+        "cli": "stdin / argument",
+        "mcp": "n/a (the MCP client is the composer)"
+      },
+      "status": "app-mock",
+      "depends": [
+        "Field",
+        "ActionButton",
+        "Notice"
+      ],
+      "consumerCount": 2,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 2,
+      "rank": 17
+    },
+    {
+      "name": "ConsentGate",
+      "wave": 1,
+      "milestone": "M2b",
+      "scope": "shared",
+      "purpose": "Ask once before any assistant use; show \"Suggestions: on/off\" visibly; off by default until consent; withdraw anytime.",
+      "merges": [
+        "AI-off toggle",
+        "consent step"
+      ],
+      "consumers": [
+        {
+          "app": "Twilight",
+          "where": "Consent preset; \"Suggestions: on/off\" group; consent defaults to false",
+          "cite": "tw assets/assisted.js:69-71, :933; data/assisted-contract.json screens.assist-capture presets"
+        },
+        {
+          "app": "Booster Budget",
+          "where": "AI-off mode and first-use consent consistent with Settings / Privacy",
+          "cite": "v7 capabilities cap.ai.toggle; bbrev §3 row 11 and §7 P0 item 4"
+        }
+      ],
+      "source": "consent machine (shared per app): unasked | granted | declined | withdrawn.",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "needed (explicit flag)",
+        "mcp": "n/a: the model must not switch itself on (v7 cap.ai.toggle)"
+      },
+      "status": "app-mock",
+      "depends": [
+        "ActionButton",
+        "Notice"
+      ],
+      "consumerCount": 2,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 2,
+      "rank": 18
+    },
+    {
+      "name": "OperationReceipt",
+      "wave": 1,
+      "milestone": "M2b",
+      "scope": "shared",
+      "purpose": "Honest result of one operation: pending, success, failure, unknown, conflict; retry the same operation; check an unknown result.",
+      "merges": [
+        "Twilight Recovery card",
+        "Booster operation receipt / recovery"
+      ],
+      "consumers": [
+        {
+          "app": "Twilight",
+          "where": "Recovery: pending / failure / unknown / conflict / success / unavailable; retry same reviewed operation",
+          "cite": "tw data/assisted-contract.json screens.assist-recovery; assets/assisted.js:1850-1890"
+        },
+        {
+          "app": "Booster Budget",
+          "where": "Operation receipt and recovery; same operation id, unknown and lookup",
+          "cite": "bbm docs/living-specs/assistant-mock-iteration.md:49; v7 cap.operation.status/retry/cancel; bbrev §3 row 12"
+        }
+      ],
+      "source": "operation actor (shared, borrowed from the app): operationId, owner, status; retry reuses operationId.",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed (outbox replay)",
+        "cli": "needed: status + exit code",
+        "mcp": "read-only status (v7 cap.operation.status)"
+      },
+      "status": "app-mock",
+      "depends": [
+        "Notice",
+        "ActionButton",
+        "StatusPill"
+      ],
+      "consumerCount": 2,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 2,
+      "rank": 19
+    },
+    {
+      "name": "ProposalReview",
+      "wave": 1,
+      "milestone": "M2b",
+      "scope": "shared",
+      "purpose": "Review one proposed record (Proposal<T>): editable fields, visible assumptions, missing fields, consequence, then one explicit confirm. Manual / AI-off mode is the same form, prefilled from what the person already typed.",
+      "merges": [
+        "Twilight proposal / confirm pane",
+        "Booster proposal review (5 kinds) + assistant review",
+        "AI-off form prefill"
+      ],
+      "consumers": [
+        {
+          "app": "Twilight",
+          "where": "Review one Task: title, \"Finished when…\", due date, Save; manual mode prefilled from the thought",
+          "cite": "tw data/assisted-contract.json screens.assist-review; assets/assisted.js:1089-1095, :113-116, :2543"
+        },
+        {
+          "app": "Booster Budget",
+          "where": "proposal-review.html for dining, transfer, refund, recurrence, reconcile; Proposal<T> lifecycle",
+          "cite": "bbrev §1 and §4; bbm docs/living-specs/assistant-mock-iteration.md:46; v7 proposal.lifecycle and proposal.users"
+        }
+      ],
+      "source": "proposal actor (isolated per proposal): proposed | resolving | confirmed | rejected | admitted | refused. canConfirmProposal = no missing fields and status proposed (v7 proposal.typescript).",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "needed: confirm/reject with explicit flags (no sentence parsing)",
+        "mcp": "propose only; confirm is a user decision (v7 surfaces reasons)"
+      },
+      "status": "app-mock",
+      "depends": [
+        "Field",
+        "DateField",
+        "AssumptionChip",
+        "ActionButton",
+        "OperationReceipt"
+      ],
+      "consumerCount": 2,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 3,
+      "rank": 20
+    },
+    {
+      "name": "JsonView",
+      "wave": 1,
+      "milestone": "M1b",
+      "scope": "app-local: DevTools",
+      "purpose": "Collapsible, redacted JSON for payloads, manifests and exports.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Event detail, manifest, export preview",
+          "cite": "plan §3 table row M1"
+        }
+      ],
+      "source": "none of its own (display machine)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "n/a",
+        "cli": "needed (devtools CLI reads the same source)",
+        "mcp": "optional (read-only inspection tools)"
+      },
+      "status": "v8-workbench-mock",
+      "depends": [],
+      "consumerCount": 1,
+      "statusLabel": "mock only (v8 workbench)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 0,
+      "rank": 21
+    },
+    {
+      "name": "StateInspector",
+      "wave": 1,
+      "milestone": "M1b",
+      "scope": "app-local: DevTools",
+      "purpose": "Current projected states of the selected runtime, with flags and the last diff.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Inspector panel",
+          "cite": "plan §3 table row M1"
+        }
+      ],
+      "source": "inspector source (plan §3)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "n/a",
+        "cli": "needed (devtools CLI reads the same source)",
+        "mcp": "optional (read-only inspection tools)"
+      },
+      "status": "v8-workbench-mock",
+      "depends": [
+        "StatusPill"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "mock only (v8 workbench)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 22
+    },
+    {
+      "name": "EventLogList",
+      "wave": 1,
+      "milestone": "M1b",
+      "scope": "app-local: DevTools",
+      "purpose": "Bounded, filterable, pausable list of states/events/commands tagged by surface, with dropped count.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Event log panel",
+          "cite": "plan §3 table row M1"
+        }
+      ],
+      "source": "eventLog source (plan §3)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "n/a",
+        "cli": "needed (devtools CLI reads the same source)",
+        "mcp": "optional (read-only inspection tools)"
+      },
+      "status": "v8-workbench-mock",
+      "depends": [
+        "StatusPill"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "mock only (v8 workbench)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 23
+    },
+    {
+      "name": "FlagChips",
+      "wave": 1,
+      "milestone": "M1b",
+      "scope": "app-local: DevTools",
+      "purpose": "can* / show* / is* flags as chips with value and reason.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Inspector and workbench",
+          "cite": "plan §3 table row M1"
+        }
+      ],
+      "source": "inspector source",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "n/a",
+        "cli": "needed (devtools CLI reads the same source)",
+        "mcp": "optional (read-only inspection tools)"
+      },
+      "status": "v8-workbench-mock",
+      "depends": [
+        "StatusPill"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "mock only (v8 workbench)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 24
+    },
+    {
+      "name": "RuntimePicker",
+      "wave": 1,
+      "milestone": "M1b",
+      "scope": "app-local: DevTools",
+      "purpose": "Choose which attached runtime to inspect.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Inspector header",
+          "cite": "plan §3 table row M1"
+        }
+      ],
+      "source": "connection source (plan §3)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "n/a",
+        "cli": "needed (devtools CLI reads the same source)",
+        "mcp": "optional (read-only inspection tools)"
+      },
+      "status": "plan-only",
+      "depends": [
+        "StatusPill"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "not started (plan only)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 25
+    },
+    {
+      "name": "Toggle",
+      "wave": 2,
+      "milestone": "M2",
+      "scope": "app-local: DevTools",
+      "purpose": "On/off switch for one setting.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Workbench controls, can* overrides",
+          "cite": "plan §3 table row M2"
+        }
+      ],
+      "source": "toggle machine (isolated)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "n/a",
+        "cli": "n/a",
+        "mcp": "n/a"
+      },
+      "status": "v8-workbench-mock",
+      "depends": [],
+      "consumerCount": 1,
+      "statusLabel": "mock only (v8 workbench)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 0,
+      "rank": 26
+    },
+    {
+      "name": "ExplainPanel",
+      "wave": 2,
+      "milestone": "M4",
+      "scope": "app-local: DevTools",
+      "purpose": "Plain-language \"why\" for a value or finding.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Finding explanation",
+          "cite": "plan §3 table row M4"
+        }
+      ],
+      "source": "workbench / manifest / verificationRun sources (plan §3)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "n/a",
+        "cli": "needed",
+        "mcp": "optional"
+      },
+      "status": "plan-only",
+      "depends": [],
+      "note": "Listed in the v5/v8 catalog (Booster-sourced) with example checks only; no preview.",
+      "candidates": [
+        {
+          "app": "Booster Budget",
+          "where": "Explain a day's total (cap.day.explain)",
+          "cite": "v7 capabilities cap.day.explain",
+          "inferred": true
+        },
+        {
+          "app": "Twilight",
+          "where": "Help that answers \"why this suggestion?\"",
+          "cite": "twrev §3 row 21",
+          "inferred": true
+        }
+      ],
+      "consumerCount": 1,
+      "statusLabel": "not started (plan only)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "depDepth": 0,
+      "rank": 27
+    },
+    {
+      "name": "ControlsPanel",
+      "wave": 2,
+      "milestone": "M2",
+      "scope": "app-local: DevTools",
+      "purpose": "Props, variants and can* overrides (with reasons) for the previewed component.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Workbench",
+          "cite": "plan §3 table row M2"
+        }
+      ],
+      "source": "workbench / manifest / verificationRun sources (plan §3)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "n/a",
+        "cli": "n/a",
+        "mcp": "n/a"
+      },
+      "status": "v8-workbench-mock",
+      "depends": [
+        "Toggle",
+        "Field"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "mock only (v8 workbench)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 28
+    },
+    {
+      "name": "TokenEditor",
+      "wave": 2,
+      "milestone": "M2",
+      "scope": "app-local: DevTools",
+      "purpose": "Edit CSS custom properties; presets (Ignite default, Booster Budget, High contrast; Twilight proposed).",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Workbench",
+          "cite": "plan §3 table row M2"
+        }
+      ],
+      "source": "workbench / manifest / verificationRun sources (plan §3)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "n/a",
+        "cli": "n/a",
+        "mcp": "n/a"
+      },
+      "status": "v8-workbench-mock",
+      "depends": [
+        "Field"
+      ],
+      "note": "Twilight preset is inferred (Twilight has its own palette in assets/styles.css); v8 shipped only the three listed presets.",
+      "consumerCount": 1,
+      "statusLabel": "mock only (v8 workbench)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 29
+    },
+    {
+      "name": "FindingRow",
+      "wave": 2,
+      "milestone": "M4",
+      "scope": "app-local: DevTools",
+      "purpose": "One verification finding typed LOGIC / BLOCKED / SKEW / PENDING with its shortest trace.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Verification panel",
+          "cite": "plan §3 table row M4; v3/README.md:14-17"
+        }
+      ],
+      "source": "workbench / manifest / verificationRun sources (plan §3)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "n/a",
+        "cli": "needed",
+        "mcp": "optional"
+      },
+      "status": "devtools-mock",
+      "depends": [
+        "StatusPill"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "mock only (earlier DevTools or catalog mocks, v2 to v8)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 30
+    },
+    {
+      "name": "SuiteSummary",
+      "wave": 2,
+      "milestone": "M4",
+      "scope": "app-local: DevTools",
+      "purpose": "Pass / fail / untested per suite, never implying \"validated\".",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Verification panel",
+          "cite": "plan §3 table row M4; v2/README.md:18-21"
+        }
+      ],
+      "source": "workbench / manifest / verificationRun sources (plan §3)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "n/a",
+        "cli": "needed",
+        "mcp": "optional"
+      },
+      "status": "devtools-mock",
+      "depends": [
+        "StatusPill"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "mock only (earlier DevTools or catalog mocks, v2 to v8)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 31
+    },
+    {
+      "name": "StateGallery",
+      "wave": 2,
+      "milestone": "M2",
+      "scope": "app-local: DevTools",
+      "purpose": "One tile per declared state of a component, from its gallery file.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Workbench",
+          "cite": "plan §3 table row M2"
+        }
+      ],
+      "source": "workbench / manifest / verificationRun sources (plan §3)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "n/a",
+        "cli": "n/a",
+        "mcp": "n/a"
+      },
+      "status": "v8-workbench-mock",
+      "depends": [
+        "EmptyState"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "mock only (v8 workbench)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 2,
+      "rank": 32
+    },
+    {
+      "name": "CatalogPanel",
+      "wave": 2,
+      "milestone": "M2 (static) → M5 (CI statuses)",
+      "scope": "app-local: DevTools",
+      "purpose": "The catalog page as a DevTools panel: every build-list entry with derived statuses, consumers and wave.",
+      "merges": [
+        "CatalogStatusRow"
+      ],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Catalog panel",
+          "cite": "Jose decision (Oct 8); plan §3 table row M5 (CatalogStatusRow)"
+        }
+      ],
+      "source": "workbench / manifest / verificationRun sources (plan §3)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "n/a",
+        "cli": "needed",
+        "mcp": "optional"
+      },
+      "status": "devtools-mock",
+      "depends": [
+        "DataTable",
+        "StatusPill",
+        "FilterBar"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "mock only (earlier DevTools or catalog mocks, v2 to v8)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 2,
+      "rank": 33
+    },
+    {
+      "name": "SurfacePanel",
+      "wave": 2,
+      "milestone": "M3",
+      "scope": "app-local: DevTools",
+      "purpose": "One actor shown side by side on web, PWA, CLI and MCP with a parity table.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "DevTools",
+          "where": "Surfaces panel",
+          "cite": "plan §3 table row M3"
+        }
+      ],
+      "source": "workbench / manifest / verificationRun sources (plan §3)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "n/a",
+        "cli": "needed",
+        "mcp": "optional"
+      },
+      "status": "v8-workbench-mock",
+      "depends": [
+        "DataTable",
+        "StatusPill"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "mock only (v8 workbench)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 2,
+      "rank": 34
+    },
+    {
+      "name": "NextStepRail",
+      "wave": 3,
+      "milestone": "in Twilight (not a DevTools milestone)",
+      "scope": "app-local: Twilight",
+      "purpose": "The answer: \"Next: … · where you were · Then: …\" plus the visible plan \"Step 1 of 2\".",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "Twilight",
+          "where": "Rail on every assisted screen",
+          "cite": "tw assets/assisted.js:2818, :863-867; twrev §5 (rail)"
+        }
+      ],
+      "source": "task/plan source in Twilight (read-only projection)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed (apps/pwa)",
+        "cli": "needed (Twilight already has a terminal UI)",
+        "mcp": "read-only"
+      },
+      "status": "app-mock",
+      "depends": [
+        "StatusPill"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 35
+    },
+    {
+      "name": "WorkSessionTimer",
+      "wave": 3,
+      "milestone": "in Twilight (not a DevTools milestone)",
+      "scope": "app-local: Twilight",
+      "purpose": "Start 5 minutes, pause, stop; honest paused / break / stopped states.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "Twilight",
+          "where": "Work session (assist-focus)",
+          "cite": "tw assets/assisted.js:1633, :1664; data/assisted-contract.json screens.assist-focus"
+        }
+      ],
+      "source": "Twilight momentum source",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed (apps/pwa)",
+        "cli": "needed (Twilight already has a terminal UI)",
+        "mcp": "read-only"
+      },
+      "status": "app-mock",
+      "depends": [
+        "ActionButton"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 36
+    },
+    {
+      "name": "ContextBar",
+      "wave": 3,
+      "milestone": "in Booster Budget (not a DevTools milestone)",
+      "scope": "app-local: Booster Budget",
+      "purpose": "Account, period, as-of and currency kept visible across screens.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "Booster Budget",
+          "where": "All routes (context chip / as-of line)",
+          "cite": "bbm observed-parts.md:8; docs/living-specs/household-component-inventory.md:8; v7 cap.context.show"
+        }
+      ],
+      "source": "Booster Budget core (one planned core; see bbm docs/living-specs/specialist-observed-components.md:29)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "per capability (v7 surfaces)",
+        "mcp": "per capability (v7 surfaces)"
+      },
+      "status": "app-mock",
+      "depends": [
+        "StatusPill"
+      ],
+      "candidates": [
+        {
+          "app": "DevTools",
+          "where": "Header showing runtime label, surface and ignite version (SKEW)",
+          "cite": "inferred from plan §6 M4 SKEW",
+          "inferred": true
+        }
+      ],
+      "consumerCount": 1,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "depDepth": 1,
+      "rank": 37
+    },
+    {
+      "name": "MoneyField",
+      "wave": 3,
+      "milestone": "in Booster Budget (not a DevTools milestone)",
+      "scope": "app-local: Booster Budget",
+      "purpose": "Amount in whole cents with currency shown.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "Booster Budget",
+          "where": "Forms, comparisons",
+          "cite": "v8 PREVIEWABLE; bbm docs/living-specs/household-component-inventory.md:9"
+        }
+      ],
+      "source": "Booster Budget core (one planned core; see bbm docs/living-specs/specialist-observed-components.md:29)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "per capability (v7 surfaces)",
+        "mcp": "per capability (v7 surfaces)"
+      },
+      "status": "v8-preview",
+      "depends": [
+        "Field"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "v8 preview (static mock, example checks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 38
+    },
+    {
+      "name": "TransactionRow",
+      "wave": 3,
+      "milestone": "in Booster Budget (not a DevTools milestone)",
+      "scope": "app-local: Booster Budget",
+      "purpose": "One signed movement: date, payee, amount, status.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "Booster Budget",
+          "where": "Activity, day detail",
+          "cite": "v8 PREVIEWABLE; bbm docs/living-specs/mvp-component-inventory.md:12"
+        }
+      ],
+      "source": "Booster Budget core (one planned core; see bbm docs/living-specs/specialist-observed-components.md:29)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "per capability (v7 surfaces)",
+        "mcp": "per capability (v7 surfaces)"
+      },
+      "status": "v8-preview",
+      "depends": [
+        "StatusPill"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "v8 preview (static mock, example checks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 39
+    },
+    {
+      "name": "ReviewReceipt",
+      "wave": 3,
+      "milestone": "in Booster Budget (not a DevTools milestone)",
+      "scope": "app-local: Booster Budget",
+      "purpose": "Shows exactly what was reviewed, clearly not a saved or approved effect.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "Booster Budget",
+          "where": "Manual entry, links/refunds, setup",
+          "cite": "bbm docs/living-specs/household-component-inventory.md:13; specialist-observed-components.md:9"
+        }
+      ],
+      "source": "Booster Budget core (one planned core; see bbm docs/living-specs/specialist-observed-components.md:29)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "per capability (v7 surfaces)",
+        "mcp": "per capability (v7 surfaces)"
+      },
+      "status": "app-mock",
+      "depends": [
+        "StatusPill"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 40
+    },
+    {
+      "name": "ReadinessChecklist",
+      "wave": 3,
+      "milestone": "in Booster Budget (not a DevTools milestone)",
+      "scope": "app-local: Booster Budget",
+      "purpose": "What still blocks the first useful forecast (balance, payday, reserve).",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "Booster Budget",
+          "where": "Setup; missing/partial/stale recovery",
+          "cite": "bbm observed-parts.md:48; v7 families f1 aiOff"
+        }
+      ],
+      "source": "Booster Budget core (one planned core; see bbm docs/living-specs/specialist-observed-components.md:29)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "per capability (v7 surfaces)",
+        "mcp": "per capability (v7 surfaces)"
+      },
+      "status": "app-mock",
+      "depends": [
+        "StatusPill"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 1,
+      "rank": 41
+    },
+    {
+      "name": "RecordForm",
+      "wave": 3,
+      "milestone": "in Booster Budget (not a DevTools milestone)",
+      "scope": "app-local: Booster Budget",
+      "purpose": "Add one income or expense: positive amount, type sets the sign, date, account.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "Booster Budget",
+          "where": "Ledger and Budget plan forms; AI-off fallback for f2",
+          "cite": "v8 PREVIEWABLE; bbm observed-parts.md:46; v7 families f2 aiOff"
+        }
+      ],
+      "source": "Booster Budget core (one planned core; see bbm docs/living-specs/specialist-observed-components.md:29)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "per capability (v7 surfaces)",
+        "mcp": "per capability (v7 surfaces)"
+      },
+      "status": "v8-preview",
+      "depends": [
+        "MoneyField",
+        "DateField",
+        "Field",
+        "ActionButton"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "v8 preview (static mock, example checks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 2,
+      "rank": 42
+    },
+    {
+      "name": "BelowReserveWarning",
+      "wave": 3,
+      "milestone": "in Booster Budget (not a DevTools milestone)",
+      "scope": "app-local: Booster Budget",
+      "purpose": "Warns when the projected low dips under the reserve.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "Booster Budget",
+          "where": "Forecast \"Checking risk\"",
+          "cite": "v8 PREVIEWABLE; bbm docs/living-specs/household-component-inventory.md:9"
+        }
+      ],
+      "source": "Booster Budget core (one planned core; see bbm docs/living-specs/specialist-observed-components.md:29)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "per capability (v7 surfaces)",
+        "mcp": "per capability (v7 surfaces)"
+      },
+      "status": "v8-preview",
+      "depends": [
+        "Notice"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "v8 preview (static mock, example checks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 2,
+      "rank": 43
+    },
+    {
+      "name": "ForecastStepChart",
+      "wave": 3,
+      "milestone": "in Booster Budget (not a DevTools milestone)",
+      "scope": "app-local: Booster Budget",
+      "purpose": "Temporal step plot with an equivalent accessible table, low point and reserve line.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "Booster Budget",
+          "where": "Forecast",
+          "cite": "bbm observed-parts.md:14; docs/living-specs/specialist-observed-components.md:10"
+        }
+      ],
+      "source": "Booster Budget core (one planned core; see bbm docs/living-specs/specialist-observed-components.md:29)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "per capability (v7 surfaces)",
+        "mcp": "per capability (v7 surfaces)"
+      },
+      "status": "app-mock",
+      "depends": [
+        "DataTable"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 2,
+      "rank": 44
+    },
+    {
+      "name": "Calendar",
+      "wave": 3,
+      "milestone": "in Booster Budget (not a DevTools milestone)",
+      "scope": "app-local: Booster Budget",
+      "purpose": "Month / two-week / week grid that opens on the low day, plus day detail (opening, movements, closing).",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "Booster Budget",
+          "where": "Calendar and day detail (f3)",
+          "cite": "bbrev §3 row 3 and §5; bbm docs/living-specs/mvp-component-inventory.md:12"
+        }
+      ],
+      "source": "Booster Budget core (one planned core; see bbm docs/living-specs/specialist-observed-components.md:29)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "per capability (v7 surfaces)",
+        "mcp": "per capability (v7 surfaces)"
+      },
+      "status": "app-mock",
+      "depends": [
+        "Tabs",
+        "TransactionRow"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 2,
+      "rank": 45
+    },
+    {
+      "name": "MatchQueue",
+      "wave": 3,
+      "milestone": "in Booster Budget (not a DevTools milestone)",
+      "scope": "app-local: Booster Budget",
+      "purpose": "Engine-filtered match candidates with one confirm for an exact match, plus unmatch.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "Booster Budget",
+          "where": "Reconcile (f9, later)",
+          "cite": "bbrev §3 row 9; v7 families f9 aiOff"
+        }
+      ],
+      "source": "Booster Budget core (one planned core; see bbm docs/living-specs/specialist-observed-components.md:29)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "per capability (v7 surfaces)",
+        "mcp": "per capability (v7 surfaces)"
+      },
+      "status": "app-mock",
+      "depends": [
+        "DataTable",
+        "ActionButton"
+      ],
+      "note": "Booster family f9 is \"not started\" and last-but-one in the v7 build order; build late.",
+      "consumerCount": 1,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 2,
+      "rank": 46
+    },
+    {
+      "name": "TaskCard",
+      "wave": 3,
+      "milestone": "in Twilight (not a DevTools milestone)",
+      "scope": "app-local: Twilight",
+      "purpose": "One Task: placement badge, title, \"Finished when…\", due date.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "Twilight",
+          "where": "Saved Task, Today, Done",
+          "cite": "tw assets/assisted.js:860"
+        }
+      ],
+      "source": "Twilight task source",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed (apps/pwa)",
+        "cli": "needed (Twilight already has a terminal UI)",
+        "mcp": "read-only"
+      },
+      "status": "app-mock",
+      "depends": [
+        "StatusPill",
+        "AssumptionChip"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 3,
+      "rank": 47
+    },
+    {
+      "name": "ConditionalAnswer",
+      "wave": 3,
+      "milestone": "in Booster Budget (not a DevTools milestone)",
+      "scope": "app-local: Booster Budget",
+      "purpose": "Answer first: lowest balance, date, room above reserve, as-of; then assumption / freshness / gap conditions, each tappable.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "Booster Budget",
+          "where": "Home: \"Am I okay until payday?\"",
+          "cite": "v7 conditionalAnswer; bbrev §7 P0 items 1 and 3; bbm docs/living-specs/assistant-mock-iteration.md:45"
+        }
+      ],
+      "source": "Booster Budget core (one planned core; see bbm docs/living-specs/specialist-observed-components.md:29)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "per capability (v7 surfaces)",
+        "mcp": "per capability (v7 surfaces)"
+      },
+      "status": "app-mock",
+      "depends": [
+        "AssumptionChip",
+        "Notice",
+        "StatusPill"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 3,
+      "rank": 48
+    },
+    {
+      "name": "AssistantPanel",
+      "wave": 3,
+      "milestone": "in Booster Budget (not a DevTools milestone)",
+      "scope": "app-local: Booster Budget",
+      "purpose": "Launcher plus responsive side panel / bottom sheet hosting the conversation.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "Booster Budget",
+          "where": "Every product route",
+          "cite": "bbm docs/living-specs/assistant-mock-iteration.md:42"
+        }
+      ],
+      "source": "Booster Budget core (one planned core; see bbm docs/living-specs/specialist-observed-components.md:29)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed",
+        "cli": "per capability (v7 surfaces)",
+        "mcp": "per capability (v7 surfaces)"
+      },
+      "status": "app-mock",
+      "depends": [
+        "Composer",
+        "ConsentGate"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 3,
+      "rank": 49
+    },
+    {
+      "name": "TodayList",
+      "wave": 3,
+      "milestone": "in Twilight (not a DevTools milestone)",
+      "scope": "app-local: Twilight",
+      "purpose": "Today with capacity n/3 and a \"Swap with\" way out when full.",
+      "merges": [],
+      "consumers": [
+        {
+          "app": "Twilight",
+          "where": "Today decision (ready / full / done-in-today)",
+          "cite": "tw assets/assisted.js:783, :1389, :1426; data/assisted-contract.json screens.assist-today"
+        }
+      ],
+      "source": "Twilight today source (today.commit / today.replace)",
+      "surfaces": {
+        "web": "needed",
+        "pwa": "needed (apps/pwa)",
+        "cli": "needed (Twilight already has a terminal UI)",
+        "mcp": "read-only"
+      },
+      "status": "app-mock",
+      "depends": [
+        "ActionButton",
+        "EmptyState",
+        "TaskCard"
+      ],
+      "consumerCount": 1,
+      "statusLabel": "mock only (app static mocks)",
+      "realCode": "not started (no catalog components on ignite-element beta @ 37b36c4f)",
+      "candidates": [],
+      "depDepth": 4,
+      "rank": 50
+    }
+  ]
+}
