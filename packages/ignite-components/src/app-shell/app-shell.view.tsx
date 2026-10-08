@@ -87,7 +87,13 @@ export function appShellView(ctx: AppShellViewContext): IgniteJsxElement {
 				data-menu={ctx.isMenuOpen ? "open" : "closed"}
 				data-panel={ctx.showPanel ? "open" : "closed"}
 				onKeydown={(event: KeyboardEvent) => {
-					if (event.key === "Escape" && ctx.isMenuOpen) ctx.closeMenu();
+					if (event.key !== "Escape" || !ctx.isMenuOpen) return;
+					event.preventDefault();
+					ctx.closeMenu();
+					const root = (event.currentTarget as HTMLElement).getRootNode();
+					if (!(root instanceof ShadowRoot)) return;
+					const toggle = root.querySelector("[data-menu-toggle]");
+					if (toggle instanceof HTMLElement) toggle.focus();
 				}}
 			>
 				{/* Skip links are anchors so the browser can move to #main. */}
@@ -98,6 +104,7 @@ export function appShellView(ctx: AppShellViewContext): IgniteJsxElement {
 				<div class="bar">
 					<button
 						type="button"
+						data-menu-toggle=""
 						aria-expanded={ctx.isMenuOpen ? "true" : "false"}
 						aria-controls="nav"
 						onClick={() => {

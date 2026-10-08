@@ -50,9 +50,31 @@ describe("AppShell accessibility", () => {
 			?.dispatchEvent(
 				new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
 			);
-		expect(
-			view.getByRole("button", { name: "Menu" }).getAttribute("aria-expanded"),
-		).toBe("false");
+		const toggle = view.getByRole("button", { name: "Menu" });
+		expect(toggle.getAttribute("aria-expanded")).toBe("false");
+		expect(element.shadowRoot?.activeElement).toBe(toggle);
+	});
+
+	it("moves focus from the nav slot to the menu toggle on Escape", () => {
+		const { element, view } = mount();
+		const today = document.createElement("button");
+		today.slot = "nav";
+		today.type = "button";
+		today.textContent = "Today";
+		element.append(today);
+		view.getByRole("button", { name: "Menu" }).click();
+		today.focus();
+		expect(document.activeElement).toBe(today);
+		today.dispatchEvent(
+			new KeyboardEvent("keydown", {
+				key: "Escape",
+				bubbles: true,
+				composed: true,
+			}),
+		);
+		const toggle = view.getByRole("button", { name: "Menu" });
+		expect(toggle.getAttribute("aria-expanded")).toBe("false");
+		expect(element.shadowRoot?.activeElement).toBe(toggle);
 	});
 
 	it("names the return control with the target", () => {
