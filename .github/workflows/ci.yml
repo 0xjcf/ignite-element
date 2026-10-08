@@ -8,6 +8,7 @@ on:
     branches:
       - main
       - beta
+      - experimental/devtools
   workflow_dispatch:
 
 jobs:
@@ -50,6 +51,12 @@ jobs:
 
       - name: Run tests and generate coverage
         run: pnpm run test:coverage
+
+      # ignite-element is already covered by test:coverage above. Every other
+      # packages/* test script runs here. --if-present keeps the step green
+      # until one exists; @ignite-element/devtools is included once it lands.
+      - name: Run package tests outside ignite-element
+        run: pnpm --filter "./packages/**" --filter '!ignite-element' --if-present test
 
       - name: Run script tests
         run: pnpm run test:scripts

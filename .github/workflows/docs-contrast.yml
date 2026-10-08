@@ -6,7 +6,7 @@ name: Docs Contrast
 # PRs that touch docs/site so non-docs PRs don't pay the browser cost.
 on:
   pull_request:
-    branches: [main, beta]
+    branches: [main, beta, experimental/devtools]
     paths:
       - "package.json" # publication policy authenticates the packageManager pin
       - "docs/site/**"
