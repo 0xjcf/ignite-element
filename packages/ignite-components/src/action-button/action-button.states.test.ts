@@ -1,6 +1,7 @@
 // @vitest-environment node
 
 import { describe, expect, it } from "vitest";
+import { createActor } from "xstate";
 import {
 	assertFlagReasons,
 	assertGalleryCoversStates,
@@ -12,7 +13,7 @@ import {
 	type ActionButtonFixtureInput,
 	actionButtonGallery,
 } from "./action-button.gallery";
-import { PENDING_REASON } from "./action-button.source";
+import { actionButtonMachine, PENDING_REASON } from "./action-button.source";
 
 async function show(input: ActionButtonFixtureInput) {
 	const core = createActionButtonCore();
@@ -81,6 +82,41 @@ describe("ActionButton states", () => {
 			});
 		} finally {
 			core.dispose();
+		}
+	});
+
+	it("keeps a configured initial reason and uses the fallback for blanks", () => {
+		const refused = createActor(actionButtonMachine, {
+			input: { reason: "Maintenance window." },
+		});
+		refused.start();
+		try {
+			expect(refused.getSnapshot().value).toBe("unavailable");
+			expect(refused.getSnapshot().context.reason).toBe("Maintenance window.");
+		} finally {
+			refused.stop();
+		}
+
+		const blank = createActor(actionButtonMachine, {
+			input: { reason: "   " },
+		});
+		blank.start();
+		try {
+			expect(blank.getSnapshot().value).toBe("unavailable");
+			expect(blank.getSnapshot().context.reason).toBe(
+				"This action is unavailable.",
+			);
+		} finally {
+			blank.stop();
+		}
+
+		const open = createActor(actionButtonMachine, { input: {} });
+		open.start();
+		try {
+			expect(open.getSnapshot().value).toBe("idle");
+			expect(open.getSnapshot().context.reason).toBeNull();
+		} finally {
+			open.stop();
 		}
 	});
 

@@ -38,7 +38,7 @@ export function refusalReason(reason: string | null): string {
 
 /**
  * The button does not decide permission. The host sends ALLOW or REFUSE.
- * PRESS is only accepted while idle, which is the host's "can" state.
+ * A reason passed at creation starts unavailable. PRESS is only accepted while idle.
  */
 export const actionButtonMachine = setup({
 	types: {
@@ -67,13 +67,16 @@ export const actionButtonMachine = setup({
 			label: context.label,
 		})),
 	},
+	guards: {
+		hasConfiguredReason: ({ context }) => context.reason !== null,
+	},
 }).createMachine({
 	id: "action-button",
 	initial: "idle",
 	context: ({ input }) => ({
 		label: input?.label ?? DEFAULT_LABEL,
 		pendingLabel: input?.pendingLabel ?? DEFAULT_PENDING_LABEL,
-		reason: input?.reason ?? null,
+		reason: input?.reason == null ? null : refusalReason(input.reason),
 	}),
 	on: {
 		SET_LABEL: { actions: "applyLabel" },
@@ -81,7 +84,10 @@ export const actionButtonMachine = setup({
 	},
 	states: {
 		idle: {
-			entry: "clearReason",
+			always: {
+				guard: "hasConfiguredReason",
+				target: "unavailable",
+			},
 			on: {
 				PRESS: { target: "pending", actions: "announcePress" },
 				REFUSE: { target: "unavailable", actions: "applyRefusal" },
@@ -89,13 +95,13 @@ export const actionButtonMachine = setup({
 		},
 		pending: {
 			on: {
-				SETTLE: "idle",
+				SETTLE: { target: "idle", actions: "clearReason" },
 				REFUSE: { target: "unavailable", actions: "applyRefusal" },
 			},
 		},
 		unavailable: {
 			on: {
-				ALLOW: "idle",
+				ALLOW: { target: "idle", actions: "clearReason" },
 				REFUSE: { actions: "applyRefusal" },
 			},
 		},
