@@ -49,6 +49,12 @@ function domEventToRuntimeEvent(event: globalThis.Event): RuntimeEventMember {
 	return { type: event.type, detail };
 }
 
+function installedDevtools(): DevtoolsGlobalSlot | undefined {
+	return (globalThis as { [key: symbol]: DevtoolsGlobalSlot | undefined })[
+		Symbol.for("ignite-element.devtools")
+	];
+}
+
 function sourceEventToRuntimeEvent(
 	event: unknown,
 ): RuntimeEventMember | undefined {
@@ -414,7 +420,13 @@ export function createAgentRuntime<
 			descriptor && "value" in descriptor ? descriptor.value : undefined;
 		if (typeof command !== "function")
 			throw new Error(`[igniteCore] Unknown command "${call.command}".`);
+		if (process.env.NODE_ENV !== "production") {
+			installedDevtools()?.pushOrigin?.("execute");
+		}
 		const result = await command("input" in call ? call.input : undefined);
+		if (process.env.NODE_ENV !== "production") {
+			installedDevtools()?.clearOrigin?.("execute");
+		}
 		await new Promise<void>((resolve) => queueMicrotask(resolve));
 		lifetime.assertActive();
 		return result;

@@ -57,6 +57,8 @@ describe("production build drops the devtools hook", () => {
 			expect(code).not.toContain("devtoolsDelivery");
 			expect(code).not.toContain("installDevtoolsHook");
 			expect(code).not.toContain("already defined by a different component");
+			expect(code).not.toContain("publishCommand");
+			expect(code).not.toContain("pushOrigin");
 		}
 	}, 60_000);
 
@@ -130,9 +132,13 @@ const [runtimeFile, hookFile] = process.argv.slice(2);
 const { igniteCore } = await import(runtimeFile);
 const { installDevtoolsHook } = await import(hookFile);
 const records = [];
+const commands = [];
 installDevtoolsHook({
   event(record) {
     records.push(record.type + ":" + record.origin);
+  },
+  command(record) {
+    commands.push(record.command + ":" + record.origin);
   },
 });
 const machine = setup({
@@ -162,7 +168,7 @@ core.on("counterReset", () => {});
 await core.execute({ command: "increment" });
 await core.execute({ command: "reset" });
 core.dispose();
-process.stdout.write(records.join(",") + "\\n");
+process.stdout.write(records.join(",") + "\\n" + commands.join(",") + "\\n");
 `,
 			);
 			const deliver = (directory: string) =>
@@ -175,7 +181,9 @@ process.stdout.write(records.join(",") + "\\n");
 					],
 					{ cwd: source("../.."), encoding: "utf8" },
 				).trim();
-			expect(deliver(join(outDir, "development"))).toBe("counterReset:native");
+			expect(deliver(join(outDir, "development"))).toBe(
+				"counterReset:native\nincrement:execute,reset:execute",
+			);
 			expect(deliver(join(outDir, "production"))).toBe("");
 		} finally {
 			if (previousBuild === undefined) delete process.env.IGNITE_DEVTOOLS_BUILD;

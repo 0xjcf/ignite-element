@@ -156,6 +156,74 @@ const isDevelopment = () =>
 	(globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env
 		?.NODE_ENV !== "production";
 
+function installedDevtools(): DevtoolsGlobalSlot | undefined {
+	return (globalThis as { [key: symbol]: DevtoolsGlobalSlot | undefined })[
+		Symbol.for("ignite-element.devtools")
+	];
+}
+
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+	return (
+		(typeof value === "object" || typeof value === "function") &&
+		value !== null &&
+		typeof (value as { then?: unknown }).then === "function"
+	);
+}
+
+/**
+ * Development-only wrapper. Production builds never call it, so the minifier
+ * drops the function from existing entrypoints.
+ */
+function observeCommand<Command extends FacadeCommandFunction>(
+	command: Command,
+	name: string,
+	owner: object,
+): Command {
+	return new Proxy(command, {
+		apply(target, receiver, args) {
+			if (process.env.NODE_ENV === "production") {
+				return Reflect.apply(target, receiver, args);
+			}
+			const devtools = installedDevtools();
+			const origin = devtools?.takeOrigin?.() ?? "view";
+			if (!devtools?.hook?.command) {
+				return Reflect.apply(target, receiver, args);
+			}
+			const input = args.length === 0 ? undefined : args[0];
+			const started = performance.now();
+			const report = (outcome: unknown) => {
+				devtools.publishCommand?.(
+					owner,
+					name,
+					input,
+					origin,
+					outcome,
+					performance.now() - started,
+				);
+			};
+			try {
+				const outcome = Reflect.apply(target, receiver, args);
+				if (isThenable(outcome)) {
+					void outcome.then(
+						(value) => {
+							report(value);
+						},
+						(reason: unknown) => {
+							report(reason);
+						},
+					);
+					return outcome;
+				}
+				report(outcome);
+				return outcome;
+			} catch (error) {
+				report(error);
+				throw error;
+			}
+		},
+	}) as Command;
+}
+
 function freezeIfDev<T extends object>(value: T): T {
 	return isDevelopment() ? Object.freeze(value) : value;
 }
@@ -376,10 +444,20 @@ export function createProjectionFactory<
 				Object.defineProperty(commandFacade, key, {
 					configurable: false,
 					enumerable: true,
-					value: guardCommand(value as FacadeCommandFunction, () => {
-						localLifetime.assertActive();
-						owner.assertActive();
-					}),
+					value:
+						process.env.NODE_ENV === "production"
+							? guardCommand(value as FacadeCommandFunction, () => {
+									localLifetime.assertActive();
+									owner.assertActive();
+								})
+							: observeCommand(
+									guardCommand(value as FacadeCommandFunction, () => {
+										localLifetime.assertActive();
+										owner.assertActive();
+									}),
+									String(key),
+									adapter,
+								),
 				});
 			}
 

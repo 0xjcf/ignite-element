@@ -1,6 +1,6 @@
 # DevTools hook
 
-`ignite-element/devtools-hook` exports `installDevtoolsHook(hook)`. The package publishes two artifacts for that entry. The `development` export condition selects the one that records events. The `import` and `default` conditions select a no-op, which is what production builds receive.
+`ignite-element/devtools-hook` exports `installDevtoolsHook(hook)`. The package publishes two artifacts for that entry. The `development` export condition selects the one that records events and commands. The `import` and `default` conditions select a no-op, which is what production builds receive.
 
 ```ts
 import { installDevtoolsHook } from "ignite-element/devtools-hook";
@@ -18,7 +18,19 @@ While the hook is installed, each outward event the runtime delivers is reported
 
 Nothing is allocated or published when no hook is installed. A hook that throws does not change delivery. Installing again replaces the active hook. Uninstalling that hook restores the previous one only when the previous install is still active, so an earlier uninstall cannot be undone by a later one. Uninstalling the later hook first restores the earlier one; uninstalling that one too leaves no hook active.
 
-`command` may be present on the hook object. It is not called yet. A later command tap can report `{ coreId, command, input, origin: "view" | "execute" | "tools", outcome, durationMs }` through that method without changing `installDevtoolsHook`.
+`command` receives each facade command when it settles:
+
+```ts
+installDevtoolsHook({
+  command(record) {
+    // { coreId, command, input, origin: "view" | "execute" | "tools", outcome, durationMs }
+  },
+});
+```
+
+`origin` is `"view"` when a view calls the command function, as in `ctx.toggle()`. It is `"execute"` for `core.execute({ command, input })`, and `"tools"` when `igniteTools` runs the command. `input` is that argument (`undefined` when the call passes none). `outcome` is the settled return value. A thrown or rejected command is still reported, with the thrown value as `outcome`, and the error still propagates. `durationMs` is the time until settlement. `coreId` is the same id the event tap uses for that core.
+
+A hook that throws does not change the command result or the returned promise. Nothing is published when no hook is installed, or when the installed hook has no `command` callback. Uninstalling stops later commands. Production builds omit the tap, and calling `installDevtoolsHook` there returns a no-op.
 
 In development, registering a custom element tag that is already defined by a different component warns once on the console and keeps the existing element. Registering that same component again does not warn. Production registration is unchanged.
 
@@ -28,4 +40,4 @@ The same `development` condition is on every public entry, including JSX, React,
 
 A package `exports` map can point one import at more than one file. The resolver walks the keys in order and uses the first condition it was given.
 
-`development` is listed before `import` and `default`. The resolver walks the keys in source order and stops at the first condition it was given. Tools that are building for development add `development` to that list: Node with `node --conditions=development`, Vite's dev server, and webpack when `mode` is `"development"`. They receive the artifact that records events and warns on tag collisions. Production builds do not set that condition, so they fall through to `import` / `default`. Those files are the no-op. They do not contain the hook body, the tag warning, or the call sites that would publish events. `size:entrypoints` reads the `import` file, so the development artifact is not part of that measurement.
+`development` is listed before `import` and `default`. The resolver walks the keys in source order and stops at the first condition it was given. Tools that are building for development add `development` to that list: Node with `node --conditions=development`, Vite's dev server, and webpack when `mode` is `"development"`. They receive the artifact that records events and commands, and warns on tag collisions. Production builds do not set that condition, so they fall through to `import` / `default`. Those files are the no-op. They do not contain the hook body, the tag warning, or the call sites that would publish events or commands. `size:entrypoints` reads the `import` file, so the development artifact is not part of that measurement.
