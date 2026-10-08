@@ -196,3 +196,5 @@ It cannot prevent or retract earlier delivery.
 Warnings contain names/origins, not payloads or snapshots.
 
 Neither development nor production chooses a winner, throws, drops, or deduplicates events.
+
+Development builds can install `installDevtoolsHook` from `ignite-element/devtools-hook`. While it is installed, each outward native or effect event already observed by that diagnostic is delivered as `{ coreId, type, payload, origin, at }`. Production builds omit the hook, and nothing is allocated while it is uninstalled. A later command tap can use the reserved `command` method.

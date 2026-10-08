@@ -20,6 +20,7 @@ import {
 	createCommandOwner,
 	guardCommand,
 } from "./runtime/bindings";
+import type { DevtoolsGlobalSlot } from "./runtime/devtoolsHook";
 import {
 	attachEffects,
 	type FacadeLifecycle,
@@ -443,6 +444,13 @@ export function createProjectionFactory<
 					emit: createEmit((event) => {
 						if (!current.lifetime.active) return;
 						observe?.(event.type);
+						if (process.env.NODE_ENV !== "production") {
+							const devtools = (
+								globalThis as { [key: symbol]: DevtoolsGlobalSlot | undefined }
+							)[Symbol.for("ignite-element.devtools")];
+							if (devtools?.hook?.event)
+								devtools.publish?.(adapter, "effect", event);
+						}
 						const delivered = { ...event };
 						for (const target of [...current.recipients]) {
 							if (!current.lifetime.active) break;

@@ -1,4 +1,5 @@
 import type { IgniteAdapter } from "@ignite-element/core";
+import type { DevtoolsGlobalSlot } from "./devtoolsHook";
 import type { Lifetime } from "./lifetime";
 
 /** Subscribe only to the acquired element adapter; never acquire a runtime. */
@@ -24,6 +25,12 @@ export function forwardNativeEvents<State, Event>(
 			)
 				return;
 			observe(event.type);
+			if (process.env.NODE_ENV !== "production") {
+				const devtools = (
+					globalThis as { [key: symbol]: DevtoolsGlobalSlot | undefined }
+				)[Symbol.for("ignite-element.devtools")];
+				if (devtools?.hook?.event) devtools.publish?.(adapter, "native", event);
+			}
 			if (!names.includes(event.type)) return;
 			const { type, ...detail } = event;
 			// External observation or payload access can dispose reentrantly, even

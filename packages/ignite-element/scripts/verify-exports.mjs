@@ -28,6 +28,7 @@ const expectedPublicSubpaths = [
 	"./tools",
 	"./tools/anthropic",
 	"./tools/openai",
+	"./devtools-hook",
 	"./package.json",
 ];
 
@@ -45,6 +46,7 @@ const expectedTypesVersions = [
 	"tools",
 	"tools/anthropic",
 	"tools/openai",
+	"devtools-hook",
 ];
 
 const removedStableSubpaths = [
@@ -133,6 +135,7 @@ const requiredExports = [
 	],
 	["./tools/anthropic", { anthropic: "object", textOf: "function" }],
 	["./tools/openai", { openai: "object", textOf: "function" }],
+	["./devtools-hook", { installDevtoolsHook: "function" }],
 ];
 
 const recursiveImportPattern =
@@ -407,6 +410,7 @@ for (const name of [
 	"./jsx",
 	"./jsx/jsx-runtime",
 	"./jsx/jsx-dev-runtime",
+	"./devtools-hook",
 ]) {
 	const entry = new URL(
 		`../${packageJson.exports[name].import}`,

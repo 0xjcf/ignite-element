@@ -36,6 +36,7 @@ export default defineConfig(({ command }) => ({
 			tools: "src/tools/index.ts",
 			"tools/anthropic": "src/tools/anthropic/index.ts",
 			"tools/openai": "src/tools/openai/index.ts",
+			"devtools-hook": "src/devtools-hook.ts",
 		},
 		external: [
 			"@ignite-element/core",

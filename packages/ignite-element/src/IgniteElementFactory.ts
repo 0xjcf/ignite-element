@@ -35,6 +35,7 @@ import { createLifetime, releaseAll } from "./runtime/lifetime";
 import { forwardNativeEvents } from "./runtime/nativeEvents";
 import { resolveProjectionTarget } from "./runtime/projectionTargets";
 import { toInspectableSchemaValue } from "./runtime/schema";
+import { noteTagDefinition } from "./runtime/tagCollision";
 import type {
 	IgniteAgentSubscription,
 	IgniteProjectionSession,
@@ -267,6 +268,7 @@ export default function igniteElementFactory<
 	lifetime.own(() => options?.disposeEffects?.());
 	const eventOrigins = createEventOrigins();
 	lifetime.own(() => eventOrigins.dispose());
+	let devOwner: object | undefined;
 	let registrationInProgress = false;
 	let acquiring = false;
 
@@ -783,6 +785,15 @@ export default function igniteElementFactory<
 		};
 
 		if (registry.get(elementName)) {
+			if (process.env.NODE_ENV !== "production") {
+				devOwner ??= {};
+				noteTagDefinition(
+					elementName,
+					devOwner,
+					resolvedRenderer as object,
+					"existing",
+				);
+			}
 			return handle;
 		}
 		const renderStrategyFactory =
@@ -954,6 +965,15 @@ export default function igniteElementFactory<
 			}
 
 			registry.define(elementName, SharedIgniteComponent);
+			if (process.env.NODE_ENV !== "production") {
+				devOwner ??= {};
+				noteTagDefinition(
+					elementName,
+					devOwner,
+					resolvedRenderer as object,
+					"record",
+				);
+			}
 			return handle;
 		}
 
@@ -1085,6 +1105,15 @@ export default function igniteElementFactory<
 		}
 
 		registry.define(elementName, IsolatedIgniteComponent);
+		if (process.env.NODE_ENV !== "production") {
+			devOwner ??= {};
+			noteTagDefinition(
+				elementName,
+				devOwner,
+				resolvedRenderer as object,
+				"record",
+			);
+		}
 		return handle;
 	};
 

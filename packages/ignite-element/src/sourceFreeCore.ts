@@ -2,6 +2,7 @@ import type { IgniteJsxChild } from "@ignite-element/renderer";
 import { mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";
 import { getIgniteElementClasses } from "./IgniteElement";
 import { requireDomRegistration } from "./internal/requireDomRegistration";
+import { noteTagDefinition } from "./runtime/tagCollision";
 
 /** Register static JSX components without a source or public lifecycle hooks. */
 export function igniteCore(
@@ -21,8 +22,13 @@ export function igniteCore(
 		);
 	}
 
+	let devOwner: object | undefined;
 	return (tagName, render) => {
 		const { ElementBase, registry } = requireDomRegistration();
+		if (process.env.NODE_ENV !== "production" && registry.get(tagName)) {
+			devOwner ??= {};
+			noteTagDefinition(tagName, devOwner, render, "existing");
+		}
 		if (registry.get(tagName)) return;
 		const IgniteMoveSafeLifecycleElement =
 			getIgniteElementClasses(ElementBase).Lifecycle;
@@ -47,5 +53,9 @@ export function igniteCore(
 		}
 
 		registry.define(tagName, SourceFreeElement);
+		if (process.env.NODE_ENV !== "production") {
+			devOwner ??= {};
+			noteTagDefinition(tagName, devOwner, render, "record");
+		}
 	};
 }

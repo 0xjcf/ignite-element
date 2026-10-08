@@ -13,6 +13,7 @@ import {
 	type BindingStore,
 	immutableProjection,
 } from "./bindings";
+import type { DevtoolsGlobalSlot } from "./devtoolsHook";
 import { activateHostEffects } from "./effects";
 import { type Lifetime, releaseAll } from "./lifetime";
 
@@ -364,6 +365,13 @@ export function createAgentRuntime<
 				if (!active || !lifetime.active) return;
 				const member = sourceEventToRuntimeEvent(event);
 				if (member) observeNative?.(adapter, member.type);
+				if (process.env.NODE_ENV !== "production" && member) {
+					const devtools = (
+						globalThis as { [key: symbol]: DevtoolsGlobalSlot | undefined }
+					)[Symbol.for("ignite-element.devtools")];
+					if (devtools?.hook?.event)
+						devtools.publish?.(adapter, "native", member);
+				}
 				if (member && names.includes(member.type)) handler(member);
 			});
 			if (subscription)

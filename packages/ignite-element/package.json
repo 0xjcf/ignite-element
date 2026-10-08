@@ -44,6 +44,9 @@
 			],
 			"tools/openai": [
 				"dist/types/tools/openai/index.d.ts"
+			],
+			"devtools-hook": [
+				"dist/types/devtools-hook.d.ts"
 			]
 		}
 	},
@@ -117,6 +120,11 @@
 			"types": "./dist/types/tools/openai/index.d.ts",
 			"import": "./dist/tools/openai.es.js",
 			"default": "./dist/tools/openai.es.js"
+		},
+		"./devtools-hook": {
+			"types": "./dist/types/devtools-hook.d.ts",
+			"import": "./dist/devtools-hook.es.js",
+			"default": "./dist/devtools-hook.es.js"
 		},
 		"./package.json": "./package.json"
 	},
