@@ -55,10 +55,9 @@ describe("Field DOM", () => {
 				expect(view.getByText(fixture.input.hint)).toBeTruthy();
 			}
 			if (fixture.input.error) {
-				const error = view
-					.getAllByText(fixture.input.error)
-					.find((node) => node.tagName === "P");
-				expect(control.getAttribute("aria-describedby")).toContain(error?.id);
+				const error = view.getByRole("alert");
+				expect(view.getAllByText(fixture.input.error)).toHaveLength(1);
+				expect(control.getAttribute("aria-describedby")).toContain(error.id);
 			}
 		}
 	});
@@ -86,7 +85,7 @@ describe("Field DOM", () => {
 		expect(inputs).toEqual(["  Buy milk  "]);
 		expect(changes).toEqual([]);
 		expect(touches).toEqual(["  Buy milk  "]);
-		expect(view.getAllByText("Title is required.").length).toBeGreaterThan(0);
+		expect(view.getAllByText("Title is required.")).toHaveLength(1);
 		element.setError(null);
 		expect(view.queryAllByText("Title is required.")).toEqual([]);
 	});

@@ -21,6 +21,8 @@ export type FieldStates = {
 	hint: string | null;
 	error: string | null;
 	errorAnnouncement: string | null;
+	repeatError: string | null;
+	errorEpoch: number;
 	required: boolean;
 	multiline: boolean;
 	touched: boolean;
@@ -47,6 +49,7 @@ export type FieldCommands = {
 	setRequired: (required: string | null) => void;
 	setMultiline: (multiline: string | null) => void;
 	touch: () => void;
+	reveal: () => void;
 };
 
 const NO_ERROR = "There is no error.";
@@ -62,7 +65,9 @@ export function projectField(
 	const invalid = snapshot.matches("invalid");
 	const error = invalid ? normalizeError(snapshot.context.error) : null;
 	const hint = normalizeOptional(snapshot.context.hint);
-	const errorAnnouncement = snapshot.context.errorAnnouncement;
+	const rawAnnouncement = snapshot.context.errorAnnouncement;
+	const errorAnnouncement =
+		rawAnnouncement && rawAnnouncement.length > 0 ? rawAnnouncement : null;
 	const required = snapshot.context.required;
 	const touched = snapshot.context.touched;
 	const multiline = snapshot.context.multiline;
@@ -81,6 +86,8 @@ export function projectField(
 		hint,
 		error,
 		errorAnnouncement,
+		repeatError: snapshot.context.repeatError,
+		errorEpoch: snapshot.context.errorEpoch,
 		required,
 		multiline,
 		touched,
@@ -138,6 +145,9 @@ export function fieldCommands(source: {
 		},
 		touch: () => {
 			source.send({ type: "TOUCH" });
+		},
+		reveal: () => {
+			source.send({ type: "REVEAL" });
 		},
 	};
 }

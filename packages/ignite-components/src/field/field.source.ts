@@ -18,6 +18,11 @@ export type FieldContext = {
 	hint: string | null;
 	error: string | null;
 	errorAnnouncement: string | null;
+	/** Set when the same sentence must be announced again after a draft change. */
+	repeatError: string | null;
+	errorEpoch: number;
+	draftSinceError: boolean;
+	paintNonce: number;
 	required: boolean;
 	multiline: boolean;
 	touched: boolean;
@@ -30,7 +35,8 @@ export type FieldEvent =
 	| { type: "SET_ERROR"; error: string | null }
 	| { type: "SET_REQUIRED"; required: boolean }
 	| { type: "SET_MULTILINE"; multiline: boolean }
-	| { type: "TOUCH" };
+	| { type: "TOUCH" }
+	| { type: "REVEAL" };
 
 /** The draft is the exact string. Leading and trailing spaces stay. */
 export function exactDraft(value: string | null): string {
@@ -74,23 +80,51 @@ export const fieldMachine = setup({
 		applyLabel: assign({
 			label: ({ event }) => (event.type === "SET_LABEL" ? event.label : ""),
 		}),
-		applyValue: assign({
-			value: ({ event }) =>
-				event.type === "SET_VALUE" ? exactDraft(event.value) : "",
+		applyValue: assign(({ context, event }) => {
+			if (event.type !== "SET_VALUE") return {};
+			const value = exactDraft(event.value);
+			return {
+				value,
+				draftSinceError:
+					value !== context.value ? true : context.draftSinceError,
+			};
 		}),
 		applyHint: assign({
 			hint: ({ event }) =>
 				event.type === "SET_HINT" ? normalizeOptional(event.hint) : null,
 		}),
-		applyError: assign({
-			error: ({ event }) =>
-				event.type === "SET_ERROR" ? normalizeError(event.error) : null,
-			errorAnnouncement: ({ event }) =>
-				event.type === "SET_ERROR" ? normalizeError(event.error) : null,
+		applyError: assign(({ context, event }) => {
+			if (event.type !== "SET_ERROR") return {};
+			const error = normalizeError(event.error);
+			const repeat =
+				error !== null &&
+				error === context.errorAnnouncement &&
+				context.draftSinceError;
+			return {
+				error,
+				errorAnnouncement: repeat ? "" : error,
+				repeatError: repeat ? error : null,
+				errorEpoch: context.errorEpoch + 1,
+				draftSinceError: false,
+			};
 		}),
 		clearError: assign({
 			error: () => null,
 			errorAnnouncement: () => ERROR_CLEARED,
+			repeatError: () => null,
+			draftSinceError: () => false,
+		}),
+		reveal: assign(({ context }) => {
+			const restored = context.repeatError
+				? context.repeatError
+				: context.errorAnnouncement && context.errorAnnouncement.length > 0
+					? context.errorAnnouncement
+					: context.error;
+			return {
+				paintNonce: context.paintNonce + 1,
+				errorAnnouncement: restored,
+				repeatError: null,
+			};
 		}),
 		applyRequired: assign({
 			required: ({ event }) =>
@@ -130,7 +164,11 @@ export const fieldMachine = setup({
 			value: exactDraft(input?.value ?? ""),
 			hint: normalizeOptional(input?.hint ?? null),
 			error,
-			errorAnnouncement: error,
+			errorAnnouncement: null,
+			repeatError: null,
+			errorEpoch: 0,
+			draftSinceError: false,
+			paintNonce: 0,
 			required: input?.required ?? false,
 			multiline: input?.multiline ?? false,
 			touched: input?.touched ?? false,
@@ -149,6 +187,7 @@ export const fieldMachine = setup({
 		SET_REQUIRED: { actions: "applyRequired" },
 		SET_MULTILINE: { actions: "applyMultiline" },
 		TOUCH: { actions: ["markTouched", "announceTouch"] },
+		REVEAL: { actions: "reveal" },
 	},
 	states: {
 		clean: {

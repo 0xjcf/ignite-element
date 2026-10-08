@@ -1,6 +1,7 @@
 // @vitest-environment node
 
 import { describe, expect, it } from "vitest";
+import { createActor } from "xstate";
 import {
 	assertFlagReasons,
 	assertGalleryCoversStates,
@@ -9,6 +10,7 @@ import { expectCloneable } from "../testing/host-seal";
 import { fieldContract } from "./field.contract";
 import { createFieldCore, fieldProjection } from "./field.core";
 import { type FieldFixtureInput, fieldGallery } from "./field.gallery";
+import { fieldMachine } from "./field.source";
 
 async function show(input: FieldFixtureInput) {
 	const core = createFieldCore();
@@ -187,6 +189,42 @@ describe("Field states", () => {
 				error: null,
 				errorAnnouncement: "Error cleared.",
 				a11y: { cli: "Error cleared.", mcp: { isError: false, errors: [] } },
+			});
+		} finally {
+			core.dispose();
+		}
+	});
+
+	it("does not announce an initial error until a later update", () => {
+		const actor = createActor(fieldMachine, {
+			input: { label: "Title", error: "Title is required." },
+		});
+		actor.start();
+		try {
+			expect(actor.getSnapshot().context.error).toBe("Title is required.");
+			expect(actor.getSnapshot().context.errorAnnouncement).toBeNull();
+		} finally {
+			actor.stop();
+		}
+	});
+
+	it("repeats the same error after the draft changes", async () => {
+		const core = createFieldCore();
+		try {
+			core.watch(() => {});
+			await core.execute({ command: "setError", input: "Title is required." });
+			await core.execute({ command: "setValue", input: "Buy milk" });
+			await core.execute({ command: "setError", input: "Title is required." });
+			expect(core.get("states")).toMatchObject({
+				error: "Title is required.",
+				errorAnnouncement: null,
+				repeatError: "Title is required.",
+			});
+			await core.execute({ command: "reveal" });
+			expect(core.get("states")).toMatchObject({
+				errorAnnouncement: "Title is required.",
+				repeatError: null,
+				a11y: { cli: "error: Title is required." },
 			});
 		} finally {
 			core.dispose();
