@@ -80,6 +80,18 @@ export const appShellGallery: readonly GalleryFixture<AppShellFixtureInput>[] =
 			},
 		},
 		{
+			id: "panel-beside",
+			state: "closed",
+			title: "Panel beside the page",
+			app: "DevTools",
+			input: {
+				activeRoute: "Inspector",
+				menuOpen: false,
+				returnTo: null,
+				panelOpen: true,
+			},
+		},
+		{
 			id: "booster-mobile",
 			state: "open",
 			title: "Mobile menu",

@@ -1,4 +1,4 @@
-import { assign, setup } from "xstate";
+import { assign, emit, setup } from "xstate";
 
 export type AppShellInput = {
 	activeRoute?: string;
@@ -24,6 +24,8 @@ export type AppShellEvent =
 	| { type: "REQUEST_RETURN" }
 	| { type: "SET_PANEL"; open: boolean };
 
+export type AppShellEmitted = { type: "return-request"; returnTo: string };
+
 export function normalizeReturnTo(value: string | null): string | null {
 	if (value === null || value.length === 0) return null;
 	return value;
@@ -37,6 +39,7 @@ export const appShellMachine = setup({
 	types: {
 		context: {} as AppShellContext,
 		events: {} as AppShellEvent,
+		emitted: {} as AppShellEmitted,
 		input: {} as AppShellInput,
 	},
 	actions: {
@@ -54,6 +57,10 @@ export const appShellMachine = setup({
 		requestReturn: assign({
 			returnRequested: () => true,
 		}),
+		announceReturn: emit(({ context }) => ({
+			type: "return-request" as const,
+			returnTo: context.returnTo ?? "",
+		})),
 		applyPanel: assign({
 			panelOpen: ({ event }) =>
 				event.type === "SET_PANEL" ? event.open : false,
@@ -92,7 +99,7 @@ export const appShellMachine = setup({
 				OPEN_MENU: "open",
 				REQUEST_RETURN: {
 					guard: "hasReturn",
-					actions: "requestReturn",
+					actions: ["requestReturn", "announceReturn"],
 				},
 			},
 		},
@@ -101,7 +108,7 @@ export const appShellMachine = setup({
 				CLOSE_MENU: "closed",
 				REQUEST_RETURN: {
 					guard: "hasReturn",
-					actions: "requestReturn",
+					actions: ["requestReturn", "announceReturn"],
 				},
 			},
 		},

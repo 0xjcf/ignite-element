@@ -66,7 +66,7 @@ export const appShellContract = {
 		{ name: "setReturnTo", kind: "configuration" },
 		{ name: "setPanel", kind: "configuration", attribute: "panel" },
 	],
-	events: [],
+	events: ["return-request"],
 	slots: ["nav", "main", "panel"],
 	tokens: [...catalogTokens],
 	layers: {

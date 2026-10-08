@@ -51,6 +51,9 @@ const styles = `${catalogHostStyles()}
 .main { padding: 1rem; }
 .main:focus { outline: 2px solid var(--catalog-fg); outline-offset: 2px; }
 @media (min-width: 768px) {
+  .shell[data-panel="open"] {
+    grid-template-columns: minmax(0, 1fr) 16rem;
+  }
   .shell[data-menu="open"] {
     grid-template-columns: 14rem minmax(0, 1fr);
   }

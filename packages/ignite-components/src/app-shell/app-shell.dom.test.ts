@@ -81,6 +81,28 @@ describe("AppShell DOM", () => {
 			false,
 		);
 		element.setReturnTo("Capture");
-		expect(view.getByRole("button", { name: "Back to Capture" })).toBeTruthy();
+		const requests: string[] = [];
+		element.addEventListener("return-request", (event) => {
+			requests.push(
+				(event as CustomEvent<{ returnTo: string }>).detail.returnTo,
+			);
+		});
+		view.getByRole("button", { name: "Back to Capture" }).click();
+		expect(requests).toEqual(["Capture"]);
+		expect(view.getByText("Today")).toBeTruthy();
+	});
+
+	it("keeps a desktop panel column when the menu is closed", () => {
+		const { element } = mount("Inspector");
+		element.setPanel("true");
+		const style = element.shadowRoot?.querySelector("style")?.textContent ?? "";
+		expect(style).toContain('.shell[data-panel="open"]');
+		expect(style).toContain("minmax(0, 1fr) 16rem");
+		expect(
+			element.shadowRoot?.querySelector(".shell")?.getAttribute("data-menu"),
+		).toBe("closed");
+		expect(
+			element.shadowRoot?.querySelector(".shell")?.getAttribute("data-panel"),
+		).toBe("open");
 	});
 });

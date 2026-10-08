@@ -110,7 +110,8 @@ export function appShellCommands(source: {
 
 export const appShellProjection = {
 	states: projectAppShell,
-	commands: appShellCommands,
+	commands: ({ source }: { source: Parameters<typeof appShellCommands>[0] }) =>
+		appShellCommands(source),
 };
 
 export function createAppShellCore() {
@@ -118,5 +119,8 @@ export function createAppShellCore() {
 		source: appShellMachine,
 		states: projectAppShell,
 		commands: ({ source }) => appShellCommands(source),
+		events: (event) => ({
+			"return-request": event<{ returnTo: string }>(),
+		}),
 	});
 }
