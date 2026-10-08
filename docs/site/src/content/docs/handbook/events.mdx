@@ -197,4 +197,4 @@ Warnings contain names/origins, not payloads or snapshots.
 
 Neither development nor production chooses a winner, throws, drops, or deduplicates events.
 
-Development builds can install `installDevtoolsHook` from `ignite-element/devtools-hook`. While it is installed, each outward native or effect event already observed by that diagnostic is delivered as `{ coreId, type, payload, origin, at }`. Production builds omit the hook, and nothing is allocated while it is uninstalled. A later command tap can use the reserved `command` method.
+Development builds can install `installDevtoolsHook` from `ignite-element/devtools-hook`. The published entry keeps a runtime `process.env.NODE_ENV` check. While the hook is installed, each outward effect event, and each native event the listener accepts, is delivered as `{ coreId, type, payload, origin, at }`. Production application builds omit the hook, and nothing is allocated while it is uninstalled. A later command tap can use the reserved `command` method.

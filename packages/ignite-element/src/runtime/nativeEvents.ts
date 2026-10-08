@@ -25,17 +25,17 @@ export function forwardNativeEvents<State, Event>(
 			)
 				return;
 			observe(event.type);
+			if (!names.includes(event.type)) return;
+			const { type, ...detail } = event;
+			// External observation or payload access can dispose reentrantly, even
+			// before subscribeEvents returns a handle that we can release.
+			if (!active || !lifetime.active) return;
 			if (process.env.NODE_ENV !== "production") {
 				const devtools = (
 					globalThis as { [key: symbol]: DevtoolsGlobalSlot | undefined }
 				)[Symbol.for("ignite-element.devtools")];
 				if (devtools?.hook?.event) devtools.publish?.(adapter, "native", event);
 			}
-			if (!names.includes(event.type)) return;
-			const { type, ...detail } = event;
-			// External observation or payload access can dispose reentrantly, even
-			// before subscribeEvents returns a handle that we can release.
-			if (!active || !lifetime.active) return;
 			host.dispatchEvent(
 				new CustomEvent(type, { detail, bubbles: true, composed: true }),
 			);

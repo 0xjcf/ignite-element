@@ -6,11 +6,14 @@ import {
 } from "ignite-element/devtools-hook";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { assign, emit, setup } from "xstate";
-import { devtoolsDelivery } from "../runtime/devtoolsHook";
+import {
+	devtoolsDelivery,
+	resetDevtoolsHookForTests,
+} from "../runtime/devtoolsHook";
 import { igniteCore } from "../xstate";
 
 afterEach(() => {
-	devtoolsDelivery.hook = undefined;
+	resetDevtoolsHookForTests();
 	vi.restoreAllMocks();
 	vi.unstubAllEnvs();
 });
@@ -125,6 +128,83 @@ describe("installDevtoolsHook", () => {
 		expect(publish).not.toHaveBeenCalled();
 		expect(devtoolsDelivery.hook).toBeUndefined();
 		uninstall();
+		core.dispose();
+	});
+
+	it("does not publish native events the runtime does not deliver", async () => {
+		const records: DevtoolsEventRecord[] = [];
+		installDevtoolsHook({
+			event: (record) => {
+				records.push(record);
+			},
+		});
+		const machine = setup({
+			types: {
+				context: {} as { count: number },
+				events: {} as { type: "INC" } | { type: "RESET" },
+				emitted: {} as
+					| { type: "counterReset"; count: number }
+					| { type: "ignoredTick" },
+			},
+		}).createMachine({
+			context: { count: 0 },
+			initial: "active",
+			states: {
+				active: {
+					on: {
+						INC: {
+							actions: emit({ type: "ignoredTick" }),
+						},
+						RESET: {
+							actions: emit({ type: "counterReset", count: 0 }),
+						},
+					},
+				},
+			},
+		});
+		const core = igniteCore({
+			source: machine,
+			states: () => ({ ready: true }),
+			commands: ({ source }) => ({
+				increment: () => source.send({ type: "INC" }),
+				reset: () => source.send({ type: "RESET" }),
+			}),
+			events: (event) => ({
+				counterReset: event<{ count: number }>(),
+			}),
+		});
+		core.on("counterReset", () => {});
+		await core.execute({ command: "increment" });
+		await core.execute({ command: "reset" });
+		expect(records.map((record) => record.type)).toEqual(["counterReset"]);
+		expect(records[0]).toMatchObject({ origin: "native" });
+		core.dispose();
+	});
+
+	it("does not restore a hook whose uninstall already ran", async () => {
+		const first: DevtoolsEventRecord[] = [];
+		const second: DevtoolsEventRecord[] = [];
+		const uninstallFirst = installDevtoolsHook({
+			event: (record) => {
+				first.push(record);
+			},
+		});
+		const uninstallSecond = installDevtoolsHook({
+			event: (record) => {
+				second.push(record);
+			},
+		});
+		const core = createCore();
+		core.on("counterReset", () => {});
+		uninstallFirst();
+		await core.execute({ command: "reset" });
+		expect(first).toHaveLength(0);
+		expect(second.map((record) => record.type)).toContain("counterReset");
+		const delivered = second.length;
+		uninstallSecond();
+		await core.execute({ command: "reset" });
+		expect(first).toHaveLength(0);
+		expect(second).toHaveLength(delivered);
 		core.dispose();
 	});
 

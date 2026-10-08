@@ -58,17 +58,22 @@ function payloadFrom(event: object): unknown {
 	return payload;
 }
 
-function isDevelopment(): boolean {
-	// Same NODE_ENV convention as eventOrigins. The direct `process.env.NODE_ENV`
-	// checks at call sites are what the production bundler deletes.
-	try {
-		return process.env.NODE_ENV !== "production";
-	} catch {
-		return true;
-	}
-}
-
 const DEVTOOLS_SLOT = Symbol.for("ignite-element.devtools");
+
+type InstalledHook = {
+	hook: DevtoolsHook;
+	active: boolean;
+};
+
+const installedHooks: InstalledHook[] = [];
+
+function activeHook(): DevtoolsHook | undefined {
+	for (let index = installedHooks.length - 1; index >= 0; index -= 1) {
+		const installed = installedHooks[index];
+		if (installed?.active) return installed.hook;
+	}
+	return undefined;
+}
 
 /** @internal Delivery slot. Absent from production bundles of normal entrypoints. */
 export const devtoolsDelivery = {
@@ -91,18 +96,25 @@ export const devtoolsDelivery = {
 	},
 };
 
+/** @internal Clears install state between tests. */
+export function resetDevtoolsHookForTests(): void {
+	installedHooks.length = 0;
+	devtoolsDelivery.hook = undefined;
+}
+
 export function installDevtoolsHook(hook: DevtoolsHook): () => void {
-	if (process.env.NODE_ENV === "production" || !isDevelopment()) {
-		return () => {};
-	}
+	// Direct member expression so application bundlers can remove this in production.
+	if (process.env.NODE_ENV === "production") return () => {};
 	(globalThis as { [DEVTOOLS_SLOT]?: typeof devtoolsDelivery })[DEVTOOLS_SLOT] =
 		devtoolsDelivery;
-	const previous = devtoolsDelivery.hook;
+	const installed: InstalledHook = { hook, active: true };
+	installedHooks.push(installed);
 	devtoolsDelivery.hook = hook;
-	let active = true;
 	return () => {
-		if (!active) return;
-		active = false;
-		if (devtoolsDelivery.hook === hook) devtoolsDelivery.hook = previous;
+		if (!installed.active) return;
+		installed.active = false;
+		const index = installedHooks.indexOf(installed);
+		if (index >= 0) installedHooks.splice(index, 1);
+		devtoolsDelivery.hook = activeHook();
 	};
 }

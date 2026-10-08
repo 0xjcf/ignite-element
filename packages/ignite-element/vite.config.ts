@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import { createLibConfig } from "../../configs/vite/lib";
+import { preserveDevtoolsNodeEnv } from "./preserveDevtoolsNodeEnv";
 
 type ViteCommand = "build" | "serve";
 
@@ -13,8 +14,8 @@ const resolveNodeEnv = (
 		: semanticNodeEnv;
 };
 
-export default defineConfig(({ command }) => ({
-	...createLibConfig({
+export default defineConfig(({ command }) => {
+	const lib = createLibConfig({
 		name: "ignite-element",
 		entry: {
 			index: "src/index.ts",
@@ -63,8 +64,12 @@ export default defineConfig(({ command }) => ({
 			"lit-html": "LitHTML",
 			"@reduxjs/toolkit": "RTK",
 		},
-	}),
-	define: {
-		"process.env.NODE_ENV": JSON.stringify(resolveNodeEnv(command)),
-	},
-}));
+	});
+	return {
+		...lib,
+		plugins: [...(lib.plugins ?? []), preserveDevtoolsNodeEnv()],
+		define: {
+			"process.env.NODE_ENV": JSON.stringify(resolveNodeEnv(command)),
+		},
+	};
+});
