@@ -1,11 +1,15 @@
 /** @jsxImportSource ignite-element/jsx */
 import { type IgniteJsxElement, jsx } from "ignite-element/jsx";
+import {
+	liveStatusRegion,
+	liveStatusRegionStyles,
+} from "../live-status/live-status.region";
 import { catalogHostStyles } from "../styles";
 import type { FilterBarCommands, FilterBarStates } from "./filter-bar.core";
 
 export type FilterBarViewContext = FilterBarStates & FilterBarCommands;
 
-const styles = `${catalogHostStyles()}
+const styles = `${catalogHostStyles()}${liveStatusRegionStyles()}
 :host { display: block; max-width: 40rem; }
 .bar { display: grid; gap: 0.6rem; }
 .label {
@@ -24,7 +28,11 @@ const styles = `${catalogHostStyles()}
   font: 400 1rem/1.4 var(--catalog-font);
 }
 .control:focus { outline: 2px solid var(--catalog-fg); outline-offset: 2px; }
-.filters { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.filters { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.filters-name {
+  font: 650 0.85rem/1.3 var(--catalog-font);
+  color: var(--catalog-fg);
+}
 button {
   min-height: 44px;
   box-sizing: border-box;
@@ -67,19 +75,29 @@ function readValue(event: Event): string | null {
 }
 
 function chips(ctx: FilterBarViewContext): IgniteJsxElement {
+	const groupId = `${ctx.instanceId}-filters`;
 	return jsx(chipsHost(ctx.filters), {
 		class: "filters",
-		children: ctx.filters.map((name) => {
-			const pressed = ctx.active.includes(name);
-			return jsx("button", {
-				type: "button",
-				"aria-pressed": pressed ? "true" : "false",
-				onClick: () => {
-					ctx.toggle(name);
-				},
-				children: [name],
-			});
-		}),
+		role: "group",
+		"aria-labelledby": groupId,
+		children: [
+			jsx("span", {
+				id: groupId,
+				class: "filters-name",
+				children: ["Filters"],
+			}),
+			...ctx.filters.map((name) => {
+				const pressed = ctx.active.includes(name);
+				return jsx("button", {
+					type: "button",
+					"aria-pressed": pressed ? "true" : "false",
+					onClick: () => {
+						ctx.toggle(name);
+					},
+					children: [name],
+				});
+			}),
+		],
 	});
 }
 
@@ -92,11 +110,11 @@ export function filterBarView(ctx: FilterBarViewContext): IgniteJsxElement {
 		<>
 			<style>{styles}</style>
 			<div class="bar">
-				<label class="label" for="filter-query">
+				<label class="label" for={`${ctx.instanceId}-query`}>
 					{ctx.label}
 				</label>
 				<input
-					id="filter-query"
+					id={`${ctx.instanceId}-query`}
 					class="control"
 					type="search"
 					value={ctx.query}
@@ -106,6 +124,17 @@ export function filterBarView(ctx: FilterBarViewContext): IgniteJsxElement {
 					}}
 				/>
 				{ctx.showFilters ? chips(ctx) : null}
+				{ctx.warnings.length > 0
+					? liveStatusRegion({
+							instanceId: ctx.instanceId,
+							polite: ctx.warnings.join(" "),
+							assertive: null,
+							busy: false,
+							progress: "none",
+							settled: null,
+							visiblePolite: true,
+						})
+					: null}
 				{ctx.canClear ? (
 					<button
 						type="button"

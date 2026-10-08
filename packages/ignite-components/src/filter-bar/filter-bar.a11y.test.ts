@@ -38,6 +38,17 @@ describe("FilterBar accessibility", () => {
 			view.getByRole("button", { name: "Type" }).getAttribute("aria-pressed"),
 		).toBe("true");
 		expect(view.getByRole("button", { name: "Clear filters" })).toBeTruthy();
+		expect(view.getByRole("group", { name: "Filters" })).toBeTruthy();
+	});
+
+	it("announces an unknown filter instead of dropping it quietly", () => {
+		const { element, view } = mount();
+		const host = element as HTMLElement & {
+			setFilters: (filters: string | null) => void;
+		};
+		host.setFilters("Surface");
+		expect(view.getByText(/Unknown filter "Type"/)).toBeTruthy();
+		expect(view.getByRole("status").textContent).toContain("Valid filters");
 	});
 
 	it("does not leave focus on a chip that was renamed by a new list", () => {

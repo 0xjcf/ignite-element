@@ -1,5 +1,6 @@
 import { igniteCore } from "ignite-element/xstate";
 import type { SnapshotFrom } from "xstate";
+import type { HeadlessA11y } from "../contract";
 import {
 	activeWithin,
 	exactQuery,
@@ -12,16 +13,19 @@ export type FilterBarStateName = "idle" | "filtered";
 
 export type FilterBarStates = {
 	state: FilterBarStateName;
+	instanceId: string;
 	label: string;
 	query: string;
 	filters: string[];
 	active: string[];
+	warnings: string[];
 	isFiltered: boolean;
 	isFilteredRefusal: string | null;
 	canClear: boolean;
 	canClearRefusal: string | null;
 	showFilters: boolean;
 	showFiltersRefusal: string | null;
+	a11y: HeadlessA11y;
 };
 
 export type FilterBarCommands = {
@@ -44,18 +48,36 @@ export function projectFilterBar(
 	const query = exactQuery(snapshot.context.query);
 	const filtered = snapshot.matches("filtered");
 	const showFilters = filters.length > 0;
+	const warnings = [...snapshot.context.warnings];
 	return {
 		state: filtered ? "filtered" : "idle",
+		instanceId: snapshot.context.instanceId,
 		label: snapshot.context.label,
 		query,
 		filters,
 		active,
+		warnings,
 		isFiltered: filtered,
 		isFilteredRefusal: filtered ? null : NOTHING,
 		canClear: filtered,
 		canClearRefusal: filtered ? null : NOTHING,
 		showFilters,
 		showFiltersRefusal: showFilters ? null : NO_FILTERS,
+		a11y: {
+			cli: warnings.length > 0 ? `warning: ${warnings.join(" ")}` : null,
+			mcp: {
+				value: query,
+				tone: warnings.length > 0 ? "warning" : "neutral",
+				label: snapshot.context.label,
+				reason: null,
+				status: warnings.length > 0 ? "polite" : "quiet",
+				instanceId: snapshot.context.instanceId,
+				warnings,
+				focusTarget: null,
+				errors: [],
+				isError: false,
+			},
+		},
 	};
 }
 

@@ -55,4 +55,16 @@ export const filterBarContract = {
 		cli: "M3",
 		mcp: "M3",
 	},
+	a11y: [
+		{
+			web: "Chip group has role=group and an accessible name.",
+			cli: "Grouped heading in --help.",
+			mcp: "Property title and enum titles.",
+		},
+		{
+			web: "SET_FILTERS warns, visibly and in a live region, when a filter is unknown.",
+			cli: "Warning on stderr listing the valid values.",
+			mcp: "warnings[] naming the dropped filters.",
+		},
+	],
 } as const satisfies ComponentContract;
