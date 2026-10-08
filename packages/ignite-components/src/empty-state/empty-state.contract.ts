@@ -47,7 +47,7 @@ export const emptyStateContract = {
 		{ name: "setMessage", kind: "configuration", attribute: "message" },
 		{ name: "setActionLabel", kind: "configuration" },
 	],
-	events: [],
+	events: ["act"],
 	slots: [],
 	tokens: [...catalogTokens],
 	layers: {

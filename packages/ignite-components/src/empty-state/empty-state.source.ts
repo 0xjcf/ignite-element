@@ -1,4 +1,4 @@
-import { assign, setup } from "xstate";
+import { assign, emit, setup } from "xstate";
 
 export const emptyStateKinds = ["empty", "filtered", "outside-range"] as const;
 
@@ -27,6 +27,8 @@ export type EmptyStateEvent =
 	| { type: "SET_ACTION_LABEL"; actionLabel: string | null }
 	| { type: "ACT" };
 
+export type EmptyStateEmitted = { type: "act"; label: string };
+
 export function isEmptyStateKind(
 	value: string | null,
 ): value is EmptyStateKind {
@@ -34,8 +36,10 @@ export function isEmptyStateKind(
 }
 
 export function normalizeActionLabel(value: string | null): string | null {
-	if (value === null || value.length === 0) return null;
-	return value;
+	if (value === null) return null;
+	const trimmed = value.trim();
+	if (trimmed.length === 0) return null;
+	return trimmed;
 }
 
 /**
@@ -46,6 +50,7 @@ export const emptyStateMachine = setup({
 	types: {
 		context: {} as EmptyStateContext,
 		events: {} as EmptyStateEvent,
+		emitted: {} as EmptyStateEmitted,
 		input: {} as EmptyStateInput,
 	},
 	actions: {
@@ -68,6 +73,10 @@ export const emptyStateMachine = setup({
 		requestAction: assign({
 			actionRequested: () => true,
 		}),
+		announceAction: emit(({ context }) => ({
+			type: "act" as const,
+			label: context.actionLabel ?? "",
+		})),
 		clearStartKind: assign({
 			startKind: () => "empty",
 		}),
@@ -116,7 +125,10 @@ export const emptyStateMachine = setup({
 					{ guard: "isFiltered", target: "filtered" },
 					{ guard: "isOutsideRange", target: "outside-range" },
 				],
-				ACT: { guard: "hasAction", actions: "requestAction" },
+				ACT: {
+					guard: "hasAction",
+					actions: ["requestAction", "announceAction"],
+				},
 			},
 		},
 		filtered: {
@@ -125,7 +137,10 @@ export const emptyStateMachine = setup({
 					{ guard: "isEmpty", target: "empty" },
 					{ guard: "isOutsideRange", target: "outside-range" },
 				],
-				ACT: { guard: "hasAction", actions: "requestAction" },
+				ACT: {
+					guard: "hasAction",
+					actions: ["requestAction", "announceAction"],
+				},
 			},
 		},
 		"outside-range": {
@@ -134,7 +149,10 @@ export const emptyStateMachine = setup({
 					{ guard: "isEmpty", target: "empty" },
 					{ guard: "isFiltered", target: "filtered" },
 				],
-				ACT: { guard: "hasAction", actions: "requestAction" },
+				ACT: {
+					guard: "hasAction",
+					actions: ["requestAction", "announceAction"],
+				},
 			},
 		},
 	},

@@ -1,5 +1,5 @@
 /** @jsxImportSource ignite-element/jsx */
-import type { IgniteJsxElement } from "ignite-element/jsx";
+import { type IgniteJsxElement, jsx } from "ignite-element/jsx";
 import { catalogHostStyles } from "../styles";
 import type { NoticeCommands, NoticeStates } from "./notice.core";
 import { toneWord } from "./notice.source";
@@ -36,12 +36,12 @@ const styles = `${catalogHostStyles()}
   text-transform: uppercase;
 }
 .message { margin: 0; color: var(--catalog-fg); }
-.actions {
+.actions, .recovery {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-top: 0.75rem;
 }
+.actions { margin-top: 0.75rem; }
 button {
   min-height: 44px;
   box-sizing: border-box;
@@ -62,6 +62,38 @@ button.dismiss {
  * The tone word is text. Color only tints the panel.
  * Recovery asks the host. Dismiss hides the notice until the host shows it again.
  */
+function recoveryHost(labels: readonly string[]): string {
+	let hash = 2166136261;
+	for (const label of labels) {
+		for (let index = 0; index < label.length; index++) {
+			hash ^= label.charCodeAt(index);
+			hash = Math.imul(hash, 16777619);
+		}
+		hash ^= 0x1f;
+		hash = Math.imul(hash, 16777619);
+	}
+	return `x-recover-${(hash >>> 0).toString(36)}`;
+}
+
+function recoveryButtons(
+	tag: string,
+	labels: readonly string[],
+	recover: (label: string) => void,
+): IgniteJsxElement {
+	return jsx(tag, {
+		class: "recovery",
+		children: labels.map((label) =>
+			jsx("button", {
+				type: "button",
+				onClick: () => {
+					recover(label);
+				},
+				children: [label],
+			}),
+		),
+	});
+}
+
 export function noticeView(ctx: NoticeViewContext): IgniteJsxElement {
 	const assertive = ctx.tone === "error" || ctx.tone === "warning";
 	return (
@@ -75,19 +107,17 @@ export function noticeView(ctx: NoticeViewContext): IgniteJsxElement {
 			>
 				<p class="tone">{toneWord(ctx.tone)}</p>
 				<p class="message">{ctx.message}</p>
-				{ctx.showActions || ctx.canDismiss ? (
+				{ctx.actions.length > 0 || ctx.canDismiss ? (
 					<div class="actions">
-						{ctx.actions.map((label) => (
-							<button
-								type="button"
-								key={label}
-								onClick={() => {
-									if (ctx.canRecover) ctx.recover(label);
-								}}
-							>
-								{label}
-							</button>
-						))}
+						{ctx.actions.length > 0
+							? recoveryButtons(
+									recoveryHost(ctx.actions),
+									ctx.actions,
+									(label) => {
+										if (ctx.canRecover) ctx.recover(label);
+									},
+								)
+							: null}
 						{ctx.canDismiss ? (
 							<button
 								type="button"

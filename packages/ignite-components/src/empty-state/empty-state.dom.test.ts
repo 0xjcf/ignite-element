@@ -53,4 +53,17 @@ describe("EmptyState DOM", () => {
 			}
 		}
 	});
+
+	it("emits act with the step label and does not change the message", () => {
+		const { element, view } = mount("Today is empty", "Capacity 0/3.");
+		element.setActionLabel("Add a thought");
+		const labels: string[] = [];
+		element.addEventListener("act", (event) => {
+			labels.push((event as CustomEvent<{ label: string }>).detail.label);
+		});
+		view.getByRole("button", { name: "Add a thought" }).click();
+		view.getByRole("button", { name: "Add a thought" }).click();
+		expect(labels).toEqual(["Add a thought", "Add a thought"]);
+		expect(view.getByText("Capacity 0/3.")).toBeTruthy();
+	});
 });

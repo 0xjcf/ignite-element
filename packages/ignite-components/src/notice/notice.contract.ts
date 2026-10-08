@@ -55,7 +55,7 @@ export const noticeContract = {
 		{ name: "setActions", kind: "configuration", attribute: "actions" },
 		{ name: "setDismissible", kind: "configuration", attribute: "dismissible" },
 	],
-	events: [],
+	events: ["recover"],
 	slots: [],
 	tokens: [...catalogTokens],
 	layers: {

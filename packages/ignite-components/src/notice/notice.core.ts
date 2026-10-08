@@ -71,9 +71,9 @@ export function projectNotice(
 		isDismissed: !shown,
 		isDismissedRefusal: shown ? STILL_SHOWING : null,
 		showActions,
-		showActionsRefusal: showActions ? null : NO_RECOVERY,
+		showActionsRefusal: showActions ? null : shown ? NO_RECOVERY : DISMISSED,
 		canRecover: showActions,
-		canRecoverRefusal: showActions ? null : NO_RECOVERY,
+		canRecoverRefusal: showActions ? null : shown ? NO_RECOVERY : DISMISSED,
 		isRecoveryRequested,
 		isRecoveryRequestedRefusal: isRecoveryRequested ? null : NO_REQUEST,
 	};
@@ -113,7 +113,8 @@ export function noticeCommands(source: {
 
 export const noticeProjection = {
 	states: projectNotice,
-	commands: noticeCommands,
+	commands: ({ source }: { source: Parameters<typeof noticeCommands>[0] }) =>
+		noticeCommands(source),
 };
 
 export function createNoticeCore() {
@@ -121,5 +122,8 @@ export function createNoticeCore() {
 		source: noticeMachine,
 		states: projectNotice,
 		commands: ({ source }) => noticeCommands(source),
+		events: (event) => ({
+			recover: event<{ label: string }>(),
+		}),
 	});
 }

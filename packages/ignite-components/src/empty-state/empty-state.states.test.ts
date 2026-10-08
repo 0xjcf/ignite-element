@@ -69,6 +69,25 @@ describe("EmptyState states", () => {
 		}
 	});
 
+	it("treats a whitespace-only action label as no first step", async () => {
+		const core = await show({
+			kind: "empty",
+			title: "Today is empty",
+			message: "Capacity 0/3.",
+			actionLabel: " \n ",
+		});
+		try {
+			expect(core.get("states")).toMatchObject({
+				actionLabel: null,
+				showAction: false,
+				canAct: false,
+				canActRefusal: "There is no first step.",
+			});
+		} finally {
+			core.dispose();
+		}
+	});
+
 	it("ignores act when there is no first step", async () => {
 		const core = await show({
 			kind: "filtered",

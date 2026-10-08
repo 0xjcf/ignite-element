@@ -101,7 +101,11 @@ export function emptyStateCommands(source: {
 
 export const emptyStateProjection = {
 	states: projectEmptyState,
-	commands: emptyStateCommands,
+	commands: ({
+		source,
+	}: {
+		source: Parameters<typeof emptyStateCommands>[0];
+	}) => emptyStateCommands(source),
 };
 
 export function createEmptyStateCore() {
@@ -109,5 +113,8 @@ export function createEmptyStateCore() {
 		source: emptyStateMachine,
 		states: projectEmptyState,
 		commands: ({ source }) => emptyStateCommands(source),
+		events: (event) => ({
+			act: event<{ label: string }>(),
+		}),
 	});
 }

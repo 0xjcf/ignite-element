@@ -74,6 +74,28 @@ describe("Notice states", () => {
 		}
 	});
 
+	it("does not claim a dismissed notice has no recovery action", async () => {
+		const core = await show({
+			tone: "warning",
+			message: "Reconnect to the page.",
+			actions: ["Reconnect"],
+			dismissible: true,
+			dismissed: true,
+		});
+		try {
+			expect(core.get("states")).toMatchObject({
+				state: "dismissed",
+				actions: ["Reconnect"],
+				showActions: false,
+				canRecover: false,
+				showActionsRefusal: "This notice was dismissed.",
+				canRecoverRefusal: "This notice was dismissed.",
+			});
+		} finally {
+			core.dispose();
+		}
+	});
+
 	it("hides a dismissible notice until the host sends a new message", async () => {
 		const core = await show({
 			tone: "info",

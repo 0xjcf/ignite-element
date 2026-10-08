@@ -1,4 +1,4 @@
-import { assign, setup } from "xstate";
+import { assign, emit, setup } from "xstate";
 
 export const noticeTones = [
 	"info",
@@ -34,6 +34,8 @@ export type NoticeEvent =
 	| { type: "SHOW" }
 	| { type: "RECOVER"; label: string };
 
+export type NoticeEmitted = { type: "recover"; label: string };
+
 export function isNoticeTone(value: string | null): value is NoticeTone {
 	return noticeTones.some((tone) => tone === value);
 }
@@ -62,6 +64,7 @@ export const noticeMachine = setup({
 	types: {
 		context: {} as NoticeContext,
 		events: {} as NoticeEvent,
+		emitted: {} as NoticeEmitted,
 		input: {} as NoticeInput,
 	},
 	actions: {
@@ -86,6 +89,10 @@ export const noticeMachine = setup({
 			recoveryRequested: ({ event }) =>
 				event.type === "RECOVER" ? event.label : null,
 		}),
+		announceRecovery: emit(({ event }) => ({
+			type: "recover" as const,
+			label: event.type === "RECOVER" ? event.label : "",
+		})),
 		clearRecovery: assign({
 			recoveryRequested: () => null,
 		}),
@@ -116,7 +123,10 @@ export const noticeMachine = setup({
 		shown: {
 			on: {
 				DISMISS: { guard: "canDismiss", target: "dismissed" },
-				RECOVER: { guard: "canRecover", actions: "requestRecovery" },
+				RECOVER: {
+					guard: "canRecover",
+					actions: ["requestRecovery", "announceRecovery"],
+				},
 			},
 		},
 		dismissed: {},

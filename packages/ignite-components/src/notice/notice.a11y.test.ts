@@ -47,6 +47,32 @@ describe("Notice accessibility", () => {
 		expect(element.shadowRoot?.activeElement).toBe(dismiss);
 	});
 
+	it("does not move focus onto a different action when the list changes", () => {
+		const { element, view } = mount();
+		element.setActions("");
+		const dismiss = view.getByRole("button", { name: "Dismiss" });
+		dismiss.focus();
+		expect(element.shadowRoot?.activeElement).toBe(dismiss);
+		element.setActions("Retry");
+		const retry = view.getByRole("button", { name: "Retry" });
+		expect(element.shadowRoot?.activeElement).not.toBe(retry);
+		retry.focus();
+		element.setActions("Next Friday\nRetry");
+		expect(element.shadowRoot?.activeElement).not.toBe(
+			view.getByRole("button", { name: "Next Friday" }),
+		);
+	});
+
+	it("emits recover for the action that was pressed", () => {
+		const { element, view } = mount();
+		const labels: string[] = [];
+		element.addEventListener("recover", (event) => {
+			labels.push((event as CustomEvent<{ label: string }>).detail.label);
+		});
+		view.getByRole("button", { name: "This Friday" }).click();
+		expect(labels).toEqual(["This Friday"]);
+	});
+
 	it("keeps tone fills at WCAG AA against the ink", () => {
 		for (const fill of [
 			catalogColors.surface,
