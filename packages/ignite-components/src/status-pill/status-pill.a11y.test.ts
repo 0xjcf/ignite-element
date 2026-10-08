@@ -37,14 +37,45 @@ describe("StatusPill accessibility", () => {
 		expect(reason.closest("[aria-hidden='true']")).toBeNull();
 		const chip = value.closest(".status-pill");
 		expect(chip?.getAttribute("data-tone")).toBe("warning");
+		expect(view.getByText("Warning")).toBeTruthy();
 		expect(chip?.textContent?.replace(/\s+/g, " ").trim()).toBe(
-			"Paused — Inspection is paused.",
+			"Warning Paused — Inspection is paused.",
 		);
+		expect(root.querySelector("[aria-live]")).toBeNull();
 		expect(root.querySelector("style")?.textContent).toContain(
 			"var(--status-pill-tone",
 		);
 		expect(root.querySelector("[tabindex]")).toBeNull();
 		expect(root.querySelector("button")).toBeNull();
+	});
+
+	it("announces a value change only when that pill opted in", () => {
+		const { element, root } = mount(
+			"Paused",
+			"warning",
+			"Inspection is paused.",
+		);
+		const host = element as HTMLElement & {
+			setAnnounce: (announce: string | null) => void;
+			setValue: (value: string | null) => void;
+		};
+		host.setAnnounce("true");
+		expect(root.querySelector("[aria-live='polite']")?.textContent).toBe("");
+		host.setValue("Live");
+		expect(root.querySelector("[aria-live='polite']")?.textContent).toContain(
+			"Live",
+		);
+		expect(root.querySelector("[aria-live='polite']")?.textContent).toContain(
+			"Warning",
+		);
+		const other = document.createElement(TAG);
+		other.setAttribute("value", "Saved");
+		other.setAttribute("tone", "success");
+		document.body.appendChild(other);
+		expect(other.shadowRoot?.querySelector("[aria-live]")).toBeNull();
+		expect(root.querySelector("[aria-live='polite']")?.id).not.toBe(
+			other.shadowRoot?.querySelector("[aria-live='polite']")?.id,
+		);
 	});
 
 	it("keeps ink on each fill at WCAG AA", () => {

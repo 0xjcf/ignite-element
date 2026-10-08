@@ -33,6 +33,11 @@ export const statusPillContract = {
 			kind: "configuration",
 			attribute: "reason",
 		},
+		{
+			name: "setAnnounce",
+			kind: "configuration",
+			attribute: "announce",
+		},
 	],
 	events: [],
 	slots: [],
@@ -53,4 +58,21 @@ export const statusPillContract = {
 		cli: "M3",
 		mcp: "M3",
 	},
+	a11y: [
+		{
+			web: "Opt-in polite live region when the value, tone, or reason changes.",
+			cli: "Plain status line on stderr. No spinner. Honour NO_COLOR.",
+			mcp: "status {value, tone, reason}.",
+		},
+		{
+			web: "Visible tone word in the chip and in the accessible name.",
+			cli: "Leading tone word (warning:, error:).",
+			mcp: "tone enum plus a human label.",
+		},
+		{
+			web: "Each pill has its own announcer id.",
+			cli: "Instance id in the output.",
+			mcp: "instanceId in the result.",
+		},
+	],
 } as const satisfies ComponentContract;

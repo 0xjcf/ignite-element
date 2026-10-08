@@ -119,7 +119,39 @@ describe("StatusPill states", () => {
 		}
 	});
 
-	it("records CLI and MCP on the contract and ships no host", () => {
+	it("announces on change only after the host opts in", async () => {
+		const core = createStatusPillCore();
+		try {
+			core.watch(() => {});
+			await core.execute({ command: "setValue", input: "Paused" });
+			await core.execute({ command: "setTone", input: "warning" });
+			await core.execute({
+				command: "setReason",
+				input: "Inspection is paused.",
+			});
+			expect(core.get("states")).toMatchObject({
+				announce: false,
+				announcement: null,
+				toneLabel: "Warning",
+				accessibleName: "Warning Paused — Inspection is paused.",
+				a11y: { cli: null, mcp: { tone: "warning", label: "Warning" } },
+			});
+			await core.execute({ command: "setAnnounce", input: "true" });
+			expect(core.get("states").announcement).toBeNull();
+			await core.execute({ command: "setValue", input: "Live" });
+			expect(core.get("states")).toMatchObject({
+				announcement: "Warning Live — Inspection is paused.",
+				a11y: {
+					cli: "warning: Live — Inspection is paused.",
+					mcp: { status: "polite", value: "Live" },
+				},
+			});
+		} finally {
+			core.dispose();
+		}
+	});
+
+	it("records CLI and MCP equivalents and ships no host", () => {
 		expect(statusPillContract.hosts).toEqual({ cli: "M3", mcp: "M3" });
 		expect(statusPillContract.surfaces.cli).toMatch(/text label/);
 		expect(statusPillContract.surfaces.mcp).toMatch(/field/);
@@ -135,5 +167,13 @@ describe("StatusPill states", () => {
 			slots: false,
 			headless: true,
 		});
+		expect(statusPillContract.a11y?.map((row) => row.cli)).toEqual([
+			"Plain status line on stderr. No spinner. Honour NO_COLOR.",
+			"Leading tone word (warning:, error:).",
+			"Instance id in the output.",
+		]);
+		expect(statusPillContract.a11y?.map((row) => row.mcp)[0]).toBe(
+			"status {value, tone, reason}.",
+		);
 	});
 });
