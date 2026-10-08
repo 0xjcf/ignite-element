@@ -121,7 +121,6 @@ export const exportButtonMachine = setup({
 		}),
 		noteDuplicate: assign({
 			duplicateExport: () => true,
-			statusLine: () => "already running",
 		}),
 		announceExport: emit(({ context }) => ({
 			type: "export" as const,

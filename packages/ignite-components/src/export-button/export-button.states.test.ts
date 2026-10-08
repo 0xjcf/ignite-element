@@ -165,7 +165,12 @@ describe("ExportButton states", () => {
 			expect(core.get("states")).toMatchObject({
 				state: "preparing",
 				duplicateExport: true,
-				a11y: { cli: "already running", mcp: { status: "busy" } },
+				statusLine: "in progress",
+				pendingLabel: "Preparing…",
+				a11y: {
+					cli: "already running",
+					mcp: { status: "busy", isError: false },
+				},
 			});
 			await core.execute({ command: "fail", input: "Disk full." });
 			expect(core.get("states").a11y.cli).toBe("error: Disk full.");

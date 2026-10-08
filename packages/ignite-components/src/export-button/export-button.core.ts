@@ -72,13 +72,7 @@ export function projectExportButton(
 	const reason = failed ? snapshot.context.reason : null;
 	const statusLine = snapshot.context.statusLine;
 	const duplicateExport = snapshot.context.duplicateExport;
-	const buttonLabel = preparing
-		? snapshot.context.pendingLabel
-		: ready
-			? snapshot.context.readyLabel
-			: failed
-				? "Try again"
-				: snapshot.context.label;
+	const buttonLabel = failed ? "Try again" : snapshot.context.label;
 	const state: ExportButtonStateName = preparing
 		? "preparing"
 		: ready

@@ -4,6 +4,7 @@ import {
 	liveStatusRegion,
 	liveStatusRegionStyles,
 } from "../live-status/live-status.region";
+import { cliTone } from "../live-status/live-status.source";
 import { catalogHostStyles } from "../styles";
 import type {
 	ExportButtonCommands,
@@ -46,7 +47,14 @@ button:focus { outline: 2px solid var(--catalog-fg); outline-offset: 2px; }
 export function exportButtonView(
 	ctx: ExportButtonViewContext,
 ): IgniteJsxElement {
-	const unavailable = ctx.canExport ? null : ctx.canExportRefusal;
+	const polite =
+		ctx.state === "preparing"
+			? ctx.pendingLabel
+			: ctx.state === "ready"
+				? ctx.readyLabel
+				: null;
+	const assertive =
+		ctx.state === "failed" && ctx.reason ? cliTone("error", ctx.reason) : null;
 	return (
 		<>
 			<style>{styles}</style>
@@ -66,19 +74,13 @@ export function exportButtonView(
 				>
 					{ctx.buttonLabel}
 				</button>
-				{ctx.showReason ? <p class="reason">{ctx.reason}</p> : null}
-				{unavailable ? <p class="reason">{unavailable}</p> : null}
 				{liveStatusRegion({
 					instanceId: ctx.instanceId,
-					polite:
-						ctx.state === "ready" || ctx.duplicateExport
-							? ctx.statusLine
-							: null,
-					assertive: ctx.state === "failed" ? ctx.reason : null,
+					polite,
+					assertive,
 					busy: ctx.isPreparing,
 					progress: ctx.isPreparing ? "indeterminate" : "none",
-					settled: ctx.isReady ? ctx.readyLabel : null,
-					busyText: ctx.pendingLabel,
+					settled: null,
 				})}
 			</div>
 		</>
