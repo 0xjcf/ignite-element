@@ -4,6 +4,8 @@ import {
 	type ActionButtonEvent,
 	type ActionButtonPhase,
 	actionButtonMachine,
+	DEFAULT_LABEL,
+	DEFAULT_PENDING_LABEL,
 	PENDING_REASON,
 	refusalReason,
 } from "./action-button.source";
@@ -28,6 +30,8 @@ export type ActionButtonCommands = {
 	refuse: (reason: string | null) => void;
 	setLabel: (label: string | null) => void;
 	setPendingLabel: (pendingLabel: string | null) => void;
+	/** HTML lowercases `pendingLabel` to `pendinglabel`. Same setter. */
+	setPendinglabel: (pendingLabel: string | null) => void;
 };
 
 const NOT_RUNNING = "This action is not running.";
@@ -84,20 +88,39 @@ export function actionButtonCommands(source: {
 			source.send({ type: "REFUSE", reason });
 		},
 		setLabel: (label) => {
-			source.send({ type: "SET_LABEL", label: label ?? "" });
+			const next =
+				label === null || label.trim() === "" ? DEFAULT_LABEL : label;
+			source.send({ type: "SET_LABEL", label: next });
 		},
 		setPendingLabel: (pendingLabel) => {
 			source.send({
 				type: "SET_PENDING_LABEL",
-				pendingLabel: pendingLabel ?? "",
+				pendingLabel: pendingText(pendingLabel),
+			});
+		},
+		setPendinglabel: (pendingLabel) => {
+			source.send({
+				type: "SET_PENDING_LABEL",
+				pendingLabel: pendingText(pendingLabel),
 			});
 		},
 	};
 }
 
+function pendingText(pendingLabel: string | null): string {
+	if (pendingLabel === null || pendingLabel.trim() === "") {
+		return DEFAULT_PENDING_LABEL;
+	}
+	return pendingLabel;
+}
+
 export const actionButtonProjection = {
 	states: projectActionButton,
-	commands: actionButtonCommands,
+	commands: ({
+		source,
+	}: {
+		source: Parameters<typeof actionButtonCommands>[0];
+	}) => actionButtonCommands(source),
 };
 
 export function createActionButtonCore() {
@@ -105,5 +128,8 @@ export function createActionButtonCore() {
 		source: actionButtonMachine,
 		states: projectActionButton,
 		commands: ({ source }) => actionButtonCommands(source),
+		events: (event) => ({
+			press: event<{ label: string }>(),
+		}),
 	});
 }

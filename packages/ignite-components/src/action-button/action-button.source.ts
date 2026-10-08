@@ -1,4 +1,4 @@
-import { assign, setup } from "xstate";
+import { assign, emit, setup } from "xstate";
 
 export type ActionButtonPhase = "idle" | "pending" | "unavailable";
 
@@ -22,8 +22,12 @@ export type ActionButtonEvent =
 	| { type: "SET_LABEL"; label: string }
 	| { type: "SET_PENDING_LABEL"; pendingLabel: string };
 
+export const DEFAULT_LABEL = "Action";
+export const DEFAULT_PENDING_LABEL = "Working…";
 export const PENDING_REASON = "This action is already running.";
 export const UNAVAILABLE_REASON = "This action is unavailable.";
+
+export type ActionButtonEmitted = { type: "press"; label: string };
 
 export function refusalReason(reason: string | null): string {
 	if (reason === null || reason.length === 0) return UNAVAILABLE_REASON;
@@ -38,6 +42,7 @@ export const actionButtonMachine = setup({
 	types: {
 		context: {} as ActionButtonContext,
 		events: {} as ActionButtonEvent,
+		emitted: {} as ActionButtonEmitted,
 		input: {} as ActionButtonInput,
 	},
 	actions: {
@@ -55,13 +60,17 @@ export const actionButtonMachine = setup({
 		clearReason: assign({
 			reason: () => null,
 		}),
+		announcePress: emit(({ context }) => ({
+			type: "press" as const,
+			label: context.label,
+		})),
 	},
 }).createMachine({
 	id: "action-button",
 	initial: "idle",
 	context: ({ input }) => ({
-		label: input?.label ?? "Action",
-		pendingLabel: input?.pendingLabel ?? "Working…",
+		label: input?.label ?? DEFAULT_LABEL,
+		pendingLabel: input?.pendingLabel ?? DEFAULT_PENDING_LABEL,
 		reason: input?.reason ?? null,
 	}),
 	on: {
@@ -72,7 +81,7 @@ export const actionButtonMachine = setup({
 		idle: {
 			entry: "clearReason",
 			on: {
-				PRESS: "pending",
+				PRESS: { target: "pending", actions: "announcePress" },
 				REFUSE: { target: "unavailable", actions: "applyRefusal" },
 			},
 		},

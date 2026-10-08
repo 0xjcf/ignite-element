@@ -18,6 +18,7 @@ function mount(label: string, pendingLabel: string) {
 	const element = document.createElement(TAG) as HTMLElement & {
 		setPendingLabel: (value: string | null) => void;
 		settle: () => void;
+		allow: () => void;
 		refuse: (reason: string | null) => void;
 	};
 	element.setAttribute("label", label);
@@ -57,6 +58,42 @@ describe("ActionButton DOM", () => {
 				).toBeTruthy();
 			}
 		}
+	});
+
+	it("does not let a refused click reach the host, and emits press when it can", async () => {
+		const { element, view } = mount("Save", "Saving…");
+		const hostClicks: string[] = [];
+		const presses: string[] = [];
+		element.addEventListener("click", () => {
+			hostClicks.push("click");
+		});
+		element.addEventListener("press", (event) => {
+			presses.push((event as CustomEvent<{ label: string }>).detail.label);
+		});
+		element.refuse("The guard is off.");
+		view.getByRole("button", { name: "Save" }).click();
+		expect(hostClicks).toEqual([]);
+		expect(presses).toEqual([]);
+		element.allow();
+		view.getByRole("button", { name: "Save" }).click();
+		expect(hostClicks).toEqual(["click"]);
+		expect(presses).toEqual(["Save"]);
+	});
+
+	it("restores Action when the label attribute is removed", async () => {
+		const { element, view } = mount("Save", "Saving…");
+		expect(view.getByRole("button", { name: "Save" })).toBeTruthy();
+		element.removeAttribute("label");
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(view.getByRole("button", { name: "Action" })).toBeTruthy();
+	});
+
+	it("reads a lowercased pendinglabel attribute after connect", async () => {
+		const { element, view } = mount("Save", "Saving…");
+		element.setAttribute("pendinglabel", "Writing…");
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		view.getByRole("button", { name: "Save" }).click();
+		expect(view.getByRole("button", { name: "Writing…" })).toBeTruthy();
 	});
 
 	it("shows the pending label after a click and keeps the idle label after settle", () => {

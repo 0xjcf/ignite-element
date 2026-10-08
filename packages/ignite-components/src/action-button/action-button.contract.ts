@@ -36,8 +36,13 @@ export const actionButtonContract = {
 		{ name: "refuse", kind: "configuration" },
 		{ name: "setLabel", kind: "configuration", attribute: "label" },
 		{ name: "setPendingLabel", kind: "configuration" },
+		{
+			name: "setPendinglabel",
+			kind: "configuration",
+			attribute: "pendinglabel",
+		},
 	],
-	events: [],
+	events: ["press"],
 	slots: [],
 	tokens: [...catalogTokens],
 	layers: {

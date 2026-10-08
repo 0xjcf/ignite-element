@@ -62,6 +62,7 @@ export function actionButtonView(
 					onClick={(event: Event) => {
 						if (!ctx.canPress) {
 							event.preventDefault();
+							event.stopPropagation();
 							return;
 						}
 						ctx.press();
