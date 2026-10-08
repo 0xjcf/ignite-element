@@ -205,6 +205,35 @@ describe("installDevtoolsHook", () => {
 		await core.execute({ command: "reset" });
 		expect(first).toHaveLength(0);
 		expect(second).toHaveLength(delivered);
+		expect(devtoolsDelivery.hook).toBeUndefined();
+		core.dispose();
+	});
+
+	it("restores the earlier hook when the later uninstall runs first", async () => {
+		const first: DevtoolsEventRecord[] = [];
+		const second: DevtoolsEventRecord[] = [];
+		const uninstallFirst = installDevtoolsHook({
+			event: (record) => {
+				first.push(record);
+			},
+		});
+		const uninstallSecond = installDevtoolsHook({
+			event: (record) => {
+				second.push(record);
+			},
+		});
+		const core = createCore();
+		core.on("counterReset", () => {});
+		uninstallSecond();
+		await core.execute({ command: "reset" });
+		expect(second).toHaveLength(0);
+		expect(first.map((record) => record.type)).toContain("counterReset");
+		const delivered = first.length;
+		uninstallFirst();
+		await core.execute({ command: "reset" });
+		expect(first).toHaveLength(delivered);
+		expect(second).toHaveLength(0);
+		expect(devtoolsDelivery.hook).toBeUndefined();
 		core.dispose();
 	});
 

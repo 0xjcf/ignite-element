@@ -115,6 +115,7 @@ const consumerLanes = [
 			"ignite-element/tools",
 			"ignite-element/tools/anthropic",
 			"ignite-element/tools/openai",
+			"ignite-element/devtools-hook",
 			"ignite-element/package.json",
 		],
 	},
@@ -239,13 +240,13 @@ function validateTarball(definition, tarballPath) {
 		`${manifest.name} tarball must not contain CommonJS or UMD artifacts`,
 	);
 
-	for (const [subpath, target] of Object.entries(manifest.exports)) {
+	function assertExportTarget(subpath, target) {
 		if (typeof target === "string") {
 			assert.ok(
 				inventorySet.has(`package/${target.replace(/^\.\//, "")}`),
 				`${manifest.name} ${subpath} must resolve inside its tarball`,
 			);
-			continue;
+			return;
 		}
 
 		assert.equal(
@@ -253,7 +254,9 @@ function validateTarball(definition, tarballPath) {
 			false,
 			`${manifest.name} ${subpath} must not advertise require`,
 		);
-		assert.equal(target.default, target.import);
+		if (typeof target.import === "string") {
+			assert.equal(target.default, target.import);
+		}
 
 		for (const condition of ["types", "import", "default"]) {
 			assert.equal(
@@ -266,6 +269,15 @@ function validateTarball(definition, tarballPath) {
 				`${manifest.name} ${subpath} ${condition} target must exist in its tarball`,
 			);
 		}
+
+		for (const [condition, nested] of Object.entries(target)) {
+			if (!nested || typeof nested !== "object") continue;
+			assertExportTarget(`${subpath}#${condition}`, nested);
+		}
+	}
+
+	for (const [subpath, target] of Object.entries(manifest.exports)) {
+		assertExportTarget(subpath, target);
 	}
 
 	return manifest;

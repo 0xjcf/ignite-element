@@ -53,76 +53,151 @@
 	"exports": {
 		".": {
 			"types": "./dist/types/index.d.ts",
+			"development": {
+				"types": "./dist/types/index.d.ts",
+				"import": "./dist/development/ignite-element.es.js",
+				"default": "./dist/development/ignite-element.es.js"
+			},
 			"import": "./dist/ignite-element.es.js",
 			"default": "./dist/ignite-element.es.js"
 		},
 		"./xstate": {
 			"types": "./dist/types/xstate.d.ts",
+			"development": {
+				"types": "./dist/types/xstate.d.ts",
+				"import": "./dist/development/xstate.es.js",
+				"default": "./dist/development/xstate.es.js"
+			},
 			"import": "./dist/xstate.es.js",
 			"default": "./dist/xstate.es.js"
 		},
 		"./redux": {
 			"types": "./dist/types/redux.d.ts",
+			"development": {
+				"types": "./dist/types/redux.d.ts",
+				"import": "./dist/development/redux.es.js",
+				"default": "./dist/development/redux.es.js"
+			},
 			"import": "./dist/redux.es.js",
 			"default": "./dist/redux.es.js"
 		},
 		"./mobx": {
 			"types": "./dist/types/mobx.d.ts",
+			"development": {
+				"types": "./dist/types/mobx.d.ts",
+				"import": "./dist/development/mobx.es.js",
+				"default": "./dist/development/mobx.es.js"
+			},
 			"import": "./dist/mobx.es.js",
 			"default": "./dist/mobx.es.js"
 		},
 		"./actor-web": {
 			"types": "./dist/types/actor-web.d.ts",
+			"development": {
+				"types": "./dist/types/actor-web.d.ts",
+				"import": "./dist/development/actor-web.es.js",
+				"default": "./dist/development/actor-web.es.js"
+			},
 			"import": "./dist/actor-web.es.js",
 			"default": "./dist/actor-web.es.js"
 		},
 		"./actor-web/web": {
 			"types": "./dist/types/actor-web/web.d.ts",
+			"development": {
+				"types": "./dist/types/actor-web/web.d.ts",
+				"import": "./dist/development/actor-web/web.es.js",
+				"default": "./dist/development/actor-web/web.es.js"
+			},
 			"import": "./dist/actor-web/web.es.js",
 			"default": "./dist/actor-web/web.es.js"
 		},
 		"./jsx": {
 			"types": "./dist/types/jsx/index.d.ts",
+			"development": {
+				"types": "./dist/types/jsx/index.d.ts",
+				"import": "./dist/development/jsx/index.es.js",
+				"default": "./dist/development/jsx/index.es.js"
+			},
 			"import": "./dist/jsx/index.es.js",
 			"default": "./dist/jsx/index.es.js"
 		},
 		"./jsx/jsx-runtime": {
 			"types": "./dist/types/jsx/jsx-runtime.d.ts",
+			"development": {
+				"types": "./dist/types/jsx/jsx-runtime.d.ts",
+				"import": "./dist/development/jsx/jsx-runtime.es.js",
+				"default": "./dist/development/jsx/jsx-runtime.es.js"
+			},
 			"import": "./dist/jsx/jsx-runtime.es.js",
 			"default": "./dist/jsx/jsx-runtime.es.js"
 		},
 		"./jsx/jsx-dev-runtime": {
 			"types": "./dist/types/jsx/jsx-dev-runtime.d.ts",
+			"development": {
+				"types": "./dist/types/jsx/jsx-dev-runtime.d.ts",
+				"import": "./dist/development/jsx/jsx-dev-runtime.es.js",
+				"default": "./dist/development/jsx/jsx-dev-runtime.es.js"
+			},
 			"import": "./dist/jsx/jsx-dev-runtime.es.js",
 			"default": "./dist/jsx/jsx-dev-runtime.es.js"
 		},
 		"./react": {
 			"types": "./dist/types/react/index.d.ts",
+			"development": {
+				"types": "./dist/types/react/index.d.ts",
+				"import": "./dist/development/react.es.js",
+				"default": "./dist/development/react.es.js"
+			},
 			"import": "./dist/react.es.js",
 			"default": "./dist/react.es.js"
 		},
 		"./react/web": {
 			"types": "./dist/types/react/web.d.ts",
+			"development": {
+				"types": "./dist/types/react/web.d.ts",
+				"import": "./dist/development/react/web.es.js",
+				"default": "./dist/development/react/web.es.js"
+			},
 			"import": "./dist/react/web.es.js",
 			"default": "./dist/react/web.es.js"
 		},
 		"./tools": {
 			"types": "./dist/types/tools/index.d.ts",
+			"development": {
+				"types": "./dist/types/tools/index.d.ts",
+				"import": "./dist/development/tools.es.js",
+				"default": "./dist/development/tools.es.js"
+			},
 			"import": "./dist/tools.es.js",
 			"default": "./dist/tools.es.js"
 		},
 		"./tools/anthropic": {
 			"types": "./dist/types/tools/anthropic/index.d.ts",
+			"development": {
+				"types": "./dist/types/tools/anthropic/index.d.ts",
+				"import": "./dist/development/tools/anthropic.es.js",
+				"default": "./dist/development/tools/anthropic.es.js"
+			},
 			"import": "./dist/tools/anthropic.es.js",
 			"default": "./dist/tools/anthropic.es.js"
 		},
 		"./tools/openai": {
 			"types": "./dist/types/tools/openai/index.d.ts",
+			"development": {
+				"types": "./dist/types/tools/openai/index.d.ts",
+				"import": "./dist/development/tools/openai.es.js",
+				"default": "./dist/development/tools/openai.es.js"
+			},
 			"import": "./dist/tools/openai.es.js",
 			"default": "./dist/tools/openai.es.js"
 		},
 		"./devtools-hook": {
 			"types": "./dist/types/devtools-hook.d.ts",
+			"development": {
+				"types": "./dist/types/devtools-hook.d.ts",
+				"import": "./dist/development/devtools-hook.es.js",
+				"default": "./dist/development/devtools-hook.es.js"
+			},
 			"import": "./dist/devtools-hook.es.js",
 			"default": "./dist/devtools-hook.es.js"
 		},
@@ -160,11 +235,16 @@
 		"./dist/jsx.es-*.js",
 		"./dist/renderers/*.es.js",
 		"./dist/projectionTargets-*.js",
-		"./dist/IgniteElement-*.js"
+		"./dist/IgniteElement-*.js",
+		"./dist/development/registry-*.js",
+		"./dist/development/jsx.es-*.js",
+		"./dist/development/renderers/*.es.js",
+		"./dist/development/projectionTargets-*.js",
+		"./dist/development/IgniteElement-*.js"
 	],
 	"scripts": {
 		"build:types": "tsc",
-		"build:js": "vite build",
+		"build:js": "vite build && IGNITE_DEVTOOLS_BUILD=development vite build",
 		"verify:exports": "node ./scripts/verify-exports.mjs",
 		"build": "pnpm run build:types && pnpm run build:js && pnpm run verify:exports",
 		"docs:dev": "pnpm --filter docs-site dev",

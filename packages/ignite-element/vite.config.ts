@@ -1,6 +1,5 @@
-import { defineConfig } from "vite";
+import { defineConfig, type PluginOption } from "vite";
 import { createLibConfig } from "../../configs/vite/lib";
-import { preserveDevtoolsNodeEnv } from "./preserveDevtoolsNodeEnv";
 
 type ViteCommand = "build" | "serve";
 
@@ -14,7 +13,19 @@ const resolveNodeEnv = (
 		: semanticNodeEnv;
 };
 
+function withoutDeclarationPlugin(plugins: PluginOption[] | undefined) {
+	return (plugins ?? []).filter((plugin) => {
+		if (!plugin || typeof plugin !== "object" || !("name" in plugin))
+			return true;
+		return plugin.name !== "vite:dts";
+	});
+}
+
 export default defineConfig(({ command }) => {
+	const developmentArtifact =
+		process.env.IGNITE_DEVTOOLS_BUILD === "development";
+	const skipDeclarations =
+		developmentArtifact || process.env.IGNITE_SKIP_DTS === "1";
 	const lib = createLibConfig({
 		name: "ignite-element",
 		entry: {
@@ -67,9 +78,18 @@ export default defineConfig(({ command }) => {
 	});
 	return {
 		...lib,
-		plugins: [...(lib.plugins ?? []), preserveDevtoolsNodeEnv()],
+		plugins: skipDeclarations
+			? withoutDeclarationPlugin(lib.plugins)
+			: lib.plugins,
+		build: {
+			...lib.build,
+			emptyOutDir: true,
+			outDir: developmentArtifact ? "dist/development" : lib.build?.outDir,
+		},
 		define: {
-			"process.env.NODE_ENV": JSON.stringify(resolveNodeEnv(command)),
+			"process.env.NODE_ENV": JSON.stringify(
+				developmentArtifact ? "development" : resolveNodeEnv(command),
+			),
 		},
 	};
 });
