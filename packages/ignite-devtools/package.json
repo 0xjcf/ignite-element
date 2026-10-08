@@ -1,0 +1,49 @@
+{
+	"name": "@ignite-element/devtools",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"description": "Private Ignite DevTools app. Not published.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/0xjcf/ignite-element.git",
+		"directory": "packages/ignite-devtools"
+	},
+	"sideEffects": false,
+	"files": [
+		"dist"
+	],
+	"module": "dist/ignite-devtools.es.js",
+	"types": "dist/types/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/types/index.d.ts",
+			"import": "./dist/ignite-devtools.es.js",
+			"default": "./dist/ignite-devtools.es.js"
+		}
+	},
+	"scripts": {
+		"build:types": "tsc",
+		"build:js": "vite build",
+		"build": "pnpm run build:types && pnpm run build:js",
+		"typecheck": "tsc --noEmit --pretty false --project tsconfig.typecheck.json",
+		"test": "vitest --run"
+	},
+	"peerDependencies": {
+		"ignite-element": "3.0.0-beta.18",
+		"xstate": ">=5.19.0"
+	},
+	"devDependencies": {
+		"@types/node": "25.0.3",
+		"ignite-element": "workspace:*",
+		"typescript": "5.9.3",
+		"vite": "7.3.0",
+		"vite-plugin-dts": "4.5.4",
+		"vitest": "4.0.16",
+		"xstate": "5.32.1"
+	},
+	"engines": {
+		"node": ">=22"
+	}
+}
