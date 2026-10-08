@@ -28,7 +28,9 @@
 		"build:js": "vite build",
 		"build": "pnpm run build:types && pnpm run build:js",
 		"typecheck": "tsc --noEmit --pretty false --project tsconfig.typecheck.json",
-		"test": "vitest --run"
+		"test": "vitest --run",
+		"test:contrast": "vitest --run src/**/*.a11y.test.ts",
+		"test:coverage": "vitest --run --coverage"
 	},
 	"peerDependencies": {
 		"ignite-element": ">=3.0.0-beta.18",
@@ -36,6 +38,7 @@
 	},
 	"devDependencies": {
 		"@testing-library/dom": "10.4.1",
+		"@vitest/coverage-v8": "4.0.16",
 		"@types/node": "25.0.3",
 		"ignite-element": "workspace:*",
 		"jsdom": "27.4.0",

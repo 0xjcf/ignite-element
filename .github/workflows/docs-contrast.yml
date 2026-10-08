@@ -44,6 +44,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check catalog component contrast
+        run: pnpm --filter @ignite-element/components run test:contrast
+
       - name: Build public workspace declarations for docs consumers
         run: pnpm run build
 
