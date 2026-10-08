@@ -37,6 +37,7 @@ describe("StatusPill DOM", () => {
 			expect(view.getByText(fixture.input.value)).toBeTruthy();
 			if (fixture.input.reason) {
 				expect(view.getByText(fixture.input.reason)).toBeTruthy();
+				expect(view.getByText("—")).toBeTruthy();
 			}
 		}
 	});

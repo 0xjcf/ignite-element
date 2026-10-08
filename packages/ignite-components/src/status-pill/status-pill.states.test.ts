@@ -7,7 +7,7 @@ import {
 } from "../testing/contract-check";
 import { expectCloneable } from "../testing/host-seal";
 import { statusPillContract } from "./status-pill.contract";
-import { createStatusPillCore } from "./status-pill.core";
+import { createStatusPillCore, statusPillProjection } from "./status-pill.core";
 import {
 	type StatusPillFixtureInput,
 	statusPillGallery,
@@ -62,6 +62,37 @@ describe("StatusPill states", () => {
 				value: "Saved",
 				tone: "neutral",
 				showReason: false,
+			});
+		} finally {
+			core.dispose();
+		}
+	});
+
+	it("accepts the igniteCore commands facade", () => {
+		const sent: unknown[] = [];
+		statusPillProjection
+			.commands({
+				source: {
+					send: (event) => {
+						sent.push(event);
+					},
+				},
+			})
+			.setValue("Saved");
+		expect(sent).toEqual([{ type: "SET_VALUE", value: "Saved" }]);
+	});
+
+	it("treats a whitespace-only reason as no reason", async () => {
+		const core = createStatusPillCore();
+		try {
+			core.watch(() => {});
+			await core.execute({ command: "setValue", input: "Paused" });
+			await core.execute({ command: "setReason", input: " \n\t " });
+			expect(core.get("states")).toMatchObject({
+				state: "plain",
+				reason: null,
+				showReason: false,
+				showReasonRefusal: "No reason was given.",
 			});
 		} finally {
 			core.dispose();

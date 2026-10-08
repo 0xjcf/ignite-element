@@ -15,16 +15,16 @@ const styles = `${catalogHostStyles()}
   max-width: 100%;
   box-sizing: border-box;
   padding: 0.2rem 0.65rem;
-  border: 1px solid var(--catalog-line);
+  border: 1px solid var(--status-pill-tone, var(--catalog-line));
   border-radius: 999px;
   background: var(--catalog-surface);
   color: var(--catalog-fg);
   font: 600 0.875rem/1.35 var(--catalog-font);
 }
-.status-pill[data-tone="info"] { border-color: #1d4e89; background: #e7f0fa; }
-.status-pill[data-tone="success"] { border-color: #0f6b4c; background: #e5f4ec; }
-.status-pill[data-tone="warning"] { border-color: #8a4b08; background: #fbf0e2; }
-.status-pill[data-tone="danger"] { border-color: #8f1d1d; background: #f8e8e8; }
+.status-pill[data-tone="info"] { border-color: var(--status-pill-tone, #1d4e89); background: #e7f0fa; }
+.status-pill[data-tone="success"] { border-color: var(--status-pill-tone, #0f6b4c); background: #e5f4ec; }
+.status-pill[data-tone="warning"] { border-color: var(--status-pill-tone, #8a4b08); background: #fbf0e2; }
+.status-pill[data-tone="danger"] { border-color: var(--status-pill-tone, #8f1d1d); background: #f8e8e8; }
 .status-pill-value { color: var(--catalog-fg); }
 .status-pill-reason {
   font-weight: 400;
@@ -43,7 +43,10 @@ export function statusPillView(ctx: StatusPillViewContext): IgniteJsxElement {
 			<span class="status-pill" data-tone={ctx.tone}>
 				<span class="status-pill-value">{ctx.value}</span>
 				{ctx.showReason ? (
-					<span class="status-pill-reason">{ctx.reason}</span>
+					<>
+						<span class="status-pill-sep"> — </span>
+						<span class="status-pill-reason">{ctx.reason}</span>
+					</>
 				) : null}
 			</span>
 		</>

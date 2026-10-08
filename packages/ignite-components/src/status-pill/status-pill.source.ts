@@ -34,8 +34,10 @@ export function isStatusPillTone(
 }
 
 export function normalizeReason(reason: string | null): string | null {
-	if (reason === null || reason.length === 0) return null;
-	return reason;
+	if (reason === null) return null;
+	const trimmed = reason.trim();
+	if (trimmed.length === 0) return null;
+	return trimmed;
 }
 
 function hasReason(context: StatusPillContext): boolean {

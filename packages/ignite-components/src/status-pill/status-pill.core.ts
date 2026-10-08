@@ -66,7 +66,11 @@ export function statusPillCommands(source: {
 
 export const statusPillProjection = {
 	states: projectStatusPill,
-	commands: statusPillCommands,
+	commands: ({
+		source,
+	}: {
+		source: Parameters<typeof statusPillCommands>[0];
+	}) => statusPillCommands(source),
 };
 
 export function createStatusPillCore() {

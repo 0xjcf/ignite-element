@@ -37,7 +37,12 @@ describe("StatusPill accessibility", () => {
 		expect(reason.closest("[aria-hidden='true']")).toBeNull();
 		const chip = value.closest(".status-pill");
 		expect(chip?.getAttribute("data-tone")).toBe("warning");
-		expect(chip?.textContent).toContain("Paused");
+		expect(chip?.textContent?.replace(/\s+/g, " ").trim()).toBe(
+			"Paused — Inspection is paused.",
+		);
+		expect(root.querySelector("style")?.textContent).toContain(
+			"var(--status-pill-tone",
+		);
 		expect(root.querySelector("[tabindex]")).toBeNull();
 		expect(root.querySelector("button")).toBeNull();
 	});
