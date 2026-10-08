@@ -84,8 +84,9 @@ export function noticeCommands(source: {
 }): NoticeCommands {
 	return {
 		setTone: (tone) => {
-			if (!isNoticeTone(tone)) return;
-			source.send({ type: "SET_TONE", tone });
+			const next = tone === null ? "info" : tone;
+			if (!isNoticeTone(next)) return;
+			source.send({ type: "SET_TONE", tone: next });
 		},
 		setMessage: (message) => {
 			source.send({ type: "SET_MESSAGE", message: message ?? "" });

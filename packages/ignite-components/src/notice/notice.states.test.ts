@@ -74,6 +74,27 @@ describe("Notice states", () => {
 		}
 	});
 
+	it("restores info when the tone attribute is removed", async () => {
+		const core = await show({
+			tone: "warning",
+			message: "Reconnect to the page.",
+			actions: [],
+			dismissible: false,
+			dismissed: false,
+		});
+		try {
+			await core.execute({ command: "setTone", input: null });
+			expect(core.get("states").tone).toBe("info");
+			await core.execute({ command: "setTone", input: "nope" });
+			expect(core.get("states").tone).toBe("info");
+			await core.execute({ command: "setTone", input: "error" });
+			await core.execute({ command: "setTone", input: "later" });
+			expect(core.get("states").tone).toBe("error");
+		} finally {
+			core.dispose();
+		}
+	});
+
 	it("does not claim a dismissed notice has no recovery action", async () => {
 		const core = await show({
 			tone: "warning",

@@ -78,8 +78,9 @@ export function emptyStateCommands(source: {
 }): EmptyStateCommands {
 	return {
 		setKind: (kind) => {
-			if (!isEmptyStateKind(kind)) return;
-			source.send({ type: "SET_KIND", kind });
+			const next = kind === null ? "empty" : kind;
+			if (!isEmptyStateKind(next)) return;
+			source.send({ type: "SET_KIND", kind: next });
 		},
 		setTitle: (title) => {
 			source.send({ type: "SET_TITLE", title: title ?? "" });

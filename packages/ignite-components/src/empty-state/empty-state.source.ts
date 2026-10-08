@@ -73,6 +73,9 @@ export const emptyStateMachine = setup({
 		requestAction: assign({
 			actionRequested: () => true,
 		}),
+		clearRequest: assign({
+			actionRequested: () => false,
+		}),
 		announceAction: emit(({ context }) => ({
 			type: "act" as const,
 			label: context.actionLabel ?? "",
@@ -122,8 +125,16 @@ export const emptyStateMachine = setup({
 			],
 			on: {
 				SET_KIND: [
-					{ guard: "isFiltered", target: "filtered" },
-					{ guard: "isOutsideRange", target: "outside-range" },
+					{
+						guard: "isFiltered",
+						target: "filtered",
+						actions: "clearRequest",
+					},
+					{
+						guard: "isOutsideRange",
+						target: "outside-range",
+						actions: "clearRequest",
+					},
 				],
 				ACT: {
 					guard: "hasAction",
@@ -134,8 +145,12 @@ export const emptyStateMachine = setup({
 		filtered: {
 			on: {
 				SET_KIND: [
-					{ guard: "isEmpty", target: "empty" },
-					{ guard: "isOutsideRange", target: "outside-range" },
+					{ guard: "isEmpty", target: "empty", actions: "clearRequest" },
+					{
+						guard: "isOutsideRange",
+						target: "outside-range",
+						actions: "clearRequest",
+					},
 				],
 				ACT: {
 					guard: "hasAction",
@@ -146,8 +161,8 @@ export const emptyStateMachine = setup({
 		"outside-range": {
 			on: {
 				SET_KIND: [
-					{ guard: "isEmpty", target: "empty" },
-					{ guard: "isFiltered", target: "filtered" },
+					{ guard: "isEmpty", target: "empty", actions: "clearRequest" },
+					{ guard: "isFiltered", target: "filtered", actions: "clearRequest" },
 				],
 				ACT: {
 					guard: "hasAction",

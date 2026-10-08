@@ -69,6 +69,36 @@ describe("EmptyState states", () => {
 		}
 	});
 
+	it("clears the first-step request when the kind changes", async () => {
+		const core = await show({
+			kind: "empty",
+			title: "Today is empty",
+			message: "Capacity 0/3.",
+			actionLabel: "Add a thought",
+		});
+		try {
+			await core.execute({ command: "act" });
+			expect(core.get("states").actionRequested).toBe(true);
+			await core.execute({ command: "setKind", input: "filtered" });
+			expect(core.get("states")).toMatchObject({
+				state: "filtered",
+				actionRequested: false,
+				isActionRequested: false,
+			});
+			await core.execute({ command: "act" });
+			await core.execute({ command: "setKind", input: null });
+			expect(core.get("states")).toMatchObject({
+				state: "empty",
+				actionRequested: false,
+			});
+			await core.execute({ command: "setKind", input: "filtered" });
+			await core.execute({ command: "setKind", input: "nope" });
+			expect(core.get("states").state).toBe("filtered");
+		} finally {
+			core.dispose();
+		}
+	});
+
 	it("treats a whitespace-only action label as no first step", async () => {
 		const core = await show({
 			kind: "empty",
