@@ -112,7 +112,8 @@ export function fieldCommands(source: {
 
 export const fieldProjection = {
 	states: projectField,
-	commands: fieldCommands,
+	commands: ({ source }: { source: Parameters<typeof fieldCommands>[0] }) =>
+		fieldCommands(source),
 };
 
 export function createFieldCore() {

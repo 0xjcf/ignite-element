@@ -7,7 +7,7 @@ import {
 } from "../testing/contract-check";
 import { expectCloneable } from "../testing/host-seal";
 import { fieldContract } from "./field.contract";
-import { createFieldCore } from "./field.core";
+import { createFieldCore, fieldProjection } from "./field.core";
 import { type FieldFixtureInput, fieldGallery } from "./field.gallery";
 
 async function show(input: FieldFixtureInput) {
@@ -85,5 +85,19 @@ describe("Field states", () => {
 		} finally {
 			core.dispose();
 		}
+	});
+
+	it("accepts the igniteCore commands facade", () => {
+		const sent: unknown[] = [];
+		fieldProjection
+			.commands({
+				source: {
+					send: (event) => {
+						sent.push(event);
+					},
+				},
+			})
+			.setValue("Buy milk");
+		expect(sent).toEqual([{ type: "SET_VALUE", value: "Buy milk" }]);
 	});
 });
