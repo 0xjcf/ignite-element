@@ -421,12 +421,19 @@ export function createAgentRuntime<
 		if (typeof command !== "function")
 			throw new Error(`[igniteCore] Unknown command "${call.command}".`);
 		if (process.env.NODE_ENV !== "production") {
-			installedDevtools()?.pushOrigin?.("execute");
+			const input = "input" in call ? call.input : undefined;
+			const devtools = installedDevtools();
+			devtools?.pushOrigin?.("execute");
+			try {
+				const result = await command(input);
+				await new Promise<void>((resolve) => queueMicrotask(resolve));
+				lifetime.assertActive();
+				return result;
+			} finally {
+				devtools?.clearOrigin?.("execute");
+			}
 		}
 		const result = await command("input" in call ? call.input : undefined);
-		if (process.env.NODE_ENV !== "production") {
-			installedDevtools()?.clearOrigin?.("execute");
-		}
 		await new Promise<void>((resolve) => queueMicrotask(resolve));
 		lifetime.assertActive();
 		return result;

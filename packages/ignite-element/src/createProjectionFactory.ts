@@ -162,64 +162,111 @@ function installedDevtools(): DevtoolsGlobalSlot | undefined {
 	];
 }
 
-function isThenable(value: unknown): value is PromiseLike<unknown> {
-	return (
-		(typeof value === "object" || typeof value === "function") &&
-		value !== null &&
-		typeof (value as { then?: unknown }).then === "function"
-	);
+function commandInput(args: unknown[]): unknown {
+	if (args.length > 1) return Object.freeze(args.slice());
+	return args[0];
+}
+
+/** True when settlement was observed, or the returned value was already reported. */
+function observeSettlement(
+	outcome: unknown,
+	report: (value: unknown) => void,
+): boolean {
+	let thenFn: unknown;
+	try {
+		if (
+			(typeof outcome !== "object" && typeof outcome !== "function") ||
+			outcome === null
+		) {
+			return false;
+		}
+		thenFn = (outcome as { then?: unknown }).then;
+	} catch {
+		return false;
+	}
+	if (typeof thenFn !== "function") return false;
+	let reported = false;
+	const once = (value: unknown) => {
+		if (reported) return;
+		reported = true;
+		report(value);
+	};
+	try {
+		Reflect.apply(thenFn, outcome, [
+			(value: unknown) => {
+				once(value);
+			},
+			(reason: unknown) => {
+				once(reason);
+			},
+		]);
+	} catch {
+		if (!reported) report(outcome);
+	}
+	return true;
+}
+
+function traceCommand(
+	target: FacadeCommandFunction,
+	receiver: unknown,
+	args: unknown[],
+	name: string,
+	owner: object,
+	assertActive: () => void,
+): unknown {
+	if (process.env.NODE_ENV === "production") {
+		assertActive();
+		return Reflect.apply(target, receiver, args);
+	}
+	const devtools = installedDevtools();
+	let commandCallback: unknown;
+	try {
+		commandCallback = devtools?.hook?.command;
+	} catch {
+		commandCallback = undefined;
+	}
+	if (!devtools || typeof commandCallback !== "function") {
+		assertActive();
+		return Reflect.apply(target, receiver, args);
+	}
+	const origin = devtools.takeOrigin?.() ?? "view";
+	const input = commandInput(args);
+	const started = performance.now();
+	const report = (outcome: unknown) => {
+		devtools.publishCommand?.(
+			owner,
+			name,
+			input,
+			origin,
+			outcome,
+			performance.now() - started,
+		);
+	};
+	try {
+		assertActive();
+		const outcome = Reflect.apply(target, receiver, args);
+		if (!observeSettlement(outcome, report)) report(outcome);
+		return outcome;
+	} catch (error) {
+		report(error);
+		throw error;
+	}
 }
 
 /**
- * Development-only wrapper. Production builds never call it, so the minifier
- * drops the function from existing entrypoints.
+ * Development-only wrapper. One proxy guards the call and traces it. Production
+ * builds never call this, so the minifier drops it from existing entrypoints.
+ * With no command callback, apply does not allocate a record.
  */
 function observeCommand<Command extends FacadeCommandFunction>(
 	command: Command,
+	assertActive: () => void,
 	name: string,
 	owner: object,
 ): Command {
 	return new Proxy(command, {
 		apply(target, receiver, args) {
-			if (process.env.NODE_ENV === "production") {
-				return Reflect.apply(target, receiver, args);
-			}
-			const devtools = installedDevtools();
-			const origin = devtools?.takeOrigin?.() ?? "view";
-			if (!devtools?.hook?.command) {
-				return Reflect.apply(target, receiver, args);
-			}
-			const input = args.length === 0 ? undefined : args[0];
-			const started = performance.now();
-			const report = (outcome: unknown) => {
-				devtools.publishCommand?.(
-					owner,
-					name,
-					input,
-					origin,
-					outcome,
-					performance.now() - started,
-				);
-			};
-			try {
-				const outcome = Reflect.apply(target, receiver, args);
-				if (isThenable(outcome)) {
-					void outcome.then(
-						(value) => {
-							report(value);
-						},
-						(reason: unknown) => {
-							report(reason);
-						},
-					);
-					return outcome;
-				}
-				report(outcome);
-				return outcome;
-			} catch (error) {
-				report(error);
-				throw error;
-			}
+			return traceCommand(target, receiver, args, name, owner, assertActive);
 		},
 	}) as Command;
 }
@@ -451,10 +498,11 @@ export function createProjectionFactory<
 									owner.assertActive();
 								})
 							: observeCommand(
-									guardCommand(value as FacadeCommandFunction, () => {
+									value as FacadeCommandFunction,
+									() => {
 										localLifetime.assertActive();
 										owner.assertActive();
-									}),
+									},
 									String(key),
 									adapter,
 								),

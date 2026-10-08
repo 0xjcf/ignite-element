@@ -121,7 +121,12 @@ export const devtoolsDelivery = {
 		outcome: unknown,
 		durationMs: number,
 	): void {
-		const listener = devtoolsDelivery.hook?.command;
+		let listener: DevtoolsHook["command"];
+		try {
+			listener = devtoolsDelivery.hook?.command;
+		} catch {
+			return;
+		}
 		if (!listener) return;
 		try {
 			listener({
