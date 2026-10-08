@@ -32,6 +32,7 @@ async function show(input: FieldFixtureInput) {
 describe("Field states", () => {
 	it("covers every declared state and consumer preset", async () => {
 		assertGalleryCoversStates(fieldContract, fieldGallery);
+		expect(fieldContract.events).toEqual(["input", "change", "touch"]);
 		expect(fieldContract.slots).toEqual([]);
 		for (const app of ["Twilight", "Booster Budget"] as const) {
 			expect(fieldGallery.some((fixture) => fixture.app === app)).toBe(true);
@@ -112,6 +113,45 @@ describe("Field states", () => {
 				value: "  Buy milk  ",
 				error: null,
 				isInvalid: false,
+			});
+		} finally {
+			core.dispose();
+		}
+	});
+
+	it("emits the exact draft on input and the touch on blur", async () => {
+		const core = createFieldCore();
+		const inputs: string[] = [];
+		const changes: string[] = [];
+		const touches: string[] = [];
+		core.on("input", (event) => {
+			inputs.push(event.value);
+		});
+		core.on("change", (event) => {
+			changes.push(event.value);
+		});
+		core.on("touch", (event) => {
+			touches.push(event.value);
+		});
+		try {
+			core.watch(() => {});
+			await core.execute({ command: "setError", input: "Title is required." });
+			await core.execute({ command: "setValue", input: "  Buy milk  " });
+			await core.execute({ command: "setValue", input: "  Buy milk  " });
+			expect(core.get("states")).toMatchObject({
+				state: "invalid",
+				value: "  Buy milk  ",
+				error: "Title is required.",
+				touched: false,
+			});
+			expect(inputs).toEqual(["  Buy milk  "]);
+			expect(changes).toEqual(["  Buy milk  "]);
+			await core.execute({ command: "touch" });
+			expect(touches).toEqual(["  Buy milk  "]);
+			expect(core.get("states")).toMatchObject({
+				touched: true,
+				error: "Title is required.",
+				value: "  Buy milk  ",
 			});
 		} finally {
 			core.dispose();

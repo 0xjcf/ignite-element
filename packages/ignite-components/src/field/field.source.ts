@@ -1,4 +1,4 @@
-import { assign, setup } from "xstate";
+import { assign, emit, setup } from "xstate";
 
 export type FieldInput = {
 	label?: string;
@@ -34,6 +34,11 @@ export function exactDraft(value: string | null): string {
 	return value ?? "";
 }
 
+export type FieldEmitted =
+	| { type: "input"; value: string }
+	| { type: "change"; value: string }
+	| { type: "touch"; value: string };
+
 export function normalizeOptional(value: string | null): string | null {
 	if (value === null || value.length === 0) return null;
 	return value;
@@ -49,12 +54,14 @@ export function normalizeError(value: string | null): string | null {
 
 /**
  * The host owns the validation rule.
- * SET_VALUE stores the draft and does not clear or invent an error.
+ * SET_VALUE stores the draft, emits it, and does not clear or invent an error.
+ * TOUCH emits the same draft so blur can validate.
  */
 export const fieldMachine = setup({
 	types: {
 		context: {} as FieldContext,
 		events: {} as FieldEvent,
+		emitted: {} as FieldEmitted,
 		input: {} as FieldInput,
 	},
 	actions: {
@@ -87,11 +94,25 @@ export const fieldMachine = setup({
 		markTouched: assign({
 			touched: () => true,
 		}),
+		announceInput: emit(({ context }) => ({
+			type: "input" as const,
+			value: exactDraft(context.value),
+		})),
+		announceChange: emit(({ context }) => ({
+			type: "change" as const,
+			value: exactDraft(context.value),
+		})),
+		announceTouch: emit(({ context }) => ({
+			type: "touch" as const,
+			value: exactDraft(context.value),
+		})),
 	},
 	guards: {
 		hasError: ({ event }) =>
 			event.type === "SET_ERROR" && normalizeError(event.error) !== null,
 		contextHasError: ({ context }) => normalizeError(context.error) !== null,
+		draftChanged: ({ context, event }) =>
+			event.type === "SET_VALUE" && exactDraft(event.value) !== context.value,
 	},
 }).createMachine({
 	id: "field",
@@ -107,11 +128,17 @@ export const fieldMachine = setup({
 	}),
 	on: {
 		SET_LABEL: { actions: "applyLabel" },
-		SET_VALUE: { actions: "applyValue" },
+		SET_VALUE: [
+			{
+				guard: "draftChanged",
+				actions: ["applyValue", "announceInput", "announceChange"],
+			},
+			{ actions: "applyValue" },
+		],
 		SET_HINT: { actions: "applyHint" },
 		SET_REQUIRED: { actions: "applyRequired" },
 		SET_MULTILINE: { actions: "applyMultiline" },
-		TOUCH: { actions: "markTouched" },
+		TOUCH: { actions: ["markTouched", "announceTouch"] },
 	},
 	states: {
 		clean: {

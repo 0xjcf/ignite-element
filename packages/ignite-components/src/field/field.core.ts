@@ -122,5 +122,10 @@ export function createFieldCore() {
 		source: fieldMachine,
 		states: projectField,
 		commands: ({ source }) => fieldCommands(source),
+		events: (event) => ({
+			input: event<{ value: string }>(),
+			change: event<{ value: string }>(),
+			touch: event<{ value: string }>(),
+		}),
 	});
 }

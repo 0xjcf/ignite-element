@@ -55,7 +55,7 @@ export const fieldContract = {
 		{ name: "setRequired", kind: "configuration", attribute: "required" },
 		{ name: "setMultiline", kind: "configuration", attribute: "multiline" },
 	],
-	events: [],
+	events: ["input", "change", "touch"],
 	slots: [],
 	tokens: [...catalogTokens],
 	layers: {

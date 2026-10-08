@@ -63,11 +63,27 @@ describe("Field DOM", () => {
 
 	it("writes the exact keystrokes and does not clear a host error", () => {
 		const { element, view } = mount("Title");
+		const inputs: string[] = [];
+		const changes: string[] = [];
+		const touches: string[] = [];
+		element.addEventListener("input", (event) => {
+			if (event instanceof CustomEvent) inputs.push(event.detail.value);
+		});
+		element.addEventListener("change", (event) => {
+			if (event instanceof CustomEvent) changes.push(event.detail.value);
+		});
+		element.addEventListener("touch", (event) => {
+			if (event instanceof CustomEvent) touches.push(event.detail.value);
+		});
 		element.setError("Title is required.");
 		const control = view.getByRole("textbox") as HTMLInputElement;
 		control.value = "  Buy milk  ";
 		control.dispatchEvent(new Event("input", { bubbles: true }));
+		control.dispatchEvent(new Event("blur"));
 		expect(control.value).toBe("  Buy milk  ");
+		expect(inputs).toEqual(["  Buy milk  "]);
+		expect(changes).toEqual(["  Buy milk  "]);
+		expect(touches).toEqual(["  Buy milk  "]);
 		expect(view.getByText("Title is required.")).toBeTruthy();
 		element.setError(null);
 		expect(view.queryByText("Title is required.")).toBeNull();

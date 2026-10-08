@@ -55,8 +55,8 @@ function describedBy(ctx: FieldViewContext): string | undefined {
 }
 
 /**
- * The control shows the exact draft. The host clears the error when the draft is valid.
- * Typing does not invent or remove a validation message.
+ * The control shows the exact draft. Typing emits that draft. Blur emits touch.
+ * The host clears the error when the draft is valid. Typing does not.
  */
 export function fieldView(ctx: FieldViewContext): IgniteJsxElement {
 	const controlProps = {
