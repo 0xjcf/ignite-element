@@ -184,19 +184,6 @@ const elementMounts = new WeakMap<Node, ElementMount>();
 const subtreeOwners = new WeakSet<Element>();
 const deprecatedContentWarnings = new WeakMap<Element, Set<string>>();
 
-function isDevelopment(): boolean {
-	// Keep this member expression in the published bundle. Vite replaces
-	// `globalThis.process.env.NODE_ENV` and drops the warnings in production.
-	// Reading through `globalThis` does not throw when a browser has no process.
-	return (
-		(
-			globalThis as typeof globalThis & {
-				process?: { env?: { NODE_ENV?: string } };
-			}
-		).process?.env?.NODE_ENV !== "production"
-	);
-}
-
 function nodeKey(node: NormalizedNode): string | number | undefined {
 	if (node.kind !== "element" || node.key == null) return undefined;
 	return node.key;
@@ -238,7 +225,13 @@ function duplicateKey(children: NormalizedNode[]): string | number | undefined {
 }
 
 function warnInvalidKeys(children: NormalizedNode[]): void {
-	if (!isDevelopment()) return;
+	// Keep this guard inline. esbuild does not inline a helper, so a
+	// `process.env.NODE_ENV` replacement would leave the warning strings.
+	if (
+		!(typeof process !== "undefined" && process.env.NODE_ENV !== "production")
+	) {
+		return;
+	}
 	const shape = classifyKeys(children);
 	if (shape === "duplicate") {
 		const key = duplicateKey(children);
@@ -264,7 +257,7 @@ function applySlotKey(
 		material[0].key = key;
 		return nodes;
 	}
-	if (isDevelopment()) {
+	if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
 		console.warn(
 			`[ignite-jsx] Key "${String(key)}" requires a single element, but the component returned ${material.length} nodes.`,
 		);
@@ -276,7 +269,11 @@ function warnDeprecatedContentProp(
 	element: Element,
 	key: "innerHTML" | "textContent",
 ): void {
-	if (!isDevelopment()) return;
+	if (
+		!(typeof process !== "undefined" && process.env.NODE_ENV !== "production")
+	) {
+		return;
+	}
 	let seen = deprecatedContentWarnings.get(element);
 	if (!seen) {
 		seen = new Set();

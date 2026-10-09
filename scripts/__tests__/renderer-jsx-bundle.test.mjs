@@ -1,12 +1,28 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+	mkdtempSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 import { build } from "vite";
+
+const requireFromVite = createRequire(
+	realpathSync(
+		fileURLToPath(
+			new URL("../../node_modules/vite/package.json", import.meta.url),
+		),
+	),
+);
+const esbuild = requireFromVite("esbuild");
 
 const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 const jsxBundle = path.join(
@@ -60,14 +76,11 @@ async function bundleConsumer(mode, format) {
 	const root = mkdtempSync(path.join(tmpdir(), "ignite-jsx-consumer-"));
 	const entry = path.join(root, "main.js");
 	writeFileSync(entry, consumerEntry());
+	const previousNodeEnv = process.env.NODE_ENV;
+	process.env.NODE_ENV = mode;
 	try {
 		const result = await build({
 			configFile: false,
-			define: {
-				"process.env.NODE_ENV": JSON.stringify(mode),
-				"global.process.env.NODE_ENV": JSON.stringify(mode),
-				"globalThis.process.env.NODE_ENV": JSON.stringify(mode),
-			},
 			logLevel: "silent",
 			mode,
 			root,
@@ -88,13 +101,40 @@ async function bundleConsumer(mode, format) {
 			.map((output) => output.code)
 			.join("\n");
 	} finally {
+		if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+		else process.env.NODE_ENV = previousNodeEnv;
 		rmSync(root, { force: true, recursive: true });
 	}
 }
 
-function runInBrowser(code) {
-	const { createRequire } = process.getBuiltinModule("node:module");
-	const require = createRequire(
+async function bundleWithEsbuildProduction() {
+	const root = mkdtempSync(path.join(tmpdir(), "ignite-jsx-esbuild-"));
+	const entry = path.join(root, "main.js");
+	writeFileSync(entry, consumerEntry());
+	try {
+		const result = await esbuild.build({
+			absWorkingDir: root,
+			bundle: true,
+			define: {
+				"process.env.NODE_ENV": JSON.stringify("production"),
+			},
+			entryPoints: [entry],
+			format: "esm",
+			logLevel: "silent",
+			minify: true,
+			platform: "browser",
+			write: false,
+		});
+		return result.outputFiles.map((file) => file.text).join("\n");
+	} finally {
+		rmSync(root, { force: true, recursive: true });
+	}
+}
+
+function runDevBuild(code) {
+	const { createRequire: requireJsdom } =
+		process.getBuiltinModule("node:module");
+	const require = requireJsdom(
 		new URL("../../packages/ignite-element/package.json", import.meta.url),
 	);
 	const { JSDOM } = require("jsdom");
@@ -102,17 +142,15 @@ function runInBrowser(code) {
 		runScripts: "dangerously",
 		url: "https://example.test/",
 	});
-	assert.equal("process" in dom.window, false);
-	const originalWarn = console.warn;
-	try {
-		dom.window.eval(code);
-		return {
-			text: dom.window.__igniteText,
-			warnings: dom.window.__igniteWarnings,
-		};
-	} finally {
-		console.warn = originalWarn;
-	}
+	const { window } = dom;
+	// Vite folds `process.env.NODE_ENV` and leaves `typeof process`. The dev
+	// bundle only warns when that realm actually has `process`.
+	window.process = process;
+	window.eval(code);
+	return {
+		text: window.__igniteText,
+		warnings: window.__igniteWarnings,
+	};
 }
 
 describe("published renderer jsx bundle", { concurrency: false }, () => {
@@ -120,8 +158,9 @@ describe("published renderer jsx bundle", { concurrency: false }, () => {
 		const source = readFileSync(jsxBundle, "utf8");
 		assert.match(
 			source,
-			/globalThis\.process\?\.env\?\.NODE_ENV\s*!==\s*"production"/,
+			/typeof process\s*(?:!==\s*"undefined"|<\s*"u")\s*&&\s*process\.env\.NODE_ENV\s*!==\s*"production"/,
 		);
+		assert.doesNotMatch(source, /globalThis\.process\?\.env\?\.NODE_ENV/);
 		for (const warning of WARNING_STRINGS) {
 			assert.equal(source.includes(warning), true, warning);
 		}
@@ -139,9 +178,17 @@ describe("published renderer jsx bundle", { concurrency: false }, () => {
 		);
 	});
 
+	it("strips warning strings when esbuild replaces only process.env.NODE_ENV", async () => {
+		const code = await bundleWithEsbuildProduction();
+		for (const warning of WARNING_STRINGS) {
+			assert.equal(code.includes(warning), false, warning);
+		}
+		assert.doesNotMatch(code, /globalThis\.process\?\.env\?\.NODE_ENV/);
+	});
+
 	it("shows duplicate-key and deprecated content warnings in a Vite dev build", async () => {
 		const code = await bundleConsumer("development", "iife");
-		const result = runInBrowser(code);
+		const result = runDevBuild(code);
 		assert.equal(result.text, "onetwo");
 		assert.ok(result.warnings.includes(DUPLICATE_KEY));
 		assert.ok(result.warnings.includes(INNER_HTML));
@@ -152,13 +199,14 @@ describe("published renderer jsx bundle", { concurrency: false }, () => {
 		const result = spawnSync(
 			process.execPath,
 			["--experimental-vm-modules", browserImportHelper, jsxBundle],
-			{ encoding: "utf8" },
+			{
+				encoding: "utf8",
+				env: { ...process.env, NODE_ENV: "production" },
+			},
 		);
 		assert.equal(result.status, 0, result.stderr || result.stdout);
 		const parsed = JSON.parse(result.stdout);
 		assert.equal(parsed.text, "onetwo");
-		assert.ok(parsed.warnings.includes(DUPLICATE_KEY), result.stdout);
-		assert.ok(parsed.warnings.includes(INNER_HTML));
-		assert.ok(parsed.warnings.includes(TEXT_CONTENT));
+		assert.deepEqual(parsed.warnings, []);
 	});
 });
