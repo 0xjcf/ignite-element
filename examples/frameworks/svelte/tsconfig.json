@@ -24,6 +24,9 @@
 			"@ignite-element/renderer": [
 				"../../../packages/ignite-renderer/src/index.ts"
 			],
+			"@ignite-element/renderer/hosts": [
+				"../../../packages/ignite-renderer/src/renderers/jsx/hosts.ts"
+			],
 			"@ignite-element/renderer/lit": [
 				"../../../packages/ignite-renderer/src/renderers/lit.ts"
 			],

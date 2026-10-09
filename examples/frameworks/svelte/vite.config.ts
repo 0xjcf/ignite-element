@@ -48,6 +48,10 @@ export default defineConfig({
 				replacement: `${rendererSrc}/renderers/ignite-jsx.ts`,
 			},
 			{
+				find: "@ignite-element/renderer/hosts",
+				replacement: `${rendererSrc}/renderers/jsx/hosts.ts`,
+			},
+			{
 				find: "@ignite-element/renderer",
 				replacement: `${rendererSrc}/index.ts`,
 			},
