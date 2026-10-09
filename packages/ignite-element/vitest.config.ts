@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig, mergeConfig } from "vitest/config";
+import { igniteDevWarningsDefine } from "../../configs/vite/devWarnings";
 import viteConfig from "./vite.config";
 
 const resolvePath = (path: string) =>
@@ -9,6 +10,7 @@ export default defineConfig((configEnv) =>
 	mergeConfig(
 		typeof viteConfig === "function" ? viteConfig(configEnv) : viteConfig,
 		defineConfig({
+			define: igniteDevWarningsDefine,
 			esbuild: {
 				jsx: "automatic",
 				jsxImportSource: "./src/renderers/jsx",

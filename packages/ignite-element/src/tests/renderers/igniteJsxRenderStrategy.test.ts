@@ -405,6 +405,24 @@ describe("Ignite JSX render strategy", () => {
 		);
 	});
 
+	it("honors the diff flag in the development build even when NODE_ENV is production", () => {
+		vi.stubEnv("NODE_ENV", "production");
+		process.env.IGNITE_DIFF_ENABLED = "false";
+		defineIgniteConfig({ logging: "warn" });
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+		const hostElement = document.createElement("div");
+		const shadow = hostElement.attachShadow({ mode: "open" });
+		const strategy = createIgniteJsxRenderStrategy();
+
+		strategy.attach(shadow);
+		strategy.render(jsx("div", { children: "flagged" }));
+
+		expect(warnSpy).toHaveBeenCalledWith(
+			"[IgniteJsxRenderStrategy] Falling back to replace (flag-disabled, tag=div)",
+		);
+	});
+
 	it("allows detach to be called without prior attach", () => {
 		const strategy = createIgniteJsxRenderStrategy();
 		expect(() => strategy.detach()).not.toThrow();

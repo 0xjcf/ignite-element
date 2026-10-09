@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { jsx } from "../../renderers/jsx/jsx-runtime";
-import { createDomNode } from "../../renderers/jsx/renderer";
+import {
+	createDomNode,
+	unmountIgniteSubtree,
+} from "../../renderers/jsx/renderer";
 import type {
 	IgniteJsxChild,
 	IgniteJsxComponent,
@@ -40,5 +43,19 @@ describe("createDomNode", () => {
 		}
 		expect(node.tagName).toBe("BUTTON");
 		expect(node.textContent).toBe("Click me");
+	});
+});
+
+describe("unmountIgniteSubtree", () => {
+	it("walks an element when the DOM Node constructor is missing", () => {
+		const node = document.createElement("div");
+		node.append(document.createElement("span"));
+		const descriptor = Object.getOwnPropertyDescriptor(globalThis, "Node");
+		Reflect.deleteProperty(globalThis, "Node");
+		try {
+			expect(() => unmountIgniteSubtree(node)).not.toThrow();
+		} finally {
+			if (descriptor) Object.defineProperty(globalThis, "Node", descriptor);
+		}
 	});
 });

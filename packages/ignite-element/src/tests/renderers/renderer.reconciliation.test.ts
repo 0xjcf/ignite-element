@@ -384,7 +384,7 @@ describe("keyed sibling reconciliation", () => {
 		);
 	});
 
-	it("does not warn about duplicate keys in production", () => {
+	it("warns about duplicate keys even when NODE_ENV is production", () => {
 		vi.stubEnv("NODE_ENV", "production");
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		const host = document.createElement("div");
@@ -392,7 +392,39 @@ describe("keyed sibling reconciliation", () => {
 			host,
 			list([jsx("span", {}, "dup"), jsx("span", {}, "dup")]),
 		);
-		expect(warn).not.toHaveBeenCalled();
+		expect(warn).toHaveBeenCalledWith(
+			'[ignite-jsx] Duplicate key "dup" among siblings. Keys must be unique.',
+		);
+	});
+
+	it("does not throw when process is missing and still warns", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		const descriptor = Object.getOwnPropertyDescriptor(globalThis, "process");
+		const host = document.createElement("div");
+		Reflect.deleteProperty(globalThis, "process");
+		try {
+			mountIgniteJsx(
+				host,
+				list([
+					jsx("span", { children: "one" }, "dup"),
+					jsx("span", { children: "two" }, "dup"),
+				]),
+			);
+			mountIgniteJsx(
+				document.createElement("div"),
+				jsx("div", { innerHTML: "<p>rich</p>" }),
+			);
+			mountIgniteJsx(
+				document.createElement("div"),
+				jsx("div", { textContent: "plain" }),
+			);
+		} finally {
+			if (descriptor) {
+				Object.defineProperty(globalThis, "process", descriptor);
+			}
+		}
+		expect(warn).toHaveBeenCalled();
+		expect(host.textContent).toBe("onetwo");
 	});
 });
 
@@ -689,13 +721,13 @@ describe("deprecated content props", () => {
 		);
 	});
 
-	it("does not warn about innerHTML or textContent in production", () => {
+	it("warns about innerHTML and textContent even when NODE_ENV is production", () => {
 		vi.stubEnv("NODE_ENV", "production");
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		const host = document.createElement("div");
 		mountIgniteJsx(host, jsx("div", { innerHTML: "<p>rich</p>" }));
 		mountIgniteJsx(host, jsx("div", { textContent: "plain" }));
-		expect(warn).not.toHaveBeenCalled();
+		expect(warn).toHaveBeenCalledTimes(2);
 	});
 });
 

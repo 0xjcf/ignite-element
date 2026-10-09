@@ -33,6 +33,7 @@ examples/**/package-lock.json
 
 # ignite tmp config directories
 .tmp-ignite-config-*
+.tmp-jsx-consumer-*
 
 coverage/
 /test-results/

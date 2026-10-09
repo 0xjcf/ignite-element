@@ -1,10 +1,12 @@
 /** Per core, keyed by actual acquired adapter (isolated instances stay separate). */
+declare const __IGNITE_DEV_WARNINGS__: boolean;
+
 export function createEventOrigins() {
 	let owners = new WeakMap<object, Map<string, number>>();
 	let ended = false;
 	return {
 		observe(owner: object, name: string, origin: "native" | "effect"): void {
-			if (ended || !isDevelopment()) return;
+			if (ended || !__IGNITE_DEV_WARNINGS__) return;
 			let names = owners.get(owner);
 			if (!names) {
 				names = new Map();
@@ -29,14 +31,4 @@ export function createEventOrigins() {
 			owners = new WeakMap();
 		},
 	};
-}
-
-function isDevelopment(): boolean {
-	// Keep the same NODE_ENV convention, with the expression the package's
-	// production bundler replaces. Unbundled browsers have no process global.
-	try {
-		return process.env.NODE_ENV !== "production";
-	} catch {
-		return true;
-	}
 }

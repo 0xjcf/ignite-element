@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { defineConfig } from "vite";
+import { igniteDevWarningsDefine } from "../../../configs/vite/devWarnings";
 
 const resolvePath = (path: string) =>
 	fileURLToPath(new URL(path, import.meta.url));
@@ -15,6 +16,7 @@ const adaptersSrc = resolvePath("../../../packages/ignite-adapters/src");
 const rendererSrc = resolvePath("../../../packages/ignite-renderer/src");
 
 export default defineConfig({
+	define: igniteDevWarningsDefine,
 	// No compiler config is needed for custom elements — Svelte consumes any
 	// hyphenated tag through the standard browser surface out of the box. (Vue
 	// needs `isCustomElement`; Angular needs `CUSTOM_ELEMENTS_SCHEMA`.) That

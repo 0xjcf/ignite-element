@@ -20,6 +20,10 @@ All four v3 packages are native ESM-only: `ignite-element`, `@ignite-element/cor
 
 Their public ESM entrypoints and declarations are supported; CommonJS `main` and `require` entrypoints are not.
 
+`@ignite-element/renderer` and `ignite-element` publish a `development` export condition. That build keeps diagnostic warnings and does not read `process`. `production` and `default` omit those warnings. Consumers that ignore conditions receive `default`.
+
+Vite and webpack pick the condition from the build mode. `vite build --mode development` still selects the production file, because Vite's build sets `NODE_ENV=production`. Only the dev server, or an explicit `NODE_ENV=development`, picks the development build. Rollup needs `@rollup/plugin-node-resolve` with `exportConditions: ["development"]`. esbuild needs `--conditions=development`. Leave the condition unset for a production bundle.
+
 | Dependency | Required | Needed for |
 | --- | --- | --- |
 | Node.js | `>=22` | running the build/dev toolchain |

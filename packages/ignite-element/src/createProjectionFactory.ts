@@ -28,6 +28,8 @@ import {
 } from "./runtime/effects";
 import { createLifetime, releaseAll } from "./runtime/lifetime";
 
+declare const __IGNITE_DEV_WARNINGS__: boolean;
+
 export type StandardCommandActor<State, Event> = {
 	send: (event: Event) => void;
 	getState: () => State;
@@ -151,12 +153,8 @@ type ExtractCommandResult<Result> = [Result] extends [FacadeCommandResult]
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
-const isDevelopment = () =>
-	(globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env
-		?.NODE_ENV !== "production";
-
 function freezeIfDev<T extends object>(value: T): T {
-	return isDevelopment() ? Object.freeze(value) : value;
+	return __IGNITE_DEV_WARNINGS__ ? Object.freeze(value) : value;
 }
 
 function ensureFacadeResult(
@@ -312,7 +310,7 @@ export function createProjectionFactory<
 		return <Type extends keyof Events & string>(
 			event: EventMember<Events, Type>,
 		) => {
-			if (isDevelopment()) {
+			if (__IGNITE_DEV_WARNINGS__) {
 				if (!(event.type in eventDefinitions)) {
 					throw new Error(
 						`[${errorPrefix}] Unknown event "${event.type}". Declare it in the events map before emitting.`,

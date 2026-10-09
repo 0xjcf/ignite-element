@@ -184,6 +184,29 @@ describe("source-free root igniteCore", () => {
 		expect(order).toEqual(["acquire", "dispose", "acquire"]);
 	});
 
+	it("runs a source-free ref disposer once when Node is missing", async () => {
+		const core = publicApi.igniteCore();
+		const dispose = vi.fn();
+		const name = tag();
+		core(name, () =>
+			jsx("input", {
+				ref: () => dispose,
+			}),
+		);
+		const element = document.createElement(name);
+		document.body.append(element);
+		expect(dispose).not.toHaveBeenCalled();
+		const descriptor = Object.getOwnPropertyDescriptor(globalThis, "Node");
+		Reflect.deleteProperty(globalThis, "Node");
+		try {
+			element.remove();
+			await flush();
+			expect(dispose).toHaveBeenCalledTimes(1);
+		} finally {
+			if (descriptor) Object.defineProperty(globalThis, "Node", descriptor);
+		}
+	});
+
 	it("calls a void source-free ref with null on true disconnect", async () => {
 		const core = publicApi.igniteCore();
 		const calls: Array<Element | null> = [];

@@ -7,7 +7,15 @@ import {
 	normalizeChildren,
 } from "./types";
 
+declare const __IGNITE_DEV_WARNINGS__: boolean;
+
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+// Spec nodeType values. Disconnect cleanup runs in example tests that have
+// elements but no DOM `Node` constructor.
+const ELEMENT_NODE = 1;
+const TEXT_NODE = 3;
+const COMMENT_NODE = 8;
+const DOCUMENT_FRAGMENT_NODE = 11;
 const CAMEL_CASE_SVG_ATTRS = new Set([
 	"viewBox",
 	"preserveAspectRatio",
@@ -184,11 +192,6 @@ const elementMounts = new WeakMap<Node, ElementMount>();
 const subtreeOwners = new WeakSet<Element>();
 const deprecatedContentWarnings = new WeakMap<Element, Set<string>>();
 
-function isDevelopment(): boolean {
-	// Exact expression so the production bundler can strip the warning.
-	return process.env.NODE_ENV !== "production";
-}
-
 function nodeKey(node: NormalizedNode): string | number | undefined {
 	if (node.kind !== "element" || node.key == null) return undefined;
 	return node.key;
@@ -230,7 +233,7 @@ function duplicateKey(children: NormalizedNode[]): string | number | undefined {
 }
 
 function warnInvalidKeys(children: NormalizedNode[]): void {
-	if (!isDevelopment()) return;
+	if (!__IGNITE_DEV_WARNINGS__) return;
 	const shape = classifyKeys(children);
 	if (shape === "duplicate") {
 		const key = duplicateKey(children);
@@ -256,7 +259,7 @@ function applySlotKey(
 		material[0].key = key;
 		return nodes;
 	}
-	if (isDevelopment()) {
+	if (__IGNITE_DEV_WARNINGS__) {
 		console.warn(
 			`[ignite-jsx] Key "${String(key)}" requires a single element, but the component returned ${material.length} nodes.`,
 		);
@@ -268,7 +271,7 @@ function warnDeprecatedContentProp(
 	element: Element,
 	key: "innerHTML" | "textContent",
 ): void {
-	if (!isDevelopment()) return;
+	if (!__IGNITE_DEV_WARNINGS__) return;
 	let seen = deprecatedContentWarnings.get(element);
 	if (!seen) {
 		seen = new Set();
@@ -354,24 +357,29 @@ function invokeContained(node: Node, callback: () => unknown): void {
 	}
 }
 
+function releaseRefBinding(
+	node: Node,
+	ref: RefCallback,
+	cleanup: RefDisposer | null,
+): void {
+	if (cleanup) invokeContained(node, cleanup);
+	else invokeContained(node, () => ref(null));
+}
+
 function releaseStoredRef(node: Node, mount: ElementMount): void {
 	const ref = mount.ref;
 	const cleanup = mount.cleanup;
 	mount.ref = null;
 	mount.cleanup = null;
 	if (!ref) return;
-	if (cleanup) {
-		invokeContained(node, cleanup);
-		return;
-	}
-	invokeContained(node, () => ref(null));
+	releaseRefBinding(node, ref, cleanup);
 }
 
 /** Shared unmount path. Runs before detach, exactly once per mount. */
 export function unmountIgniteSubtree(node: Node): void {
 	if (
-		node.nodeType === Node.ELEMENT_NODE ||
-		node.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+		node.nodeType === ELEMENT_NODE ||
+		node.nodeType === DOCUMENT_FRAGMENT_NODE
 	) {
 		for (const child of Array.from(node.childNodes)) {
 			unmountIgniteSubtree(child);
@@ -396,8 +404,7 @@ function assignRef(element: Element, ref: unknown): void {
 		const cleanup = mount.cleanup;
 		mount.ref = null;
 		mount.cleanup = null;
-		if (cleanup) invokeContained(element, cleanup);
-		else invokeContained(element, () => previous(null));
+		releaseRefBinding(element, previous, cleanup);
 	}
 	mount.ref = next;
 	mount.cleanup = null;
@@ -418,8 +425,8 @@ function assignRef(element: Element, ref: unknown): void {
 
 function releaseNodeRefs(node: Node): void {
 	if (
-		node.nodeType === Node.ELEMENT_NODE ||
-		node.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+		node.nodeType === ELEMENT_NODE ||
+		node.nodeType === DOCUMENT_FRAGMENT_NODE
 	) {
 		for (const child of Array.from(node.childNodes)) {
 			releaseNodeRefs(child);
@@ -431,8 +438,7 @@ function releaseNodeRefs(node: Node): void {
 	const cleanup = mount.cleanup;
 	mount.cleanup = null;
 	mount.released = true;
-	if (cleanup) invokeContained(node, cleanup);
-	else invokeContained(node, () => ref(null));
+	releaseRefBinding(node, ref, cleanup);
 }
 
 function reacquireNodeRefs(node: Node): void {
@@ -453,8 +459,8 @@ function reacquireNodeRefs(node: Node): void {
 		}
 	}
 	if (
-		node.nodeType === Node.ELEMENT_NODE ||
-		node.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+		node.nodeType === ELEMENT_NODE ||
+		node.nodeType === DOCUMENT_FRAGMENT_NODE
 	) {
 		for (const child of Array.from(node.childNodes)) {
 			reacquireNodeRefs(child);
@@ -697,7 +703,7 @@ function patchNode(
 	}
 
 	if (newNode.kind === "text") {
-		if (domNode.nodeType !== Node.TEXT_NODE) {
+		if (domNode.nodeType !== TEXT_NODE) {
 			return replaceMounted(domNode, newNode);
 		}
 		if (domNode.textContent !== newNode.value) {
@@ -707,7 +713,7 @@ function patchNode(
 	}
 
 	if (newNode.kind === "comment") {
-		if (domNode.nodeType !== Node.COMMENT_NODE) {
+		if (domNode.nodeType !== COMMENT_NODE) {
 			return replaceMounted(domNode, newNode);
 		}
 		return domNode;
@@ -724,7 +730,7 @@ function patchNode(
 	}
 
 	if (
-		domNode.nodeType !== Node.ELEMENT_NODE ||
+		domNode.nodeType !== ELEMENT_NODE ||
 		(domNode as Element).namespaceURI !==
 			(newNode.namespace ?? (domNode as Element).namespaceURI) ||
 		(domNode as Element).tagName.toLowerCase() !== newNode.tag.toLowerCase()

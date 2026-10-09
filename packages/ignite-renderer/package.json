@@ -5,6 +5,7 @@
 	"module": "dist/ignite-renderer.es.js",
 	"types": "dist/types/index.d.ts",
 	"description": "Advanced renderer and runtime utilities for ignite-element.",
+	"license": "MIT",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/0xjcf/ignite-element.git"
@@ -31,38 +32,100 @@
 	"exports": {
 		".": {
 			"types": "./dist/types/index.d.ts",
+			"development": {
+				"types": "./dist/types/index.d.ts",
+				"import": "./dist/ignite-renderer.development.es.js",
+				"default": "./dist/ignite-renderer.development.es.js"
+			},
+			"production": {
+				"types": "./dist/types/index.d.ts",
+				"import": "./dist/ignite-renderer.es.js",
+				"default": "./dist/ignite-renderer.es.js"
+			},
 			"import": "./dist/ignite-renderer.es.js",
 			"default": "./dist/ignite-renderer.es.js"
 		},
 		"./jsx": {
 			"types": "./dist/types/renderers/ignite-jsx.d.ts",
+			"development": {
+				"types": "./dist/types/renderers/ignite-jsx.d.ts",
+				"import": "./dist/jsx.development.es.js",
+				"default": "./dist/jsx.development.es.js"
+			},
+			"production": {
+				"types": "./dist/types/renderers/ignite-jsx.d.ts",
+				"import": "./dist/jsx.es.js",
+				"default": "./dist/jsx.es.js"
+			},
 			"import": "./dist/jsx.es.js",
 			"default": "./dist/jsx.es.js"
 		},
 		"./lit": {
 			"types": "./dist/types/renderers/lit.d.ts",
+			"development": {
+				"types": "./dist/types/renderers/lit.d.ts",
+				"import": "./dist/lit.development.es.js",
+				"default": "./dist/lit.development.es.js"
+			},
+			"production": {
+				"types": "./dist/types/renderers/lit.d.ts",
+				"import": "./dist/lit.es.js",
+				"default": "./dist/lit.es.js"
+			},
 			"import": "./dist/lit.es.js",
 			"default": "./dist/lit.es.js"
 		},
 		"./jsx-runtime": {
 			"types": "./dist/types/jsx/jsx-runtime.d.ts",
+			"development": {
+				"types": "./dist/types/jsx/jsx-runtime.d.ts",
+				"import": "./dist/jsx-runtime.development.es.js",
+				"default": "./dist/jsx-runtime.development.es.js"
+			},
+			"production": {
+				"types": "./dist/types/jsx/jsx-runtime.d.ts",
+				"import": "./dist/jsx-runtime.es.js",
+				"default": "./dist/jsx-runtime.es.js"
+			},
 			"import": "./dist/jsx-runtime.es.js",
 			"default": "./dist/jsx-runtime.es.js"
 		},
 		"./jsx-dev-runtime": {
 			"types": "./dist/types/jsx/jsx-dev-runtime.d.ts",
+			"development": {
+				"types": "./dist/types/jsx/jsx-dev-runtime.d.ts",
+				"import": "./dist/jsx-dev-runtime.development.es.js",
+				"default": "./dist/jsx-dev-runtime.development.es.js"
+			},
+			"production": {
+				"types": "./dist/types/jsx/jsx-dev-runtime.d.ts",
+				"import": "./dist/jsx-dev-runtime.es.js",
+				"default": "./dist/jsx-dev-runtime.es.js"
+			},
 			"import": "./dist/jsx-dev-runtime.es.js",
 			"default": "./dist/jsx-dev-runtime.es.js"
 		},
 		"./jsx/index": {
 			"types": "./dist/types/jsx/index.d.ts",
+			"development": {
+				"types": "./dist/types/jsx/index.d.ts",
+				"import": "./dist/jsx/index.development.es.js",
+				"default": "./dist/jsx/index.development.es.js"
+			},
+			"production": {
+				"types": "./dist/types/jsx/index.d.ts",
+				"import": "./dist/jsx/index.es.js",
+				"default": "./dist/jsx/index.es.js"
+			},
 			"import": "./dist/jsx/index.es.js",
 			"default": "./dist/jsx/index.es.js"
 		}
 	},
 	"sideEffects": [
 		"./dist/jsx.es.js",
-		"./dist/lit.es.js"
+		"./dist/jsx.development.es.js",
+		"./dist/lit.es.js",
+		"./dist/lit.development.es.js"
 	],
 	"files": [
 		"dist",
@@ -70,7 +133,7 @@
 	],
 	"scripts": {
 		"build:types": "tsc",
-		"build:js": "vite build",
+		"build:js": "vite build && IGNITE_LIB_DEV=1 vite build",
 		"build": "pnpm run build:types && pnpm run build:js",
 		"typecheck": "tsc --noEmit --pretty false --project tsconfig.json"
 	},

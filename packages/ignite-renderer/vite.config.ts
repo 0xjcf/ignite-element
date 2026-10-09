@@ -1,8 +1,11 @@
 import { defineConfig } from "vite";
 import { createLibConfig } from "../../configs/vite/lib";
 
-export default defineConfig(({ command }) => ({
+const devArtifact = process.env.IGNITE_LIB_DEV === "1";
+
+export default defineConfig({
 	...createLibConfig({
+		devArtifact,
 		name: "ignite-renderer",
 		entry: {
 			index: "src/index.ts",
@@ -17,9 +20,4 @@ export default defineConfig(({ command }) => ({
 			"lit-html": "litHtml",
 		},
 	}),
-	define: {
-		"process.env.NODE_ENV": JSON.stringify(
-			command === "build" ? "production" : "development",
-		),
-	},
-}));
+});
