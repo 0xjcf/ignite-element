@@ -11,6 +11,8 @@ import type {
 import { event, StateScope } from "@ignite-element/core";
 import { createComponentFactory } from "../createComponentFactory";
 import { createProjectionFactory } from "../createProjectionFactory";
+import { rememberCoreHosts } from "../hosts/registry";
+import type { IgniteHostMap } from "../hosts/types";
 import { assertSupportedSourceOptions } from "../internal/assertSupportedSourceOptions";
 import {
 	registerIndependentBinding,
@@ -51,6 +53,7 @@ export type IgniteComponentFactoryOptions<
 		HTMLElement
 	>;
 	events?: ((builder: typeof event) => Events) | undefined;
+	hosts?: IgniteHostMap;
 };
 
 export function createIgniteComponentFactory<
@@ -97,6 +100,7 @@ export function createIgniteComponentFactory<
 	Events
 > {
 	assertSupportedSourceOptions(options);
+	rememberCoreHosts(createAdapter, options.hosts);
 	if (
 		Object.getOwnPropertyDescriptor(
 			options as unknown as Record<string, unknown>,

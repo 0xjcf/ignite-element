@@ -8,6 +8,7 @@ import type {
 
 export type { IgniteCoreReturn } from "./publicTypes";
 
+import type { IgniteHostMap } from "../hosts/types";
 import type { DisjointBindings } from "./publicTypes";
 
 export type { MobxEvent } from "@ignite-element/adapters/mobx";
@@ -20,4 +21,6 @@ export type MobxConfig<
 		FacadeCommandFunction
 	>,
 > = StoreMobxConfig<State, Events, StatesResult, CommandsResult, unknown> &
-	DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>>;
+	DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>> & {
+		hosts?: IgniteHostMap;
+	};

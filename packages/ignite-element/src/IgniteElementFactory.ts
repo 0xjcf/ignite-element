@@ -1,6 +1,9 @@
 import type { IgniteAdapter } from "@ignite-element/core";
 import { StateScope } from "@ignite-element/core";
 import type { RenderStrategyFactory } from "@ignite-element/renderer";
+import type { IgniteHostRuntime } from "@ignite-element/renderer/jsx";
+import { bindIgniteHostRuntime } from "@ignite-element/renderer/jsx";
+import { coreHostsFor, readReducedMotion } from "./hosts/registry";
 import {
 	endElementRendering,
 	getIgniteElementClasses,
@@ -262,6 +265,20 @@ export default function igniteElementFactory<
 	options?: FactoryOptions<State, Event, RenderArgs, RuntimeView, View>,
 ): ComponentFactory<State, Event, RenderArgs, View> {
 	assertSupportedSourceOptions(options);
+	const coreHosts = coreHostsFor(createAdapter);
+	const publishHosts = (
+		element: EventTarget,
+		snapshot: State,
+		send: (event: Event) => void,
+	) => {
+		if (!coreHosts) return;
+		bindIgniteHostRuntime(element, {
+			snapshot,
+			send: (event) => send(event as Event),
+			reducedMotion: readReducedMotion,
+			hosts: coreHosts as IgniteHostRuntime["hosts"],
+		});
+	};
 	type RuntimeAdditionalArgs = AdditionalRenderArgs<State, Event, RenderArgs>;
 	const lifetime = createLifetime();
 	lifetime.own(() => options?.disposeEffects?.());
@@ -940,15 +957,13 @@ export default function igniteElementFactory<
 				renderView(): View {
 					if (!this.additionalArgs)
 						throw new Error("[igniteCore] View is not initialized.");
+					const send = (event: Event) => {
+						lifetime.assertActive();
+						this.send(event);
+					};
+					publishHosts(this, this.currentState, send);
 					return render(
-						createRenderArgs(
-							this.currentState,
-							(event) => {
-								lifetime.assertActive();
-								this.send(event);
-							},
-							this.additionalArgs,
-						),
+						createRenderArgs(this.currentState, send, this.additionalArgs),
 					);
 				}
 			}
@@ -1070,16 +1085,13 @@ export default function igniteElementFactory<
 						`[igniteElementFactory] Unable to render "${elementName}" before initialization.`,
 					);
 				}
-
+				const send = (event: Event) => {
+					lifetime.assertActive();
+					this.send(event);
+				};
+				publishHosts(this, this.currentState, send);
 				return this.renderImpl(
-					createRenderArgs(
-						this.currentState,
-						(event) => {
-							lifetime.assertActive();
-							this.send(event);
-						},
-						this.additionalArgs,
-					),
+					createRenderArgs(this.currentState, send, this.additionalArgs),
 				);
 			}
 		}

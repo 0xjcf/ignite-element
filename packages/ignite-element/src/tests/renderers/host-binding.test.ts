@@ -47,7 +47,7 @@ function sceneHost(hooks?: {
 		equals: (a, b) => a.angle === b.angle,
 		describe: (slice) => `angle ${slice.angle}`,
 	};
-	return Object.assign(host, record);
+	return Object.assign(record, host);
 }
 
 function runtime(
@@ -281,12 +281,194 @@ describe("host binding", () => {
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 		const host = sceneHost();
 		const root = document.createElement("div");
-		renderIgniteJsx(root, jsx("canvas", { use: "missing" }), undefined, {
+		let tree = renderIgniteJsx(
+			root,
+			jsx("canvas", { use: "missing" }),
+			undefined,
+			{
+				hosts: runtime(host, 1),
+			},
+		);
+		tree = renderIgniteJsx(root, jsx("canvas", { use: "missing" }), tree, {
 			hosts: runtime(host, 1),
 		});
 		expect(host.mounts).toBe(0);
+		expect(warn).toHaveBeenCalledTimes(1);
 		expect(warn).toHaveBeenCalledWith(
 			expect.stringContaining('Unknown host "missing"'),
 		);
+	});
+
+	it("stays quiet about an unknown host in production", () => {
+		vi.stubEnv("NODE_ENV", "production");
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+		const root = document.createElement("div");
+		renderIgniteJsx(root, jsx("canvas", { use: "missing" }), undefined, {
+			hosts: runtime(sceneHost(), 1),
+		});
+		expect(warn).not.toHaveBeenCalled();
+	});
+
+	it("uses Object.is when equals is omitted, and skips a host with no describe", () => {
+		const updates: number[] = [];
+		const host: Host<HTMLCanvasElement, number, number, number> = {
+			mount: () => 1,
+			update: (_handle, slice) => {
+				updates.push(slice);
+			},
+			dispose: () => undefined,
+			select: (snapshot) => snapshot,
+		};
+		const root = document.createElement("div");
+		let tree = renderIgniteJsx(
+			root,
+			jsx("canvas", { use: "scene" }),
+			undefined,
+			{
+				hosts: { ...runtime(sceneHost(), 1), hosts: { scene: host } },
+			},
+		);
+		tree = renderIgniteJsx(root, jsx("canvas", { use: "scene" }), tree, {
+			hosts: { ...runtime(sceneHost(), 1), hosts: { scene: host } },
+		});
+		tree = renderIgniteJsx(root, jsx("canvas", { use: "scene" }), tree, {
+			hosts: { ...runtime(sceneHost(), 4), hosts: { scene: host } },
+		});
+		expect(updates).toEqual([1, 4]);
+		expect(root.querySelector("canvas")?.hasAttribute("aria-description")).toBe(
+			false,
+		);
+		expect(describeIgniteHosts({ scene: host }, 4)).toEqual({});
+	});
+
+	it("disposes the previous host once when use changes or clears", () => {
+		const first = sceneHost();
+		const second = sceneHost();
+		const root = document.createElement("div");
+		const hostsFor = (snapshot: number) => ({
+			...runtime(first, snapshot),
+			hosts: { scene: first, other: second },
+		});
+		let tree = renderIgniteJsx(
+			root,
+			jsx("canvas", { use: "scene" }),
+			undefined,
+			{ hosts: hostsFor(1) },
+		);
+		tree = renderIgniteJsx(root, jsx("canvas", { use: "other" }), tree, {
+			hosts: hostsFor(2),
+		});
+		expect(first.disposed).toEqual([{ id: 1 }]);
+		expect(second.mounts).toBe(1);
+		tree = renderIgniteJsx(root, jsx("canvas", {}), tree, {
+			hosts: hostsFor(2),
+		});
+		expect(second.disposed).toEqual([{ id: 1 }]);
+		renderIgniteJsx(root, null, tree, { hosts: hostsFor(2) });
+		expect(first.disposed).toEqual([{ id: 1 }]);
+		expect(second.disposed).toEqual([{ id: 1 }]);
+	});
+
+	it("logs host failures and keeps rendering the rest of the view", async () => {
+		const error = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => undefined);
+		const root = document.createElement("div");
+		const broken = sceneHost({
+			mount() {
+				throw new Error("mount failed");
+			},
+		});
+		renderIgniteJsx(
+			root,
+			jsx("div", {
+				children: [
+					jsx("canvas", { use: "scene" }),
+					jsx("p", { children: "kept" }),
+				],
+			}),
+			undefined,
+			{ hosts: { ...runtime(broken, 1), hosts: { scene: broken } } },
+		);
+		expect(root.querySelector("p")?.textContent).toBe("kept");
+		expect(broken.disposed).toEqual([]);
+
+		const updating = sceneHost({
+			update() {
+				throw new Error("update failed");
+			},
+		});
+		updating.describe = () => {
+			throw new Error("describe failed");
+		};
+		let tree = renderIgniteJsx(
+			root,
+			jsx("canvas", { use: "scene" }),
+			undefined,
+			{ hosts: { ...runtime(updating, 1), hosts: { scene: updating } } },
+		);
+		tree = renderIgniteJsx(root, jsx("canvas", { use: "scene" }), tree, {
+			hosts: { ...runtime(updating, 2), hosts: { scene: updating } },
+		});
+		expect(root.querySelector("canvas")).not.toBeNull();
+
+		const disposing = sceneHost({
+			dispose() {
+				throw new Error("dispose failed");
+			},
+		});
+		tree = renderIgniteJsx(root, jsx("canvas", { use: "scene" }), undefined, {
+			hosts: { ...runtime(disposing, 1), hosts: { scene: disposing } },
+		});
+		expect(() =>
+			renderIgniteJsx(root, null, tree, {
+				hosts: { ...runtime(disposing, 1), hosts: { scene: disposing } },
+			}),
+		).not.toThrow();
+
+		let rejectMount: (error: Error) => void = () => undefined;
+		const pending = sceneHost({
+			mount: () =>
+				new Promise((_resolve, reject) => {
+					rejectMount = reject;
+				}),
+		});
+		renderIgniteJsx(root, jsx("canvas", { use: "scene" }), undefined, {
+			hosts: { ...runtime(pending, 1), hosts: { scene: pending } },
+		});
+		rejectMount(new Error("mount rejected"));
+		await Promise.resolve();
+
+		const messages = error.mock.calls.map((call) => String(call[0]));
+		expect(messages).toEqual(
+			expect.arrayContaining([
+				expect.stringContaining("Host mount failed."),
+				expect.stringContaining("Host update failed."),
+				expect.stringContaining("Host describe failed."),
+				expect.stringContaining("Host dispose failed."),
+			]),
+		);
+	});
+
+	it("still mounts when reduced-motion queries are missing", () => {
+		vi.stubGlobal("matchMedia", undefined);
+		const host = sceneHost();
+		const root = document.createElement("div");
+		renderIgniteJsx(root, jsx("canvas", { use: "scene" }), undefined, {
+			hosts: runtime(host, 1),
+		});
+		expect(host.mounts).toBe(1);
+	});
+
+	it("still mounts when reduced-motion media queries throw", () => {
+		vi.stubGlobal("matchMedia", () => {
+			throw new Error("unavailable");
+		});
+		const host = sceneHost();
+		const root = document.createElement("div");
+		renderIgniteJsx(root, jsx("canvas", { use: "scene" }), undefined, {
+			hosts: runtime(host, 1),
+		});
+		expect(host.mounts).toBe(1);
 	});
 });

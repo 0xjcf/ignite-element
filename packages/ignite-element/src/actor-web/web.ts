@@ -14,6 +14,7 @@ import type {
 	FacadeEffectsObjectCallback,
 	FacadeStatesCallback,
 } from "@ignite-element/core";
+import type { IgniteHostMap } from "../hosts/types";
 import type { IgniteCoreReturn } from "../igniteCore/actorWebTypes";
 import type { IgniteComponentFactoryOptions } from "../igniteCore/createIgniteComponentFactory";
 import { createIgniteComponentFactory } from "../igniteCore/createIgniteComponentFactory";
@@ -81,7 +82,9 @@ export function igniteCore<
 			>,
 			EffectEvents<NoInfer<Events>, ChannelEmitted<NoInfer<Source>>>
 		>;
-	} & DisjointBindings<NoInfer<States>, NoInfer<Commands>>,
+	} & DisjointBindings<NoInfer<States>, NoInfer<Commands>> & {
+			hosts?: IgniteHostMap;
+		},
 ): IgniteCoreReturn<
 	ActorWebExtendedState<Context>,
 	Message,

@@ -37,6 +37,7 @@ type XStateRuntimeEvents<
 > = WithEmittedEvents<Events, EmittedFrom<Machine>, never>;
 
 export { matchState } from "@ignite-element/core";
+export type { Host, HostContext, HostProps } from "./hosts/types";
 export type { IgniteCoreReturn } from "./igniteCore/publicTypes";
 
 import { igniteCoreXState as baseIgniteCoreXState } from "./igniteCore/xstate";

@@ -1,3 +1,4 @@
+export type { Host, HostContext, HostProps } from "./hosts/types";
 export { igniteCoreMobx as igniteCore } from "./igniteCore/mobx";
 export type {
 	IgniteCoreReturn,

@@ -1,6 +1,7 @@
 import { getIgniteConfig } from "../../config";
 import injectStyles from "../../injectStyles";
 import type { RenderStrategy } from "../RenderStrategy";
+import { readIgniteHostRuntime, withIgniteHostRuntime } from "./hosts";
 import { isNoDiffDenylistedTag } from "./noDiffDenylist";
 import {
 	mountIgniteJsx,
@@ -92,11 +93,15 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 					? "flag-disabled"
 					: null);
 
-		this.previousTree =
+		const rootNode = this.contentRoot.getRootNode();
+		const runtime = readIgniteHostRuntime(
+			rootNode instanceof ShadowRoot ? rootNode.host : undefined,
+		);
+		this.previousTree = withIgniteHostRuntime(runtime, () =>
 			this.previousTree === null
-				? mountIgniteJsx(this.contentRoot, view)
+				? mountIgniteJsx(this.contentRoot as HTMLElement, view)
 				: renderIgniteJsx(
-						this.contentRoot,
+						this.contentRoot as HTMLElement,
 						view,
 						this.previousTree ?? undefined,
 						{
@@ -104,7 +109,8 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 							onFallbackReplace: (reason) =>
 								this.logFallback(reason, this.getHostTag()),
 						},
-					);
+					),
+		);
 
 		if (forceReason) {
 			this.logFallback(forceReason, this.getHostTag());

@@ -45,6 +45,8 @@ type IgniteRefCallback<T extends Element> = {
 
 type IgniteTagProps<T extends Element> = {
 	ref?: IgniteRefCallback<T>;
+	/** Names a core host. Not copied to the DOM. */
+	use?: string;
 	children?: IgniteJsxChild;
 	[attribute: string]: unknown;
 };

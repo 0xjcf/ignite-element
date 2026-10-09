@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { assign, createMachine, setup } from "xstate";
 import type { Host } from "../hosts/types";
 import { igniteCore } from "../IgniteCore";
@@ -14,6 +14,7 @@ type LinkHandle = {
 
 afterEach(() => {
 	document.body.replaceChildren();
+	vi.unstubAllGlobals();
 });
 
 describe("igniteCore hosts", () => {
@@ -80,7 +81,10 @@ describe("igniteCore hosts", () => {
 	});
 
 	it("sends host input through the core and updates only when the slice changes", async () => {
-		const contexts: Array<{ send: (event: { type: "PING" }) => void }> = [];
+		const contexts: Array<{
+			send: (event: { type: "PING" }) => void;
+			readonly reducedMotion: boolean;
+		}> = [];
 		const updates: number[] = [];
 		let mounts = 0;
 		const scene: Host<
@@ -129,6 +133,7 @@ describe("igniteCore hosts", () => {
 		expect(canvas?.hasAttribute("use")).toBe(false);
 		expect(mounts).toBe(1);
 		expect(updates).toEqual([1]);
+		expect(contexts[0]?.reducedMotion).toBe(false);
 		contexts[0]?.send({ type: "PING" });
 		expect(updates).toEqual([1, 2]);
 		expect(canvas?.getAttribute("aria-description")).toBe("count 2");
@@ -137,5 +142,46 @@ describe("igniteCore hosts", () => {
 		await flush();
 		expect(mounts).toBe(0);
 		core.dispose();
+	});
+
+	it("treats an empty host map as no hosts and survives a broken reduced-motion query", () => {
+		const machine = createMachine({
+			types: { context: {} as { n: number } },
+			context: { n: 1 },
+		});
+		const core = igniteCore({
+			source: machine,
+			hosts: {},
+		});
+		const name = tag();
+		core(name, () => jsx("div", { use: "scene", children: "shown" }));
+		const element = document.createElement(name);
+		document.body.append(element);
+		expect(element.shadowRoot?.textContent).toContain("shown");
+		expect(element.shadowRoot?.querySelector("[aria-description]")).toBeNull();
+		core.dispose();
+
+		vi.stubGlobal("matchMedia", () => {
+			throw new Error("unavailable");
+		});
+		let reduced = true;
+		const scene: Host<
+			HTMLDivElement,
+			number,
+			void,
+			{ context: { n: number } }
+		> = {
+			mount(_el, ctx) {
+				reduced = ctx.reducedMotion;
+			},
+			dispose() {},
+			select: (snapshot) => snapshot.context.n,
+		};
+		const hosted = igniteCore({ source: machine, hosts: { scene } });
+		const hostedName = tag();
+		hosted(hostedName, () => jsx("div", { use: "scene" }));
+		document.body.append(document.createElement(hostedName));
+		expect(reduced).toBe(false);
+		hosted.dispose();
 	});
 });

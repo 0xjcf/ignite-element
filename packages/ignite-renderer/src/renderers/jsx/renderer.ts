@@ -1,3 +1,12 @@
+import {
+	configureHostOwnership,
+	type IgniteHostRuntime,
+	syncHostElement,
+	withIgniteHostRuntime,
+} from "./hosts";
+
+export { describeIgniteHosts } from "./hosts";
+
 import { isNoDiffDenylistedTag } from "./noDiffDenylist";
 import {
 	Fragment,
@@ -58,15 +67,19 @@ export function createDomNode(
 export function mountIgniteJsx(
 	host: (Node & ParentNode) | ShadowRoot,
 	view: IgniteJsxChild,
+	options: RenderOptions = {},
 ): NormalizedNode[] {
-	const normalized = normalizeRoot(view);
-	replaceAll(host, normalized);
-	return normalized;
+	return withIgniteHostRuntime(options.hosts, () => {
+		const normalized = normalizeRoot(view);
+		replaceAll(host, normalized);
+		return normalized;
+	});
 }
 
 type RenderOptions = {
 	mode?: "diff" | "replace";
 	onFallbackReplace?: (reason: string) => void;
+	hosts?: IgniteHostRuntime;
 };
 
 export function renderIgniteJsx(
@@ -74,6 +87,17 @@ export function renderIgniteJsx(
 	view: IgniteJsxChild,
 	previous?: NormalizedNode[],
 	options: RenderOptions = {},
+): NormalizedNode[] {
+	return withIgniteHostRuntime(options.hosts, () =>
+		renderIgniteJsxNow(host, view, previous, options),
+	);
+}
+
+function renderIgniteJsxNow(
+	host: (Node & ParentNode) | ShadowRoot,
+	view: IgniteJsxChild,
+	previous: NormalizedNode[] | undefined,
+	options: RenderOptions,
 ): NormalizedNode[] {
 	const next = normalizeRoot(view);
 
@@ -303,6 +327,8 @@ function ensureMount(node: Node): ElementMount {
 export function claimSubtree(element: Element): void {
 	subtreeOwners.add(element);
 }
+
+configureHostOwnership({ claimSubtree, onUnmount: onIgniteUnmount });
 
 /**
  * Register a hook on the shared unmount path. It runs before the node is
@@ -747,6 +773,7 @@ function patchNode(
 	// positional patch does not desync against untracked DOM nodes (issue #57).
 	if (subtreeIsOwned(elementNode, newNode.props)) {
 		assignRef(elementNode, newNode.props.ref);
+		syncHostElement(elementNode, newNode.props.use);
 		return domNode;
 	}
 	// If the PREVIOUS render owned the subtree via props but this one renders
@@ -787,6 +814,7 @@ function patchNode(
 	}
 
 	assignRef(elementNode, newNode.props.ref);
+	syncHostElement(elementNode, newNode.props.use);
 	return domNode;
 }
 
@@ -809,6 +837,7 @@ function createDomFromNormalized(node: NormalizedNode): ChildNode {
 				element.appendChild(createDomFromNormalized(child));
 			}
 			assignRef(element, node.props.ref);
+			syncHostElement(element, node.props.use);
 			return element;
 		}
 	}
@@ -875,14 +904,14 @@ function patchProps(
 	const isSvgElement = element instanceof SVGElement;
 
 	for (const key of Object.keys(oldProps)) {
-		if (key === "children" || key === "ref") continue;
+		if (key === "children" || key === "ref" || key === "use") continue;
 		if (!(key in newProps)) {
 			removeProp(element, key, oldProps[key], isSvgElement);
 		}
 	}
 
 	for (const [key, next] of Object.entries(newProps)) {
-		if (key === "children" || key === "ref") continue;
+		if (key === "children" || key === "ref" || key === "use") continue;
 		const prev = oldProps[key];
 		if (
 			(key === "innerHTML" || key === "textContent") &&
