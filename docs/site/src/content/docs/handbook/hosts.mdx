@@ -6,25 +6,66 @@ description: Mount canvas, audio, and other imperative engines from a use prop.
 A host mounts an imperative engine on an element and disposes it on the shared unmount path. Declare hosts on the core, then name one with `use`.
 
 ```ts
+import type { HostContext } from "ignite-element";
+import { igniteCore } from "ignite-element/xstate";
+import { assign, createMachine } from "xstate";
+
+type OrbitEvent = { type: "NUDGE" };
+
+const orbitMachine = createMachine({
+  types: {
+    context: {} as { angle: number },
+    events: {} as OrbitEvent,
+  },
+  context: { angle: 0 },
+  on: {
+    NUDGE: {
+      actions: assign({
+        angle: ({ context }) => context.angle + 15,
+      }),
+    },
+  },
+});
+
+type SceneView = {
+  render(angle: number): void;
+  stop(): void;
+};
+
+function startScene(canvas: HTMLCanvasElement): SceneView {
+  const context = canvas.getContext("2d");
+  return {
+    render(angle) {
+      context?.clearRect(0, 0, canvas.width, canvas.height);
+      context?.fillText(String(angle), 8, 16);
+    },
+    stop() {
+      context?.clearRect(0, 0, canvas.width, canvas.height);
+    },
+  };
+}
+
 const orbit = igniteCore({
   source: orbitMachine,
   hosts: {
     scene: {
-      mount(canvas, ctx) {
+      mount(canvas: HTMLCanvasElement, ctx: HostContext<OrbitEvent>) {
         const view = startScene(canvas);
-        canvas.addEventListener("pointerdown", () => ctx.send({ type: "NUDGE" }), {
-          signal: ctx.signal,
-        });
+        canvas.addEventListener(
+          "pointerdown",
+          () => ctx.send({ type: "NUDGE" }),
+          { signal: ctx.signal },
+        );
         return view;
       },
-      update(view, angle) {
+      update(view: SceneView, angle: number) {
         view.render(angle);
       },
-      dispose(view) {
+      dispose(view: SceneView) {
         view.stop();
       },
       select: (snapshot) => snapshot.context.angle,
-      describe: (angle) => `Orbit angle ${angle}`,
+      describe: (angle: number) => `Orbit angle ${angle}`,
     },
   },
 });
