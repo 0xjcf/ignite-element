@@ -10,6 +10,10 @@ import {
 declare const __IGNITE_DEV_WARNINGS__: boolean;
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+// Spec nodeType values. Disconnect cleanup runs in example tests that have
+// elements but no DOM `Node` constructor.
+const ELEMENT_NODE = 1;
+const DOCUMENT_FRAGMENT_NODE = 11;
 const CAMEL_CASE_SVG_ATTRS = new Set([
 	"viewBox",
 	"preserveAspectRatio",
@@ -372,8 +376,8 @@ function releaseStoredRef(node: Node, mount: ElementMount): void {
 /** Shared unmount path. Runs before detach, exactly once per mount. */
 export function unmountIgniteSubtree(node: Node): void {
 	if (
-		node.nodeType === Node.ELEMENT_NODE ||
-		node.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+		node.nodeType === ELEMENT_NODE ||
+		node.nodeType === DOCUMENT_FRAGMENT_NODE
 	) {
 		for (const child of Array.from(node.childNodes)) {
 			unmountIgniteSubtree(child);
