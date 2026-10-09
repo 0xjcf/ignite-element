@@ -32,12 +32,70 @@ describe("EmptyState accessibility", () => {
 	it("names the region from the heading and keeps the step focusable", () => {
 		const { element, view } = mount();
 		const region = element.shadowRoot?.querySelector("section");
-		expect(region?.getAttribute("aria-labelledby")).toBe("empty-title");
+		const title = view.getByRole("heading", { name: "Today is empty" });
+		expect(region?.getAttribute("aria-labelledby")).toBe(title.id);
+		expect(title.id).not.toBe("empty-title");
 		const step = view.getByRole("button", { name: "Add a thought" });
 		expect(step.hasAttribute("disabled")).toBe(false);
 		step.focus();
 		expect(element.shadowRoot?.activeElement).toBe(step);
 		expect(view.getByText("Nothing here yet")).toBeTruthy();
+	});
+
+	it("moves focus once and does not collide with a second empty state", () => {
+		const { element, view } = mount();
+		const next = document.createElement("button");
+		next.id = "after-empty";
+		next.textContent = "Continue";
+		document.body.appendChild(next);
+		const host = element as unknown as HTMLElement & {
+			setFocustarget: (target: string | null) => void;
+		};
+		host.setFocustarget("after-empty");
+		const labels: string[] = [];
+		element.addEventListener("act", (event) => {
+			labels.push((event as CustomEvent<{ label: string }>).detail.label);
+		});
+		const step = view.getByRole("button", { name: "Add a thought" });
+		step.click();
+		const again = view.getByRole("button", { name: "Add a thought" });
+		expect(again.hasAttribute("disabled")).toBe(true);
+		const stayed = document.activeElement;
+		again.click();
+		expect(document.activeElement).toBe(stayed);
+		expect(labels).toEqual(["Add a thought"]);
+		expect(document.activeElement).toBe(next);
+
+		const other = document.createElement(TAG) as HTMLElement & {
+			setActionLabel: (label: string | null) => void;
+		};
+		other.setAttribute("title", "Log is empty");
+		other.setAttribute("message", "Nothing recorded.");
+		document.body.appendChild(other);
+		other.setActionLabel("Clear filters");
+		const otherTitle = within(
+			other.shadowRoot as unknown as HTMLElement,
+		).getByRole("heading", { name: "Log is empty" });
+		expect(otherTitle.id).not.toBe(
+			view.getByRole("heading", { name: "Today is empty" }).id,
+		);
+	});
+
+	it("finds a focus target in a parent shadow root", () => {
+		const { element, view } = mount();
+		const shell = document.createElement("div");
+		const shadow = shell.attachShadow({ mode: "open" });
+		const target = document.createElement("button");
+		target.id = "inside-shell";
+		target.textContent = "After";
+		shadow.append(target, element);
+		document.body.appendChild(shell);
+		const host = element as unknown as HTMLElement & {
+			setFocustarget: (target: string | null) => void;
+		};
+		host.setFocustarget("inside-shell");
+		view.getByRole("button", { name: "Add a thought" }).click();
+		expect(shadow.activeElement).toBe(target);
 	});
 
 	it("keeps the message ink at WCAG AA", () => {

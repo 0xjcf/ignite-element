@@ -118,6 +118,80 @@ describe("EmptyState states", () => {
 		}
 	});
 
+	it("fires the first step once and records the focus target", async () => {
+		const core = await show({
+			kind: "empty",
+			title: "Today is empty",
+			message: "Capacity 0/3.",
+			actionLabel: "Add a thought",
+		});
+		const labels: string[] = [];
+		core.on("act", (event) => {
+			labels.push(event.label);
+		});
+		try {
+			await core.execute({ command: "setFocusTarget", input: "after-empty" });
+			await core.execute({ command: "act" });
+			await core.execute({ command: "act" });
+			expect(labels).toEqual(["Add a thought"]);
+			expect(core.get("states")).toMatchObject({
+				actionRequested: true,
+				canAct: false,
+				canActRefusal: "The first step was already requested.",
+				focusTarget: "after-empty",
+				a11y: {
+					cli: "next: after-empty",
+					mcp: {
+						focusTarget: "after-empty",
+						instanceId: core.get("states").instanceId,
+					},
+				},
+			});
+			const other = await show({
+				kind: "empty",
+				title: "Log is empty",
+				message: "Nothing recorded.",
+				actionLabel: null,
+			});
+			try {
+				expect(other.get("states").instanceId).not.toBe(
+					core.get("states").instanceId,
+				);
+			} finally {
+				other.dispose();
+			}
+		} finally {
+			core.dispose();
+		}
+	});
+
+	it("reports the rendered region when no focus target is set", async () => {
+		const core = await show({
+			kind: "empty",
+			title: "Today is empty",
+			message: "Capacity 0/3.",
+			actionLabel: "Add a thought",
+		});
+		try {
+			await core.execute({ command: "act" });
+			const id = `${core.get("states").instanceId}-root`;
+			expect(core.get("states").a11y).toMatchObject({
+				cli: `next: ${id}`,
+				mcp: { focusTarget: id },
+			});
+		} finally {
+			core.dispose();
+		}
+	});
+
+	it("records the focus and click-once equivalents", () => {
+		expect(emptyStateContract.a11y?.map((row) => row.mcp)).toEqual([
+			"focusTarget in the result.",
+			"instanceId in the result.",
+			"A repeat returns the first outcome.",
+		]);
+	});
+
 	it("ignores act when there is no first step", async () => {
 		const core = await show({
 			kind: "filtered",

@@ -63,7 +63,7 @@ describe("EmptyState DOM", () => {
 		});
 		view.getByRole("button", { name: "Add a thought" }).click();
 		view.getByRole("button", { name: "Add a thought" }).click();
-		expect(labels).toEqual(["Add a thought", "Add a thought"]);
+		expect(labels).toEqual(["Add a thought"]);
 		expect(view.getByText("Capacity 0/3.")).toBeTruthy();
 	});
 });
