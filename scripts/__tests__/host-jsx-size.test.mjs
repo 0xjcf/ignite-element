@@ -15,7 +15,10 @@ async function bundle(source) {
 		await writeFile(entry, source);
 		const bundleResult = await build({
 			configFile: false,
-			define: { "process.env.NODE_ENV": JSON.stringify("production") },
+			define: {
+				"process.env.NODE_ENV": JSON.stringify("production"),
+				__IGNITE_DEV_WARNINGS__: JSON.stringify(false),
+			},
 			build: {
 				emptyOutDir: false,
 				lib: { entry, fileName: "entry", formats: ["es"] },
