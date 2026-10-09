@@ -60,12 +60,14 @@ describe("StatusPill accessibility", () => {
 			setValue: (value: string | null) => void;
 		};
 		host.setAnnounce("true");
-		expect(root.querySelector("[aria-live='polite']")?.textContent).toBe("");
-		host.setValue("Live");
 		const polite = root.querySelector("[aria-live='polite']");
+		expect(polite?.textContent).toBe("");
+		host.setValue("Live");
+		expect(root.querySelector("[aria-live='polite']")).toBe(polite);
 		expect(polite?.textContent).toContain("Live");
 		expect(polite?.textContent).toContain("Warning");
-		expect(polite?.classList.contains("status-pill")).toBe(true);
+		expect(polite?.classList.contains("live-polite")).toBe(true);
+		expect(root.querySelector(".status-pill-value")?.textContent).toBe("Live");
 		expect(root.querySelectorAll(".status-pill")).toHaveLength(1);
 		const other = document.createElement(TAG);
 		other.setAttribute("value", "Saved");

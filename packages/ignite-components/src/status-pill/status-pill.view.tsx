@@ -1,6 +1,9 @@
 /** @jsxImportSource ignite-element/jsx */
 import type { IgniteJsxElement } from "ignite-element/jsx";
-import { liveStatusRegionStyles } from "../live-status/live-status.region";
+import {
+	liveStatusRegion,
+	liveStatusRegionStyles,
+} from "../live-status/live-status.region";
 import { catalogHostStyles } from "../styles";
 import type { StatusPillCommands, StatusPillStates } from "./status-pill.core";
 
@@ -58,35 +61,24 @@ function chip(ctx: StatusPillViewContext): IgniteJsxElement {
 }
 
 /**
- * The tone word is text. Color only tints the chip.
- * Opt-in announcements use that same chip as the live region, once.
+ * The tone word stays on the chip. Opt-in announcements fill the same
+ * polite region that was mounted empty, so the first change is heard.
  */
 export function statusPillView(ctx: StatusPillViewContext): IgniteJsxElement {
-	const spoken = ctx.announce ? ctx.announcement : null;
 	return (
 		<>
 			<style>{styles}</style>
-			{spoken ? (
-				<output
-					id={`${ctx.instanceId}-polite`}
-					class="status-pill"
-					data-tone={ctx.tone}
-					aria-live="polite"
-					aria-atomic="true"
-				>
-					{spoken}
-				</output>
-			) : (
-				chip(ctx)
-			)}
-			{ctx.announce && !spoken ? (
-				<output
-					id={`${ctx.instanceId}-polite`}
-					class="live-polite"
-					aria-live="polite"
-					aria-atomic="true"
-				></output>
-			) : null}
+			{chip(ctx)}
+			{ctx.announce
+				? liveStatusRegion({
+						instanceId: ctx.instanceId,
+						polite: ctx.announcement,
+						assertive: null,
+						busy: false,
+						progress: "none",
+						settled: null,
+					})
+				: null}
 		</>
 	);
 }
