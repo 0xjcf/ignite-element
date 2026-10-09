@@ -93,7 +93,7 @@ export function renderIgniteJsx(
 
 function normalizeRoot(view: IgniteJsxChild): NormalizedNode[] {
 	const nodes = normalizeChild(view, undefined);
-	warnDuplicateKeys(nodes);
+	warnInvalidKeys(nodes);
 	return nodes;
 }
 
@@ -123,14 +123,17 @@ function normalizeChild(
 	}
 
 	if (node.type === Fragment) {
-		return normalizeChildren(node.props.children).flatMap((child) =>
-			normalizeChild(child, namespace),
+		return applySlotKey(
+			node.key,
+			normalizeChildren(node.props.children).flatMap((child) =>
+				normalizeChild(child, namespace),
+			),
 		);
 	}
 
 	if (typeof node.type === "function") {
 		const result = node.type(node.props);
-		return normalizeChild(result, namespace);
+		return applySlotKey(node.key, normalizeChild(result, namespace));
 	}
 
 	const tagName = String(node.type);
@@ -147,7 +150,7 @@ function normalizeChild(
 		: normalizeChildren(node.props.children).flatMap((child) =>
 				normalizeChild(child, childNamespace),
 			);
-	warnDuplicateKeys(normalizedChildren);
+	warnInvalidKeys(normalizedChildren);
 
 	return [
 		{
@@ -161,12 +164,20 @@ function normalizeChild(
 	];
 }
 
-type RefCallback = (element: Element | null) => void;
+type RefDisposer = () => void | PromiseLike<void>;
+
+type RefCallback = (
+	element: Element | null,
+) => void | RefDisposer | PromiseLike<void>;
 
 interface ElementMount {
 	ref: RefCallback | null;
+	/** Disposer returned by the current ref. Absent when the ref returns nothing. */
+	cleanup: RefDisposer | null;
 	hooks: Array<() => void>;
 	unmounted: boolean;
+	/** True after a true-disconnect release that kept the callback for reacquire. */
+	released: boolean;
 }
 
 const elementMounts = new WeakMap<Node, ElementMount>();
@@ -183,27 +194,74 @@ function nodeKey(node: NormalizedNode): string | number | undefined {
 	return node.key;
 }
 
-function listHasKey(children: NormalizedNode[]): boolean {
-	for (const child of children) {
-		if (nodeKey(child) !== undefined) return true;
-	}
-	return false;
+type KeyShape = "none" | "keyed" | "duplicate" | "mixed";
+
+function isMaterialSibling(node: NormalizedNode): boolean {
+	return node.kind !== "comment";
 }
 
-function warnDuplicateKeys(children: NormalizedNode[]): void {
-	if (!isDevelopment()) return;
+function classifyKeys(children: NormalizedNode[]): KeyShape {
+	const seen = new Set<string | number>();
+	let keyed = 0;
+	let material = 0;
+	for (const child of children) {
+		if (!isMaterialSibling(child)) continue;
+		material += 1;
+		const key = nodeKey(child);
+		if (key === undefined) continue;
+		if (seen.has(key)) return "duplicate";
+		seen.add(key);
+		keyed += 1;
+	}
+	if (keyed === 0) return "none";
+	if (keyed !== material) return "mixed";
+	return "keyed";
+}
+
+function duplicateKey(children: NormalizedNode[]): string | number | undefined {
 	const seen = new Set<string | number>();
 	for (const child of children) {
 		const key = nodeKey(child);
 		if (key === undefined) continue;
-		if (seen.has(key)) {
-			console.warn(
-				`[ignite-jsx] Duplicate key "${String(key)}" among siblings. Keys must be unique.`,
-			);
-			return;
-		}
+		if (seen.has(key)) return key;
 		seen.add(key);
 	}
+	return undefined;
+}
+
+function warnInvalidKeys(children: NormalizedNode[]): void {
+	if (!isDevelopment()) return;
+	const shape = classifyKeys(children);
+	if (shape === "duplicate") {
+		const key = duplicateKey(children);
+		console.warn(
+			`[ignite-jsx] Duplicate key "${String(key)}" among siblings. Keys must be unique.`,
+		);
+		return;
+	}
+	if (shape === "mixed") {
+		console.warn(
+			"[ignite-jsx] Mixed keyed and unkeyed siblings. The list will match by position.",
+		);
+	}
+}
+
+function applySlotKey(
+	key: string | number | null | undefined,
+	nodes: NormalizedNode[],
+): NormalizedNode[] {
+	if (key == null) return nodes;
+	const material = nodes.filter(isMaterialSibling);
+	if (material.length === 1 && material[0]?.kind === "element") {
+		material[0].key = key;
+		return nodes;
+	}
+	if (isDevelopment()) {
+		console.warn(
+			`[ignite-jsx] Key "${String(key)}" requires a single element, but the component returned ${material.length} nodes.`,
+		);
+	}
+	return nodes;
 }
 
 function warnDeprecatedContentProp(
@@ -226,7 +284,13 @@ function warnDeprecatedContentProp(
 function ensureMount(node: Node): ElementMount {
 	let mount = elementMounts.get(node);
 	if (!mount) {
-		mount = { ref: null, hooks: [], unmounted: false };
+		mount = {
+			ref: null,
+			cleanup: null,
+			hooks: [],
+			unmounted: false,
+			released: false,
+		};
 		elementMounts.set(node, mount);
 	}
 	return mount;
@@ -247,6 +311,62 @@ export function onIgniteUnmount(node: Node, hook: () => void): void {
 	mount.hooks.push(hook);
 }
 
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+	return (
+		(typeof value === "object" || typeof value === "function") &&
+		value !== null &&
+		"then" in value &&
+		typeof (value as { then?: unknown }).then === "function"
+	);
+}
+
+function reportRendererError(node: Node, error: unknown): void {
+	const root = node.getRootNode();
+	const host = root instanceof ShadowRoot ? root.host : null;
+	const candidate = host as {
+		handleError?: (error: unknown) => void;
+		onError?: (error: unknown) => void;
+	} | null;
+	const handler = candidate?.handleError ?? candidate?.onError;
+	if (typeof handler === "function") {
+		try {
+			handler.call(host, error);
+			return;
+		} catch (handlerError) {
+			console.error("[ignite-jsx] Error handler failed.", handlerError);
+		}
+	}
+	console.error("[ignite-jsx] Callback failed.", error);
+}
+
+function observeRejection(node: Node, result: unknown): void {
+	if (!isPromiseLike(result)) return;
+	Promise.resolve(result).then(undefined, (error: unknown) => {
+		reportRendererError(node, error);
+	});
+}
+
+function invokeContained(node: Node, callback: () => unknown): void {
+	try {
+		observeRejection(node, callback());
+	} catch (error) {
+		reportRendererError(node, error);
+	}
+}
+
+function releaseStoredRef(node: Node, mount: ElementMount): void {
+	const ref = mount.ref;
+	const cleanup = mount.cleanup;
+	mount.ref = null;
+	mount.cleanup = null;
+	if (!ref) return;
+	if (cleanup) {
+		invokeContained(node, cleanup);
+		return;
+	}
+	invokeContained(node, () => ref(null));
+}
+
 /** Shared unmount path. Runs before detach, exactly once per mount. */
 export function unmountIgniteSubtree(node: Node): void {
 	if (
@@ -261,25 +381,99 @@ export function unmountIgniteSubtree(node: Node): void {
 	if (!mount || mount.unmounted) return;
 	mount.unmounted = true;
 	const hooks = mount.hooks.splice(0, mount.hooks.length);
-	for (const hook of hooks) hook();
-	const ref = mount.ref;
-	mount.ref = null;
+	for (const hook of hooks) invokeContained(node, hook);
+	releaseStoredRef(node, mount);
 	elementMounts.delete(node);
-	if (ref) ref(null);
 }
 
 function assignRef(element: Element, ref: unknown): void {
 	const mount = ensureMount(element);
 	if (mount.unmounted) return;
 	const next = typeof ref === "function" ? (ref as RefCallback) : null;
-	if (mount.ref === next) return;
-	if (mount.ref) {
+	if (mount.ref === next && !mount.released) return;
+	if (mount.ref && !mount.released) {
 		const previous = mount.ref;
+		const cleanup = mount.cleanup;
 		mount.ref = null;
-		previous(null);
+		mount.cleanup = null;
+		if (cleanup) invokeContained(element, cleanup);
+		else invokeContained(element, () => previous(null));
 	}
 	mount.ref = next;
-	if (next) next(element);
+	mount.cleanup = null;
+	mount.released = false;
+	if (!next) return;
+	try {
+		const result = next(element);
+		if (typeof result === "function") {
+			mount.cleanup = result;
+			return;
+		}
+		observeRejection(element, result);
+	} catch (error) {
+		mount.cleanup = null;
+		reportRendererError(element, error);
+	}
+}
+
+function releaseNodeRefs(node: Node): void {
+	if (
+		node.nodeType === Node.ELEMENT_NODE ||
+		node.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+	) {
+		for (const child of Array.from(node.childNodes)) {
+			releaseNodeRefs(child);
+		}
+	}
+	const mount = elementMounts.get(node);
+	if (!mount || mount.unmounted || mount.released || !mount.ref) return;
+	const ref = mount.ref;
+	const cleanup = mount.cleanup;
+	mount.cleanup = null;
+	mount.released = true;
+	if (cleanup) invokeContained(node, cleanup);
+	else invokeContained(node, () => ref(null));
+}
+
+function reacquireNodeRefs(node: Node): void {
+	if (node instanceof Element) {
+		const mount = elementMounts.get(node);
+		if (mount && !mount.unmounted && mount.released && mount.ref) {
+			const ref = mount.ref;
+			mount.released = false;
+			mount.cleanup = null;
+			try {
+				const result = ref(node);
+				if (typeof result === "function") mount.cleanup = result;
+				else observeRejection(node, result);
+			} catch (error) {
+				mount.cleanup = null;
+				reportRendererError(node, error);
+			}
+		}
+	}
+	if (
+		node.nodeType === Node.ELEMENT_NODE ||
+		node.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+	) {
+		for (const child of Array.from(node.childNodes)) {
+			reacquireNodeRefs(child);
+		}
+	}
+}
+
+/** Release one-shot refs after a true disconnect without removing DOM. */
+export function releaseMountedView(root: ParentNode): void {
+	for (const child of Array.from(root.childNodes)) {
+		releaseNodeRefs(child);
+	}
+}
+
+/** Acquire one-shot refs again after a later reconnect. */
+export function reacquireMountedView(root: ParentNode): void {
+	for (const child of Array.from(root.childNodes)) {
+		reacquireNodeRefs(child);
+	}
 }
 
 function detachChild(parent: ParentNode, child: ChildNode): void {
@@ -293,7 +487,9 @@ function patchChildren(
 	newChildren: NormalizedNode[],
 	onFallbackReplace?: (reason: string) => void,
 ): boolean {
-	if (listHasKey(oldChildren) || listHasKey(newChildren)) {
+	const nextShape = classifyKeys(newChildren);
+	const previousShape = classifyKeys(oldChildren);
+	if (nextShape === "keyed" && !keyShapeIsInvalid(previousShape)) {
 		return patchKeyedChildren(
 			parent,
 			oldChildren,
@@ -363,14 +559,9 @@ function patchKeyedChildren(
 ): boolean {
 	const domNodes = Array.from(parent.childNodes);
 	if (domNodes.length < oldChildren.length) return false;
-	const focused =
-		document.activeElement instanceof HTMLElement &&
-		document.activeElement !== document.body
-			? document.activeElement
-			: null;
+	const focused = focusedWithin(parent);
 
 	const oldDom = domNodes.slice(0, oldChildren.length);
-	const extras = domNodes.slice(oldChildren.length);
 	const byKey = new Map<
 		string | number,
 		{ index: number; node: NormalizedNode; dom: ChildNode }
@@ -433,14 +624,38 @@ function patchKeyedChildren(
 		if (!used.has(index)) detachChild(parent, oldDom[index]);
 	}
 
-	const anchor = extras.find((node) => node.parentNode === parent) ?? null;
-	for (const node of nextDom) parent.insertBefore(node, anchor);
-	// Moving a node drops focus in some DOM implementations. Browsers usually
-	// keep it; restore it when the focused node is still in the document.
-	if (focused?.isConnected && document.activeElement !== focused) {
+	let cursor: ChildNode | null = parent.firstChild;
+	for (const node of nextDom) {
+		if (node === cursor) {
+			cursor = node.nextSibling;
+			continue;
+		}
+		parent.insertBefore(node, cursor);
+	}
+	// Moving a node drops focus in some DOM implementations. Restore the
+	// element that was focused inside this parent, including inside a shadow root.
+	const current = focusedWithin(parent);
+	if (focused?.isConnected && current !== focused) {
 		focused.focus();
 	}
 	return true;
+}
+
+function focusedWithin(parent: ParentNode): HTMLElement | null {
+	const root = parent.getRootNode();
+	const active =
+		root instanceof Document || root instanceof ShadowRoot
+			? root.activeElement
+			: null;
+	if (!(active instanceof HTMLElement)) return null;
+	const doc = parent.ownerDocument ?? document;
+	if (active === doc.body || active === parent) return null;
+	if (!parent.contains(active)) return null;
+	return active;
+}
+
+function keyShapeIsInvalid(shape: KeyShape): boolean {
+	return shape === "duplicate" || shape === "mixed";
 }
 
 // Props whose value imperatively replaces the element's entire subtree as a DOM
@@ -520,12 +735,12 @@ function patchNode(
 	const elementNode = domNode as Element & ParentNode;
 
 	patchProps(elementNode, oldNode.props, newNode.props);
-	assignRef(elementNode, newNode.props.ref);
 
 	// A subtree owner (innerHTML, textContent, or a host claim) is opaque.
 	// patchProps already applied the owning prop — skip child diffing so the
 	// positional patch does not desync against untracked DOM nodes (issue #57).
 	if (subtreeIsOwned(elementNode, newNode.props)) {
+		assignRef(elementNode, newNode.props.ref);
 		return domNode;
 	}
 	// If the PREVIOUS render owned the subtree via props but this one renders
@@ -565,6 +780,7 @@ function patchNode(
 		}
 	}
 
+	assignRef(elementNode, newNode.props.ref);
 	return domNode;
 }
 
@@ -661,6 +877,7 @@ function patchProps(
 
 	for (const [key, next] of Object.entries(newProps)) {
 		if (key === "children" || key === "ref") continue;
+		const prev = oldProps[key];
 		if (
 			(key === "innerHTML" || key === "textContent") &&
 			next !== undefined &&
@@ -668,8 +885,12 @@ function patchProps(
 			next !== false
 		) {
 			warnDeprecatedContentProp(element, key);
+			if (next !== prev) {
+				for (const child of Array.from(element.childNodes)) {
+					unmountIgniteSubtree(child);
+				}
+			}
 		}
-		const prev = oldProps[key];
 
 		if (key === "class" || key === "className") {
 			const nextClass = next !== false && next != null ? String(next) : "";

@@ -1,13 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import igniteElementFactory from "../../IgniteElementFactory";
 import { createIgniteJsxRenderStrategy } from "../../renderers/jsx/IgniteJsxRenderStrategy";
-import { jsx } from "../../renderers/jsx/jsx-runtime";
+import { Fragment, jsx } from "../../renderers/jsx/jsx-runtime";
 import * as renderer from "../../renderers/jsx/renderer";
 import {
 	mountIgniteJsx,
 	type NormalizedNode,
 	renderIgniteJsx,
 } from "../../renderers/jsx/renderer";
+import type { IgniteJsxComponent } from "../../renderers/jsx/types";
 import MockAdapter from "../MockAdapter";
 
 type Ref = (element: Element | null) => void;
@@ -175,32 +176,37 @@ describe("keyed sibling reconciliation", () => {
 		).toEqual(["Beta", "Alpha"]);
 	});
 
-	it("keeps unkeyed siblings positional while keyed siblings move", () => {
+	it("matches mixed keyed and unkeyed siblings by position and warns in development", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		const host = document.createElement("div");
 		let tree = mountIgniteJsx(
 			host,
 			list([
 				jsx("span", { children: "keyed" }, "k"),
-				jsx("i", { children: "plain" }),
+				jsx("span", { children: "plain" }),
 			]),
 		);
-		const keyed = host.querySelector("span");
-		const plain = host.querySelector("i");
+		const [first, second] = Array.from(host.querySelectorAll("span"));
 
 		tree = renderIgniteJsx(
 			host,
 			list([
-				jsx("i", { children: "plain" }),
-				jsx("b", { children: "added" }),
+				jsx("span", { children: "plain" }),
+				jsx("span", { children: "added" }),
 				jsx("span", { children: "keyed" }, "k"),
 			]),
 			tree,
 		);
 
-		const parent = host.querySelector("div");
-		expect(parent?.childNodes[0]).toBe(plain);
-		expect(parent?.childNodes[1]?.textContent).toBe("added");
-		expect(parent?.childNodes[2]).toBe(keyed);
+		const spans = host.querySelectorAll("span");
+		expect(spans[0]).toBe(first);
+		expect(spans[0]?.textContent).toBe("plain");
+		expect(spans[1]).toBe(second);
+		expect(spans[1]?.textContent).toBe("added");
+		expect(spans[2]?.textContent).toBe("keyed");
+		expect(warn).toHaveBeenCalledWith(
+			"[ignite-jsx] Mixed keyed and unkeyed siblings. The list will match by position.",
+		);
 	});
 
 	it("replaces a keyed node when its tag changes", () => {
@@ -298,30 +304,36 @@ describe("keyed sibling reconciliation", () => {
 		expect(host.textContent).toBe("A");
 	});
 
-	it("replaces an unkeyed sibling when a keyed sibling is also present", () => {
+	it("does not move a duplicate-keyed sibling when the texts swap", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		const host = document.createElement("div");
 		let tree = mountIgniteJsx(
 			host,
 			list([
-				jsx("span", { children: "keyed" }, "k"),
-				jsx("i", { children: "plain" }),
+				jsx("span", { children: "one" }, "dup"),
+				jsx("span", { children: "two" }, "dup"),
 			]),
 		);
-		const keyed = host.querySelector("span");
+		const [first, second] = Array.from(host.querySelectorAll("span"));
 
 		tree = renderIgniteJsx(
 			host,
 			list([
-				jsx("b", { children: "plain" }),
-				jsx("span", { children: "keyed" }, "k"),
+				jsx("span", { children: "two" }, "dup"),
+				jsx("span", { children: "one" }, "dup"),
 			]),
 			tree,
 		);
 
-		const parent = host.querySelector("div");
-		expect(parent?.querySelector("i")).toBeNull();
-		expect(parent?.querySelector("b")?.textContent).toBe("plain");
-		expect(parent?.querySelector("span")).toBe(keyed);
+		const spans = host.querySelectorAll("span");
+		expect(spans).toHaveLength(2);
+		expect(spans[0]).toBe(first);
+		expect(spans[1]).toBe(second);
+		expect(spans[0]?.textContent).toBe("two");
+		expect(spans[1]?.textContent).toBe("one");
+		expect(warn).toHaveBeenCalledWith(
+			'[ignite-jsx] Duplicate key "dup" among siblings. Keys must be unique.',
+		);
 	});
 
 	it("repairs a comment when the DOM node was replaced", () => {
@@ -761,6 +773,471 @@ describe("custom element slots", () => {
 		const spanAfter = host.querySelector(`${tag} span`);
 		expect(spanAfter).toBe(span);
 		expect(slot.assignedNodes()).toContain(spanAfter);
+	});
+});
+
+describe("approved ref and key corrections", () => {
+	it("calls a changed ref after the new children are in place", () => {
+		const host = document.createElement("div");
+		const seen: string[] = [];
+		const first: Ref = (element) => {
+			if (element) seen.push(`first:${element.textContent}`);
+		};
+		const second: Ref = (element) => {
+			if (element) seen.push(`second:${element.textContent}`);
+		};
+		let tree = mountIgniteJsx(
+			host,
+			jsx("div", { ref: first, children: jsx("span", { children: "before" }) }),
+		);
+		tree = renderIgniteJsx(
+			host,
+			jsx("div", { ref: second, children: jsx("span", { children: "after" }) }),
+			tree,
+		);
+		expect(seen).toEqual(["first:before", "second:after"]);
+	});
+
+	it("stores a returned disposer and does not also call ref(null)", () => {
+		const host = document.createElement("div");
+		const disposed = vi.fn();
+		const ref = vi.fn((element: Element | null) => {
+			if (element) return disposed;
+			disposed();
+		});
+		let tree = mountIgniteJsx(host, jsx("input", { ref }));
+		const input = host.querySelector("input");
+		tree = renderIgniteJsx(host, jsx("div", {}), tree);
+		expect(ref).toHaveBeenCalledTimes(1);
+		expect(ref).toHaveBeenCalledWith(input);
+		expect(disposed).toHaveBeenCalledTimes(1);
+		expect(ref).not.toHaveBeenCalledWith(null);
+	});
+
+	it("calls ref(null) when the callback returns nothing", () => {
+		const host = document.createElement("div");
+		const ref = vi.fn<Ref>();
+		let tree = mountIgniteJsx(host, jsx("input", { ref }));
+		const input = host.querySelector("input");
+		tree = renderIgniteJsx(host, jsx("div", {}), tree);
+		expect(ref.mock.calls).toEqual([[input], [null]]);
+	});
+
+	it("runs the old disposer before acquiring a void ref", () => {
+		const host = document.createElement("div");
+		const order: string[] = [];
+		const disposed = () => {
+			order.push("dispose");
+		};
+		const first = () => {
+			order.push("first");
+			return disposed;
+		};
+		const second: Ref = (element) => {
+			order.push(element ? "second" : "second-null");
+		};
+		let tree = mountIgniteJsx(host, jsx("input", { ref: first }));
+		tree = renderIgniteJsx(host, jsx("input", { ref: second }), tree);
+		tree = renderIgniteJsx(host, jsx("div", {}), tree);
+		expect(order).toEqual(["first", "dispose", "second", "second-null"]);
+	});
+
+	it("calls ref(null) before acquiring a disposer ref", () => {
+		const host = document.createElement("div");
+		const order: string[] = [];
+		const first: Ref = (element) => {
+			order.push(element ? "first" : "first-null");
+		};
+		const second = (element: Element | null) => {
+			order.push(element ? "second" : "second-null");
+			if (element) {
+				return () => {
+					order.push("dispose");
+				};
+			}
+		};
+		let tree = mountIgniteJsx(host, jsx("input", { ref: first }));
+		tree = renderIgniteJsx(host, jsx("input", { ref: second }), tree);
+		tree = renderIgniteJsx(host, jsx("div", {}), tree);
+		expect(order).toEqual(["first", "first-null", "second", "dispose"]);
+		expect(order).not.toContain("second-null");
+	});
+
+	it("releases a child ref before innerHTML replaces the subtree", () => {
+		const host = document.createElement("div");
+		const order: string[] = [];
+		const ref = (element: Element | null) => {
+			if (!element) {
+				order.push("null");
+				return;
+			}
+			return () => {
+				order.push(
+					element.parentNode ? "dispose-connected" : "dispose-detached",
+				);
+			};
+		};
+		let tree = mountIgniteJsx(
+			host,
+			jsx("section", { children: jsx("input", { ref }) }),
+		);
+		tree = renderIgniteJsx(
+			host,
+			jsx("section", { innerHTML: "<p>owned</p>" }),
+			tree,
+		);
+		expect(order).toEqual(["dispose-connected"]);
+		expect(host.querySelector("input")).toBeNull();
+		expect(host.querySelector("p")?.textContent).toBe("owned");
+	});
+
+	it("calls ref(null) before textContent replaces a void ref", () => {
+		const host = document.createElement("div");
+		let connected: boolean | undefined;
+		const ref: Ref = (element) => {
+			if (element === null) connected = Boolean(input?.parentNode);
+		};
+		let tree = mountIgniteJsx(
+			host,
+			jsx("section", { children: jsx("input", { ref }) }),
+		);
+		const input = host.querySelector("input");
+		tree = renderIgniteJsx(
+			host,
+			jsx("section", { textContent: "plain" }),
+			tree,
+		);
+		expect(connected).toBe(true);
+		expect(host.querySelector("section")?.textContent).toBe("plain");
+	});
+
+	it("continues unmount when a hook and a ref cleanup throw", () => {
+		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+		const onIgniteUnmount = (
+			renderer as unknown as {
+				onIgniteUnmount?: (node: Node, hook: () => void) => void;
+			}
+		).onIgniteUnmount;
+		expect(typeof onIgniteUnmount).toBe("function");
+		if (!onIgniteUnmount) return;
+		const host = document.createElement("div");
+		const later = vi.fn();
+		const ref = vi.fn<Ref>();
+		let tree = mountIgniteJsx(
+			host,
+			jsx("div", {
+				children: [
+					jsx("span", { children: "a" }),
+					jsx("em", { ref, children: "b" }),
+				],
+			}),
+		);
+		const span = host.querySelector("span");
+		const em = host.querySelector("em");
+		if (!span || !em) throw new Error("expected children");
+		onIgniteUnmount(span, () => {
+			throw new Error("hook failed");
+		});
+		onIgniteUnmount(em, later);
+		tree = renderIgniteJsx(host, jsx("div", { children: [] }), tree);
+		expect(later).toHaveBeenCalledTimes(1);
+		expect(ref).toHaveBeenCalledWith(null);
+		expect(host.querySelector("span")).toBeNull();
+		expect(host.querySelector("em")).toBeNull();
+		expect(error).toHaveBeenCalled();
+	});
+
+	it("still runs onTrueDisconnect when a ref cleanup throws", async () => {
+		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+		const sibling = vi.fn<Ref>();
+		const ref = () => () => {
+			throw new Error("cleanup failed");
+		};
+		const { element } = mountRenderer(() =>
+			jsx("div", {
+				children: [
+					jsx("input", { ref, "aria-label": "first" }),
+					jsx("input", { ref: sibling, "aria-label": "second" }),
+				],
+			}),
+		);
+		const onTrueDisconnect = vi.fn();
+		(
+			element as HTMLElement & { onTrueDisconnect: () => void }
+		).onTrueDisconnect = onTrueDisconnect;
+		element.remove();
+		await flushDisconnect();
+		expect(sibling).toHaveBeenCalledWith(null);
+		expect(onTrueDisconnect).toHaveBeenCalledTimes(1);
+		expect(error).toHaveBeenCalled();
+	});
+
+	it("reports ref cleanup to handleError before onError and continues", async () => {
+		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+		const sibling = vi.fn<Ref>();
+		const failure = new Error("cleanup failed");
+		const { element } = mountRenderer(() =>
+			jsx("div", {
+				children: [
+					jsx("input", {
+						ref: () => () => {
+							throw failure;
+						},
+						"aria-label": "first",
+					}),
+					jsx("input", { ref: sibling, "aria-label": "second" }),
+				],
+			}),
+		);
+		const handleError = vi.fn();
+		const onError = vi.fn();
+		Object.assign(element, { handleError, onError });
+		element.remove();
+		await flushDisconnect();
+		expect(handleError).toHaveBeenCalledWith(failure);
+		expect(onError).not.toHaveBeenCalled();
+		expect(sibling).toHaveBeenCalledWith(null);
+		expect(error).not.toHaveBeenCalled();
+	});
+
+	it("uses onError when the host has no handleError", async () => {
+		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+		const failure = new Error("cleanup failed");
+		const { element } = mountRenderer(() =>
+			jsx("input", {
+				ref: () => () => {
+					throw failure;
+				},
+			}),
+		);
+		const onError = vi.fn();
+		Object.assign(element, { onError });
+		element.remove();
+		await flushDisconnect();
+		expect(onError).toHaveBeenCalledWith(failure);
+		expect(error).not.toHaveBeenCalled();
+	});
+
+	it("reports a throwing error handler and still finishes the callback report", async () => {
+		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+		const failure = new Error("cleanup failed");
+		const handlerFailure = new Error("handler failed");
+		const { element } = mountRenderer(() =>
+			jsx("input", {
+				ref: () => () => {
+					throw failure;
+				},
+			}),
+		);
+		Object.assign(element, {
+			handleError: () => {
+				throw handlerFailure;
+			},
+		});
+		element.remove();
+		await flushDisconnect();
+		expect(error).toHaveBeenCalledWith(
+			"[ignite-jsx] Error handler failed.",
+			handlerFailure,
+		);
+		expect(error).toHaveBeenCalledWith(
+			"[ignite-jsx] Callback failed.",
+			failure,
+		);
+	});
+
+	it("observes a rejected cleanup promise without blocking the next ref", async () => {
+		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+		const sibling = vi.fn<Ref>();
+		const failure = new Error("rejected cleanup");
+		const host = document.createElement("div");
+		let tree = mountIgniteJsx(
+			host,
+			jsx("div", {
+				children: [
+					jsx("input", {
+						ref: () => () => Promise.reject(failure),
+						"aria-label": "first",
+					}),
+					jsx("input", { ref: sibling, "aria-label": "second" }),
+				],
+			}),
+		);
+		tree = renderIgniteJsx(host, jsx("div", { children: [] }), tree);
+		expect(sibling).toHaveBeenCalledWith(null);
+		expect(error).not.toHaveBeenCalled();
+		await flushDisconnect();
+		expect(error).toHaveBeenCalledWith(
+			"[ignite-jsx] Callback failed.",
+			failure,
+		);
+	});
+
+	it("continues sibling acquisition when a ref throws", () => {
+		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+		const sibling = vi.fn<Ref>();
+		const failure = new Error("acquire failed");
+		const host = document.createElement("div");
+		mountIgniteJsx(
+			host,
+			jsx("div", {
+				children: [
+					jsx("input", {
+						ref: () => {
+							throw failure;
+						},
+						"aria-label": "first",
+					}),
+					jsx("input", { ref: sibling, "aria-label": "second" }),
+				],
+			}),
+		);
+		expect(sibling).toHaveBeenCalledWith(
+			host.querySelector('[aria-label="second"]'),
+		);
+		expect(error).toHaveBeenCalledWith(
+			"[ignite-jsx] Callback failed.",
+			failure,
+		);
+	});
+
+	it("does not store a rejected thenable as ref cleanup", async () => {
+		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+		const calls: Array<Element | null> = [];
+		const failure = new Error("thenable");
+		const host = document.createElement("div");
+		const ref = (element: Element | null) => {
+			calls.push(element);
+			if (element) return Promise.reject(failure);
+		};
+		let tree = mountIgniteJsx(host, jsx("input", { ref }));
+		await flushDisconnect();
+		expect(error).toHaveBeenCalledWith(
+			"[ignite-jsx] Callback failed.",
+			failure,
+		);
+		tree = renderIgniteJsx(host, jsx("div", {}), tree);
+		expect(calls[calls.length - 1]).toBeNull();
+	});
+
+	it("does not connect or disconnect an unchanged keyed custom element", () => {
+		const tag = `stay-put-${crypto.randomUUID()}`;
+		let connects = 0;
+		let disconnects = 0;
+		class Stay extends HTMLElement {
+			connectedCallback(): void {
+				connects += 1;
+			}
+			disconnectedCallback(): void {
+				disconnects += 1;
+			}
+		}
+		customElements.define(tag, Stay);
+		const host = document.createElement("div");
+		document.body.append(host);
+		let tree = mountIgniteJsx(
+			host,
+			list([
+				jsx(tag, { children: "A" }, "a"),
+				jsx(tag, { children: "B" }, "b"),
+			]),
+		);
+		expect(connects).toBe(2);
+		expect(disconnects).toBe(0);
+		tree = renderIgniteJsx(
+			host,
+			list([
+				jsx(tag, { children: "A", class: "next" }, "a"),
+				jsx(tag, { children: "B" }, "b"),
+			]),
+			tree,
+		);
+		expect(connects).toBe(2);
+		expect(disconnects).toBe(0);
+		expect(host.querySelector(tag)?.className).toBe("next");
+	});
+
+	it("restores focus inside the shadow root after a keyed reorder", () => {
+		const host = document.createElement("div");
+		const shadow = host.attachShadow({ mode: "open" });
+		document.body.append(host);
+		let tree = mountIgniteJsx(
+			shadow,
+			list([
+				jsx("input", { "aria-label": "Alpha" }, "alpha"),
+				jsx("input", { "aria-label": "Beta" }, "beta"),
+			]),
+		);
+		const beta = shadow.querySelector(
+			'[aria-label="Beta"]',
+		) as HTMLInputElement;
+		beta.focus();
+		expect(shadow.activeElement).toBe(beta);
+		tree = renderIgniteJsx(
+			shadow,
+			list([
+				jsx("input", { "aria-label": "Beta" }, "beta"),
+				jsx("input", { "aria-label": "Alpha" }, "alpha"),
+			]),
+			tree,
+		);
+		expect(shadow.activeElement).toBe(beta);
+		expect(document.activeElement).toBe(host);
+	});
+
+	it("keeps a key from a single-root function component and fragment", () => {
+		const host = document.createElement("div");
+		document.body.append(host);
+		const Row: IgniteJsxComponent = (props) =>
+			jsx("input", { "aria-label": props.label });
+		let tree = mountIgniteJsx(
+			host,
+			list([
+				jsx(Row, { label: "Alpha" }, "alpha"),
+				jsx(
+					Fragment,
+					{ children: jsx("input", { "aria-label": "Beta" }) },
+					"beta",
+				),
+			]),
+		);
+		const alpha = host.querySelector(
+			'[aria-label="Alpha"]',
+		) as HTMLInputElement;
+		const beta = host.querySelector('[aria-label="Beta"]') as HTMLInputElement;
+		alpha.value = "kept";
+		beta.focus();
+		tree = renderIgniteJsx(
+			host,
+			list([
+				jsx(
+					Fragment,
+					{ children: jsx("input", { "aria-label": "Beta" }) },
+					"beta",
+				),
+				jsx(Row, { label: "Alpha" }, "alpha"),
+			]),
+			tree,
+		);
+		expect(host.querySelector('[aria-label="Alpha"]')).toBe(alpha);
+		expect(host.querySelector('[aria-label="Beta"]')).toBe(beta);
+		expect(alpha.value).toBe("kept");
+		expect(document.activeElement).toBe(beta);
+	});
+
+	it("warns when a keyed component returns more than one node", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		const host = document.createElement("div");
+		const Pair = () => [
+			jsx("span", { children: "a" }),
+			jsx("i", { children: "b" }),
+		];
+		mountIgniteJsx(host, list([jsx(Pair, {}, "pair")]));
+		expect(host.querySelector("span")?.textContent).toBe("a");
+		expect(host.querySelector("i")?.textContent).toBe("b");
+		expect(warn).toHaveBeenCalledWith(
+			'[ignite-jsx] Key "pair" requires a single element, but the component returned 2 nodes.',
+		);
 	});
 });
 

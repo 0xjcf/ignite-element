@@ -152,6 +152,100 @@ describe("source-free root igniteCore", () => {
 		expect(() => core("invalid", () => null)).toThrow();
 	});
 
+	it("releases a source-free ref on true disconnect and keeps it across a move", async () => {
+		const core = publicApi.igniteCore();
+		const order: string[] = [];
+		const ref = (element: Element | null) => {
+			if (!element) {
+				order.push("null");
+				return;
+			}
+			order.push("acquire");
+			return () => {
+				order.push("dispose");
+			};
+		};
+		const name = tag();
+		core(name, () => jsx("input", { ref, "aria-label": "kept" }));
+		const element = document.createElement(name);
+		document.body.append(element);
+		const input = element.shadowRoot?.querySelector("input");
+		expect(order).toEqual(["acquire"]);
+		const parent = document.createElement("section");
+		document.body.append(parent);
+		parent.append(element);
+		await flush();
+		expect(order).toEqual(["acquire"]);
+		element.remove();
+		await flush();
+		expect(order).toEqual(["acquire", "dispose"]);
+		expect(input?.parentNode).toBe(element.shadowRoot);
+		document.body.append(element);
+		expect(order).toEqual(["acquire", "dispose", "acquire"]);
+	});
+
+	it("calls a void source-free ref with null on true disconnect", async () => {
+		const core = publicApi.igniteCore();
+		const calls: Array<Element | null> = [];
+		const name = tag();
+		core(name, () =>
+			jsx("input", {
+				ref: (element: Element | null) => {
+					calls.push(element);
+				},
+			}),
+		);
+		const element = document.createElement(name);
+		document.body.append(element);
+		const input = element.shadowRoot?.querySelector("input") ?? null;
+		element.remove();
+		await flush();
+		expect(calls).toEqual([input, null]);
+		document.body.append(element);
+		expect(calls).toEqual([input, null, input]);
+	});
+
+	it("reports a throwing reacquire and still reacquires the next ref", async () => {
+		const core = publicApi.igniteCore();
+		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+		const failure = new Error("reacquire failed");
+		let throwOnNext = false;
+		const sibling = vi.fn();
+		const name = tag();
+		core(name, () =>
+			jsx("div", {
+				children: [
+					jsx("input", {
+						ref: () => {
+							if (throwOnNext) throw failure;
+							return () => {};
+						},
+						"aria-label": "first",
+					}),
+					jsx("input", {
+						ref: (element: Element | null) => {
+							sibling(element);
+						},
+						"aria-label": "second",
+					}),
+				],
+			}),
+		);
+		const element = document.createElement(name);
+		document.body.append(element);
+		const second = element.shadowRoot?.querySelector('[aria-label="second"]');
+		element.remove();
+		await flush();
+		throwOnNext = true;
+		document.body.append(element);
+		expect(error).toHaveBeenCalledWith(
+			"[ignite-jsx] Callback failed.",
+			failure,
+		);
+		expect(sibling).toHaveBeenLastCalledWith(second);
+		expect(element.isConnected).toBe(true);
+	});
+
 	it("reports mount failure and retries until one successful mount", async () => {
 		const error = new Error("controlled render failure");
 		const render = vi

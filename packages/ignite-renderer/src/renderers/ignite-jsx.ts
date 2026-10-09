@@ -10,6 +10,10 @@ export {
 	registerNoDiffDenylistTag,
 } from "./jsx/IgniteJsxRenderStrategy";
 export { Fragment, jsx, jsxDEV, jsxs } from "./jsx/jsx-runtime";
+export {
+	reacquireMountedView,
+	releaseMountedView,
+} from "./jsx/renderer";
 export type {
 	IgniteJsxChild,
 	IgniteJsxComponent,
