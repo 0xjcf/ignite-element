@@ -55,7 +55,8 @@ describe("Field DOM", () => {
 				expect(view.getByText(fixture.input.hint)).toBeTruthy();
 			}
 			if (fixture.input.error) {
-				const error = view.getByText(fixture.input.error);
+				const error = view.getByRole("alert");
+				expect(view.getAllByText(fixture.input.error)).toHaveLength(1);
 				expect(control.getAttribute("aria-describedby")).toContain(error.id);
 			}
 		}
@@ -82,11 +83,11 @@ describe("Field DOM", () => {
 		control.dispatchEvent(new Event("blur"));
 		expect(control.value).toBe("  Buy milk  ");
 		expect(inputs).toEqual(["  Buy milk  "]);
-		expect(changes).toEqual(["  Buy milk  "]);
+		expect(changes).toEqual([]);
 		expect(touches).toEqual(["  Buy milk  "]);
-		expect(view.getByText("Title is required.")).toBeTruthy();
+		expect(view.getAllByText("Title is required.")).toHaveLength(1);
 		element.setError(null);
-		expect(view.queryByText("Title is required.")).toBeNull();
+		expect(view.queryAllByText("Title is required.")).toEqual([]);
 	});
 
 	it("delivers one host input event per keystroke", () => {
@@ -110,5 +111,19 @@ describe("Field DOM", () => {
 			new Event("input", { bubbles: true, composed: true }),
 		);
 		expect(received).toEqual([{ contract: true, value: "a" }]);
+	});
+
+	it("does not let a composed native change event leave the field", () => {
+		const { element, view } = mount("Title");
+		const received: Event[] = [];
+		element.addEventListener("change", (event) => {
+			received.push(event);
+		});
+		const control = view.getByRole("textbox") as HTMLInputElement;
+		control.value = "Buy milk";
+		control.dispatchEvent(
+			new Event("change", { bubbles: true, composed: true }),
+		);
+		expect(received).toEqual([]);
 	});
 });

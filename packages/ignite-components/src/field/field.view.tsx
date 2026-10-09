@@ -1,11 +1,16 @@
 /** @jsxImportSource ignite-element/jsx */
 import type { IgniteJsxElement } from "ignite-element/jsx";
+import {
+	liveStatusRegion,
+	liveStatusRegionStyles,
+	spokenOnThisPaint,
+} from "../live-status/live-status.region";
 import { catalogHostStyles } from "../styles";
 import type { FieldCommands, FieldStates } from "./field.core";
 
 export type FieldViewContext = FieldStates & FieldCommands;
 
-const styles = `${catalogHostStyles()}
+const styles = `${catalogHostStyles()}${liveStatusRegionStyles()}
 :host { display: block; max-width: 36rem; }
 .field { display: grid; gap: 0.35rem; }
 .label {
@@ -27,12 +32,12 @@ const styles = `${catalogHostStyles()}
 textarea.control { min-height: 6.5rem; resize: vertical; }
 .control:focus { outline: 2px solid var(--catalog-fg); outline-offset: 2px; }
 .control[aria-invalid="true"] { border-color: #8f1d1d; }
-.hint, .error {
+.hint {
   margin: 0;
   color: var(--catalog-fg);
   font: 400 0.875rem/1.35 var(--catalog-font);
 }
-.error { font-weight: 650; }
+.live-assertive { font-weight: 650; }
 `;
 
 function readControl(event: Event): string | null {
@@ -48,8 +53,8 @@ function readControl(event: Event): string | null {
 
 function describedBy(ctx: FieldViewContext): string | undefined {
 	const ids = [
-		ctx.showHint ? "field-hint" : null,
-		ctx.showError ? "field-error" : null,
+		ctx.showHint ? `${ctx.instanceId}-hint` : null,
+		ctx.showError ? `${ctx.instanceId}-assertive` : null,
 	].filter((id) => id !== null);
 	return ids.length > 0 ? ids.join(" ") : undefined;
 }
@@ -59,8 +64,31 @@ function describedBy(ctx: FieldViewContext): string | undefined {
  * The host clears the error when the draft is valid. Typing does not.
  */
 export function fieldView(ctx: FieldViewContext): IgniteJsxElement {
+	if (ctx.repeatError) {
+		queueMicrotask(() => {
+			try {
+				ctx.reveal();
+			} catch {
+				// The field can disconnect before the error is repeated.
+			}
+		});
+	}
+	const announcement =
+		ctx.errorAnnouncement &&
+		ctx.errorAnnouncement.length > 0 &&
+		!ctx.repeatError
+			? ctx.errorAnnouncement
+			: null;
+	const show = spokenOnThisPaint(
+		ctx.instanceId,
+		`${announcement ?? ""}|${ctx.errorEpoch}`,
+		() => {
+			ctx.reveal();
+		},
+	);
+	const controlId = `${ctx.instanceId}-control`;
 	const controlProps = {
-		id: "field-control",
+		id: controlId,
 		class: "control",
 		value: ctx.value,
 		"aria-invalid": ctx.showError ? "true" : "false",
@@ -71,6 +99,9 @@ export function fieldView(ctx: FieldViewContext): IgniteJsxElement {
 			const value = readControl(event);
 			if (value !== null) ctx.setValue(value);
 		},
+		onChange: (event: Event) => {
+			event.stopPropagation();
+		},
 		onBlur: () => {
 			ctx.touch();
 		},
@@ -79,7 +110,7 @@ export function fieldView(ctx: FieldViewContext): IgniteJsxElement {
 		<>
 			<style>{styles}</style>
 			<div class="field">
-				<label class="label" for="field-control">
+				<label class="label" for={controlId}>
 					{ctx.label}
 					{ctx.required ? <span class="required"> Required</span> : null}
 				</label>
@@ -89,15 +120,18 @@ export function fieldView(ctx: FieldViewContext): IgniteJsxElement {
 					<input type="text" {...controlProps} />
 				)}
 				{ctx.showHint ? (
-					<p id="field-hint" class="hint">
+					<p id={`${ctx.instanceId}-hint`} class="hint">
 						{ctx.hint}
 					</p>
 				) : null}
-				{ctx.showError ? (
-					<p id="field-error" class="error">
-						{ctx.error}
-					</p>
-				) : null}
+				{liveStatusRegion({
+					instanceId: ctx.instanceId,
+					polite: null,
+					assertive: show ? announcement : null,
+					busy: false,
+					progress: "none",
+					settled: null,
+				})}
 			</div>
 		</>
 	);

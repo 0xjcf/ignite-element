@@ -55,7 +55,7 @@ export const fieldContract = {
 		{ name: "setRequired", kind: "configuration", attribute: "required" },
 		{ name: "setMultiline", kind: "configuration", attribute: "multiline" },
 	],
-	events: ["input", "change", "touch"],
+	events: ["input", "touch"],
 	slots: [],
 	tokens: [...catalogTokens],
 	layers: {
@@ -74,4 +74,26 @@ export const fieldContract = {
 		cli: "M3",
 		mcp: "M3",
 	},
+	a11y: [
+		{
+			web: "Assertive live region when an error is set and when it is cleared.",
+			cli: "Error names the flag, exit 2, hint on stderr.",
+			mcp: "errors[{field, message, hint}].",
+		},
+		{
+			web: "A whitespace-only hint is absent.",
+			cli: "Whitespace hint is omitted from stderr.",
+			mcp: "Whitespace hint stays in the schema description only when it has words.",
+		},
+		{
+			web: "One input event per edit.",
+			cli: "One error line per rejected flag.",
+			mcp: "One errors entry per field.",
+		},
+		{
+			web: "Hint and error ids are unique per field.",
+			cli: "Instance id in the output.",
+			mcp: "instanceId in the result.",
+		},
+	],
 } as const satisfies ComponentContract;

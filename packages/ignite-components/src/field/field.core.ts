@@ -1,6 +1,9 @@
 import { igniteCore } from "ignite-element/xstate";
 import type { SnapshotFrom } from "xstate";
+import type { HeadlessA11y } from "../contract";
+import { cliTone } from "../live-status/live-status.source";
 import {
+	ERROR_CLEARED,
 	exactDraft,
 	type FieldEvent,
 	fieldMachine,
@@ -12,10 +15,14 @@ export type FieldStateName = "clean" | "invalid";
 
 export type FieldStates = {
 	state: FieldStateName;
+	instanceId: string;
 	label: string;
 	value: string;
 	hint: string | null;
 	error: string | null;
+	errorAnnouncement: string | null;
+	repeatError: string | null;
+	errorEpoch: number;
 	required: boolean;
 	multiline: boolean;
 	touched: boolean;
@@ -31,6 +38,7 @@ export type FieldStates = {
 	isTouchedRefusal: string | null;
 	isMultiline: boolean;
 	isMultilineRefusal: string | null;
+	a11y: HeadlessA11y;
 };
 
 export type FieldCommands = {
@@ -41,6 +49,7 @@ export type FieldCommands = {
 	setRequired: (required: string | null) => void;
 	setMultiline: (multiline: string | null) => void;
 	touch: () => void;
+	reveal: () => void;
 };
 
 const NO_ERROR = "There is no error.";
@@ -56,15 +65,29 @@ export function projectField(
 	const invalid = snapshot.matches("invalid");
 	const error = invalid ? normalizeError(snapshot.context.error) : null;
 	const hint = normalizeOptional(snapshot.context.hint);
+	const rawAnnouncement = snapshot.context.errorAnnouncement;
+	const errorAnnouncement =
+		rawAnnouncement && rawAnnouncement.length > 0 ? rawAnnouncement : null;
 	const required = snapshot.context.required;
 	const touched = snapshot.context.touched;
 	const multiline = snapshot.context.multiline;
+	const label = snapshot.context.label;
+	const cli =
+		errorAnnouncement === null
+			? null
+			: errorAnnouncement === ERROR_CLEARED
+				? ERROR_CLEARED
+				: cliTone("error", errorAnnouncement);
 	return {
 		state: invalid ? "invalid" : "clean",
-		label: snapshot.context.label,
+		instanceId: snapshot.context.instanceId,
+		label,
 		value: exactDraft(snapshot.context.value),
 		hint,
 		error,
+		errorAnnouncement,
+		repeatError: snapshot.context.repeatError,
+		errorEpoch: snapshot.context.errorEpoch,
 		required,
 		multiline,
 		touched,
@@ -80,6 +103,21 @@ export function projectField(
 		isTouchedRefusal: touched ? null : UNTOUCHED,
 		isMultiline: multiline,
 		isMultilineRefusal: multiline ? null : SINGLE_LINE,
+		a11y: {
+			cli,
+			mcp: {
+				value: exactDraft(snapshot.context.value),
+				tone: invalid ? "error" : "neutral",
+				label,
+				reason: error,
+				status: errorAnnouncement ? "assertive" : "quiet",
+				instanceId: snapshot.context.instanceId,
+				warnings: [],
+				focusTarget: null,
+				errors: error === null ? [] : [{ field: label, message: error, hint }],
+				isError: invalid,
+			},
+		},
 	};
 }
 
@@ -108,6 +146,9 @@ export function fieldCommands(source: {
 		touch: () => {
 			source.send({ type: "TOUCH" });
 		},
+		reveal: () => {
+			source.send({ type: "REVEAL" });
+		},
 	};
 }
 
@@ -124,7 +165,6 @@ export function createFieldCore() {
 		commands: ({ source }) => fieldCommands(source),
 		events: (event) => ({
 			input: event<{ value: string }>(),
-			change: event<{ value: string }>(),
 			touch: event<{ value: string }>(),
 		}),
 	});
