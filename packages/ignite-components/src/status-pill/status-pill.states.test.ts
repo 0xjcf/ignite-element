@@ -169,10 +169,14 @@ describe("StatusPill states", () => {
 			expect(core.get("states").announcement).toBe(
 				"Danger Live — Inspection is paused.",
 			);
+			expect(core.get("states").a11y.cli).toBe(
+				"error: Live — Inspection is paused.",
+			);
 			await core.execute({ command: "setReason", input: "Needs a look." });
 			expect(core.get("states").announcement).toBe(
 				"Danger Live — Needs a look.",
 			);
+			expect(core.get("states").a11y.cli).toBe("error: Live — Needs a look.");
 			await core.execute({ command: "setAnnounce", input: "false" });
 			expect(core.get("states")).toMatchObject({
 				announce: false,

@@ -10,7 +10,7 @@ import type { StatusPillCommands, StatusPillStates } from "./status-pill.core";
 export type StatusPillViewContext = StatusPillStates & StatusPillCommands;
 
 const styles = `${catalogHostStyles()}${liveStatusRegionStyles()}
-:host { display: inline-block; max-width: 100%; }
+:host { display: inline-block; position: relative; max-width: 100%; }
 .status-pill {
   display: inline-flex;
   flex-wrap: wrap;
@@ -39,6 +39,18 @@ const styles = `${catalogHostStyles()}${liveStatusRegionStyles()}
   font-weight: 400;
   color: var(--catalog-muted);
 }
+.live-region {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
 `;
 
 /**
@@ -47,7 +59,11 @@ const styles = `${catalogHostStyles()}${liveStatusRegionStyles()}
  */
 function chip(ctx: StatusPillViewContext): IgniteJsxElement {
 	return (
-		<span class="status-pill" data-tone={ctx.tone}>
+		<span
+			class="status-pill"
+			data-tone={ctx.tone}
+			aria-hidden={ctx.announcement ? "true" : undefined}
+		>
 			<span class="status-pill-tone">{ctx.toneLabel}</span>{" "}
 			<span class="status-pill-value">{ctx.value}</span>
 			{ctx.showReason ? (
@@ -63,6 +79,8 @@ function chip(ctx: StatusPillViewContext): IgniteJsxElement {
 /**
  * The tone word stays on the chip. Opt-in announcements fill the same
  * polite region that was mounted empty, so the first change is heard.
+ * That region is the one accessible copy. It is clipped off screen, and
+ * the chip is hidden from assistive tech while the sentence is announced.
  */
 export function statusPillView(ctx: StatusPillViewContext): IgniteJsxElement {
 	return (

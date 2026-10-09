@@ -65,7 +65,8 @@ export function statusCliLine(
 	reason: string | null,
 ): string {
 	const words = reason ? `${value} — ${reason}` : value;
-	return cliTone(tone, words);
+	// LiveStatus CLI words are warning: and error:. Danger is that error tone.
+	return cliTone(tone === "danger" ? "error" : tone, words);
 }
 
 export function normalizeReason(reason: string | null): string | null {

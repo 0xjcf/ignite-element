@@ -26,6 +26,40 @@ afterEach(() => {
 	document.body.innerHTML = "";
 });
 
+function hiddenFromAssistiveTech(node: Node): boolean {
+	let current: Node | null = node;
+	while (current) {
+		if (current instanceof Element) {
+			const tag = current.tagName;
+			if (tag === "STYLE" || tag === "SCRIPT") return true;
+			if (current.getAttribute("aria-hidden") === "true") return true;
+		}
+		current = current.parentNode;
+	}
+	return false;
+}
+
+/** How many times the sentence is readable, counting the chip and the live region. */
+function accessibleSentenceCount(root: ParentNode, sentence: string): number {
+	const parts: string[] = [];
+	const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+	let node = walker.nextNode();
+	while (node) {
+		if (!hiddenFromAssistiveTech(node)) parts.push(node.textContent ?? "");
+		node = walker.nextNode();
+	}
+	const text = parts.join("").replace(/\s+/g, " ");
+	let count = 0;
+	let from = 0;
+	while (from <= text.length) {
+		const at = text.indexOf(sentence, from);
+		if (at === -1) break;
+		count += 1;
+		from = at + sentence.length;
+	}
+	return count;
+}
+
 describe("StatusPill accessibility", () => {
 	it("puts the status in text, not in the tone alone", () => {
 		const { root, view } = mount("Paused", "warning", "Inspection is paused.");
@@ -47,6 +81,28 @@ describe("StatusPill accessibility", () => {
 		);
 		expect(root.querySelector("[tabindex]")).toBeNull();
 		expect(root.querySelector("button")).toBeNull();
+	});
+
+	it("exposes the announced sentence once, on the polite region", () => {
+		const { element, root } = mount(
+			"Paused",
+			"danger",
+			"Inspection is paused.",
+		);
+		const host = element as HTMLElement & {
+			setAnnounce: (announce: string | null) => void;
+			setValue: (value: string | null) => void;
+		};
+		const sentence = "Danger Live — Inspection is paused.";
+		host.setAnnounce("true");
+		host.setValue("Live");
+		expect(accessibleSentenceCount(root, sentence)).toBe(1);
+		const polite = root.querySelector(".live-polite");
+		expect(polite?.textContent).toBe(sentence);
+		expect(polite?.getAttribute("aria-hidden")).not.toBe("true");
+		expect(polite?.closest("[aria-hidden='true']")).toBeNull();
+		expect(root.querySelector(".status-pill")?.textContent).toContain("Danger");
+		expect(root.querySelector(".status-pill")?.textContent).toContain("Live");
 	});
 
 	it("announces a value change only when that pill opted in", () => {
