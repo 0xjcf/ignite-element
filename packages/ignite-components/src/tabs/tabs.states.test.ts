@@ -7,6 +7,7 @@ import {
 	assertGalleryCoversStates,
 } from "../testing/contract-check";
 import { expectCloneable } from "../testing/host-seal";
+import { startHeadless } from "../testing/start-headless";
 import { tabsContract } from "./tabs.contract";
 import { createTabsCore, tabsProjection } from "./tabs.core";
 import { type TabsFixtureInput, tabsGallery } from "./tabs.gallery";
@@ -14,7 +15,7 @@ import { tabsMachine } from "./tabs.source";
 
 async function show(input: TabsFixtureInput) {
 	const core = createTabsCore();
-	core.watch(() => {});
+	startHeadless(core);
 	await core.execute({ command: "setLabel", input: input.label });
 	await core.execute({ command: "setItems", input: input.items });
 	await core.execute({ command: "setActive", input: input.active });
@@ -50,7 +51,7 @@ describe("Tabs states", () => {
 	it("drops blank names and ignores a tab that is not in the list", async () => {
 		const core = createTabsCore();
 		try {
-			core.watch(() => {});
+			startHeadless(core);
 			await core.execute({
 				command: "setItems",
 				input: " Gallery \n\nGallery\n Controls ",

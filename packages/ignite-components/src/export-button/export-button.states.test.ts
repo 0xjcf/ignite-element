@@ -7,6 +7,7 @@ import {
 	assertGalleryCoversStates,
 } from "../testing/contract-check";
 import { expectCloneable } from "../testing/host-seal";
+import { startHeadless } from "../testing/start-headless";
 import { exportButtonContract } from "./export-button.contract";
 import {
 	createExportButtonCore,
@@ -24,7 +25,7 @@ import {
 
 async function show(input: ExportButtonFixtureInput) {
 	const core = createExportButtonCore();
-	core.watch(() => {});
+	startHeadless(core);
 	await core.execute({ command: "setLabel", input: input.label });
 	await core.execute({ command: "setPendingLabel", input: input.pendingLabel });
 	await core.execute({ command: "setReadyLabel", input: input.readyLabel });
@@ -110,7 +111,7 @@ describe("ExportButton states", () => {
 	it("ignores succeed while idle and keeps a blank failure honest", async () => {
 		const core = createExportButtonCore();
 		try {
-			core.watch(() => {});
+			startHeadless(core);
 			await core.execute({ command: "succeed" });
 			expect(core.get("states").state).toBe("idle");
 			await core.execute({ command: "export" });
@@ -147,7 +148,7 @@ describe("ExportButton states", () => {
 			formats.push(event.format);
 		});
 		try {
-			core.watch(() => {});
+			startHeadless(core);
 			await core.execute({ command: "setFormat", input: "csv" });
 			expect(core.get("states")).toMatchObject({
 				state: "idle",

@@ -7,6 +7,7 @@ import {
 	assertGalleryCoversStates,
 } from "../testing/contract-check";
 import { expectCloneable } from "../testing/host-seal";
+import { startHeadless } from "../testing/start-headless";
 import { filterBarContract } from "./filter-bar.contract";
 import { createFilterBarCore, filterBarProjection } from "./filter-bar.core";
 import {
@@ -21,7 +22,7 @@ function names(value: string): string[] {
 
 async function show(input: FilterBarFixtureInput) {
 	const core = createFilterBarCore();
-	core.watch(() => {});
+	startHeadless(core);
 	await core.execute({ command: "setLabel", input: input.label });
 	await core.execute({ command: "setFilters", input: input.filters });
 	await core.execute({ command: "setQuery", input: input.query });
@@ -58,7 +59,7 @@ describe("FilterBar states", () => {
 	it("keeps a spaced query and ignores a filter that is not offered", async () => {
 		const core = createFilterBarCore();
 		try {
-			core.watch(() => {});
+			startHeadless(core);
 			await core.execute({
 				command: "setFilters",
 				input: " Type \n\nType\n Surface ",
@@ -125,7 +126,7 @@ describe("FilterBar states", () => {
 			changes.push({ query: event.query, active: event.active });
 		});
 		try {
-			core.watch(() => {});
+			startHeadless(core);
 			await core.execute({ command: "setFilters", input: "Type\nSurface" });
 			await core.execute({ command: "setActive", input: "Type\nSurface" });
 			changes.length = 0;
@@ -144,7 +145,7 @@ describe("FilterBar states", () => {
 	it("warns when SET_FILTERS drops an unknown filter", async () => {
 		const core = createFilterBarCore();
 		try {
-			core.watch(() => {});
+			startHeadless(core);
 			await core.execute({
 				command: "setFilters",
 				input: "Type\nSurface",
