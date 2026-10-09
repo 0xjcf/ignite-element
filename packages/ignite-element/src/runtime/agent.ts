@@ -149,10 +149,11 @@ export function createAgentRuntime<
 	let prepared = false;
 	let preparing = false;
 	let preparedHost: EventTarget | undefined;
+	let externalSubscriptions = 0;
 	let currentStates: States;
 	let snapshot: Readonly<Record<string, unknown>>;
 	const bindingListeners = new Set<() => void>();
-	const prepare = (effects = true) => {
+	const prepare = (effects = true, inspect = true) => {
 		lifetime.assertActive();
 		if (prepared) return currentStates;
 		if (preparing)
@@ -182,8 +183,13 @@ export function createAgentRuntime<
 					),
 				});
 			};
-			const initialStates = resolveStates(adapter);
-			update(initialStates);
+			// Command activation subscribes without this read. The adapter's own
+			// replay, when it has one, still fills the cache.
+			let initialStates: States | undefined;
+			if (inspect) {
+				initialStates = resolveStates(adapter);
+				update(initialStates);
+			}
 			const subscription = adapter.subscribeSnapshots((value) => {
 				if (!observing || !lifetime.active) return;
 				update(derive(value));
@@ -202,7 +208,7 @@ export function createAgentRuntime<
 			preparedHost = resources.host;
 			// Synchronous replay updates the framework cache, but the public read
 			// still honors the configured snapshot resolver used for this read.
-			return initialStates;
+			return initialStates as States;
 		} catch (error) {
 			observing = false;
 			try {
@@ -285,8 +291,10 @@ export function createAgentRuntime<
 			});
 			installing = false;
 			previous = current;
+			externalSubscriptions += 1;
 			unsubscribe = lifetime.own(() => {
 				active = false;
+				externalSubscriptions -= 1;
 				subscription.unsubscribe();
 			});
 		} catch (error) {
@@ -393,6 +401,10 @@ export function createAgentRuntime<
 		call: IgniteCommandCall<Record<string, (arg?: unknown) => unknown>>,
 	) => {
 		lifetime.assertActive();
+		// A live watch already started the source and owns snapshot delivery.
+		// Otherwise subscribe the same way get("states") does, without a second
+		// inspection read before the command runs.
+		if (!preparing && externalSubscriptions === 0) prepare(true, false);
 		const resources = resolveRuntime();
 		activateHostEffects(resources.host);
 		const { additionalArgs } = resources;
