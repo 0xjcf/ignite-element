@@ -19,14 +19,17 @@ window.console.warn = (...args) => {
 	warnings.push(args.map(String).join(" "));
 };
 
-// jsdom's globalThis can still see Node's process. Drop it so the published
-// module runs the way a browser without a bundler would.
+// jsdom's globalThis can still see Node's process. Drop the global entirely.
+// Do not install a `process.env` stub.
 Reflect.deleteProperty(globalThis, "process");
 const context = vm.createContext(window);
 vm.runInContext("delete globalThis.process", context);
-const processType = vm.runInContext("typeof globalThis.process", context);
-if (processType !== "undefined") {
-	throw new Error(`browser realm still has process (${processType})`);
+const processType = vm.runInContext("typeof process", context);
+const globalProcessType = vm.runInContext("typeof globalThis.process", context);
+if (processType !== "undefined" || globalProcessType !== "undefined") {
+	throw new Error(
+		`browser realm still has process (free ${processType}, global ${globalProcessType})`,
+	);
 }
 const cache = new Map();
 
@@ -71,4 +74,6 @@ mountIgniteJsxOnce(
 	jsx("div", { textContent: "plain" }),
 );
 
-writeOut(`${JSON.stringify({ text: host.textContent, warnings })}\n`);
+writeOut(
+	`${JSON.stringify({ text: host.textContent, warnings, processType })}\n`,
+);

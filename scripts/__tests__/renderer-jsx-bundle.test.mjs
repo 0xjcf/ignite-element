@@ -15,6 +15,9 @@ import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 import { build } from "vite";
 
+const requireFromRoot = createRequire(
+	fileURLToPath(new URL("../../package.json", import.meta.url)),
+);
 const requireFromVite = createRequire(
 	realpathSync(
 		fileURLToPath(
@@ -23,6 +26,8 @@ const requireFromVite = createRequire(
 	),
 );
 const esbuild = requireFromVite("esbuild");
+const rollup = requireFromVite("rollup");
+const webpack = requireFromRoot("webpack");
 
 const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 const jsxBundle = path.join(
@@ -107,28 +112,87 @@ async function bundleConsumer(mode, format) {
 	}
 }
 
-async function bundleWithEsbuildProduction() {
-	const root = mkdtempSync(path.join(tmpdir(), "ignite-jsx-esbuild-"));
+function assertProductionBundle(code, label) {
+	for (const warning of WARNING_STRINGS) {
+		assert.equal(code.includes(warning), false, `${label}: ${warning}`);
+	}
+	const index = code.indexOf("process");
+	assert.equal(
+		index,
+		-1,
+		`${label} still contains process near: ${code.slice(Math.max(0, index - 80), index + 80)}`,
+	);
+}
+
+async function bundleWithRollupProduction() {
+	const root = mkdtempSync(path.join(tmpdir(), "ignite-jsx-rollup-"));
 	const entry = path.join(root, "main.js");
 	writeFileSync(entry, consumerEntry());
 	try {
-		const result = await esbuild.build({
-			absWorkingDir: root,
-			bundle: true,
-			define: {
-				"process.env.NODE_ENV": JSON.stringify("production"),
-			},
-			entryPoints: [entry],
-			format: "esm",
-			logLevel: "silent",
-			minify: true,
-			platform: "browser",
-			write: false,
+		const bundle = await rollup.rollup({
+			input: entry,
+			plugins: [
+				{
+					name: "node-env-production",
+					transform(code) {
+						// Only the conventional member. Do not define globalThis.process.
+						return code.replaceAll(
+							"process.env.NODE_ENV",
+							JSON.stringify("production"),
+						);
+					},
+				},
+			],
 		});
-		return result.outputFiles.map((file) => file.text).join("\n");
+		try {
+			const generated = await bundle.generate({ format: "es" });
+			const raw = generated.output
+				.map((output) => output.code ?? "")
+				.join("\n");
+			const minified = await esbuild.transform(raw, {
+				legalComments: "none",
+				minify: true,
+			});
+			return minified.code;
+		} finally {
+			await bundle.close();
+		}
 	} finally {
 		rmSync(root, { force: true, recursive: true });
 	}
+}
+
+function bundleWithWebpackProduction() {
+	const root = mkdtempSync(path.join(tmpdir(), "ignite-jsx-webpack-"));
+	const entry = path.join(root, "main.js");
+	const outfile = path.join(root, "out.js");
+	writeFileSync(entry, consumerEntry());
+	return new Promise((resolve, reject) => {
+		const compiler = webpack({
+			mode: "production",
+			entry,
+			output: { path: root, filename: "out.js" },
+			performance: { hints: false },
+		});
+		compiler.run((error, stats) => {
+			if (error) {
+				compiler.close(() => reject(error));
+				return;
+			}
+			if (stats?.hasErrors()) {
+				compiler.close(() =>
+					reject(new Error(stats.toString({ errors: true }))),
+				);
+				return;
+			}
+			const code = readFileSync(outfile, "utf8");
+			compiler.close((closeError) => {
+				rmSync(root, { force: true, recursive: true });
+				if (closeError) reject(closeError);
+				else resolve(code);
+			});
+		});
+	});
 }
 
 function runDevBuild(code) {
@@ -166,24 +230,26 @@ describe("published renderer jsx bundle", { concurrency: false }, () => {
 		}
 	});
 
-	it("strips warning strings from a Vite production build", async () => {
+	it("strips warning strings and process from a Vite production build", async () => {
 		const code = await bundleConsumer("production", "es");
-		for (const warning of WARNING_STRINGS) {
-			assert.equal(code.includes(warning), false, warning);
-		}
+		assertProductionBundle(code, "vite");
 		const gzipBytes = gzipSync(Buffer.from(code), { level: 9 }).byteLength;
+		// Production also drops the diff-flag read, so this can be smaller than
+		// the previous consumer. It must not grow by more than a few bytes.
 		assert.ok(
-			Math.abs(gzipBytes - TODAY_CONSUMER_GZIP) <= FEW_BYTES,
-			`consumer gzip ${gzipBytes} is not within ${FEW_BYTES} bytes of ${TODAY_CONSUMER_GZIP}`,
+			gzipBytes <= TODAY_CONSUMER_GZIP + FEW_BYTES,
+			`consumer gzip ${gzipBytes} is more than ${FEW_BYTES} bytes above ${TODAY_CONSUMER_GZIP}`,
 		);
 	});
 
-	it("strips warning strings when esbuild replaces only process.env.NODE_ENV", async () => {
-		const code = await bundleWithEsbuildProduction();
-		for (const warning of WARNING_STRINGS) {
-			assert.equal(code.includes(warning), false, warning);
-		}
-		assert.doesNotMatch(code, /globalThis\.process\?\.env\?\.NODE_ENV/);
+	it("strips warning strings and process when Rollup replaces only process.env.NODE_ENV", async () => {
+		const code = await bundleWithRollupProduction();
+		assertProductionBundle(code, "rollup");
+	});
+
+	it("strips warning strings and process from a webpack 5 production build", async () => {
+		const code = await bundleWithWebpackProduction();
+		assertProductionBundle(code, "webpack");
 	});
 
 	it("shows duplicate-key and deprecated content warnings in a Vite dev build", async () => {
@@ -208,5 +274,6 @@ describe("published renderer jsx bundle", { concurrency: false }, () => {
 		const parsed = JSON.parse(result.stdout);
 		assert.equal(parsed.text, "onetwo");
 		assert.deepEqual(parsed.warnings, []);
+		assert.equal(parsed.processType, "undefined");
 	});
 });
