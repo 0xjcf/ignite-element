@@ -71,6 +71,12 @@ export default defineConfig((configEnv) =>
 						replacement: resolvePath("../ignite-renderer/src/jsx/index.ts"),
 					},
 					{
+						find: "@ignite-element/renderer/hosts",
+						replacement: resolvePath(
+							"../ignite-renderer/src/renderers/jsx/hosts.ts",
+						),
+					},
+					{
 						find: "@ignite-element/renderer/jsx",
 						replacement: resolvePath(
 							"../ignite-renderer/src/renderers/ignite-jsx.ts",

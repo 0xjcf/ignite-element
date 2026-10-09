@@ -53,7 +53,7 @@ export type IgniteComponentFactoryOptions<
 		HTMLElement
 	>;
 	events?: ((builder: typeof event) => Events) | undefined;
-	hosts?: IgniteHostMap;
+	hosts?: IgniteHostMap<Snapshot>;
 };
 
 export function createIgniteComponentFactory<

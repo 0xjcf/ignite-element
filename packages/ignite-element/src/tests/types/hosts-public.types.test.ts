@@ -1,7 +1,7 @@
-import { createMachine } from "xstate";
+import { describe, expect, it } from "vitest";
+import { createMachine, type StateFrom } from "xstate";
 import type { ActorWebCommandSource } from "../../actor-web";
 import { igniteCore as actorCore } from "../../actor-web";
-import type { Host } from "../../hosts/types";
 import { jsx } from "../../renderers/jsx/jsx-runtime";
 import { igniteCore as xstateCore } from "../../xstate";
 
@@ -10,13 +10,16 @@ const machine = createMachine({
 	context: { angle: 1 },
 });
 
-type OrbitSnapshot = { context: { angle: number } };
-
-const scene: Host<HTMLCanvasElement, number, void, OrbitSnapshot> = {
+const scene = {
 	mount() {},
 	dispose() {},
-	select: (snapshot) => snapshot.context.angle,
-	describe: (slice) => `angle ${slice}`,
+	select: (snapshot: StateFrom<typeof machine>) => snapshot.context.angle,
+	describe: (slice: number) => `angle ${slice}`,
+};
+
+const headless = {
+	mount() {},
+	dispose() {},
 };
 
 type ShipmentContext = { shipmentId: string };
@@ -33,10 +36,8 @@ function hostContracts() {
 		hosts: { scene },
 	});
 	core("orbit", () => jsx("canvas", { use: "scene" }));
-	core("orbit", () =>
-		// @ts-expect-error use must name a host on this core
-		jsx("canvas", { use: "missing" }),
-	);
+	// @ts-expect-error use must name a host on this core
+	core("orbit", () => jsx("canvas", { use: "missing" }));
 
 	xstateCore({
 		source: machine,
@@ -52,13 +53,15 @@ function hostContracts() {
 
 	const actor = actorCore({
 		source: shipmentSource,
-		hosts: { scene },
+		hosts: { scene: headless },
 	});
 	actor("orbit", () => jsx("canvas", { use: "scene" }));
-	actor("orbit", () =>
-		// @ts-expect-error use must name a host on this actor-web core
-		jsx("canvas", { use: "missing" }),
-	);
+	// @ts-expect-error use must name a host on this actor-web core
+	actor("orbit", () => jsx("canvas", { use: "missing" }));
 }
 
-void hostContracts;
+describe("public host contracts", () => {
+	it("is enforced by the test typecheck project", () => {
+		expect(hostContracts).toEqual(expect.any(Function));
+	});
+});

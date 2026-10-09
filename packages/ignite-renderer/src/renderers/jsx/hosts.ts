@@ -1,30 +1,25 @@
 /**
- * Imperative host runtime. Mount is client-only. `describe` is pure and is
- * also the accessible description on an element.
+ * Imperative host runtime. Mount is client-only. `describe` is the accessible
+ * text and the snapshot text used by non-DOM projections.
  */
 
-export type IgniteHostContext = {
-	readonly signal: AbortSignal;
-	send(event: unknown): void;
-	readonly reducedMotion: boolean;
-};
+import {
+	claimHostSubtree,
+	type IgniteHostContext,
+	type IgniteHostDefinition,
+	type IgniteHostRuntime,
+	installHostRuntime,
+	installHostSync,
+	onHostUnmount,
+	releaseHostSubtree,
+} from "./hostBridge";
 
-export type IgniteHostDefinition = {
-	mount(el: Element, ctx: IgniteHostContext): unknown;
-	update?(handle: unknown, slice: unknown): void;
-	dispose(handle: unknown): void;
-	select?(snapshot: unknown): unknown;
-	equals?(a: unknown, b: unknown): boolean;
-	describe?(slice: unknown): string;
-};
-
-export type IgniteHostRuntime = {
-	server?: boolean;
-	snapshot: unknown;
-	send: (event: unknown) => void;
-	reducedMotion: () => boolean;
-	hosts: Record<string, IgniteHostDefinition>;
-};
+export type {
+	IgniteHostContext,
+	IgniteHostDefinition,
+	IgniteHostRuntime,
+} from "./hostBridge";
+export { HOST_RUNTIME_FIELD } from "./hostBridge";
 
 type HostRecord = {
 	name: string;
@@ -41,19 +36,14 @@ type HostRecord = {
 
 const hostRecords = new WeakMap<Element, HostRecord>();
 const unknownHostWarnings = new WeakMap<Element, Set<string>>();
+const descriptionIds = new WeakMap<Element, string>();
+let descriptionSerial = 0;
 let activeRuntime: IgniteHostRuntime | undefined;
-let claimSubtree: (element: Element) => void = () => undefined;
-let onUnmount: (node: Node, hook: () => void) => void = () => undefined;
 
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
-
-export function configureHostOwnership(tools: {
-	claimSubtree: (element: Element) => void;
-	onUnmount: (node: Node, hook: () => void) => void;
-}): void {
-	claimSubtree = tools.claimSubtree;
-	onUnmount = tools.onUnmount;
-}
+const DESCRIPTION_ATTR = "data-ignite-host-description";
+const VISUALLY_HIDDEN =
+	"position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0";
 
 export function withIgniteHostRuntime<T>(
 	runtime: IgniteHostRuntime | undefined,
@@ -69,23 +59,6 @@ export function withIgniteHostRuntime<T>(
 	}
 }
 
-const hostRuntimes = new WeakMap<EventTarget, IgniteHostRuntime>();
-
-export function bindIgniteHostRuntime(
-	owner: EventTarget,
-	runtime: IgniteHostRuntime | undefined,
-): void {
-	if (runtime) hostRuntimes.set(owner, runtime);
-	else hostRuntimes.delete(owner);
-}
-
-export function readIgniteHostRuntime(
-	owner: EventTarget | null | undefined,
-): IgniteHostRuntime | undefined {
-	if (!owner) return undefined;
-	return hostRuntimes.get(owner);
-}
-
 export function describeIgniteHosts(
 	hosts: Record<string, IgniteHostDefinition>,
 	snapshot: unknown,
@@ -93,15 +66,23 @@ export function describeIgniteHosts(
 	const text: Record<string, string> = {};
 	for (const [name, host] of Object.entries(hosts)) {
 		if (!host.describe) continue;
-		const slice = host.select ? host.select(snapshot) : snapshot;
-		const description = host.describe(slice);
-		if (typeof description === "string") text[name] = description;
+		try {
+			const slice = host.select ? host.select(snapshot) : snapshot;
+			const description = host.describe(slice);
+			if (typeof description === "string") text[name] = description;
+		} catch (error) {
+			reportHostError("[ignite-jsx] Host describe failed.", error);
+		}
 	}
 	return text;
 }
 
 function isDevelopment(): boolean {
 	return process.env.NODE_ENV !== "production";
+}
+
+function isClient(): boolean {
+	return typeof globalThis.window !== "undefined";
 }
 
 function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
@@ -122,8 +103,13 @@ function slicesEqual(
 	previous: unknown,
 	next: unknown,
 ): boolean {
-	if (definition.equals) return definition.equals(previous, next);
-	return Object.is(previous, next);
+	if (!definition.equals) return Object.is(previous, next);
+	try {
+		return definition.equals(previous, next);
+	} catch (error) {
+		reportHostError("[ignite-jsx] Host equals failed.", error);
+		return false;
+	}
 }
 
 function watchReducedMotion(onChange: () => void): () => void {
@@ -167,6 +153,12 @@ function disposeSettled(record: HostRecord): void {
 	}
 }
 
+function dropRecord(element: Element, record: HostRecord): void {
+	if (hostRecords.get(element) === record) hostRecords.delete(element);
+	record.controller.abort();
+	record.stopMotion();
+}
+
 function retireHost(element: Element): void {
 	const record = hostRecords.get(element);
 	if (!record) return;
@@ -176,12 +168,45 @@ function retireHost(element: Element): void {
 	disposeSettled(record);
 }
 
+function descriptionId(element: Element): string {
+	let id = descriptionIds.get(element);
+	if (!id) {
+		descriptionSerial += 1;
+		id = `ignite-host-desc-${descriptionSerial}`;
+		descriptionIds.set(element, id);
+	}
+	return id;
+}
+
+function descriptionNode(element: Element): HTMLElement | null {
+	for (const child of element.children) {
+		if (child instanceof HTMLElement && child.hasAttribute(DESCRIPTION_ATTR)) {
+			return child;
+		}
+	}
+	return null;
+}
+
+function clearDescription(element: Element): void {
+	const id = descriptionIds.get(element);
+	descriptionNode(element)?.remove();
+	if (!id) return;
+	const current = element.getAttribute("aria-describedby");
+	if (!current) return;
+	const next = current.split(/\s+/).filter((token) => token && token !== id);
+	if (next.length === 0) element.removeAttribute("aria-describedby");
+	else element.setAttribute("aria-describedby", next.join(" "));
+}
+
 function applyDescription(
 	element: Element,
 	definition: IgniteHostDefinition,
 	slice: unknown,
 ): void {
-	if (!definition.describe) return;
+	if (!definition.describe) {
+		clearDescription(element);
+		return;
+	}
 	let text: string;
 	try {
 		text = definition.describe(slice);
@@ -190,8 +215,22 @@ function applyDescription(
 		return;
 	}
 	if (typeof text !== "string") return;
-	if (element.getAttribute("aria-description") !== text) {
-		element.setAttribute("aria-description", text);
+	const id = descriptionId(element);
+	let node = descriptionNode(element);
+	if (!node) {
+		node = element.ownerDocument.createElement("span");
+		node.id = id;
+		node.setAttribute(DESCRIPTION_ATTR, "");
+		node.style.cssText = VISUALLY_HIDDEN;
+		element.append(node);
+	}
+	if (node.textContent !== text) node.textContent = text;
+	const tokens = (element.getAttribute("aria-describedby") ?? "")
+		.split(/\s+/)
+		.filter(Boolean);
+	if (!tokens.includes(id)) {
+		tokens.push(id);
+		element.setAttribute("aria-describedby", tokens.join(" "));
 	}
 }
 
@@ -207,6 +246,25 @@ function warnUnknownHost(element: Element, name: string): void {
 	console.warn(
 		`[ignite-jsx] Unknown host "${name}". Declare it on the core's hosts map.`,
 	);
+}
+
+function acceptHandle(
+	element: Element,
+	record: HostRecord,
+	definition: IgniteHostDefinition,
+	handle: unknown,
+): void {
+	if (record.controller.signal.aborted || hostRecords.get(element) !== record) {
+		try {
+			definition.dispose(handle);
+		} catch (error) {
+			reportHostError("[ignite-jsx] Host dispose failed.", error);
+		}
+		return;
+	}
+	record.handle = handle;
+	record.settled = true;
+	deliver(record, false);
 }
 
 function startHost(
@@ -241,7 +299,7 @@ function startHost(
 		deliver(record, true);
 	});
 	hostRecords.set(element, record);
-	onUnmount(element, () => {
+	onHostUnmount(element, () => {
 		const current = hostRecords.get(element);
 		if (current !== record) return;
 		hostRecords.delete(element);
@@ -253,36 +311,44 @@ function startHost(
 	try {
 		result = definition.mount(element, ctx);
 	} catch (error) {
-		hostRecords.delete(element);
-		controller.abort();
-		record.stopMotion();
+		dropRecord(element, record);
 		reportHostError("[ignite-jsx] Host mount failed.", error);
 		return;
 	}
 	if (isPromiseLike(result)) {
 		Promise.resolve(result).then(
 			(handle) => {
-				if (controller.signal.aborted || hostRecords.get(element) !== record) {
-					try {
-						definition.dispose(handle);
-					} catch (error) {
-						reportHostError("[ignite-jsx] Host dispose failed.", error);
-					}
-					return;
-				}
-				record.handle = handle;
-				record.settled = true;
-				deliver(record, false);
+				acceptHandle(element, record, definition, handle);
 			},
 			(error: unknown) => {
 				reportHostError("[ignite-jsx] Host mount failed.", error);
+				if (
+					record.controller.signal.aborted ||
+					hostRecords.get(element) !== record
+				) {
+					return;
+				}
+				dropRecord(element, record);
 			},
 		);
 		return;
 	}
-	record.handle = result;
-	record.settled = true;
-	deliver(record, false);
+	acceptHandle(element, record, definition, result);
+}
+
+function readSlice(
+	definition: IgniteHostDefinition,
+	snapshot: unknown,
+): { ok: true; slice: unknown } | { ok: false } {
+	try {
+		return {
+			ok: true,
+			slice: definition.select ? definition.select(snapshot) : snapshot,
+		};
+	} catch (error) {
+		reportHostError("[ignite-jsx] Host select failed.", error);
+		return { ok: false };
+	}
 }
 
 export function syncHostElement(element: Element, useName: unknown): void {
@@ -290,20 +356,27 @@ export function syncHostElement(element: Element, useName: unknown): void {
 	if (!runtime) return;
 	if (typeof useName !== "string" || useName.length === 0) {
 		retireHost(element);
+		releaseHostSubtree(element);
+		clearDescription(element);
 		return;
 	}
 	const definition = runtime.hosts[useName];
 	if (!definition) {
 		warnUnknownHost(element, useName);
 		retireHost(element);
+		releaseHostSubtree(element);
+		clearDescription(element);
 		return;
 	}
-	claimSubtree(element);
-	const slice = definition.select
-		? definition.select(runtime.snapshot)
-		: runtime.snapshot;
+	claimHostSubtree(element);
+	const selected = readSlice(definition, runtime.snapshot);
+	if (!selected.ok) {
+		releaseHostSubtree(element);
+		return;
+	}
+	const slice = selected.slice;
 	applyDescription(element, definition, slice);
-	if (runtime.server) return;
+	if (!isClient()) return;
 	const existing = hostRecords.get(element);
 	if (
 		!existing ||
@@ -318,3 +391,6 @@ export function syncHostElement(element: Element, useName: unknown): void {
 	existing.hasSlice = true;
 	deliver(existing, false);
 }
+
+installHostSync(syncHostElement);
+installHostRuntime(withIgniteHostRuntime);

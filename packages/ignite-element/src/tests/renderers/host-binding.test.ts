@@ -1,10 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { describeIgniteHosts } from "../../../../ignite-renderer/src/renderers/jsx/hosts";
 import type { Host, HostContext } from "../../hosts/types";
 import { jsx } from "../../renderers/jsx/jsx-runtime";
-import {
-	describeIgniteHosts,
-	renderIgniteJsx,
-} from "../../renderers/jsx/renderer";
+import { renderIgniteJsx } from "../../renderers/jsx/renderer";
 
 type Scene = { angle: number };
 type Handle = { id: number };
@@ -74,6 +72,7 @@ afterEach(() => {
 	document.body.replaceChildren();
 	vi.restoreAllMocks();
 	vi.unstubAllEnvs();
+	vi.unstubAllGlobals();
 });
 
 describe("host binding", () => {

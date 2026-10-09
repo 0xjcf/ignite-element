@@ -27,6 +27,7 @@ export type ProjectionInspection = {
 	readonly revision: string;
 	readonly documents: readonly ProjectionDocument[];
 	readonly speech: ProjectionSpeechRequest | null;
+	readonly hostDescriptions?: Readonly<Record<string, string>>;
 };
 
 type Projection<Format extends "document" | "speech", Output> = {
@@ -93,6 +94,44 @@ export type ProjectionBindingFact =
 
 function errorReason(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
+}
+
+function hostEntries(
+	descriptions: Readonly<Record<string, string>> | undefined,
+): Array<[string, string]> {
+	if (!descriptions) return [];
+	return Object.entries(descriptions).filter(
+		(entry): entry is [string, string] =>
+			typeof entry[1] === "string" && entry[1].length > 0,
+	);
+}
+
+function withHostDescriptions(
+	document: ProjectionDocument | null,
+	descriptions: Readonly<Record<string, string>> | undefined,
+): ProjectionDocument | null {
+	const entries = hostEntries(descriptions);
+	if (!document || entries.length === 0) return document;
+	return {
+		...document,
+		nodes: [
+			...document.nodes,
+			...entries.map(([name, text]) => ({
+				kind: "text" as const,
+				id: `ignite-host-${name}`,
+				text,
+			})),
+		],
+	};
+}
+
+function projectionIdentity(
+	identity: string,
+	descriptions: Readonly<Record<string, string>> | undefined,
+): string {
+	const entries = hostEntries(descriptions);
+	if (entries.length === 0) return identity;
+	return `${identity}\n${entries.map(([name, text]) => `${name}=${text}`).join("\n")}`;
 }
 
 export function createProjectionBindingState(): ProjectionBindingState {
@@ -180,7 +219,10 @@ export async function commitProjectionDocumentTarget({
 }): Promise<ProjectionBindingFact> {
 	let document: ProjectionDocument | null;
 	try {
-		document = projection.select(inspection);
+		document = withHostDescriptions(
+			projection.select(inspection),
+			inspection.hostDescriptions,
+		);
 	} catch (error) {
 		return {
 			channel: "document",
@@ -199,7 +241,10 @@ export async function commitProjectionDocumentTarget({
 
 	let documentIdentity: string;
 	try {
-		documentIdentity = projection.identity(document);
+		documentIdentity = projectionIdentity(
+			projection.identity(document),
+			inspection.hostDescriptions,
+		);
 	} catch (error) {
 		return {
 			channel: "document",
@@ -287,6 +332,13 @@ export async function commitProjectionSpeechTarget({
 	let speech: ProjectionSpeechRequest | null;
 	try {
 		speech = projection.select(inspection);
+		const lines = hostEntries(inspection.hostDescriptions);
+		if (speech && lines.length > 0) {
+			speech = {
+				...speech,
+				text: `${speech.text}\n${lines.map(([, text]) => text).join("\n")}`,
+			};
+		}
 	} catch (error) {
 		return {
 			channel: "speech",
@@ -304,7 +356,10 @@ export async function commitProjectionSpeechTarget({
 	}
 	let speechId: string;
 	try {
-		speechId = projection.identity(speech);
+		speechId = projectionIdentity(
+			projection.identity(speech),
+			inspection.hostDescriptions,
+		);
 	} catch (error) {
 		return {
 			channel: "speech",

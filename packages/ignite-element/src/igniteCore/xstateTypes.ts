@@ -34,5 +34,5 @@ export type XStateConfig<
 		EffectEvents<NoInfer<Events>, NoInfer<EmittedFrom<Machine>>>
 	>;
 } & DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>> & {
-		hosts?: IgniteHostMap;
+		hosts?: IgniteHostMap<StateFrom<Machine>>;
 	};

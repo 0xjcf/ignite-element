@@ -14,6 +14,7 @@ export default defineConfig({
 			"jsx-runtime": "src/jsx/jsx-runtime.ts",
 			"jsx-dev-runtime": "src/jsx/jsx-dev-runtime.ts",
 			"jsx/index": "src/jsx/index.ts",
+			hosts: "src/renderers/jsx/hosts.ts",
 		},
 		external: ["lit-html"],
 		globals: {

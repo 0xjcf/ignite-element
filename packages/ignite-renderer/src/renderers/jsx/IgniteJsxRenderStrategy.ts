@@ -1,7 +1,7 @@
 import { getIgniteConfig } from "../../config";
 import injectStyles from "../../injectStyles";
 import type { RenderStrategy } from "../RenderStrategy";
-import { readIgniteHostRuntime, withIgniteHostRuntime } from "./hosts";
+import { readBoundHostRuntime, withIgniteHostRuntime } from "./hostBridge";
 import { isNoDiffDenylistedTag } from "./noDiffDenylist";
 import {
 	mountIgniteJsx,
@@ -94,7 +94,7 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 					: null);
 
 		const rootNode = this.contentRoot.getRootNode();
-		const runtime = readIgniteHostRuntime(
+		const runtime = readBoundHostRuntime(
 			rootNode instanceof ShadowRoot ? rootNode.host : undefined,
 		);
 		this.previousTree = withIgniteHostRuntime(runtime, () =>

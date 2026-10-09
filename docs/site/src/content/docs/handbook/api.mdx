@@ -34,6 +34,7 @@ Document and speech projections use non-DOM targets.
 | `commands({ source })` | Object of functions that call the active source |
 | `events(event)` | Typed public event declarations, not runtime payload validation |
 | `effects({ snapshot, prevSnapshot, select, emit })` | Synchronous `void` callback; see [Events & effects](/ignite-element/handbook/events/) |
+| `hosts` | Named imperative engines. See [Hosts](/ignite-element/handbook/hosts/) |
 | Removed `cleanup` | Explicit use is rejected. See the [migration note](/ignite-element/migration/remove-cleanup/). |
 
 Keep `states` and `commands` inline so TypeScript infers their types.

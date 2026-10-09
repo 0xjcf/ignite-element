@@ -14,6 +14,9 @@
 			"@ignite-element/adapters/redux": ["../ignite-adapters/src/redux.ts"],
 			"@ignite-element/adapters/mobx": ["../ignite-adapters/src/mobx.ts"],
 			"@ignite-element/renderer": ["../ignite-renderer/src/index.ts"],
+			"@ignite-element/renderer/hosts": [
+				"../ignite-renderer/src/renderers/jsx/hosts.ts"
+			],
 			"@ignite-element/renderer/jsx": [
 				"../ignite-renderer/src/renderers/ignite-jsx.ts"
 			],

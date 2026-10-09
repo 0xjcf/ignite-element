@@ -15,6 +15,7 @@ import type {
 	FacadeEffectsObjectCallback,
 	FacadeStatesCallback,
 } from "@ignite-element/core";
+import type { HostNamesOf, IgniteHostMap } from "../hosts/types";
 import { assertSupportedSourceOptions } from "../internal/assertSupportedSourceOptions";
 import type { IgniteCoreReturn } from "./actorWebTypes";
 import {
@@ -76,7 +77,9 @@ type ActorWebSubpathConfig<
 } & import("./publicTypes").DisjointBindings<
 	NoInfer<StatesResult>,
 	NoInfer<CommandsResult>
->;
+> & {
+		hosts?: IgniteHostMap<ActorWebExtendedState<Context>>;
+	};
 
 export function igniteCoreActorWeb<
 	Context extends object,
@@ -93,6 +96,9 @@ export function igniteCoreActorWeb<
 		| (() => ActorWebSubpathSourceValue<Context, Message, Emitted>) =
 		| ActorWebSubpathSourceValue<Context, Message, Emitted>
 		| (() => ActorWebSubpathSourceValue<Context, Message, Emitted>),
+	const Hosts extends
+		| IgniteHostMap<ActorWebExtendedState<Context>>
+		| undefined = IgniteHostMap<ActorWebExtendedState<Context>> | undefined,
 >(
 	options: ActorWebSubpathConfig<
 		Context,
@@ -102,7 +108,7 @@ export function igniteCoreActorWeb<
 		StatesResult,
 		CommandsResult,
 		Source
-	>,
+	> & { hosts?: Hosts },
 ): IgniteCoreReturn<
 	ActorWebExtendedState<Context>,
 	Message,
@@ -111,7 +117,8 @@ export function igniteCoreActorWeb<
 	ActorWebCommandActor<Context, Message, Emitted>,
 	CommandsResult,
 	ActorWebRuntimeEvents<Events, Source, Emitted, Message>,
-	Events
+	Events,
+	HostNamesOf<Hosts>
 > {
 	// Actor-Web remains the runtime owner; Ignite only adapts projection snapshots
 	// and command access into the headless component contract.
@@ -142,6 +149,7 @@ export function igniteCoreActorWeb<
 		ActorWebCommandActor<Context, Message, Emitted>,
 		CommandsResult,
 		ActorWebRuntimeEvents<Events, Source, Emitted, Message>,
-		Events
+		Events,
+		HostNamesOf<Hosts>
 	>;
 }

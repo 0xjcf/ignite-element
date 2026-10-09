@@ -70,7 +70,7 @@ export type ActorWebConfig<
 	>;
 } & ActorWebConfigSource<Context, Message, Emitted, Source> &
 	DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>> & {
-		hosts?: IgniteHostMap;
+		hosts?: IgniteHostMap<ActorWebExtendedState<Context>>;
 	};
 
 type ActorWebConfigSource<

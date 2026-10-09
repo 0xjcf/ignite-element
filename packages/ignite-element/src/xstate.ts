@@ -16,6 +16,7 @@ import type {
 	EventFrom,
 	StateFrom,
 } from "xstate";
+import type { HostNamesOf, IgniteHostMap } from "./hosts/types";
 import type {
 	CompatibleEvents,
 	EffectEvents,
@@ -78,7 +79,9 @@ type XStateConfigBase<
 		unknown,
 		EffectEvents<NoInfer<Events>, NoInfer<EmittedFrom<Machine>>>
 	>;
-} & DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>>;
+} & DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>> & {
+		hosts?: IgniteHostMap<StateFrom<Machine>>;
+	};
 
 type XStateConfigWithEvents<
 	Machine extends AnyStateMachine,
@@ -136,6 +139,69 @@ export type XStateConfig<
 			StatesResult,
 			CommandsResult
 		>;
+
+export function igniteCore<
+	const Hosts extends IgniteHostMap<StateFrom<Machine>>,
+	Machine extends AnyStateMachine,
+	EventDefinition extends EventsDefinition<EventMap>,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+>(
+	options: Omit<
+		XStateConfigWithEvents<
+			Machine,
+			EventDefinition,
+			StatesResult,
+			CommandsResult
+		>,
+		"hosts"
+	> & { hosts: Hosts },
+): IgniteCoreReturn<
+	StateFrom<Machine>,
+	EventFrom<Machine>,
+	StateFrom<Machine>,
+	StatesResult,
+	XStateCommandActor<Machine>,
+	CommandsResult,
+	XStateRuntimeEvents<
+		Machine,
+		EventDefinition extends EventsDefinition<infer Events>
+			? Events extends EventMap
+				? Events
+				: EmptyEventMap
+			: EmptyEventMap
+	>,
+	ReturnType<EventDefinition>,
+	HostNamesOf<Hosts>
+>;
+
+export function igniteCore<
+	const Hosts extends IgniteHostMap<StateFrom<Machine>>,
+	Machine extends AnyStateMachine,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+>(
+	options: Omit<
+		XStateConfigWithoutEvents<Machine, StatesResult, CommandsResult>,
+		"hosts"
+	> & { hosts: Hosts },
+): IgniteCoreReturn<
+	StateFrom<Machine>,
+	EventFrom<Machine>,
+	StateFrom<Machine>,
+	StatesResult,
+	XStateCommandActor<Machine>,
+	CommandsResult,
+	XStateRuntimeEvents<Machine, EmptyEventMap>,
+	EmptyEventMap,
+	HostNamesOf<Hosts>
+>;
 
 export function igniteCore<
 	Machine extends AnyStateMachine,
@@ -205,7 +271,9 @@ export function igniteCore<
 		CommandsResult,
 		unknown
 	> &
-		DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>>,
+		DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>> & {
+			hosts?: IgniteHostMap<StateFrom<Machine>>;
+		},
 ) {
 	// The overloads check producer/payload compatibility. Assembly receives the
 	// same callbacks; the narrowed emitter exposes a subset of its capabilities.

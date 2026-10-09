@@ -22,5 +22,5 @@ export type MobxConfig<
 	>,
 > = StoreMobxConfig<State, Events, StatesResult, CommandsResult, unknown> &
 	DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>> & {
-		hosts?: IgniteHostMap;
+		hosts?: IgniteHostMap<State>;
 	};

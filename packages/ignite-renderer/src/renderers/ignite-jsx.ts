@@ -3,12 +3,6 @@ import { registerRenderStrategy } from "./registry";
 
 registerRenderStrategy("ignite-jsx", createIgniteJsxRenderStrategy);
 
-export type { IgniteHostDefinition, IgniteHostRuntime } from "./jsx/hosts";
-export {
-	bindIgniteHostRuntime,
-	describeIgniteHosts,
-	readIgniteHostRuntime,
-} from "./jsx/hosts";
 export {
 	clearNoDiffDenylistForTests,
 	createIgniteJsxRenderStrategy,

@@ -23,6 +23,30 @@ import type {
 
 // Dynamic index signatures need the runtime check; exact known keys can also
 // reject a collision at construction without changing either callback's inference.
+export type HostSafeChild<Names extends string> =
+	| HostSafeElement<Names>
+	| string
+	| number
+	| boolean
+	| null
+	| undefined
+	| readonly HostSafeChild<Names>[];
+
+type HostSafeElement<Names extends string> = {
+	readonly type?: unknown;
+	readonly props?: {
+		use?: Names;
+		children?: HostSafeChild<Names>;
+		readonly [key: string]: unknown;
+	};
+	readonly key?: unknown;
+};
+
+/** Unconstrained when a core declares no host names. */
+export type HostCheckedView<Names extends string> = string extends Names
+	? unknown
+	: HostSafeChild<Names>;
+
 export type DisjointBindings<States, Commands> = string extends
 	| keyof States
 	| keyof Commands
@@ -114,6 +138,7 @@ export type IgniteCoreReturn<
 	// Native headless emissions do not imply a declared DOM event. Defaulting
 	// preserves existing type-alias consumers and adapters with one event map.
 	DeclaredEvents extends EventMap = Events,
+	HostNames extends string = string,
 > = {
 	(target: IgniteProjectionTarget): IgniteProjectionSession;
 	(
@@ -126,7 +151,8 @@ export type IgniteCoreReturn<
 				Record<never, never>,
 				DeclaredEvents
 			> &
-				Record<never, Snapshot>
+				Record<never, Snapshot>,
+			HostCheckedView<HostNames>
 		>,
 	): IgniteComponent<CommandsResult, DeclaredEvents>;
 	readonly __igniteRenderArgs?: PublicFacadeRenderArgs<

@@ -83,7 +83,7 @@ export function igniteCore<
 			EffectEvents<NoInfer<Events>, ChannelEmitted<NoInfer<Source>>>
 		>;
 	} & DisjointBindings<NoInfer<States>, NoInfer<Commands>> & {
-			hosts?: IgniteHostMap;
+			hosts?: IgniteHostMap<ActorWebExtendedState<NoInfer<Context>>>;
 		},
 ): IgniteCoreReturn<
 	ActorWebExtendedState<Context>,

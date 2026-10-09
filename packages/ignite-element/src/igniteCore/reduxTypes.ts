@@ -1,4 +1,5 @@
 import type {
+	InferStateAndEvent,
 	ReduxBlueprintSource,
 	ReduxInstanceSource,
 	ReduxBlueprintConfig as StoreReduxBlueprintConfig,
@@ -39,7 +40,7 @@ export type ReduxBlueprintConfig<
 	unknown
 > &
 	DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>> & {
-		hosts?: IgniteHostMap;
+		hosts?: IgniteHostMap<InferStateAndEvent<Source>["State"]>;
 	};
 
 export type ReduxInstanceConfig<
@@ -58,5 +59,5 @@ export type ReduxInstanceConfig<
 	unknown
 > &
 	DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>> & {
-		hosts?: IgniteHostMap;
+		hosts?: IgniteHostMap<InferStateAndEvent<StoreInstance>["State"]>;
 	};

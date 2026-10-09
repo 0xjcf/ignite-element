@@ -1,8 +1,10 @@
 import type { IgniteAdapter } from "@ignite-element/core";
 import { StateScope } from "@ignite-element/core";
 import type { RenderStrategyFactory } from "@ignite-element/renderer";
-import type { IgniteHostRuntime } from "@ignite-element/renderer/jsx";
-import { bindIgniteHostRuntime } from "@ignite-element/renderer/jsx";
+import {
+	describeIgniteHosts,
+	HOST_RUNTIME_FIELD,
+} from "@ignite-element/renderer/hosts";
 import { coreHostsFor, readReducedMotion } from "./hosts/registry";
 import {
 	endElementRendering,
@@ -271,12 +273,22 @@ export default function igniteElementFactory<
 		snapshot: State,
 		send: (event: Event) => void,
 	) => {
-		if (!coreHosts) return;
-		bindIgniteHostRuntime(element, {
-			snapshot,
-			send: (event) => send(event as Event),
-			reducedMotion: readReducedMotion,
-			hosts: coreHosts as IgniteHostRuntime["hosts"],
+		if (!coreHosts) {
+			delete (element as unknown as Record<string, unknown>)[
+				HOST_RUNTIME_FIELD
+			];
+			return;
+		}
+		Object.defineProperty(element, HOST_RUNTIME_FIELD, {
+			configurable: true,
+			enumerable: false,
+			writable: true,
+			value: {
+				snapshot,
+				send: (event: unknown) => send(event as Event),
+				reducedMotion: readReducedMotion,
+				hosts: coreHosts,
+			},
 		});
 	};
 	type RuntimeAdditionalArgs = AdditionalRenderArgs<State, Event, RenderArgs>;
@@ -635,6 +647,7 @@ export default function igniteElementFactory<
 			snapshot,
 			states,
 			schema,
+			hostDescriptions: describeIgniteHosts(coreHosts ?? {}, snapshot),
 			canExecute: (commandName: string) => {
 				const command = getAdditionalArg(additionalArgs, commandName);
 				if (typeof command !== "function") {
