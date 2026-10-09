@@ -1,12 +1,16 @@
 /** @jsxImportSource ignite-element/jsx */
 import type { IgniteJsxElement } from "ignite-element/jsx";
+import {
+	liveStatusRegion,
+	liveStatusRegionStyles,
+} from "../live-status/live-status.region";
 import { catalogHostStyles } from "../styles";
 import type { StatusPillCommands, StatusPillStates } from "./status-pill.core";
 
 export type StatusPillViewContext = StatusPillStates & StatusPillCommands;
 
-const styles = `${catalogHostStyles()}
-:host { display: inline-block; max-width: 100%; }
+const styles = `${catalogHostStyles()}${liveStatusRegionStyles()}
+:host { display: inline-block; position: relative; max-width: 100%; }
 .status-pill {
   display: inline-flex;
   flex-wrap: wrap;
@@ -25,30 +29,74 @@ const styles = `${catalogHostStyles()}
 .status-pill[data-tone="success"] { border-color: var(--status-pill-tone, #0f6b4c); background: #e5f4ec; }
 .status-pill[data-tone="warning"] { border-color: var(--status-pill-tone, #8a4b08); background: #fbf0e2; }
 .status-pill[data-tone="danger"] { border-color: var(--status-pill-tone, #8f1d1d); background: #f8e8e8; }
+.status-pill-tone {
+  font: 650 0.72rem/1.3 var(--catalog-font);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 .status-pill-value { color: var(--catalog-fg); }
 .status-pill-reason {
   font-weight: 400;
   color: var(--catalog-muted);
 }
+.live-region {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
 `;
 
 /**
- * The words carry the status. Tone only tints the chip.
- * Configuration commands are on the context for the host; this view does not call them.
+ * The tone word is text. Color only tints the chip.
+ * A live announcement is opt-in, so a row of pills does not spam.
+ */
+function chip(ctx: StatusPillViewContext): IgniteJsxElement {
+	return (
+		<span
+			class="status-pill"
+			data-tone={ctx.tone}
+			aria-hidden={ctx.announcement ? "true" : undefined}
+		>
+			<span class="status-pill-tone">{ctx.toneLabel}</span>{" "}
+			<span class="status-pill-value">{ctx.value}</span>
+			{ctx.showReason ? (
+				<>
+					<span class="status-pill-sep"> — </span>
+					<span class="status-pill-reason">{ctx.reason}</span>
+				</>
+			) : null}
+		</span>
+	);
+}
+
+/**
+ * The tone word stays on the chip. Opt-in announcements fill the same
+ * polite region that was mounted empty, so the first change is heard.
+ * That region is the one accessible copy. It is clipped off screen, and
+ * the chip is hidden from assistive tech while the sentence is announced.
  */
 export function statusPillView(ctx: StatusPillViewContext): IgniteJsxElement {
 	return (
 		<>
 			<style>{styles}</style>
-			<span class="status-pill" data-tone={ctx.tone}>
-				<span class="status-pill-value">{ctx.value}</span>
-				{ctx.showReason ? (
-					<>
-						<span class="status-pill-sep"> — </span>
-						<span class="status-pill-reason">{ctx.reason}</span>
-					</>
-				) : null}
-			</span>
+			{chip(ctx)}
+			{ctx.announce
+				? liveStatusRegion({
+						instanceId: ctx.instanceId,
+						polite: ctx.announcement,
+						assertive: null,
+						busy: false,
+						progress: "none",
+						settled: null,
+					})
+				: null}
 		</>
 	);
 }

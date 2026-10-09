@@ -1,4 +1,5 @@
 import { assign, setup } from "xstate";
+import { cliTone, createInstanceId } from "../live-status/live-status.source";
 
 export const statusPillTones = [
 	"neutral",
@@ -14,23 +15,58 @@ export type StatusPillInput = {
 	value?: string;
 	tone?: StatusPillTone;
 	reason?: string | null;
+	/** Opt in. A pill does not announce until the host asks. */
+	announce?: boolean;
 };
 
 export type StatusPillContext = {
+	instanceId: string;
 	value: string;
 	tone: StatusPillTone;
 	reason: string | null;
+	announce: boolean;
+	/** Set only after a change while announce is on. */
+	announcement: string | null;
 };
 
 export type StatusPillEvent =
 	| { type: "SET_VALUE"; value: string }
 	| { type: "SET_TONE"; tone: StatusPillTone }
-	| { type: "SET_REASON"; reason: string | null };
+	| { type: "SET_REASON"; reason: string | null }
+	| { type: "SET_ANNOUNCE"; announce: boolean };
 
 export function isStatusPillTone(
 	value: string | null,
 ): value is StatusPillTone {
 	return statusPillTones.some((tone) => tone === value);
+}
+
+export function statusToneWord(tone: StatusPillTone): string {
+	if (tone === "info") return "Info";
+	if (tone === "success") return "Success";
+	if (tone === "warning") return "Warning";
+	if (tone === "danger") return "Danger";
+	return "Neutral";
+}
+
+/** Visible sentence. The tone word is text, not only a border. */
+export function statusSentence(
+	value: string,
+	tone: StatusPillTone,
+	reason: string | null,
+): string {
+	const words = reason ? `${value} — ${reason}` : value;
+	return `${statusToneWord(tone)} ${words}`.trim();
+}
+
+export function statusCliLine(
+	value: string,
+	tone: StatusPillTone,
+	reason: string | null,
+): string {
+	const words = reason ? `${value} — ${reason}` : value;
+	// LiveStatus CLI words are warning: and error:. Danger is that error tone.
+	return cliTone(tone === "danger" ? "error" : tone, words);
 }
 
 export function normalizeReason(reason: string | null): string | null {
@@ -55,15 +91,39 @@ export const statusPillMachine = setup({
 		input: {} as StatusPillInput,
 	},
 	actions: {
-		applyValue: assign({
-			value: ({ event }) => (event.type === "SET_VALUE" ? event.value : ""),
+		applyValue: assign(({ context, event }) => {
+			if (event.type !== "SET_VALUE") return {};
+			const value = event.value;
+			return {
+				value,
+				announcement: context.announce
+					? statusSentence(value, context.tone, context.reason)
+					: null,
+			};
 		}),
-		applyTone: assign({
-			tone: ({ event }) => (event.type === "SET_TONE" ? event.tone : "neutral"),
+		applyTone: assign(({ context, event }) => {
+			if (event.type !== "SET_TONE") return {};
+			const tone = event.tone;
+			return {
+				tone,
+				announcement: context.announce
+					? statusSentence(context.value, tone, context.reason)
+					: null,
+			};
 		}),
-		applyReason: assign({
-			reason: ({ event }) =>
-				event.type === "SET_REASON" ? normalizeReason(event.reason) : null,
+		applyReason: assign(({ context, event }) => {
+			if (event.type !== "SET_REASON") return {};
+			const reason = normalizeReason(event.reason);
+			return {
+				reason,
+				announcement: context.announce
+					? statusSentence(context.value, context.tone, reason)
+					: null,
+			};
+		}),
+		applyAnnounce: assign(({ event }) => {
+			if (event.type !== "SET_ANNOUNCE") return {};
+			return { announce: event.announce, announcement: null };
 		}),
 	},
 	guards: {
@@ -74,14 +134,18 @@ export const statusPillMachine = setup({
 	id: "status-pill",
 	initial: "plain",
 	context: ({ input }) => ({
+		instanceId: createInstanceId("status"),
 		value: input?.value ?? "",
 		tone: input?.tone ?? "neutral",
 		reason: normalizeReason(input?.reason ?? null),
+		announce: input?.announce ?? false,
+		announcement: null,
 	}),
 	on: {
 		SET_VALUE: { actions: "applyValue" },
 		SET_TONE: { actions: "applyTone" },
 		SET_REASON: { actions: "applyReason" },
+		SET_ANNOUNCE: { actions: "applyAnnounce" },
 	},
 	states: {
 		plain: {
