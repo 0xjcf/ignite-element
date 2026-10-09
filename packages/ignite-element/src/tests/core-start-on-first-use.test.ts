@@ -227,7 +227,115 @@ describe("independent cores start on first use", () => {
 		core.dispose();
 		expect(observed.active).toBe(0);
 	});
+
+	it("rejects an invalid MobX projection from execute before the command runs", async () => {
+		const observed = { active: 0 };
+		let ran = false;
+		const core = mobxCore({
+			source: () => observedObservable(observed),
+			states: (state) => ({ meter: new Meter(state.count) }),
+			commands: ({ source: store }) => ({
+				add: () => {
+					ran = true;
+					store.add();
+				},
+			}),
+		});
+		await expect(core.execute({ command: "add" })).rejects.toThrow(
+			/class instance/i,
+		);
+		expect(ran).toBe(false);
+		expect(observed.active).toBe(0);
+		expect(() => core.get("states")).toThrow(/class instance/i);
+		expect(observed.active).toBe(0);
+		core.dispose();
+	});
+
+	it("does not observe when execute names an unknown command", async () => {
+		const reduxObserved = { active: 0 };
+		const mobxObserved = { active: 0 };
+		const redux = reduxCore({
+			source: () => observedStore(reduxObserved),
+			states: (state) => ({ count: state.count }),
+			commands: () => ({ add: () => undefined }),
+		});
+		const mobx = mobxCore({
+			source: () => observedObservable(mobxObserved),
+			states: (state) => ({ count: state.count }),
+			commands: () => ({ add: () => undefined }),
+		});
+		await expect(redux.execute({ command: "missing" })).rejects.toThrow(
+			/unknown command/i,
+		);
+		await expect(mobx.execute({ command: "missing" })).rejects.toThrow(
+			/unknown command/i,
+		);
+		expect(reduxObserved.active).toBe(0);
+		expect(mobxObserved.active).toBe(0);
+		redux.dispose();
+		mobx.dispose();
+	});
+
+	it("keeps observation through an async command after its watch unsubscribes", async () => {
+		const gate = deferred<void>();
+		const reduxObserved = { active: 0 };
+		const mobxObserved = { active: 0 };
+		let reduxListenersAtDispatch = -1;
+		let mobxObservedAtSend = -1;
+		const redux = reduxCore({
+			source: () => observedStore(reduxObserved),
+			states: (state) => ({ count: state.count }),
+			commands: ({ source: store }) => ({
+				add: async () => {
+					await gate.promise;
+					reduxListenersAtDispatch = reduxObserved.active;
+					store.dispatch(slice.actions.add());
+				},
+			}),
+		});
+		const mobx = mobxCore({
+			source: () => observedObservable(mobxObserved),
+			states: (state) => ({ count: state.count }),
+			commands: ({ source: store }) => ({
+				add: async () => {
+					await gate.promise;
+					mobxObservedAtSend = mobxObserved.active;
+					store.add();
+				},
+			}),
+		});
+		const reduxWatch = redux.watch(() => undefined);
+		const mobxWatch = mobx.watch(() => undefined);
+		const reduxRun = redux.execute({ command: "add" });
+		const mobxRun = mobx.execute({ command: "add" });
+		await Promise.resolve();
+		reduxWatch.unsubscribe();
+		mobxWatch.unsubscribe();
+		gate.resolve();
+		await reduxRun;
+		await mobxRun;
+		expect(reduxListenersAtDispatch).toBeGreaterThan(0);
+		expect(mobxObservedAtSend).toBeGreaterThan(0);
+		expect(redux.get("states").count).toBe(1);
+		expect(mobx.get("states").count).toBe(1);
+		redux.dispose();
+		mobx.dispose();
+		expect(reduxObserved.active).toBe(0);
+		expect(mobxObserved.active).toBe(0);
+	});
 });
+
+class Meter {
+	constructor(readonly count: number) {}
+}
+
+function deferred<T>() {
+	let resolvePromise!: (value: T) => void;
+	const promise = new Promise<T>((resolve) => {
+		resolvePromise = resolve;
+	});
+	return { promise, resolve: resolvePromise };
+}
 
 function observedStore(observed: { active: number }) {
 	const store = configureStore({ reducer: slice.reducer });
