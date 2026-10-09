@@ -30,21 +30,22 @@ afterEach(() => {
 });
 
 describe("ExportButton accessibility", () => {
-	it("puts the failure in text and marks the button busy only while preparing", () => {
+	it("puts the failure in text and marks the progressbar busy while preparing", () => {
 		const { element, root, view } = mount();
 		expect(view.getAllByText("error: Could not write the file.")).toHaveLength(
 			1,
 		);
-		expect(
-			root.querySelector("[aria-live='assertive']")?.textContent,
-		).toContain("error: Could not write the file.");
+		const failure = root.querySelector("[aria-live='assertive']");
+		expect(failure?.textContent).toContain("error: Could not write the file.");
 		expect(root.querySelector("p.reason")).toBeNull();
 		const retry = view.getByRole("button", { name: "Try again" });
 		expect(retry.getAttribute("aria-disabled")).toBe("false");
+		expect(retry.getAttribute("aria-describedby")).toBe(failure?.id);
 		retry.click();
 		const preparing = view.getByRole("button", { name: "Export JSON" });
 		expect(preparing.getAttribute("aria-disabled")).toBe("true");
 		expect(preparing.hasAttribute("aria-busy")).toBe(false);
+		expect(preparing.hasAttribute("aria-describedby")).toBe(false);
 		expect(view.getAllByText("Preparing…")).toHaveLength(1);
 		expect(root.querySelector("[aria-live='polite']")?.textContent).toContain(
 			"Preparing…",

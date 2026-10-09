@@ -61,6 +61,9 @@ export function exportButtonView(
 			<div class="export">
 				<button
 					type="button"
+					aria-describedby={
+						assertive ? `${ctx.instanceId}-assertive` : undefined
+					}
 					aria-disabled={ctx.canExport ? "false" : "true"}
 					onClick={(event: Event) => {
 						if (!ctx.canExport) {
