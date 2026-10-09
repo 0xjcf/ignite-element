@@ -33,6 +33,7 @@ examples/**/package-lock.json
 
 # ignite tmp config directories
 .tmp-ignite-config-*
+.tmp-jsx-consumer-*
 
 coverage/
 /test-results/
@@ -49,6 +50,8 @@ packages/ignite-adapters/src/**/*.d.ts
 packages/ignite-adapters/src/**/*.d.ts.map
 packages/ignite-renderer/src/**/*.d.ts
 packages/ignite-renderer/src/**/*.d.ts.map
+# Hand-written compile flag. Generated declarations stay ignored.
+!packages/ignite-renderer/src/dev-warnings.d.ts
 
 # Claude Code local tooling/state (preview launch config, session skills)
 .claude/

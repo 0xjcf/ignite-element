@@ -405,7 +405,7 @@ describe("Ignite JSX render strategy", () => {
 		);
 	});
 
-	it("ignores the diff flag in production so bundlers can drop process", () => {
+	it("honors the diff flag in the development build even when NODE_ENV is production", () => {
 		vi.stubEnv("NODE_ENV", "production");
 		process.env.IGNITE_DIFF_ENABLED = "false";
 		defineIgniteConfig({ logging: "warn" });
@@ -418,7 +418,7 @@ describe("Ignite JSX render strategy", () => {
 		strategy.attach(shadow);
 		strategy.render(jsx("div", { children: "flagged" }));
 
-		expect(warnSpy).not.toHaveBeenCalledWith(
+		expect(warnSpy).toHaveBeenCalledWith(
 			"[IgniteJsxRenderStrategy] Falling back to replace (flag-disabled, tag=div)",
 		);
 	});

@@ -13,8 +13,11 @@ const resolveNodeEnv = (
 		: semanticNodeEnv;
 };
 
-export default defineConfig(({ command }) => ({
-	...createLibConfig({
+const devArtifact = process.env.IGNITE_LIB_DEV === "1";
+
+export default defineConfig(({ command }) => {
+	const libConfig = createLibConfig({
+		devArtifact: command === "build" && devArtifact,
 		name: "ignite-element",
 		entry: {
 			index: "src/index.ts",
@@ -62,8 +65,14 @@ export default defineConfig(({ command }) => ({
 			"lit-html": "LitHTML",
 			"@reduxjs/toolkit": "RTK",
 		},
-	}),
-	define: {
-		"process.env.NODE_ENV": JSON.stringify(resolveNodeEnv(command)),
-	},
-}));
+	});
+	const warningsOn = command !== "build" || devArtifact;
+	return {
+		...libConfig,
+		define: {
+			...libConfig.define,
+			"process.env.NODE_ENV": JSON.stringify(resolveNodeEnv(command)),
+			__IGNITE_DEV_WARNINGS__: JSON.stringify(warningsOn),
+		},
+	};
+});

@@ -225,13 +225,7 @@ function duplicateKey(children: NormalizedNode[]): string | number | undefined {
 }
 
 function warnInvalidKeys(children: NormalizedNode[]): void {
-	// Keep this guard inline. esbuild does not inline a helper, so a
-	// `process.env.NODE_ENV` replacement would leave the warning strings.
-	if (
-		!(typeof process !== "undefined" && process.env.NODE_ENV !== "production")
-	) {
-		return;
-	}
+	if (!__IGNITE_DEV_WARNINGS__) return;
 	const shape = classifyKeys(children);
 	if (shape === "duplicate") {
 		const key = duplicateKey(children);
@@ -257,7 +251,7 @@ function applySlotKey(
 		material[0].key = key;
 		return nodes;
 	}
-	if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
+	if (__IGNITE_DEV_WARNINGS__) {
 		console.warn(
 			`[ignite-jsx] Key "${String(key)}" requires a single element, but the component returned ${material.length} nodes.`,
 		);
@@ -269,11 +263,7 @@ function warnDeprecatedContentProp(
 	element: Element,
 	key: "innerHTML" | "textContent",
 ): void {
-	if (
-		!(typeof process !== "undefined" && process.env.NODE_ENV !== "production")
-	) {
-		return;
-	}
+	if (!__IGNITE_DEV_WARNINGS__) return;
 	let seen = deprecatedContentWarnings.get(element);
 	if (!seen) {
 		seen = new Set();

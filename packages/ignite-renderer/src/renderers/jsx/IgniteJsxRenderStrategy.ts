@@ -28,13 +28,15 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 
 	constructor() {
 		const { strategy, logging } = getIgniteConfig() ?? {};
-		// Same expression the dev warnings use. A production replacement of
-		// `process.env.NODE_ENV` deletes this read, so the bundle does not keep
-		// `process`. Development and test still honor the internal flag.
-		const envFlag =
-			typeof process !== "undefined" && process.env.NODE_ENV !== "production"
-				? process.env.IGNITE_DIFF_ENABLED
-				: undefined;
+		// Production and default builds compile this branch out, so they do not
+		// reference process. The development build still honors the flag.
+		const envFlag = __IGNITE_DEV_WARNINGS__
+			? (
+					globalThis as typeof globalThis & {
+						process?: { env?: { IGNITE_DIFF_ENABLED?: string } };
+					}
+				).process?.env?.IGNITE_DIFF_ENABLED
+			: undefined;
 		this.diffEnabled = (envFlag ?? "true") !== "false";
 		this.mode = strategy === "replace" ? "replace" : "diff";
 		this.logging = this.normalizeLogging(logging);

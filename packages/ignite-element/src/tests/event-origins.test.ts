@@ -52,14 +52,14 @@ describe("event producer diagnostics", () => {
 		expect(() => origins.observe(owner, "reset", "effect")).not.toThrow();
 		origins.dispose();
 	});
-	it("is silent in production", () => {
+	it("still warns when NODE_ENV is production in the development build", () => {
 		vi.stubEnv("NODE_ENV", "production");
 		const log = vi.spyOn(console, "warn").mockImplementation(() => {});
 		const origins = createEventOrigins(),
 			owner = {};
 		origins.observe(owner, "reset", "effect");
 		origins.observe(owner, "reset", "native");
-		expect(log).not.toHaveBeenCalled();
+		expect(log).toHaveBeenCalledOnce();
 		origins.dispose();
 	});
 });

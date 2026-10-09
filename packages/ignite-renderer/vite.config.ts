@@ -1,8 +1,11 @@
 import { defineConfig } from "vite";
 import { createLibConfig } from "../../configs/vite/lib";
 
+const devArtifact = process.env.IGNITE_LIB_DEV === "1";
+
 export default defineConfig({
 	...createLibConfig({
+		devArtifact,
 		name: "ignite-renderer",
 		entry: {
 			index: "src/index.ts",

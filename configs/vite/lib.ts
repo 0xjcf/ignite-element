@@ -8,6 +8,8 @@ type LibConfigInput = {
 	external: string[];
 	globals?: Record<string, string>;
 	outDir?: string;
+	/** Second pass: warnings on, filenames `*.development.es.js`, keep the first build. */
+	devArtifact?: boolean;
 };
 
 export function createLibConfig({
@@ -16,29 +18,42 @@ export function createLibConfig({
 	external,
 	globals,
 	outDir = "dist",
+	devArtifact = false,
 }: LibConfigInput): UserConfig {
 	return {
+		define: {
+			__IGNITE_DEV_WARNINGS__: JSON.stringify(devArtifact),
+		},
 		build: {
+			emptyOutDir: !devArtifact,
+			minify: "esbuild",
 			outDir,
 			lib: {
 				entry,
 				formats: ["es"],
 				name,
-				fileName: (format: ModuleFormat, entryName: string) =>
-					entryName === "index"
-						? `${name}.${format}.js`
-						: `${entryName}.${format}.js`,
+				fileName: (format: ModuleFormat, entryName: string) => {
+					const file =
+						entryName === "index"
+							? `${name}.${format}.js`
+							: `${entryName}.${format}.js`;
+					return devArtifact
+						? file.replace(/\.es\.js$/, ".development.es.js")
+						: file;
+				},
 			},
 			rollupOptions: {
 				external,
 				output: globals ? { globals } : undefined,
 			},
 		},
-		plugins: [
-			dts({
-				insertTypesEntry: true,
-				outDir: `${outDir}/types`,
-			}),
-		],
+		plugins: devArtifact
+			? []
+			: [
+					dts({
+						insertTypesEntry: true,
+						outDir: `${outDir}/types`,
+					}),
+				],
 	};
 }
