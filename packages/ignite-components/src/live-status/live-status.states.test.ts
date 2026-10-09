@@ -6,6 +6,7 @@ import {
 	assertGalleryCoversStates,
 } from "../testing/contract-check";
 import { expectCloneable } from "../testing/host-seal";
+import { startHeadless } from "../testing/start-headless";
 import { liveStatusContract } from "./live-status.contract";
 import { createLiveStatusCore, liveStatusProjection } from "./live-status.core";
 import {
@@ -15,7 +16,7 @@ import {
 
 async function show(input: LiveStatusFixtureInput) {
 	const core = createLiveStatusCore();
-	core.watch(() => {});
+	startHeadless(core);
 	await core.execute({ command: "setTone", input: input.tone });
 	await core.execute({ command: "setReason", input: input.reason });
 	await core.execute({ command: "setProgress", input: input.progress });
@@ -60,7 +61,7 @@ describe("LiveStatus states", () => {
 	it("announces politely, then assertively, without color codes", async () => {
 		const core = createLiveStatusCore();
 		try {
-			core.watch(() => {});
+			startHeadless(core);
 			await core.execute({ command: "setTone", input: "warning" });
 			await core.execute({ command: "setPoliteness", input: "polite" });
 			await core.execute({ command: "setMessage", input: "Connecting" });
@@ -86,7 +87,7 @@ describe("LiveStatus states", () => {
 	it("says in progress once and already running on the second busy call", async () => {
 		const core = createLiveStatusCore();
 		try {
-			core.watch(() => {});
+			startHeadless(core);
 			await core.execute({
 				command: "setMessage",
 				input: "Preparing the export.",
@@ -120,7 +121,7 @@ describe("LiveStatus states", () => {
 	it("clears a synthesized in-progress line when work stops", async () => {
 		const core = createLiveStatusCore();
 		try {
-			core.watch(() => {});
+			startHeadless(core);
 			await core.execute({ command: "setBusy", input: "true" });
 			expect(core.get("states")).toMatchObject({
 				state: "busy",
@@ -142,7 +143,7 @@ describe("LiveStatus states", () => {
 	it("keeps whitespace quiet and rejects an unknown tone", async () => {
 		const core = createLiveStatusCore();
 		try {
-			core.watch(() => {});
+			startHeadless(core);
 			await core.execute({ command: "setTone", input: "warning" });
 			await core.execute({ command: "setPoliteness", input: "polite" });
 			await core.execute({ command: "setMessage", input: "   " });
@@ -163,7 +164,7 @@ describe("LiveStatus states", () => {
 	it("follows the error tone for isError, not the politeness", async () => {
 		const core = createLiveStatusCore();
 		try {
-			core.watch(() => {});
+			startHeadless(core);
 			await core.execute({
 				command: "announce",
 				input: { message: "Check the date.", politeness: "assertive" },
@@ -216,7 +217,7 @@ describe("LiveStatus states", () => {
 	it("clears only the settled line when settle is null", async () => {
 		const core = createLiveStatusCore();
 		try {
-			core.watch(() => {});
+			startHeadless(core);
 			await core.execute({ command: "setPoliteness", input: "polite" });
 			await core.execute({ command: "setMessage", input: "Working" });
 			await core.execute({ command: "setBusy", input: "true" });
@@ -245,8 +246,8 @@ describe("LiveStatus states", () => {
 		const first = createLiveStatusCore();
 		const second = createLiveStatusCore();
 		try {
-			first.watch(() => {});
-			second.watch(() => {});
+			startHeadless(first);
+			startHeadless(second);
 			await first.execute({ command: "setSettled", input: "Exported" });
 			expect(first.get("states")).toMatchObject({
 				state: "settled",

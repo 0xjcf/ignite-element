@@ -6,6 +6,7 @@ import {
 	assertGalleryCoversStates,
 } from "../testing/contract-check";
 import { expectCloneable } from "../testing/host-seal";
+import { startHeadless } from "../testing/start-headless";
 import { appShellContract } from "./app-shell.contract";
 import { createAppShellCore } from "./app-shell.core";
 import {
@@ -15,7 +16,7 @@ import {
 
 async function show(input: AppShellFixtureInput) {
 	const core = createAppShellCore();
-	core.watch(() => {});
+	startHeadless(core);
 	await core.execute({ command: "setRoute", input: input.activeRoute });
 	await core.execute({ command: "setReturnTo", input: input.returnTo });
 	await core.execute({
@@ -79,7 +80,7 @@ describe("AppShell states", () => {
 			requests.push(event.returnTo);
 		});
 		try {
-			core.watch(() => {});
+			startHeadless(core);
 			await core.execute({ command: "setReturnTo", input: "  \n  " });
 			expect(core.get("states")).toMatchObject({
 				returnTo: null,
@@ -103,7 +104,7 @@ describe("AppShell states", () => {
 	it("does not request a return when there is no target", async () => {
 		const core = createAppShellCore();
 		try {
-			core.watch(() => {});
+			startHeadless(core);
 			await core.execute({ command: "requestReturn" });
 			expect(core.get("states").isReturnRequested).toBe(false);
 			expect(core.get("states").canReturnRefusal).toBe(
