@@ -28,6 +28,8 @@ import {
 } from "./runtime/effects";
 import { createLifetime, releaseAll } from "./runtime/lifetime";
 
+declare const __IGNITE_DEV_WARNINGS__: boolean;
+
 export type StandardCommandActor<State, Event> = {
 	send: (event: Event) => void;
 	getState: () => State;

@@ -1,4 +1,6 @@
 /** Per core, keyed by actual acquired adapter (isolated instances stay separate). */
+declare const __IGNITE_DEV_WARNINGS__: boolean;
+
 export function createEventOrigins() {
 	let owners = new WeakMap<object, Map<string, number>>();
 	let ended = false;

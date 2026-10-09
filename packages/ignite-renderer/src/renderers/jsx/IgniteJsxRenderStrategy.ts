@@ -10,6 +10,8 @@ import {
 } from "./renderer";
 import type { IgniteJsxChild } from "./types";
 
+declare const __IGNITE_DEV_WARNINGS__: boolean;
+
 class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 	private contentRoot: HTMLElement | null = null;
 	private previousTree: NormalizedNode[] | null = null;

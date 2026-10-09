@@ -7,6 +7,8 @@ import {
 	normalizeChildren,
 } from "./types";
 
+declare const __IGNITE_DEV_WARNINGS__: boolean;
+
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const CAMEL_CASE_SVG_ATTRS = new Set([
 	"viewBox",
