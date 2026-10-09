@@ -27,6 +27,7 @@ type NormalizedNode =
 			props: IgniteJsxProps;
 			children: NormalizedNode[];
 			namespace?: string;
+			key?: string | number | null;
 	  }
 	| { kind: "text"; value: string }
 	| { kind: "comment"; comment?: string };
@@ -91,7 +92,9 @@ export function renderIgniteJsx(
 }
 
 function normalizeRoot(view: IgniteJsxChild): NormalizedNode[] {
-	return normalizeChild(view, undefined);
+	const nodes = normalizeChild(view, undefined);
+	warnInvalidKeys(nodes);
+	return nodes;
 }
 
 function normalizeChild(
@@ -120,14 +123,17 @@ function normalizeChild(
 	}
 
 	if (node.type === Fragment) {
-		return normalizeChildren(node.props.children).flatMap((child) =>
-			normalizeChild(child, namespace),
+		return applySlotKey(
+			node.key,
+			normalizeChildren(node.props.children).flatMap((child) =>
+				normalizeChild(child, namespace),
+			),
 		);
 	}
 
 	if (typeof node.type === "function") {
 		const result = node.type(node.props);
-		return normalizeChild(result, namespace);
+		return applySlotKey(node.key, normalizeChild(result, namespace));
 	}
 
 	const tagName = String(node.type);
@@ -144,6 +150,7 @@ function normalizeChild(
 		: normalizeChildren(node.props.children).flatMap((child) =>
 				normalizeChild(child, childNamespace),
 			);
+	warnInvalidKeys(normalizedChildren);
 
 	return [
 		{
@@ -152,8 +159,326 @@ function normalizeChild(
 			props: node.props,
 			namespace: useSvgNamespace ? SVG_NAMESPACE : undefined,
 			children: normalizedChildren,
+			key: node.key ?? null,
 		},
 	];
+}
+
+type RefDisposer = () => void | PromiseLike<void>;
+
+type RefCallback = (
+	element: Element | null,
+) => void | RefDisposer | PromiseLike<void>;
+
+interface ElementMount {
+	ref: RefCallback | null;
+	/** Disposer returned by the current ref. Absent when the ref returns nothing. */
+	cleanup: RefDisposer | null;
+	hooks: Array<() => void>;
+	unmounted: boolean;
+	/** True after a true-disconnect release that kept the callback for reacquire. */
+	released: boolean;
+}
+
+const elementMounts = new WeakMap<Node, ElementMount>();
+const subtreeOwners = new WeakSet<Element>();
+const deprecatedContentWarnings = new WeakMap<Element, Set<string>>();
+
+function isDevelopment(): boolean {
+	// Exact expression so the production bundler can strip the warning.
+	return process.env.NODE_ENV !== "production";
+}
+
+function nodeKey(node: NormalizedNode): string | number | undefined {
+	if (node.kind !== "element" || node.key == null) return undefined;
+	return node.key;
+}
+
+type KeyShape = "none" | "keyed" | "duplicate" | "mixed";
+
+function isMaterialSibling(node: NormalizedNode): boolean {
+	return node.kind !== "comment";
+}
+
+function classifyKeys(children: NormalizedNode[]): KeyShape {
+	const seen = new Set<string | number>();
+	let keyed = 0;
+	let material = 0;
+	for (const child of children) {
+		if (!isMaterialSibling(child)) continue;
+		material += 1;
+		const key = nodeKey(child);
+		if (key === undefined) continue;
+		if (seen.has(key)) return "duplicate";
+		seen.add(key);
+		keyed += 1;
+	}
+	if (keyed === 0) return "none";
+	if (keyed !== material) return "mixed";
+	return "keyed";
+}
+
+function duplicateKey(children: NormalizedNode[]): string | number | undefined {
+	const seen = new Set<string | number>();
+	for (const child of children) {
+		const key = nodeKey(child);
+		if (key === undefined) continue;
+		if (seen.has(key)) return key;
+		seen.add(key);
+	}
+	return undefined;
+}
+
+function warnInvalidKeys(children: NormalizedNode[]): void {
+	if (!isDevelopment()) return;
+	const shape = classifyKeys(children);
+	if (shape === "duplicate") {
+		const key = duplicateKey(children);
+		console.warn(
+			`[ignite-jsx] Duplicate key "${String(key)}" among siblings. Keys must be unique.`,
+		);
+		return;
+	}
+	if (shape === "mixed") {
+		console.warn(
+			"[ignite-jsx] Mixed keyed and unkeyed siblings. The list will match by position.",
+		);
+	}
+}
+
+function applySlotKey(
+	key: string | number | null | undefined,
+	nodes: NormalizedNode[],
+): NormalizedNode[] {
+	if (key == null) return nodes;
+	const material = nodes.filter(isMaterialSibling);
+	if (material.length === 1 && material[0]?.kind === "element") {
+		material[0].key = key;
+		return nodes;
+	}
+	if (isDevelopment()) {
+		console.warn(
+			`[ignite-jsx] Key "${String(key)}" requires a single element, but the component returned ${material.length} nodes.`,
+		);
+	}
+	return nodes;
+}
+
+function warnDeprecatedContentProp(
+	element: Element,
+	key: "innerHTML" | "textContent",
+): void {
+	if (!isDevelopment()) return;
+	let seen = deprecatedContentWarnings.get(element);
+	if (!seen) {
+		seen = new Set();
+		deprecatedContentWarnings.set(element, seen);
+	}
+	if (seen.has(key)) return;
+	seen.add(key);
+	console.warn(
+		`[ignite-jsx] \`${key}\` is deprecated and will be removed in the next major release. Use JSX children for text, and hosts for trusted rich content.`,
+	);
+}
+
+function ensureMount(node: Node): ElementMount {
+	let mount = elementMounts.get(node);
+	if (!mount) {
+		mount = {
+			ref: null,
+			cleanup: null,
+			hooks: [],
+			unmounted: false,
+			released: false,
+		};
+		elementMounts.set(node, mount);
+	}
+	return mount;
+}
+
+/** Hosts claim an element so the differ never touches its subtree. */
+export function claimSubtree(element: Element): void {
+	subtreeOwners.add(element);
+}
+
+/**
+ * Register a hook on the shared unmount path. It runs before the node is
+ * detached, exactly once.
+ */
+export function onIgniteUnmount(node: Node, hook: () => void): void {
+	const mount = ensureMount(node);
+	if (mount.unmounted) return;
+	mount.hooks.push(hook);
+}
+
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+	return (
+		(typeof value === "object" || typeof value === "function") &&
+		value !== null &&
+		"then" in value &&
+		typeof (value as { then?: unknown }).then === "function"
+	);
+}
+
+function reportRendererError(node: Node, error: unknown): void {
+	const root = node.getRootNode();
+	const host = root instanceof ShadowRoot ? root.host : null;
+	const candidate = host as {
+		handleError?: (error: unknown) => void;
+		onError?: (error: unknown) => void;
+	} | null;
+	const handler = candidate?.handleError ?? candidate?.onError;
+	if (typeof handler === "function") {
+		try {
+			handler.call(host, error);
+			return;
+		} catch (handlerError) {
+			console.error("[ignite-jsx] Error handler failed.", handlerError);
+		}
+	}
+	console.error("[ignite-jsx] Callback failed.", error);
+}
+
+function observeRejection(node: Node, result: unknown): void {
+	if (!isPromiseLike(result)) return;
+	Promise.resolve(result).then(undefined, (error: unknown) => {
+		reportRendererError(node, error);
+	});
+}
+
+function invokeContained(node: Node, callback: () => unknown): void {
+	try {
+		observeRejection(node, callback());
+	} catch (error) {
+		reportRendererError(node, error);
+	}
+}
+
+function releaseStoredRef(node: Node, mount: ElementMount): void {
+	const ref = mount.ref;
+	const cleanup = mount.cleanup;
+	mount.ref = null;
+	mount.cleanup = null;
+	if (!ref) return;
+	if (cleanup) {
+		invokeContained(node, cleanup);
+		return;
+	}
+	invokeContained(node, () => ref(null));
+}
+
+/** Shared unmount path. Runs before detach, exactly once per mount. */
+export function unmountIgniteSubtree(node: Node): void {
+	if (
+		node.nodeType === Node.ELEMENT_NODE ||
+		node.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+	) {
+		for (const child of Array.from(node.childNodes)) {
+			unmountIgniteSubtree(child);
+		}
+	}
+	const mount = elementMounts.get(node);
+	if (!mount || mount.unmounted) return;
+	mount.unmounted = true;
+	const hooks = mount.hooks.splice(0, mount.hooks.length);
+	for (const hook of hooks) invokeContained(node, hook);
+	releaseStoredRef(node, mount);
+	elementMounts.delete(node);
+}
+
+function assignRef(element: Element, ref: unknown): void {
+	const mount = ensureMount(element);
+	if (mount.unmounted) return;
+	const next = typeof ref === "function" ? (ref as RefCallback) : null;
+	if (mount.ref === next && !mount.released) return;
+	if (mount.ref && !mount.released) {
+		const previous = mount.ref;
+		const cleanup = mount.cleanup;
+		mount.ref = null;
+		mount.cleanup = null;
+		if (cleanup) invokeContained(element, cleanup);
+		else invokeContained(element, () => previous(null));
+	}
+	mount.ref = next;
+	mount.cleanup = null;
+	mount.released = false;
+	if (!next) return;
+	try {
+		const result = next(element);
+		if (typeof result === "function") {
+			mount.cleanup = result;
+			return;
+		}
+		observeRejection(element, result);
+	} catch (error) {
+		mount.cleanup = null;
+		reportRendererError(element, error);
+	}
+}
+
+function releaseNodeRefs(node: Node): void {
+	if (
+		node.nodeType === Node.ELEMENT_NODE ||
+		node.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+	) {
+		for (const child of Array.from(node.childNodes)) {
+			releaseNodeRefs(child);
+		}
+	}
+	const mount = elementMounts.get(node);
+	if (!mount || mount.unmounted || mount.released || !mount.ref) return;
+	const ref = mount.ref;
+	const cleanup = mount.cleanup;
+	mount.cleanup = null;
+	mount.released = true;
+	if (cleanup) invokeContained(node, cleanup);
+	else invokeContained(node, () => ref(null));
+}
+
+function reacquireNodeRefs(node: Node): void {
+	if (node instanceof Element) {
+		const mount = elementMounts.get(node);
+		if (mount && !mount.unmounted && mount.released && mount.ref) {
+			const ref = mount.ref;
+			mount.released = false;
+			mount.cleanup = null;
+			try {
+				const result = ref(node);
+				if (typeof result === "function") mount.cleanup = result;
+				else observeRejection(node, result);
+			} catch (error) {
+				mount.cleanup = null;
+				reportRendererError(node, error);
+			}
+		}
+	}
+	if (
+		node.nodeType === Node.ELEMENT_NODE ||
+		node.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+	) {
+		for (const child of Array.from(node.childNodes)) {
+			reacquireNodeRefs(child);
+		}
+	}
+}
+
+/** Release one-shot refs after a true disconnect without removing DOM. */
+export function releaseMountedView(root: ParentNode): void {
+	for (const child of Array.from(root.childNodes)) {
+		releaseNodeRefs(child);
+	}
+}
+
+/** Acquire one-shot refs again after a later reconnect. */
+export function reacquireMountedView(root: ParentNode): void {
+	for (const child of Array.from(root.childNodes)) {
+		reacquireNodeRefs(child);
+	}
+}
+
+function detachChild(parent: ParentNode, child: ChildNode): void {
+	unmountIgniteSubtree(child);
+	parent.removeChild(child);
 }
 
 function patchChildren(
@@ -162,6 +487,16 @@ function patchChildren(
 	newChildren: NormalizedNode[],
 	onFallbackReplace?: (reason: string) => void,
 ): boolean {
+	const nextShape = classifyKeys(newChildren);
+	const previousShape = classifyKeys(oldChildren);
+	if (nextShape === "keyed" && !keyShapeIsInvalid(previousShape)) {
+		return patchKeyedChildren(
+			parent,
+			oldChildren,
+			newChildren,
+			onFallbackReplace,
+		);
+	}
 	if (!isAppendOnlyCompatible(oldChildren, newChildren)) {
 		// Instead of full replacement, try positional patching.
 		// This preserves existing elements when siblings change kind.
@@ -181,12 +516,12 @@ function patchChildren(
 			} else if (i >= oldChildren.length) {
 				parent.appendChild(createDomFromNormalized(newChildren[i]));
 			} else if (i >= newChildren.length && domChild) {
-				parent.removeChild(domChild);
+				detachChild(parent, domChild);
 			}
 		}
 		// Remove any extra trailing DOM nodes
 		while (parent.childNodes.length > newChildren.length && parent.lastChild) {
-			parent.removeChild(parent.lastChild);
+			detachChild(parent, parent.lastChild);
 		}
 		return true;
 	}
@@ -216,9 +551,117 @@ function patchChildren(
 	return true;
 }
 
+function patchKeyedChildren(
+	parent: ParentNode,
+	oldChildren: NormalizedNode[],
+	newChildren: NormalizedNode[],
+	onFallbackReplace?: (reason: string) => void,
+): boolean {
+	const domNodes = Array.from(parent.childNodes);
+	if (domNodes.length < oldChildren.length) return false;
+	const focused = focusedWithin(parent);
+
+	const oldDom = domNodes.slice(0, oldChildren.length);
+	const byKey = new Map<
+		string | number,
+		{ index: number; node: NormalizedNode; dom: ChildNode }
+	>();
+	const unkeyedOld: number[] = [];
+	for (let index = 0; index < oldChildren.length; index++) {
+		const key = nodeKey(oldChildren[index]);
+		if (key === undefined) {
+			unkeyedOld.push(index);
+			continue;
+		}
+		if (!byKey.has(key)) {
+			byKey.set(key, { index, node: oldChildren[index], dom: oldDom[index] });
+		}
+	}
+
+	const used = new Set<number>();
+	const nextDom: ChildNode[] = [];
+	let unkeyedCursor = 0;
+	for (const child of newChildren) {
+		const key = nodeKey(child);
+		if (key !== undefined) {
+			const match = byKey.get(key);
+			if (match && !used.has(match.index)) {
+				used.add(match.index);
+				const patched = patchNode(
+					match.dom,
+					match.node,
+					child,
+					onFallbackReplace,
+				);
+				if (patched !== match.dom && match.dom.parentNode) {
+					match.dom.parentNode.removeChild(match.dom);
+				}
+				nextDom.push(patched);
+				continue;
+			}
+			nextDom.push(createDomFromNormalized(child));
+			continue;
+		}
+
+		const oldIndex = unkeyedOld[unkeyedCursor++];
+		if (oldIndex !== undefined && !used.has(oldIndex)) {
+			used.add(oldIndex);
+			const dom = oldDom[oldIndex];
+			const patched = patchNode(
+				dom,
+				oldChildren[oldIndex],
+				child,
+				onFallbackReplace,
+			);
+			if (patched !== dom && dom.parentNode) dom.parentNode.removeChild(dom);
+			nextDom.push(patched);
+			continue;
+		}
+		nextDom.push(createDomFromNormalized(child));
+	}
+
+	for (let index = 0; index < oldChildren.length; index++) {
+		if (!used.has(index)) detachChild(parent, oldDom[index]);
+	}
+
+	let cursor: ChildNode | null = parent.firstChild;
+	for (const node of nextDom) {
+		if (node === cursor) {
+			cursor = node.nextSibling;
+			continue;
+		}
+		parent.insertBefore(node, cursor);
+	}
+	// Moving a node drops focus in some DOM implementations. Restore the
+	// element that was focused inside this parent, including inside a shadow root.
+	const current = focusedWithin(parent);
+	if (focused?.isConnected && current !== focused) {
+		focused.focus();
+	}
+	return true;
+}
+
+function focusedWithin(parent: ParentNode): HTMLElement | null {
+	const root = parent.getRootNode();
+	const active =
+		root instanceof Document || root instanceof ShadowRoot
+			? root.activeElement
+			: null;
+	if (!(active instanceof HTMLElement)) return null;
+	const doc = parent.ownerDocument ?? document;
+	if (active === doc.body || active === parent) return null;
+	if (!parent.contains(active)) return null;
+	return active;
+}
+
+function keyShapeIsInvalid(shape: KeyShape): boolean {
+	return shape === "duplicate" || shape === "mixed";
+}
+
 // Props whose value imperatively replaces the element's entire subtree as a DOM
 // property. Nodes they create are not tracked by the normalized children model,
 // so the child diff must defer to them rather than reconcile against them.
+// Hosts claim the same rule through `claimSubtree`.
 const SUBTREE_OWNING_PROPS = ["innerHTML", "textContent"] as const;
 
 function ownsSubtreeViaProps(props: IgniteJsxProps): boolean {
@@ -231,6 +674,18 @@ function ownsSubtreeViaProps(props: IgniteJsxProps): boolean {
 	return false;
 }
 
+function subtreeIsOwned(element: Element, props: IgniteJsxProps): boolean {
+	return subtreeOwners.has(element) || ownsSubtreeViaProps(props);
+}
+
+function replaceMounted(
+	domNode: ChildNode,
+	newNode: NormalizedNode,
+): ChildNode {
+	unmountIgniteSubtree(domNode);
+	return createDomFromNormalized(newNode);
+}
+
 function patchNode(
 	domNode: ChildNode,
 	oldNode: NormalizedNode,
@@ -238,12 +693,12 @@ function patchNode(
 	onFallbackReplace?: (reason: string) => void,
 ): ChildNode {
 	if (oldNode.kind !== newNode.kind) {
-		return createDomFromNormalized(newNode);
+		return replaceMounted(domNode, newNode);
 	}
 
 	if (newNode.kind === "text") {
 		if (domNode.nodeType !== Node.TEXT_NODE) {
-			return createDomFromNormalized(newNode);
+			return replaceMounted(domNode, newNode);
 		}
 		if (domNode.textContent !== newNode.value) {
 			domNode.textContent = newNode.value;
@@ -253,7 +708,7 @@ function patchNode(
 
 	if (newNode.kind === "comment") {
 		if (domNode.nodeType !== Node.COMMENT_NODE) {
-			return createDomFromNormalized(newNode);
+			return replaceMounted(domNode, newNode);
 		}
 		return domNode;
 	}
@@ -265,7 +720,7 @@ function patchNode(
 
 	if (isNoDiffDenylistedTag(newNode.tag)) {
 		onFallbackReplace?.(`denylist:${newNode.tag.toLowerCase()}`);
-		return createDomFromNormalized(newNode);
+		return replaceMounted(domNode, newNode);
 	}
 
 	if (
@@ -274,26 +729,27 @@ function patchNode(
 			(newNode.namespace ?? (domNode as Element).namespaceURI) ||
 		(domNode as Element).tagName.toLowerCase() !== newNode.tag.toLowerCase()
 	) {
-		return createDomFromNormalized(newNode);
+		return replaceMounted(domNode, newNode);
 	}
 
 	const elementNode = domNode as Element & ParentNode;
 
 	patchProps(elementNode, oldNode.props, newNode.props);
 
-	// `innerHTML` / `textContent` imperatively own the element's subtree, which
-	// the normalized children model does not track. If the new render owns the
-	// subtree, `patchProps` already applied it — skip child diffing so the
+	// A subtree owner (innerHTML, textContent, or a host claim) is opaque.
+	// patchProps already applied the owning prop — skip child diffing so the
 	// positional patch does not desync against untracked DOM nodes (issue #57).
-	if (ownsSubtreeViaProps(newNode.props)) {
+	if (subtreeIsOwned(elementNode, newNode.props)) {
+		assignRef(elementNode, newNode.props.ref);
 		return domNode;
 	}
-	// If the PREVIOUS render owned the subtree but this one renders JSX children,
-	// hard-clear the imperatively-managed content before reconciling so stale or
-	// duplicate nodes are not left behind (the append-only path would otherwise
-	// keep them).
+	// If the PREVIOUS render owned the subtree via props but this one renders
+	// JSX children, hard-clear the imperatively-managed content before
+	// reconciling so stale or duplicate nodes are not left behind.
 	if (ownsSubtreeViaProps(oldNode.props)) {
-		elementNode.replaceChildren();
+		while (elementNode.firstChild) {
+			detachChild(elementNode, elementNode.firstChild);
+		}
 	}
 
 	const childNamespace =
@@ -317,13 +773,14 @@ function patchNode(
 	) {
 		// fallback replace
 		while (elementNode.firstChild) {
-			elementNode.removeChild(elementNode.firstChild);
+			detachChild(elementNode, elementNode.firstChild);
 		}
 		for (const child of mappedChildren) {
 			elementNode.appendChild(createDomFromNormalized(child));
 		}
 	}
 
+	assignRef(elementNode, newNode.props.ref);
 	return domNode;
 }
 
@@ -345,6 +802,7 @@ function createDomFromNormalized(node: NormalizedNode): ChildNode {
 			for (const child of node.children) {
 				element.appendChild(createDomFromNormalized(child));
 			}
+			assignRef(element, node.props.ref);
 			return element;
 		}
 	}
@@ -420,6 +878,19 @@ function patchProps(
 	for (const [key, next] of Object.entries(newProps)) {
 		if (key === "children" || key === "ref") continue;
 		const prev = oldProps[key];
+		if (
+			(key === "innerHTML" || key === "textContent") &&
+			next !== undefined &&
+			next !== null &&
+			next !== false
+		) {
+			warnDeprecatedContentProp(element, key);
+			if (next !== prev) {
+				for (const child of Array.from(element.childNodes)) {
+					unmountIgniteSubtree(child);
+				}
+			}
+		}
 
 		if (key === "class" || key === "className") {
 			const nextClass = next !== false && next != null ? String(next) : "";
@@ -595,7 +1066,7 @@ function isComposingInput(element: HTMLElement): boolean {
 
 function replaceAll(parent: ParentNode, children: NormalizedNode[]): void {
 	while (parent.firstChild) {
-		parent.removeChild(parent.firstChild);
+		detachChild(parent, parent.firstChild);
 	}
 	for (const child of children) {
 		parent.appendChild(createDomFromNormalized(child));

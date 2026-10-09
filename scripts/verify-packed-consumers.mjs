@@ -314,8 +314,12 @@ function verifyConsumer(lane, tarballPaths) {
 							? ["ES2022", "DOM", "ESNext.Collection"]
 							: ["ES2022", "DOM"],
 					module: "ESNext",
-					jsx: "react-jsx",
-					jsxImportSource: "ignite-element/jsx",
+					...(lane.noDom
+						? {}
+						: {
+								jsx: "react-jsx",
+								jsxImportSource: "ignite-element/jsx",
+							}),
 					moduleResolution: "Bundler",
 					noEmit: true,
 					resolveJsonModule: true,
@@ -324,7 +328,7 @@ function verifyConsumer(lane, tarballPaths) {
 					target: "ES2022",
 				},
 				include: [
-					"consumer.tsx",
+					lane.noDom ? "consumer.ts" : "consumer.tsx",
 					"factory.ts",
 					"removed-*.ts",
 					"native-events.tsx",
@@ -392,12 +396,13 @@ assert.throws(() => require.resolve("lit-html"), { code: "MODULE_NOT_FOUND" });`
 	);
 	if (lane.noDom) {
 		writeFileSync(
-			join(consumerDirectory, "consumer.tsx"),
+			join(consumerDirectory, "consumer.ts"),
 			readFileSync(
 				join(repositoryRoot, "scripts/__tests__/fixtures", `${lane.name}.ts`),
 				"utf8",
 			),
 		);
+		rmSync(join(consumerDirectory, "consumer.tsx"));
 	}
 	if (lane.name === "neutral-mobx" || lane.name === "neutral-redux") {
 		writeFileSync(
@@ -688,6 +693,26 @@ const core = igniteCore();
 const explicit = igniteCore(undefined);
 const empty = igniteCore({});
 core("packed-layout", () => <><style>{":host{display:grid}"}</style><main><slot /></main></>);
+const packedCanvas = (
+	<canvas
+		ref={(node) => {
+			if (!node) return;
+			const context: CanvasRenderingContext2D | null = node.getContext("2d");
+			void context;
+		}}
+	/>
+);
+void packedCanvas;
+const packedDiv = (
+	<div
+		ref={(node) => {
+			if (!node) return;
+			// @ts-expect-error a div ref is the div, not a canvas
+			node.getContext("2d");
+		}}
+	/>
+);
+void packedDiv;
 explicit("packed-explicit", () => null);
 empty("packed-empty", () => <button onClick={() => {}}>Run</button>);
 // @ts-expect-error renderer has no source argument

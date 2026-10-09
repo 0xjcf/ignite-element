@@ -60,7 +60,7 @@ For an intrinsic element of type `T extends Element`, their effective callback
 shapes are:
 
 ```ts
-ref?: (node: T) => void | (() => void | PromiseLike<void>);
+ref?: (node: T | null) => void | (() => void | PromiseLike<void>);
 commit?: (node: T) => void;
 ```
 
@@ -69,12 +69,19 @@ the `igniteCore` configuration or headless runtime.
 
 ### Ref semantics
 
-- `ref` receives the actual element and never receives `null`.
-- A returned function is the one cleanup associated with the `(node, ref)` pair.
+- `ref` is called with the element on mount, after that element's props and
+  children reconcile.
+- If the callback returns a function, that disposer is the cleanup for the
+  `(node, ref)` pair. It runs on unmount, true disconnect, and ref swap. The
+  callback is not also called with `null`.
+- If the callback returns nothing, Ignite calls that same callback with `null`
+  on unmount, true disconnect, and ref swap.
 - Stable node plus stable ref identity does not reacquire on ordinary renders.
-- A changed ref identity invokes the old cleanup, then acquires with the new ref.
-- The runtime consumes a stored cleanup before invoking it, preventing reentrant
-  double cleanup.
+- A changed ref identity runs the old cleanup (the disposer, or `ref(null)` when
+  the old callback returned nothing), then acquires with the new ref. Swapping
+  from either style to the other uses that same order.
+- The runtime consumes a stored disposer before invoking it, preventing
+  reentrant double cleanup.
 - Cleanup may return a promise-like value. Ignite observes rejection but does not
   await completion before reconciliation or detach continues.
 
@@ -174,9 +181,10 @@ and `queueMicrotask`. Ignite does not standardize that policy in this slice.
 
 ## Lifecycle conformance matrix
 
-"Cleanup" below means that Ignite removes the stored cleanup from its registry
-before invoking it. Async cleanup invocation is ordered, but completion is not
-awaited.
+"Cleanup" below means the stored disposer when the ref returned a function, or a
+call of that same callback with `null` when it returned nothing. Ignite does not
+do both. A stored disposer is removed from the registry before it is invoked.
+Async cleanup invocation is ordered, but completion is not awaited.
 
 | Scenario | DOM identity | Ref cleanup/acquisition | `commit` |
 | --- | --- | --- | --- |
@@ -215,9 +223,9 @@ awaited.
 | Key exists but kind/tag/namespace is incompatible | Identity is incompatible. | Cleanup old node and replace/acquire a new one. |
 | Key changes | Old key is removed and new key inserted. | Replacement semantics even when the tag is unchanged. |
 | Keyed insertion/removal | Match all other keys. | Acquire only the inserted node; cleanup only the removed node. |
-| Duplicate keys | Invalid keyed list. | Emit a development diagnostic and deterministically replace the whole sibling list. Never guess a winner. |
-| Mixed keyed and unkeyed siblings | Invalid keyed list. | Emit a development diagnostic and deterministically replace the whole sibling list. Never combine identity models. |
-| Keyed component/fragment does not normalize to one material node | Invalid keyed slot. | Diagnose and replace the sibling list; range identity is outside this contract. |
+| Duplicate keys | Invalid keyed list. | Emit a development diagnostic and match the siblings by position. Do not guess a keyed winner and do not replace the whole list. |
+| Mixed keyed and unkeyed siblings | Invalid keyed list. | Emit a development diagnostic and match the siblings by position. Do not combine identity models and do not replace the whole list. |
+| Keyed component/fragment does not normalize to one material node | Invalid keyed slot. | Diagnose in development and reconcile the resulting nodes by position. Range identity is outside this contract. |
 
 Keys remain private JSX identity metadata and never become DOM properties or
 attributes. The current runtime already supplies keys separately from props.
@@ -309,7 +317,7 @@ key, canvas, or Mesh Pong slices.
 | Per-core scheduling configuration | Rejected. It expands source configuration and freezes cross-cutting ordering semantics before dogfood establishes a framework need. |
 | Renderer scheduler in the lifecycle task | Rejected. Consumer-owned queues are sufficient to dogfood the primitive; scheduling remains an evidence verdict. |
 | Drawing in effects | Rejected. Presentation must occur on initial mount and belongs to DOM commit, while effects remain consequences. [effects.ts:63-123](../packages/ignite-element/src/runtime/effects.ts#L63-L123) |
-| Pass `null` to refs on teardown | Rejected. A returned cleanup is local, typed contextually, and unambiguous. |
+| Call `ref(null)` when the callback returned a disposer | Rejected. Call that disposer and do not also call `ref(null)`. A callback that returns nothing is still called with `null` on unmount, disconnect, and ref swap. |
 | Await async cleanup before DOM progress | Rejected. Invoke in order, observe rejection, and continue so teardown cannot stall indefinitely. |
 | Retained-node projection target | Rejected. Artifact targets deliver document/speech channels; DOM identity is renderer-local. |
 | Canvas/WebGL/editor-specific core API | Rejected. The lifecycle must work for any element-backed imperative resource. |

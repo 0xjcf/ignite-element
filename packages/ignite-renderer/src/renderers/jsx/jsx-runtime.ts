@@ -54,5 +54,6 @@ export function jsxDEV(
 	return createElement(type, props, key);
 }
 
+export type { JSX } from "./types";
 export { Fragment };
 export type { IgniteJsxChild, IgniteJsxElement, IgniteJsxProps };

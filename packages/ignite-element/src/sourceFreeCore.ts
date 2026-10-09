@@ -1,5 +1,9 @@
 import type { IgniteJsxChild } from "@ignite-element/renderer";
-import { mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";
+import {
+	mountIgniteJsxOnce,
+	reacquireMountedView,
+	releaseMountedView,
+} from "@ignite-element/renderer/jsx";
 import { getIgniteElementClasses } from "./IgniteElement";
 import { requireDomRegistration } from "./internal/requireDomRegistration";
 
@@ -30,9 +34,14 @@ export function igniteCore(
 		class SourceFreeElement extends IgniteMoveSafeLifecycleElement {
 			private readonly root = this.attachShadow({ mode: "open" });
 			private mounted = false;
+			private refsReleased = false;
 
 			connectedCallback(): void {
 				this.cancelDisconnectTeardown();
+				if (this.refsReleased) {
+					this.refsReleased = false;
+					reacquireMountedView(this.root);
+				}
 				if (this.mounted) return;
 				try {
 					mountIgniteJsxOnce(this.root, render());
@@ -43,6 +52,13 @@ export function igniteCore(
 						error,
 					);
 				}
+			}
+
+			disconnectedCallback(): void {
+				this.scheduleDisconnectTeardown(() => {
+					releaseMountedView(this.root);
+					this.refsReleased = true;
+				});
 			}
 		}
 

@@ -59,6 +59,10 @@ export class AutoDetectRenderStrategy implements RenderStrategy<unknown> {
 		this.renderer = null;
 	}
 
+	releaseView(): void {
+		this.delegate?.releaseView?.();
+	}
+
 	private useRenderer(renderer: string): void {
 		this.delegate?.detach?.();
 		const next = resolveRenderStrategy(renderer)() as RenderStrategy<unknown>;
