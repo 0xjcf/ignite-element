@@ -13,6 +13,8 @@ const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 // Spec nodeType values. Disconnect cleanup runs in example tests that have
 // elements but no DOM `Node` constructor.
 const ELEMENT_NODE = 1;
+const TEXT_NODE = 3;
+const COMMENT_NODE = 8;
 const DOCUMENT_FRAGMENT_NODE = 11;
 const CAMEL_CASE_SVG_ATTRS = new Set([
 	"viewBox",
@@ -423,8 +425,8 @@ function assignRef(element: Element, ref: unknown): void {
 
 function releaseNodeRefs(node: Node): void {
 	if (
-		node.nodeType === Node.ELEMENT_NODE ||
-		node.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+		node.nodeType === ELEMENT_NODE ||
+		node.nodeType === DOCUMENT_FRAGMENT_NODE
 	) {
 		for (const child of Array.from(node.childNodes)) {
 			releaseNodeRefs(child);
@@ -457,8 +459,8 @@ function reacquireNodeRefs(node: Node): void {
 		}
 	}
 	if (
-		node.nodeType === Node.ELEMENT_NODE ||
-		node.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+		node.nodeType === ELEMENT_NODE ||
+		node.nodeType === DOCUMENT_FRAGMENT_NODE
 	) {
 		for (const child of Array.from(node.childNodes)) {
 			reacquireNodeRefs(child);
@@ -701,7 +703,7 @@ function patchNode(
 	}
 
 	if (newNode.kind === "text") {
-		if (domNode.nodeType !== Node.TEXT_NODE) {
+		if (domNode.nodeType !== TEXT_NODE) {
 			return replaceMounted(domNode, newNode);
 		}
 		if (domNode.textContent !== newNode.value) {
@@ -711,7 +713,7 @@ function patchNode(
 	}
 
 	if (newNode.kind === "comment") {
-		if (domNode.nodeType !== Node.COMMENT_NODE) {
+		if (domNode.nodeType !== COMMENT_NODE) {
 			return replaceMounted(domNode, newNode);
 		}
 		return domNode;
@@ -728,7 +730,7 @@ function patchNode(
 	}
 
 	if (
-		domNode.nodeType !== Node.ELEMENT_NODE ||
+		domNode.nodeType !== ELEMENT_NODE ||
 		(domNode as Element).namespaceURI !==
 			(newNode.namespace ?? (domNode as Element).namespaceURI) ||
 		(domNode as Element).tagName.toLowerCase() !== newNode.tag.toLowerCase()

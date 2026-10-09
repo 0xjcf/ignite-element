@@ -5,6 +5,7 @@
 	"module": "dist/ignite-renderer.es.js",
 	"types": "dist/types/index.d.ts",
 	"description": "Advanced renderer and runtime utilities for ignite-element.",
+	"license": "MIT",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/0xjcf/ignite-element.git"

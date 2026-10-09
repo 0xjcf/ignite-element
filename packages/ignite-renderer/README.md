@@ -22,7 +22,7 @@ Normal `ignite-element` facade and JSX consumers do not need a direct scoped-pac
 
 Duplicate-key and deprecated `innerHTML` / `textContent` warnings are compiled into the `development` export. The `production` and `default` exports omit them, and those files do not reference `process`.
 
-Vite and webpack select `development` or `production` from the build mode. A consumer that ignores export conditions gets `default`, which is the production build.
+Vite and webpack select `development` or `production` from the build mode. A consumer that ignores export conditions gets `default`, which is the production build. `vite build --mode development` still selects the production file, because Vite's build sets `NODE_ENV=production`. Only the dev server, or an explicit `NODE_ENV=development`, picks the development build.
 
 Rollup needs the condition explicitly:
 
