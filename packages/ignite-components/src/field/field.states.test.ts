@@ -10,7 +10,7 @@ import { expectCloneable } from "../testing/host-seal";
 import { fieldContract } from "./field.contract";
 import { createFieldCore, fieldProjection } from "./field.core";
 import { type FieldFixtureInput, fieldGallery } from "./field.gallery";
-import { fieldMachine } from "./field.source";
+import { type FieldContext, fieldMachine } from "./field.source";
 
 async function show(input: FieldFixtureInput) {
 	const core = createFieldCore();
@@ -252,5 +252,31 @@ describe("Field states", () => {
 			})
 			.setValue("Buy milk");
 		expect(sent).toEqual([{ type: "SET_VALUE", value: "Buy milk" }]);
+	});
+
+	it("leaves context alone when an action sees the wrong event", () => {
+		const actor = createActor(fieldMachine, { input: { value: "Buy milk" } });
+		actor.start();
+		try {
+			const context = actor.getSnapshot().context;
+			for (const name of ["applyValue", "applyError"] as const) {
+				const action = fieldMachine.implementations.actions[
+					name
+				] as unknown as {
+					assignment: (args: {
+						context: FieldContext;
+						event: { type: string };
+					}) => Record<string, unknown>;
+				};
+				expect(
+					action.assignment({
+						context,
+						event: { type: "NOT_THIS" },
+					}),
+				).toEqual({});
+			}
+		} finally {
+			actor.stop();
+		}
 	});
 });
