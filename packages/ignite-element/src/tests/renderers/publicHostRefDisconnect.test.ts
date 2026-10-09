@@ -47,7 +47,7 @@ describe("public igniteCore host disconnect", () => {
 	});
 });
 
-function mountHost(ref: (element: Element | null) => void | (() => void)) {
+function mountHost(ref: (element: Element | null) => unknown) {
 	const core = igniteCore({ source: createMachine({}) });
 	const name = `public-host-ref-${crypto.randomUUID()}`;
 	core(name, () => jsx("input", { ref, "aria-label": "hosted" }));

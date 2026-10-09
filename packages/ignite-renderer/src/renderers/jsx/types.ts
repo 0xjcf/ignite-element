@@ -40,7 +40,7 @@ export function normalizeChildren(
 }
 
 type IgniteRefCallback<T extends Element> = {
-	bivarianceHack(node: T): void | (() => void | PromiseLike<void>);
+	bivarianceHack(node: T | null): void | (() => void | PromiseLike<void>);
 }["bivarianceHack"];
 
 type IgniteTagProps<T extends Element> = {

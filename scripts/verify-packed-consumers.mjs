@@ -696,6 +696,7 @@ core("packed-layout", () => <><style>{":host{display:grid}"}</style><main><slot 
 const packedCanvas = (
 	<canvas
 		ref={(node) => {
+			if (!node) return;
 			const context: CanvasRenderingContext2D | null = node.getContext("2d");
 			void context;
 		}}
@@ -705,6 +706,7 @@ void packedCanvas;
 const packedDiv = (
 	<div
 		ref={(node) => {
+			if (!node) return;
 			// @ts-expect-error a div ref is the div, not a canvas
 			node.getContext("2d");
 		}}

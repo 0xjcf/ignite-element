@@ -60,7 +60,7 @@ For an intrinsic element of type `T extends Element`, their effective callback
 shapes are:
 
 ```ts
-ref?: (node: T) => void | (() => void | PromiseLike<void>);
+ref?: (node: T | null) => void | (() => void | PromiseLike<void>);
 commit?: (node: T) => void;
 ```
 
