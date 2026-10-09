@@ -39,6 +39,46 @@ export function normalizeChildren(
 	return Array.isArray(children) ? children : [children];
 }
 
+type IgniteRefCallback<T extends Element> = {
+	bivarianceHack(node: T): void | (() => void | PromiseLike<void>);
+}["bivarianceHack"];
+
+type IgniteTagProps<T extends Element> = {
+	ref?: IgniteRefCallback<T>;
+	children?: IgniteJsxChild;
+	[attribute: string]: unknown;
+};
+
+type IgniteKnownTags = {
+	[Tag in keyof HTMLElementTagNameMap]: IgniteTagProps<
+		HTMLElementTagNameMap[Tag]
+	>;
+} & {
+	[Tag in Exclude<
+		keyof SVGElementTagNameMap,
+		keyof HTMLElementTagNameMap
+	>]: IgniteTagProps<SVGElementTagNameMap[Tag]>;
+};
+
+export namespace JSX {
+	export type Element = IgniteJsxElement;
+	export interface ElementClass {
+		render: (...args: unknown[]) => IgniteJsxChild;
+	}
+	export interface ElementAttributesProperty {
+		props: IgniteJsxProps;
+	}
+	export interface ElementChildrenAttribute {
+		children: IgniteJsxChild;
+	}
+	export interface IntrinsicAttributes {
+		key?: string | number | null;
+	}
+	export interface IntrinsicElements extends IgniteKnownTags {
+		[element: string]: IgniteTagProps<globalThis.Element>;
+	}
+}
+
 declare global {
 	namespace JSX {
 		type Element = IgniteJsxElement;
