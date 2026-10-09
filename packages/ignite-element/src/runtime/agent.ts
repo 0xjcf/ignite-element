@@ -149,10 +149,11 @@ export function createAgentRuntime<
 	let prepared = false;
 	let preparing = false;
 	let preparedHost: EventTarget | undefined;
+	let externalSubscriptions = 0;
 	let currentStates: States;
 	let snapshot: Readonly<Record<string, unknown>>;
 	const bindingListeners = new Set<() => void>();
-	const prepare = (effects = true) => {
+	const prepare = (effects = true, inspect = true) => {
 		lifetime.assertActive();
 		if (prepared) return currentStates;
 		if (preparing)
@@ -182,11 +183,31 @@ export function createAgentRuntime<
 					),
 				});
 			};
-			const initialStates = resolveStates(adapter);
-			update(initialStates);
+			// Command activation subscribes without this read. The adapter's own
+			// replay, when it has one, still fills the cache.
+			let initialStates: States | undefined;
+			if (inspect) {
+				initialStates = resolveStates(adapter);
+				update(initialStates);
+			}
+			// MobX delivers this listener from inside autorun, which catches
+			// projection errors. Keep the first failure and rethrow it after the
+			// subscription returns, before the runtime is marked prepared.
+			let firstDeliveryError: unknown;
+			let acceptedDelivery = inspect;
 			const subscription = adapter.subscribeSnapshots((value) => {
 				if (!observing || !lifetime.active) return;
-				update(derive(value));
+				if (!acceptedDelivery) {
+					try {
+						update(derive(value));
+						acceptedDelivery = true;
+					} catch (error) {
+						firstDeliveryError ??= error;
+						return;
+					}
+				} else {
+					update(derive(value));
+				}
 				for (const listener of [...bindingListeners])
 					if (lifetime.active && bindingListeners.has(listener)) listener();
 			});
@@ -197,12 +218,13 @@ export function createAgentRuntime<
 				subscription.unsubscribe();
 			});
 			lifetime.assertActive();
+			if (firstDeliveryError) throw firstDeliveryError;
 			publishCatalogue(additionalArgs);
 			prepared = true;
 			preparedHost = resources.host;
 			// Synchronous replay updates the framework cache, but the public read
 			// still honors the configured snapshot resolver used for this read.
-			return initialStates;
+			return initialStates as States;
 		} catch (error) {
 			observing = false;
 			try {
@@ -285,8 +307,10 @@ export function createAgentRuntime<
 			});
 			installing = false;
 			previous = current;
+			externalSubscriptions += 1;
 			unsubscribe = lifetime.own(() => {
 				active = false;
+				externalSubscriptions -= 1;
 				subscription.unsubscribe();
 			});
 		} catch (error) {
@@ -395,7 +419,7 @@ export function createAgentRuntime<
 		lifetime.assertActive();
 		const resources = resolveRuntime();
 		activateHostEffects(resources.host);
-		const { additionalArgs } = resources;
+		const { adapter, additionalArgs } = resources;
 		const descriptor = Object.getOwnPropertyDescriptor(
 			additionalArgs,
 			call.command,
@@ -404,10 +428,23 @@ export function createAgentRuntime<
 			descriptor && "value" in descriptor ? descriptor.value : undefined;
 		if (typeof command !== "function")
 			throw new Error(`[igniteCore] Unknown command "${call.command}".`);
-		const result = await command("input" in call ? call.input : undefined);
-		await new Promise<void>((resolve) => queueMicrotask(resolve));
-		lifetime.assertActive();
-		return result;
+		// Subscribe only after the command is real. A live watch already observes;
+		// hold a quiet lease so that watch can unsubscribe while this command is
+		// still awaiting without dropping Redux or MobX observation to zero.
+		let releaseLease: (() => void) | undefined;
+		if (!preparing && externalSubscriptions === 0) prepare(true, false);
+		else if (!preparing && !prepared && externalSubscriptions > 0) {
+			const subscription = adapter.subscribeSnapshots(() => undefined);
+			releaseLease = () => subscription.unsubscribe();
+		}
+		try {
+			const result = await command("input" in call ? call.input : undefined);
+			await new Promise<void>((resolve) => queueMicrotask(resolve));
+			lifetime.assertActive();
+			return result;
+		} finally {
+			releaseLease?.();
+		}
 	};
 	const runtime = {
 		get(key: "states" | "schema" | "commands" | "events") {
