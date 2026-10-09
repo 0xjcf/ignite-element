@@ -66,7 +66,7 @@ export default defineConfig({
 		include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
 		coverage: {
 			provider: "v8",
-			reporter: ["text", "json", "lcov"],
+			reporter: ["text", "lcov"],
 			reportsDirectory: "./coverage",
 			exclude: [
 				"**/*.config.{js,ts}",
