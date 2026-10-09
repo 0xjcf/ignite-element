@@ -264,10 +264,10 @@ describe("independent cores start on first use", () => {
 			states: (state) => ({ count: state.count }),
 			commands: () => ({ add: () => undefined }),
 		});
-		await expect(redux.execute({ command: "missing" })).rejects.toThrow(
-			/unknown command/i,
-		);
-		await expect(mobx.execute({ command: "missing" })).rejects.toThrow(
+		await expect(
+			redux.execute({ command: "missing" as "add" }),
+		).rejects.toThrow(/unknown command/i);
+		await expect(mobx.execute({ command: "missing" as "add" })).rejects.toThrow(
 			/unknown command/i,
 		);
 		expect(reduxObserved.active).toBe(0);

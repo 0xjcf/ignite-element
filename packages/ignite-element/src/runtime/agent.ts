@@ -190,9 +190,24 @@ export function createAgentRuntime<
 				initialStates = resolveStates(adapter);
 				update(initialStates);
 			}
+			// MobX delivers this listener from inside autorun, which catches
+			// projection errors. Keep the first failure and rethrow it after the
+			// subscription returns, before the runtime is marked prepared.
+			let firstDeliveryError: unknown;
+			let acceptedDelivery = inspect;
 			const subscription = adapter.subscribeSnapshots((value) => {
 				if (!observing || !lifetime.active) return;
-				update(derive(value));
+				if (!acceptedDelivery) {
+					try {
+						update(derive(value));
+						acceptedDelivery = true;
+					} catch (error) {
+						firstDeliveryError ??= error;
+						return;
+					}
+				} else {
+					update(derive(value));
+				}
 				for (const listener of [...bindingListeners])
 					if (lifetime.active && bindingListeners.has(listener)) listener();
 			});
@@ -203,6 +218,7 @@ export function createAgentRuntime<
 				subscription.unsubscribe();
 			});
 			lifetime.assertActive();
+			if (firstDeliveryError) throw firstDeliveryError;
 			publishCatalogue(additionalArgs);
 			prepared = true;
 			preparedHost = resources.host;
@@ -401,13 +417,9 @@ export function createAgentRuntime<
 		call: IgniteCommandCall<Record<string, (arg?: unknown) => unknown>>,
 	) => {
 		lifetime.assertActive();
-		// A live watch already started the source and owns snapshot delivery.
-		// Otherwise subscribe the same way get("states") does, without a second
-		// inspection read before the command runs.
-		if (!preparing && externalSubscriptions === 0) prepare(true, false);
 		const resources = resolveRuntime();
 		activateHostEffects(resources.host);
-		const { additionalArgs } = resources;
+		const { adapter, additionalArgs } = resources;
 		const descriptor = Object.getOwnPropertyDescriptor(
 			additionalArgs,
 			call.command,
@@ -416,10 +428,23 @@ export function createAgentRuntime<
 			descriptor && "value" in descriptor ? descriptor.value : undefined;
 		if (typeof command !== "function")
 			throw new Error(`[igniteCore] Unknown command "${call.command}".`);
-		const result = await command("input" in call ? call.input : undefined);
-		await new Promise<void>((resolve) => queueMicrotask(resolve));
-		lifetime.assertActive();
-		return result;
+		// Subscribe only after the command is real. A live watch already observes;
+		// hold a quiet lease so that watch can unsubscribe while this command is
+		// still awaiting without dropping Redux or MobX observation to zero.
+		let releaseLease: (() => void) | undefined;
+		if (!preparing && externalSubscriptions === 0) prepare(true, false);
+		else if (!preparing && !prepared && externalSubscriptions > 0) {
+			const subscription = adapter.subscribeSnapshots(() => undefined);
+			releaseLease = () => subscription.unsubscribe();
+		}
+		try {
+			const result = await command("input" in call ? call.input : undefined);
+			await new Promise<void>((resolve) => queueMicrotask(resolve));
+			lifetime.assertActive();
+			return result;
+		} finally {
+			releaseLease?.();
+		}
 	};
 	const runtime = {
 		get(key: "states" | "schema" | "commands" | "events") {
