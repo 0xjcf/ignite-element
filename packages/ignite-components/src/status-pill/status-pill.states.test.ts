@@ -202,7 +202,9 @@ describe("StatusPill states", () => {
 				"applyReason",
 				"applyAnnounce",
 			] as const) {
-				const action = statusPillMachine.implementations.actions[name] as {
+				const action = statusPillMachine.implementations.actions[
+					name
+				] as unknown as {
 					assignment: (args: {
 						context: StatusPillContext;
 						event: { type: string };
