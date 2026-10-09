@@ -71,7 +71,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: true
-          files: ./packages/ignite-element/coverage/clover.xml,./packages/ignite-components/coverage/clover.xml
+          files: ./packages/ignite-element/coverage/clover.xml,./packages/ignite-components/coverage/lcov.info
           flags: unittests
           verbose: true
 

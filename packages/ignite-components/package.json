@@ -30,7 +30,7 @@
 		"typecheck": "tsc --noEmit --pretty false --project tsconfig.typecheck.json",
 		"test": "vitest --run",
 		"test:contrast": "vitest --run src/**/*.a11y.test.ts",
-		"test:coverage": "vitest --run --coverage && node scripts/rewrite-clover-for-codecov.mjs"
+		"test:coverage": "vitest --run --coverage"
 	},
 	"peerDependencies": {
 		"ignite-element": ">=3.0.0-beta.18",
