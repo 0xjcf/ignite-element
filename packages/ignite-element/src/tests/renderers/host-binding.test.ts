@@ -53,15 +53,21 @@ function sceneHost(hooks?: {
 function runtime(
 	host: ReturnType<typeof sceneHost>,
 	snapshot: number,
-	extras?: { server?: boolean; send?: (event: unknown) => void },
+	extras?: { send?: (event: unknown) => void },
 ) {
 	return {
-		server: extras?.server,
 		snapshot,
 		send: extras?.send ?? (() => undefined),
 		reducedMotion: () => false,
 		hosts: { scene: host },
 	};
+}
+
+function hostDescription(element: Element | null | undefined): string | null {
+	if (!element) return null;
+	const id = element.getAttribute("aria-describedby");
+	if (!id) return null;
+	return element.querySelector(`[id="${id}"]`)?.textContent ?? null;
 }
 
 afterEach(() => {
@@ -80,13 +86,15 @@ describe("host binding", () => {
 	});
 
 	it("does not mount during a server render, and still exposes describe text", () => {
+		vi.stubGlobal("window", undefined);
 		const host = sceneHost();
 		const root = document.createElement("div");
 		renderIgniteJsx(root, jsx("canvas", { use: "scene" }), undefined, {
-			hosts: runtime(host, 3, { server: true }),
+			hosts: runtime(host, 3),
 		});
 		const canvas = root.querySelector("canvas");
-		expect(canvas?.getAttribute("aria-description")).toBe("angle 3");
+		expect(hostDescription(canvas)).toBe("angle 3");
+		expect(canvas?.hasAttribute("aria-description")).toBe(false);
 		expect(canvas?.hasAttribute("use")).toBe(false);
 		expect(host.mounts).toBe(0);
 		expect(canvas?.querySelector("[data-engine]")).toBeNull();
@@ -108,7 +116,7 @@ describe("host binding", () => {
 			{ hosts: runtime(host, 1) },
 		);
 		const canvas = root.querySelector("canvas");
-		expect(canvas?.getAttribute("aria-description")).toBe("angle 1");
+		expect(hostDescription(canvas)).toBe("angle 1");
 		expect(canvas?.getAttribute("aria-label")).toBe("Orbit");
 		expect(canvas?.hasAttribute("use")).toBe(false);
 		expect(host.mounts).toBe(1);
@@ -141,7 +149,7 @@ describe("host binding", () => {
 			{ hosts: runtime(host, 2) },
 		);
 		expect(host.updates).toEqual([{ angle: 1 }, { angle: 2 }]);
-		expect(canvas?.getAttribute("aria-description")).toBe("angle 2");
+		expect(hostDescription(canvas)).toBe("angle 2");
 	});
 
 	it("keeps the host instance across a keyed move", () => {
@@ -335,7 +343,7 @@ describe("host binding", () => {
 			hosts: { ...runtime(sceneHost(), 4), hosts: { scene: host } },
 		});
 		expect(updates).toEqual([1, 4]);
-		expect(root.querySelector("canvas")?.hasAttribute("aria-description")).toBe(
+		expect(root.querySelector("canvas")?.hasAttribute("aria-describedby")).toBe(
 			false,
 		);
 		expect(describeIgniteHosts({ scene: host }, 4)).toEqual({});
@@ -458,6 +466,169 @@ describe("host binding", () => {
 			hosts: runtime(host, 1),
 		});
 		expect(host.mounts).toBe(1);
+	});
+
+	it("mounts a host only after its element is in the connected root", () => {
+		const connected: boolean[] = [];
+		const host = sceneHost({
+			mount(el) {
+				connected.push(el.isConnected);
+				return { id: 1 };
+			},
+		});
+		const root = document.createElement("div");
+		document.body.append(root);
+		renderIgniteJsx(
+			root,
+			jsx("section", {
+				children: jsx("canvas", { use: "scene" }),
+			}),
+			undefined,
+			{ hosts: runtime(host, 1) },
+		);
+		expect(connected).toEqual([true]);
+	});
+
+	it("reconciles replacement JSX after a host is retired", () => {
+		const host = sceneHost();
+		const root = document.createElement("div");
+		const tree = renderIgniteJsx(
+			root,
+			jsx("div", { use: "scene" }),
+			undefined,
+			{ hosts: runtime(host, 1) },
+		);
+		expect(root.querySelector("[data-engine='scene']")).not.toBeNull();
+		renderIgniteJsx(root, jsx("div", { children: "replacement" }), tree, {
+			hosts: runtime(host, 1),
+		});
+		expect(root.querySelector("[data-engine='scene']")).toBeNull();
+		expect(root.textContent).toContain("replacement");
+	});
+
+	it("disposes a synchronous mount that unmounts itself before returning", () => {
+		const root = document.createElement("div");
+		const host = sceneHost({
+			mount(_el, ctx) {
+				ctx.send({ type: "drop" });
+				return { id: 7 };
+			},
+		});
+		const hosts = runtime(host, 1);
+		let tree: ReturnType<typeof renderIgniteJsx> | undefined;
+		hosts.send = () => {
+			tree = renderIgniteJsx(root, jsx("p", { children: "gone" }), tree, {
+				hosts,
+			});
+		};
+		tree = renderIgniteJsx(root, jsx("canvas", { use: "scene" }), undefined, {
+			hosts,
+		});
+		expect(host.disposed).toEqual([{ id: 7 }]);
+		expect(host.updates).toEqual([]);
+		expect(root.querySelector("canvas")).toBeNull();
+		expect(root.textContent).toContain("gone");
+	});
+
+	it("keeps sibling UI when select or equals throws", () => {
+		const error = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => undefined);
+		const selecting = sceneHost();
+		selecting.select = () => {
+			throw new Error("select failed");
+		};
+		const root = document.createElement("div");
+		let tree = renderIgniteJsx(
+			root,
+			jsx("div", {
+				children: [
+					jsx("canvas", { use: "scene" }),
+					jsx("p", { children: "kept" }),
+				],
+			}),
+			undefined,
+			{ hosts: { ...runtime(selecting, 1), hosts: { scene: selecting } } },
+		);
+		expect(root.querySelector("p")?.textContent).toBe("kept");
+		expect(selecting.mounts).toBe(0);
+
+		const equating = sceneHost();
+		equating.equals = () => {
+			throw new Error("equals failed");
+		};
+		tree = renderIgniteJsx(root, jsx("canvas", { use: "scene" }), undefined, {
+			hosts: { ...runtime(equating, 1), hosts: { scene: equating } },
+		});
+		expect(() =>
+			renderIgniteJsx(root, jsx("canvas", { use: "scene" }), tree, {
+				hosts: { ...runtime(equating, 2), hosts: { scene: equating } },
+			}),
+		).not.toThrow();
+		expect(
+			root.querySelector("p")?.textContent ?? root.textContent,
+		).toBeTruthy();
+		expect(error.mock.calls.map((call) => String(call[0]))).toEqual(
+			expect.arrayContaining([
+				expect.stringContaining("Host select failed."),
+				expect.stringContaining("Host equals failed."),
+			]),
+		);
+	});
+
+	it("retries mount after an async rejection and drops the motion listener", async () => {
+		const listeners = new Set<() => void>();
+		vi.stubGlobal("matchMedia", () => ({
+			addEventListener: (_name: string, listener: () => void) => {
+				listeners.add(listener);
+			},
+			removeEventListener: (_name: string, listener: () => void) => {
+				listeners.delete(listener);
+			},
+		}));
+		let rejectMount: (error: Error) => void = () => undefined;
+		let fail = true;
+		const host = sceneHost({
+			mount: () =>
+				fail
+					? new Promise((_resolve, reject) => {
+							rejectMount = reject;
+						})
+					: { id: 2 },
+		});
+		const root = document.createElement("div");
+		const tree = renderIgniteJsx(
+			root,
+			jsx("canvas", { use: "scene" }),
+			undefined,
+			{ hosts: runtime(host, 1) },
+		);
+		rejectMount(new Error("mount rejected"));
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(listeners.size).toBe(0);
+		fail = false;
+		renderIgniteJsx(root, jsx("canvas", { use: "scene" }), tree, {
+			hosts: runtime(host, 2),
+		});
+		expect(host.mounts).toBe(2);
+	});
+
+	it("reports a throwing describe from the snapshot helper", () => {
+		const error = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => undefined);
+		const host = sceneHost();
+		host.describe = () => {
+			throw new Error("describe failed");
+		};
+		expect(describeIgniteHosts({ scene: host }, 4)).toEqual({});
+		expect(host.mounts).toBe(0);
+		expect(error.mock.calls.map((call) => String(call[0]))).toEqual(
+			expect.arrayContaining([
+				expect.stringContaining("Host describe failed."),
+			]),
+		);
 	});
 
 	it("still mounts when reduced-motion media queries throw", () => {

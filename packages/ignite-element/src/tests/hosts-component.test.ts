@@ -3,6 +3,7 @@ import { assign, createMachine, setup } from "xstate";
 import type { Host } from "../hosts/types";
 import { igniteCore } from "../IgniteCore";
 import { jsx } from "../renderers/jsx/jsx-runtime";
+import { createProjectionDocumentTarget } from "../runtime/projectionTargets";
 
 const flush = () => new Promise<void>((resolve) => queueMicrotask(resolve));
 const tag = () => `host-${crypto.randomUUID()}`;
@@ -68,7 +69,12 @@ describe("igniteCore hosts", () => {
 		const element = document.createElement(name);
 		document.body.append(element);
 		const root = element.shadowRoot?.querySelector("div");
-		expect(root?.getAttribute("aria-description")).toBe("0 open");
+		expect(root?.getAttribute("aria-describedby")).toBeTruthy();
+		expect(
+			root?.querySelector(`[id="${root?.getAttribute("aria-describedby")}"]`)
+				?.textContent,
+		).toBe("0 open");
+		expect(root?.getAttribute("aria-description")).toBeNull();
 		expect(handle?.audio.closed).toBe(false);
 		expect(handle?.socket.closed).toBe(false);
 		expect(events).toEqual(["update:0"]);
@@ -129,14 +135,22 @@ describe("igniteCore hosts", () => {
 		document.body.append(element);
 		const canvas = element.shadowRoot?.querySelector("canvas");
 		expect(canvas?.getAttribute("aria-label")).toBe("Orbit");
-		expect(canvas?.getAttribute("aria-description")).toBe("count 1");
+		expect(
+			canvas?.querySelector(
+				`[id="${canvas?.getAttribute("aria-describedby")}"]`,
+			)?.textContent,
+		).toBe("count 1");
 		expect(canvas?.hasAttribute("use")).toBe(false);
 		expect(mounts).toBe(1);
 		expect(updates).toEqual([1]);
 		expect(contexts[0]?.reducedMotion).toBe(false);
 		contexts[0]?.send({ type: "PING" });
 		expect(updates).toEqual([1, 2]);
-		expect(canvas?.getAttribute("aria-description")).toBe("count 2");
+		expect(
+			canvas?.querySelector(
+				`[id="${canvas?.getAttribute("aria-describedby")}"]`,
+			)?.textContent,
+		).toBe("count 2");
 		expect(mounts).toBe(1);
 		element.remove();
 		await flush();
@@ -158,7 +172,7 @@ describe("igniteCore hosts", () => {
 		const element = document.createElement(name);
 		document.body.append(element);
 		expect(element.shadowRoot?.textContent).toContain("shown");
-		expect(element.shadowRoot?.querySelector("[aria-description]")).toBeNull();
+		expect(element.shadowRoot?.querySelector("[aria-describedby]")).toBeNull();
 		core.dispose();
 
 		vi.stubGlobal("matchMedia", () => {
@@ -183,5 +197,59 @@ describe("igniteCore hosts", () => {
 		document.body.append(document.createElement(hostedName));
 		expect(reduced).toBe(false);
 		hosted.dispose();
+	});
+
+	it("projects host describe text to a document target without mounting", async () => {
+		let mounts = 0;
+		const committed: string[] = [];
+		const machine = createMachine({
+			types: { context: {} as { n: number } },
+			context: { n: 3 },
+		});
+		const scene: Host<
+			HTMLCanvasElement,
+			number,
+			void,
+			{ context: { n: number } }
+		> = {
+			mount() {
+				mounts += 1;
+			},
+			dispose() {},
+			select: (snapshot) => snapshot.context.n,
+			describe: (slice) => `angle ${slice}`,
+		};
+		const core = igniteCore({
+			source: machine,
+			hosts: { scene },
+			states: () => ({
+				projection: {
+					documents: [
+						{
+							id: "panel",
+							revision: "1",
+							nodes: [{ kind: "text" as const, id: "summary", text: "Ready" }],
+						},
+					],
+				},
+			}),
+		});
+		const session = core(
+			createProjectionDocumentTarget({
+				commitDocument(document) {
+					committed.push(
+						document.nodes
+							.map((node) => ("text" in node ? node.text : ""))
+							.join("|"),
+					);
+				},
+			}),
+		);
+		await flush();
+		await flush();
+		expect(mounts).toBe(0);
+		expect(committed.some((text) => text.includes("angle 3"))).toBe(true);
+		session.dispose();
+		core.dispose();
 	});
 });
