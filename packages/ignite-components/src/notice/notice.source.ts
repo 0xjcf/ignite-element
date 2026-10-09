@@ -18,11 +18,13 @@ export type NoticeInput = {
 };
 
 export type NoticeContext = {
+	instanceId: string;
 	tone: NoticeTone;
 	message: string;
 	actions: string[];
 	dismissible: boolean;
 	recoveryRequested: string | null;
+	focusTarget: string | null;
 };
 
 export type NoticeEvent =
@@ -32,9 +34,20 @@ export type NoticeEvent =
 	| { type: "SET_DISMISSIBLE"; dismissible: boolean }
 	| { type: "DISMISS" }
 	| { type: "SHOW" }
-	| { type: "RECOVER"; label: string };
+	| { type: "RECOVER"; label: string }
+	| { type: "SET_FOCUS_TARGET"; focusTarget: string | null };
 
-export type NoticeEmitted = { type: "recover"; label: string };
+export type NoticeEmitted = {
+	type: "recover";
+	label: string;
+	instanceId: string;
+};
+
+function createInstanceId(prefix: string): string {
+	const random =
+		globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
+	return `${prefix}-${random}`;
+}
 
 export function isNoticeTone(value: string | null): value is NoticeTone {
 	return noticeTones.some((tone) => tone === value);
@@ -93,10 +106,15 @@ export const noticeMachine = setup({
 			recoveryRequested: ({ event }) =>
 				event.type === "RECOVER" ? event.label : null,
 		}),
-		announceRecovery: emit(({ event }) => ({
+		announceRecovery: emit(({ context, event }) => ({
 			type: "recover" as const,
 			label: event.type === "RECOVER" ? event.label : "",
+			instanceId: context.instanceId,
 		})),
+		applyFocusTarget: assign({
+			focusTarget: ({ event }) =>
+				event.type === "SET_FOCUS_TARGET" ? event.focusTarget : null,
+		}),
 		clearRecovery: assign({
 			recoveryRequested: () => null,
 		}),
@@ -104,23 +122,28 @@ export const noticeMachine = setup({
 	guards: {
 		canDismiss: ({ context }) => context.dismissible,
 		canRecover: ({ context, event }) =>
-			event.type === "RECOVER" && context.actions.includes(event.label),
+			event.type === "RECOVER" &&
+			context.recoveryRequested === null &&
+			context.actions.includes(event.label),
 	},
 }).createMachine({
 	id: "notice",
 	initial: "shown",
 	context: ({ input }) => ({
+		instanceId: createInstanceId("notice"),
 		tone: input?.tone ?? "info",
 		message: input?.message ?? "",
 		actions: normalizeActions(input?.actions ?? []),
 		dismissible: input?.dismissible ?? false,
 		recoveryRequested: null,
+		focusTarget: null,
 	}),
 	on: {
 		SET_TONE: { actions: "applyTone" },
 		SET_MESSAGE: { target: ".shown", actions: "applyMessage" },
 		SET_ACTIONS: { actions: "applyActions" },
 		SET_DISMISSIBLE: { actions: "applyDismissible" },
+		SET_FOCUS_TARGET: { actions: "applyFocusTarget" },
 		SHOW: { target: ".shown", actions: "clearRecovery" },
 	},
 	states: {

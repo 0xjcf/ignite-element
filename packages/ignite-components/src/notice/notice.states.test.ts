@@ -149,6 +149,73 @@ describe("Notice states", () => {
 		}
 	});
 
+	it("recovers once and records the focus target", async () => {
+		const core = await show({
+			tone: "error",
+			message: "The event log failed to load.",
+			actions: ["Retry"],
+			dismissible: true,
+			dismissed: false,
+		});
+		const labels: string[] = [];
+		core.on("recover", (event) => {
+			labels.push(event.label);
+		});
+		try {
+			expect(core.get("states").a11y.cli).toBeNull();
+			await core.execute({ command: "setFocustarget", input: "after-notice" });
+			await core.execute({ command: "recover", input: "Retry" });
+			await core.execute({ command: "recover", input: "Retry" });
+			expect(labels).toEqual(["Retry"]);
+			expect(core.get("states")).toMatchObject({
+				recoveryRequested: "Retry",
+				canRecover: false,
+				canRecoverRefusal: "Recovery was already requested.",
+				focusTarget: "after-notice",
+				a11y: {
+					cli: "next: after-notice",
+					mcp: {
+						focusTarget: "after-notice",
+						instanceId: core.get("states").instanceId,
+						status: "settled",
+					},
+				},
+			});
+			await core.execute({ command: "dismiss" });
+			expect(core.get("states")).toMatchObject({
+				state: "dismissed",
+				a11y: { cli: "next: after-notice" },
+			});
+			const other = await show({
+				tone: "info",
+				message: "Suggestions are unavailable.",
+				actions: [],
+				dismissible: false,
+				dismissed: false,
+			});
+			try {
+				expect(other.get("states").instanceId).not.toBe(
+					core.get("states").instanceId,
+				);
+				expect(other.get("states").a11y.mcp.instanceId).toBe(
+					other.get("states").instanceId,
+				);
+			} finally {
+				other.dispose();
+			}
+		} finally {
+			core.dispose();
+		}
+	});
+
+	it("records the focus and click-once equivalents", () => {
+		expect(noticeContract.a11y?.map((row) => row.mcp)).toEqual([
+			"focusTarget in the result.",
+			"instanceId in the result.",
+			"A repeat returns the first outcome.",
+		]);
+	});
+
 	it("trims initial actions and drops blanks", () => {
 		const actor = createActor(noticeMachine, {
 			input: { actions: [" Retry ", " ", ""] },
