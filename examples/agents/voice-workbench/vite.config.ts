@@ -6,6 +6,7 @@ import {
 	type Plugin,
 	type UserConfig,
 } from "vite";
+import { igniteDevWarningsDefine } from "../../../configs/vite/devWarnings";
 import {
 	type BraveWebSearchOptions,
 	runBraveWebSearch,
@@ -268,6 +269,7 @@ export const createVoiceWorkbenchViteConfig = (
 	options: VoiceWorkbenchViteOptions = {},
 ): UserConfig => ({
 	define: {
+		...igniteDevWarningsDefine,
 		__VOICE_WORKBENCH_WEB_SEARCH_AVAILABLE__: JSON.stringify(
 			Boolean(options.braveSearchApiKey?.trim()),
 		),

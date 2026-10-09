@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
+import { igniteDevWarningsDefine } from "../../../configs/vite/devWarnings";
 
 const resolvePath = (path: string) =>
 	fileURLToPath(new URL(path, import.meta.url));
@@ -21,6 +22,7 @@ const adaptersSrc = resolvePath("../../../packages/ignite-adapters/src");
 const rendererSrc = resolvePath("../../../packages/ignite-renderer/src");
 
 export default defineConfig({
+	define: igniteDevWarningsDefine,
 	server: {
 		port: 8083,
 	},
