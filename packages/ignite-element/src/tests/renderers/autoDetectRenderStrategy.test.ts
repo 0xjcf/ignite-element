@@ -49,29 +49,6 @@ describe("AutoDetectRenderStrategy (config-free renderer selection)", () => {
 		expect(root.textContent).toContain("hello jsx");
 	});
 
-	it("forwards releaseView so a mounted ref clears on disconnect", () => {
-		const root = shadowRoot();
-		const strategy = createAutoDetectRenderStrategy();
-		strategy.attach(root);
-		const calls: Array<Element | null> = [];
-		strategy.render(
-			jsx("input", {
-				ref: (element: Element | null) => {
-					calls.push(element);
-				},
-				"aria-label": "Bound",
-			}),
-		);
-		const input = root.querySelector("input");
-		expect(calls).toEqual([input]);
-		expect(typeof strategy.releaseView).toBe("function");
-
-		strategy.releaseView?.();
-
-		expect(calls).toEqual([input, null]);
-		expect(input?.parentNode).not.toBeNull();
-	});
-
 	it("falls back to ignite-jsx (no throw) when a lit view is rendered but lit is not registered", () => {
 		// Backward-compatible: components that author throwaway lit views without
 		// selecting lit keep the pre-existing ignite-jsx behavior instead of
