@@ -394,6 +394,44 @@ describe("keyed sibling reconciliation", () => {
 		);
 		expect(warn).not.toHaveBeenCalled();
 	});
+
+	it("does not throw when process is missing and still warns", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		const descriptor = Object.getOwnPropertyDescriptor(globalThis, "process");
+		Reflect.deleteProperty(globalThis, "process");
+		try {
+			const host = document.createElement("div");
+			mountIgniteJsx(
+				host,
+				list([
+					jsx("span", { children: "one" }, "dup"),
+					jsx("span", { children: "two" }, "dup"),
+				]),
+			);
+			mountIgniteJsx(
+				document.createElement("div"),
+				jsx("div", { innerHTML: "<p>rich</p>" }),
+			);
+			mountIgniteJsx(
+				document.createElement("div"),
+				jsx("div", { textContent: "plain" }),
+			);
+			expect(host.textContent).toBe("onetwo");
+		} finally {
+			if (descriptor) {
+				Object.defineProperty(globalThis, "process", descriptor);
+			}
+		}
+		expect(warn).toHaveBeenCalledWith(
+			'[ignite-jsx] Duplicate key "dup" among siblings. Keys must be unique.',
+		);
+		expect(warn).toHaveBeenCalledWith(
+			"[ignite-jsx] `innerHTML` is deprecated and will be removed in the next major release. Use JSX children for text, and hosts for trusted rich content.",
+		);
+		expect(warn).toHaveBeenCalledWith(
+			"[ignite-jsx] `textContent` is deprecated and will be removed in the next major release. Use JSX children for text, and hosts for trusted rich content.",
+		);
+	});
 });
 
 describe("ref lifecycle", () => {

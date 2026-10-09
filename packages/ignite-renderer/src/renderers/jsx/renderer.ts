@@ -185,8 +185,16 @@ const subtreeOwners = new WeakSet<Element>();
 const deprecatedContentWarnings = new WeakMap<Element, Set<string>>();
 
 function isDevelopment(): boolean {
-	// Exact expression so the production bundler can strip the warning.
-	return process.env.NODE_ENV !== "production";
+	// Keep this member expression in the published bundle. Vite replaces
+	// `globalThis.process.env.NODE_ENV` and drops the warnings in production.
+	// Reading through `globalThis` does not throw when a browser has no process.
+	return (
+		(
+			globalThis as typeof globalThis & {
+				process?: { env?: { NODE_ENV?: string } };
+			}
+		).process?.env?.NODE_ENV !== "production"
+	);
 }
 
 function nodeKey(node: NormalizedNode): string | number | undefined {
@@ -354,17 +362,22 @@ function invokeContained(node: Node, callback: () => unknown): void {
 	}
 }
 
+function releaseRefBinding(
+	node: Node,
+	ref: RefCallback,
+	cleanup: RefDisposer | null,
+): void {
+	if (cleanup) invokeContained(node, cleanup);
+	else invokeContained(node, () => ref(null));
+}
+
 function releaseStoredRef(node: Node, mount: ElementMount): void {
 	const ref = mount.ref;
 	const cleanup = mount.cleanup;
 	mount.ref = null;
 	mount.cleanup = null;
 	if (!ref) return;
-	if (cleanup) {
-		invokeContained(node, cleanup);
-		return;
-	}
-	invokeContained(node, () => ref(null));
+	releaseRefBinding(node, ref, cleanup);
 }
 
 /** Shared unmount path. Runs before detach, exactly once per mount. */
@@ -396,8 +409,7 @@ function assignRef(element: Element, ref: unknown): void {
 		const cleanup = mount.cleanup;
 		mount.ref = null;
 		mount.cleanup = null;
-		if (cleanup) invokeContained(element, cleanup);
-		else invokeContained(element, () => previous(null));
+		releaseRefBinding(element, previous, cleanup);
 	}
 	mount.ref = next;
 	mount.cleanup = null;
@@ -431,8 +443,7 @@ function releaseNodeRefs(node: Node): void {
 	const cleanup = mount.cleanup;
 	mount.cleanup = null;
 	mount.released = true;
-	if (cleanup) invokeContained(node, cleanup);
-	else invokeContained(node, () => ref(null));
+	releaseRefBinding(node, ref, cleanup);
 }
 
 function reacquireNodeRefs(node: Node): void {
