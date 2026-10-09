@@ -40,17 +40,47 @@ async function bundle(source) {
 	}
 }
 
+const jsxRuntime = JSON.stringify(
+	`${repoRoot}/packages/ignite-renderer/src/renderers/jsx/jsx-runtime.ts`,
+);
+const jsxRenderer = JSON.stringify(
+	`${repoRoot}/packages/ignite-renderer/src/renderers/jsx/renderer.ts`,
+);
+const hostRuntime = JSON.stringify(
+	`${repoRoot}/packages/ignite-renderer/src/renderers/jsx/hosts.ts`,
+);
+
 describe("JSX host runtime size", () => {
 	it("keeps the host runtime out of a no-host JSX bundle", async () => {
 		const code = await bundle(`
-			import { jsx } from ${JSON.stringify(`${repoRoot}/packages/ignite-renderer/src/renderers/jsx/jsx-runtime.ts`)};
-			import { renderIgniteJsx } from ${JSON.stringify(`${repoRoot}/packages/ignite-renderer/src/renderers/jsx/renderer.ts`)};
+			import { jsx } from ${jsxRuntime};
+			import { renderIgniteJsx } from ${jsxRenderer};
 			export function render(host) {
 				return renderIgniteJsx(host, jsx("div", { children: "hello" }));
 			}
 		`);
+		const gzip = gzipSync(code).byteLength;
 		assert.equal(code.includes("prefers-reduced-motion"), false);
 		assert.equal(code.includes("Host mount failed"), false);
-		assert.ok(gzipSync(code).byteLength > 0);
+		assert.ok(gzip > 0);
+		assert.ok(
+			gzip < 3600,
+			`no-host JSX gzip ${gzip} includes the host runtime`,
+		);
+	});
+
+	it("includes the host runtime when the internal module is imported", async () => {
+		const code = await bundle(`
+			import { jsx } from ${jsxRuntime};
+			import { renderIgniteJsx } from ${jsxRenderer};
+			import { describeIgniteHosts } from ${hostRuntime};
+			export function render(host) {
+				describeIgniteHosts({}, {});
+				return renderIgniteJsx(host, jsx("canvas", { use: "scene" }));
+			}
+		`);
+		const gzip = gzipSync(code).byteLength;
+		assert.equal(code.includes("Host mount failed"), true);
+		assert.ok(gzip > 3600, `host JSX gzip ${gzip} dropped the host runtime`);
 	});
 });

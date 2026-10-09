@@ -341,7 +341,7 @@ const freshNodes = new WeakSet<ChildNode>();
 function commitFresh(node: ChildNode, normalized: NormalizedNode): void {
 	if (!freshNodes.has(node)) return;
 	freshNodes.delete(node);
-	if (node.nodeType !== Node.ELEMENT_NODE || normalized.kind !== "element") {
+	if (node.nodeType !== ELEMENT_NODE || normalized.kind !== "element") {
 		return;
 	}
 	const element = node as Element;

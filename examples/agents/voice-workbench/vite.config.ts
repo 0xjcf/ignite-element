@@ -311,10 +311,6 @@ export const createVoiceWorkbenchViteConfig = (
 				replacement: `${rendererSourceRoot}/renderers/ignite-jsx.ts`,
 			},
 			{
-				find: "@ignite-element/renderer/hosts",
-				replacement: `${rendererSourceRoot}/renderers/jsx/hosts.ts`,
-			},
-			{
 				find: "@ignite-element/renderer",
 				replacement: `${rendererSourceRoot}/index.ts`,
 			},

@@ -1,26 +1,43 @@
 /** @jsxImportSource ignite-element/jsx */
-import { createMachine } from "xstate";
 import { jsx } from "../../renderers/jsx/jsx-runtime";
-import { igniteCore } from "../../xstate";
+import { orbit, type orbitHosts, radio } from "./host-use-hosts";
 
-const machine = createMachine({
-	types: { context: {} as { angle: number } },
-	context: { angle: 0 },
-});
+declare global {
+	interface IgniteHostNames extends Record<keyof typeof orbitHosts, true> {}
+}
 
-const scene = {
-	mount() {},
-	dispose() {},
-};
-
-const core = igniteCore({
-	source: machine,
-	hosts: { scene },
-});
-
-core("orbit", () => <canvas use="scene" />);
+orbit("orbit", () => <canvas use="scene" />);
+orbit("orbit", () => (
+	<div>
+		<canvas use="scene" />
+	</div>
+));
 
 // @ts-expect-error use must name a host on this core
-core("orbit", () => jsx("canvas", { use: "missing" }));
+orbit("orbit", () => <canvas use="missing" />);
 
-export const hostedJsx = core;
+orbit("orbit", () => (
+	<div>
+		{/* @ts-expect-error use must name a host on this core */}
+		<canvas use="missing" />
+	</div>
+));
+
+// @ts-expect-error use must name a host on this core
+orbit("orbit", () => <canvas use="speaker" />);
+
+// @ts-expect-error use must name a host on this core
+orbit("orbit", () => jsx("canvas", { use: "missing" }));
+
+// @ts-expect-error use must name a host on this core
+orbit("orbit", () => jsx("canvas", { use: "speaker" }));
+
+// @ts-expect-error use must name a host on this core
+radio("radio", () => jsx("canvas", { use: "scene" }));
+
+// @ts-expect-error use must name a host on this core
+orbit("orbit", () =>
+	jsx("div", { children: jsx("canvas", { use: "speaker" }) }),
+);
+
+export const hostedJsx = orbit;

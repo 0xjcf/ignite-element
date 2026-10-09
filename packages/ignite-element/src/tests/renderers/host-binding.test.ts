@@ -505,7 +505,7 @@ describe("host binding", () => {
 		expect(root.textContent).toContain("replacement");
 	});
 
-	it("disposes a synchronous mount that unmounts itself before returning", () => {
+	it("disposes a synchronous mount that unmounts itself before returning", async () => {
 		const root = document.createElement("div");
 		const host = sceneHost({
 			mount(_el, ctx) {
@@ -523,10 +523,35 @@ describe("host binding", () => {
 		tree = renderIgniteJsx(root, jsx("canvas", { use: "scene" }), undefined, {
 			hosts,
 		});
+		await new Promise<void>((resolve) => queueMicrotask(resolve));
 		expect(host.disposed).toEqual([{ id: 7 }]);
 		expect(host.updates).toEqual([]);
 		expect(root.querySelector("canvas")).toBeNull();
 		expect(root.textContent).toContain("gone");
+	});
+
+	it("keeps a single mount when mount sends before returning", async () => {
+		const root = document.createElement("div");
+		const host = sceneHost({
+			mount(_el, ctx) {
+				ctx.send({ type: "nudge" });
+				return { id: 1 };
+			},
+		});
+		const hosts = runtime(host, 1);
+		let tree: ReturnType<typeof renderIgniteJsx> | undefined;
+		hosts.send = () => {
+			tree = renderIgniteJsx(root, jsx("canvas", { use: "scene" }), tree, {
+				hosts: { ...hosts, snapshot: 2 },
+			});
+		};
+		tree = renderIgniteJsx(root, jsx("canvas", { use: "scene" }), undefined, {
+			hosts,
+		});
+		await new Promise<void>((resolve) => queueMicrotask(resolve));
+		expect(host.mounts).toBe(1);
+		expect(host.disposed).toEqual([]);
+		expect(root.querySelector("canvas")).not.toBeNull();
 	});
 
 	it("keeps sibling UI when select or equals throws", () => {

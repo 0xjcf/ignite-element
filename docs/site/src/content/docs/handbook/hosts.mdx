@@ -77,4 +77,4 @@ orbit("orbit-preview", () => <canvas use="scene" aria-label="Orbit preview" />);
 
 An element-less lifecycle such as an `AudioContext` or a socket is a host on the component's root element. There is no separate connect callback.
 
-The JSX renderer does not load the host runtime until a bundle imports `@ignite-element/renderer/hosts`. That module is an internal seam between `ignite-element` and the renderer. Authoring code uses `Host`, `igniteCore({ hosts })`, and `use`.
+A bundle that only renders JSX does not include the host runtime. Authoring code uses `Host`, `igniteCore({ hosts })`, and `use`.

@@ -26,9 +26,6 @@
 			],
 			"jsx/index": [
 				"dist/types/jsx/index.d.ts"
-			],
-			"hosts": [
-				"dist/types/renderers/jsx/hosts.d.ts"
 			]
 		}
 	},
@@ -122,19 +119,13 @@
 			},
 			"import": "./dist/jsx/index.es.js",
 			"default": "./dist/jsx/index.es.js"
-		},
-		"./hosts": {
-			"types": "./dist/types/renderers/jsx/hosts.d.ts",
-			"import": "./dist/hosts.es.js",
-			"default": "./dist/hosts.es.js"
 		}
 	},
 	"sideEffects": [
 		"./dist/jsx.es.js",
 		"./dist/jsx.development.es.js",
 		"./dist/lit.es.js",
-		"./dist/lit.development.es.js",
-		"./dist/hosts.es.js"
+		"./dist/lit.development.es.js"
 	],
 	"files": [
 		"dist",

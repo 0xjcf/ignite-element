@@ -43,10 +43,26 @@ type IgniteRefCallback<T extends Element> = {
 	bivarianceHack(node: T | null): void | (() => void | PromiseLike<void>);
 }["bivarianceHack"];
 
+declare global {
+	/**
+	 * Host names JSX will accept on `use`. A program extends this from the
+	 * owning core's host map (`keyof typeof hosts`). With no members, `use`
+	 * stays a string.
+	 */
+	interface IgniteHostNames {}
+}
+
+type RegisteredHostName = keyof IgniteHostNames & string;
+
+/** `string` until a program registers host names, then those names only. */
+type HostUseName = [RegisteredHostName] extends [never]
+	? string
+	: RegisteredHostName;
+
 type IgniteTagProps<T extends Element> = {
 	ref?: IgniteRefCallback<T>;
 	/** Names a core host. Not copied to the DOM. */
-	use?: string;
+	use?: HostUseName;
 	children?: IgniteJsxChild;
 	[attribute: string]: unknown;
 };
@@ -79,6 +95,11 @@ export namespace JSX {
 	export interface IntrinsicElements extends IgniteKnownTags {
 		[element: string]: IgniteTagProps<globalThis.Element>;
 	}
+	export type LibraryManagedAttributes<C, P> = [C] extends [never]
+		? P
+		: P & {
+				use?: HostUseName;
+			};
 }
 
 declare global {

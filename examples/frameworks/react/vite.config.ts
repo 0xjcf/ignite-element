@@ -75,10 +75,6 @@ export default defineConfig({
 				replacement: `${rendererSrc}/renderers/lit.ts`,
 			},
 			{
-				find: "@ignite-element/renderer/hosts",
-				replacement: `${rendererSrc}/renderers/jsx/hosts.ts`,
-			},
-			{
 				find: "@ignite-element/renderer",
 				replacement: `${rendererSrc}/index.ts`,
 			},

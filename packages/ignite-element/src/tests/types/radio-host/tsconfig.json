@@ -1,0 +1,12 @@
+{
+	"extends": "../../../../tsconfig.typecheck.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"composite": false,
+		"jsx": "react-jsx",
+		"jsxImportSource": "ignite-element/jsx",
+		"types": ["vitest", "node"]
+	},
+	"include": ["./host-use.tsx"],
+	"exclude": []
+}

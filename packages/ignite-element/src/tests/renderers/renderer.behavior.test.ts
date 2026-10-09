@@ -131,20 +131,20 @@ describe("renderer core behavior", () => {
 	it("handles node kind changes and comment nodes", () => {
 		const host = document.createElement("div");
 		let tree = mountIgniteJsx(host, "plain");
-		expect(host.firstChild?.nodeType).toBe(Node.TEXT_NODE);
+		expect(host.firstChild?.nodeType).toBe(3);
 
 		tree = renderIgniteJsx(host, jsx("span", { children: "element" }), tree);
 		expect(host.firstChild?.nodeName.toLowerCase()).toBe("span");
 
 		renderIgniteJsx(host, jsxs(Fragment, { children: [null, null] }), tree);
 		const comments = Array.from(host.childNodes).filter(
-			(node) => node.nodeType === Node.COMMENT_NODE,
+			(node) => node.nodeType === 8,
 		);
 		expect(comments).not.toHaveLength(0);
 
 		const commentTree = mountIgniteJsx(host, null);
 		renderIgniteJsx(host, undefined, commentTree);
-		expect(host.firstChild?.nodeType).toBe(Node.COMMENT_NODE);
+		expect(host.firstChild?.nodeType).toBe(8);
 	});
 
 	it("repairs when a text node was replaced with an element", () => {
@@ -161,7 +161,7 @@ describe("renderer core behavior", () => {
 
 	it("returns a comment placeholder for unknown node types", () => {
 		const result = createDomNode({} as never);
-		expect(result.nodeType).toBe(Node.COMMENT_NODE);
+		expect(result.nodeType).toBe(8);
 		expect((result as Comment).data).toBe("ignite-unknown");
 	});
 

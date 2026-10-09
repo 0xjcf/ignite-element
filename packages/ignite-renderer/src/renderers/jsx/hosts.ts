@@ -39,6 +39,26 @@ const unknownHostWarnings = new WeakMap<Element, Set<string>>();
 const descriptionIds = new WeakMap<Element, string>();
 let descriptionSerial = 0;
 let activeRuntime: IgniteHostRuntime | undefined;
+let renderDepth = 0;
+const deferredSends: Array<() => void> = [];
+const pendingDeliver: HostRecord[] = [];
+let flushScheduled = false;
+
+function scheduleDeferredSends(): void {
+	if (flushScheduled || deferredSends.length === 0) return;
+	flushScheduled = true;
+	queueMicrotask(() => {
+		flushScheduled = false;
+		const batch = deferredSends.splice(0, deferredSends.length);
+		const waiting = pendingDeliver.splice(0, pendingDeliver.length);
+		for (const send of batch) send();
+		for (const record of waiting) {
+			if (!record.settled) continue;
+			deliver(record, false);
+		}
+		if (deferredSends.length > 0) scheduleDeferredSends();
+	});
+}
 
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 const DESCRIPTION_ATTR = "data-ignite-host-description";
@@ -52,10 +72,13 @@ export function withIgniteHostRuntime<T>(
 	if (!runtime) return run();
 	const previous = activeRuntime;
 	activeRuntime = runtime;
+	renderDepth += 1;
 	try {
 		return run();
 	} finally {
+		renderDepth -= 1;
 		activeRuntime = previous;
+		if (renderDepth === 0) scheduleDeferredSends();
 	}
 }
 
@@ -253,6 +276,7 @@ function acceptHandle(
 	record: HostRecord,
 	definition: IgniteHostDefinition,
 	handle: unknown,
+	deferDeliver = false,
 ): void {
 	if (record.controller.signal.aborted || hostRecords.get(element) !== record) {
 		try {
@@ -264,6 +288,10 @@ function acceptHandle(
 	}
 	record.handle = handle;
 	record.settled = true;
+	if (deferDeliver) {
+		pendingDeliver.push(record);
+		return;
+	}
 	deliver(record, false);
 }
 
@@ -277,7 +305,14 @@ function startHost(
 	const controller = new AbortController();
 	const ctx: IgniteHostContext = {
 		signal: controller.signal,
-		send: (event) => runtime.send(event),
+		send: (event) => {
+			const deliverSend = () => runtime.send(event);
+			if (renderDepth > 0) {
+				deferredSends.push(deliverSend);
+				return;
+			}
+			deliverSend();
+		},
 		get reducedMotion() {
 			return runtime.reducedMotion();
 		},
@@ -307,6 +342,7 @@ function startHost(
 		record.stopMotion();
 		disposeSettled(record);
 	});
+	const queuedBefore = deferredSends.length;
 	let result: unknown;
 	try {
 		result = definition.mount(element, ctx);
@@ -315,6 +351,7 @@ function startHost(
 		reportHostError("[ignite-jsx] Host mount failed.", error);
 		return;
 	}
+	const deferDeliver = deferredSends.length > queuedBefore;
 	if (isPromiseLike(result)) {
 		Promise.resolve(result).then(
 			(handle) => {
@@ -333,7 +370,7 @@ function startHost(
 		);
 		return;
 	}
-	acceptHandle(element, record, definition, result);
+	acceptHandle(element, record, definition, result, deferDeliver);
 }
 
 function readSlice(

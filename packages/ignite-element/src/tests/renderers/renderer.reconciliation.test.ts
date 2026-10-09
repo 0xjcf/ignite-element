@@ -345,7 +345,7 @@ describe("keyed sibling reconciliation", () => {
 
 		tree = renderIgniteJsx(host, null, tree);
 
-		expect(host.firstChild?.nodeType).toBe(Node.COMMENT_NODE);
+		expect(host.firstChild?.nodeType).toBe(8);
 	});
 
 	it("keeps unkeyed children on positional matching", () => {

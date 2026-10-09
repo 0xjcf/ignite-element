@@ -1,10 +1,6 @@
 import type { IgniteAdapter } from "@ignite-element/core";
 import { StateScope } from "@ignite-element/core";
 import type { RenderStrategyFactory } from "@ignite-element/renderer";
-import {
-	describeIgniteHosts,
-	HOST_RUNTIME_FIELD,
-} from "@ignite-element/renderer/hosts";
 import { coreHostsFor, readReducedMotion } from "./hosts/registry";
 import {
 	endElementRendering,
@@ -12,6 +8,10 @@ import {
 	rollbackElementSetup,
 } from "./IgniteElement";
 import { assertSupportedSourceOptions } from "./internal/assertSupportedSourceOptions";
+import {
+	describeIgniteHosts,
+	HOST_RUNTIME_FIELD,
+} from "./internal/hostRuntime.js";
 import {
 	commitProjectionDocumentTarget,
 	commitProjectionSpeechTarget,

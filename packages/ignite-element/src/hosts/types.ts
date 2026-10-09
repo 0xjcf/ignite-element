@@ -1,5 +1,25 @@
+type HostAbortSignal = {
+	readonly aborted: boolean;
+	addEventListener(
+		type: "abort",
+		listener: () => void,
+		options?: { once?: boolean },
+	): void;
+	removeEventListener(type: "abort", listener: () => void): void;
+};
+
+/**
+ * The platform abort signal when the lib provides one. A structural signal
+ * otherwise, so a pure ES2022 program does not need the DOM lib.
+ */
+export type HostSignal = typeof globalThis extends {
+	AbortSignal: { prototype: infer Signal };
+}
+	? Signal
+	: HostAbortSignal;
+
 export interface HostContext<Event = unknown> {
-	readonly signal: AbortSignal;
+	readonly signal: HostSignal;
 	send(event: Event): void;
 	readonly reducedMotion: boolean;
 }

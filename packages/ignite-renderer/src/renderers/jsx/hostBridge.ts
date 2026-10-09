@@ -4,8 +4,24 @@
  * `Symbol.for` keeps one slot in the realm.
  */
 
+type HostAbortSignal = {
+	readonly aborted: boolean;
+	addEventListener(
+		type: "abort",
+		listener: () => void,
+		options?: { once?: boolean },
+	): void;
+	removeEventListener(type: "abort", listener: () => void): void;
+};
+
+type HostSignal = typeof globalThis extends {
+	AbortSignal: { prototype: infer Signal };
+}
+	? Signal
+	: HostAbortSignal;
+
 export type IgniteHostContext = {
-	readonly signal: AbortSignal;
+	readonly signal: HostSignal;
 	send(event: unknown): void;
 	readonly reducedMotion: boolean;
 };
