@@ -16,7 +16,11 @@ import {
 	type ExportButtonFixtureInput,
 	exportButtonGallery,
 } from "./export-button.gallery";
-import { exportButtonMachine } from "./export-button.source";
+import {
+	type ExportButtonContext,
+	exportButtonMachine,
+	FAILED_REASON,
+} from "./export-button.source";
 
 async function show(input: ExportButtonFixtureInput) {
 	const core = createExportButtonCore();
@@ -136,10 +140,98 @@ describe("ExportButton states", () => {
 		expect(sent).toEqual([{ type: "EXPORT" }]);
 	});
 
-	it("records CLI and MCP on the contract and ships no host", () => {
+	it("follows setFormat and reports a second export as already running", async () => {
+		const core = createExportButtonCore();
+		const formats: string[] = [];
+		core.on("export", (event) => {
+			formats.push(event.format);
+		});
+		try {
+			core.watch(() => {});
+			await core.execute({ command: "setFormat", input: "csv" });
+			expect(core.get("states")).toMatchObject({
+				state: "idle",
+				format: "csv",
+				label: "Export CSV",
+				buttonLabel: "Export CSV",
+			});
+			await core.execute({ command: "setLabel", input: "Download" });
+			await core.execute({ command: "setFormat", input: "csv" });
+			expect(core.get("states").label).toBe("Download");
+			await core.execute({ command: "export" });
+			expect(core.get("states")).toMatchObject({
+				state: "preparing",
+				canExport: false,
+				a11y: { cli: "in progress", mcp: { status: "busy", isError: false } },
+			});
+			await core.execute({ command: "export" });
+			expect(formats).toEqual(["csv"]);
+			expect(core.get("states")).toMatchObject({
+				state: "preparing",
+				duplicateExport: true,
+				statusLine: "in progress",
+				pendingLabel: "Preparing…",
+				a11y: {
+					cli: "already running",
+					mcp: { status: "busy", isError: false },
+				},
+			});
+			await core.execute({ command: "fail", input: "Disk full." });
+			expect(core.get("states").a11y.cli).toBe("error: Disk full.");
+		} finally {
+			core.dispose();
+		}
+	});
+
+	it("leaves context alone when an action sees the wrong event", () => {
+		const actor = createActor(exportButtonMachine, {
+			input: { label: "Download", format: "csv" },
+		});
+		actor.start();
+		try {
+			const context = actor.getSnapshot().context;
+			const formatAction = exportButtonMachine.implementations.actions
+				.applyFormat as unknown as {
+				assignment: (args: {
+					context: ExportButtonContext;
+					event: { type: string };
+				}) => Record<string, unknown>;
+			};
+			expect(
+				formatAction.assignment({
+					context,
+					event: { type: "NOT_THIS" },
+				}),
+			).toEqual({});
+
+			const failure = exportButtonMachine.implementations.actions
+				.applyFailure as unknown as {
+				assignment: {
+					reason: (args: { event: { type: string } }) => string;
+					statusLine: (args: { event: { type: string } }) => string;
+				};
+			};
+			expect(failure.assignment.reason({ event: { type: "EXPORT" } })).toBe(
+				FAILED_REASON,
+			);
+			expect(failure.assignment.statusLine({ event: { type: "EXPORT" } })).toBe(
+				FAILED_REASON,
+			);
+		} finally {
+			actor.stop();
+		}
+	});
+
+	it("records CLI and MCP equivalents and ships no host", () => {
 		expect(exportButtonContract.hosts).toEqual({ cli: "M3", mcp: "M3" });
 		expect(exportButtonContract.surfaces.cli).toMatch(/file/);
 		expect(exportButtonContract.surfaces.mcp).toMatch(/structured/);
 		expect(exportButtonContract.slots).toEqual([]);
+		expect(exportButtonContract.a11y?.map((row) => row.cli)).toEqual([
+			"in progress, then a settled line or an error line. No spinner. Honour NO_COLOR.",
+			"Non-zero exit plus a reason line.",
+			"in progress. A second call says already running.",
+			"The command names the format.",
+		]);
 	});
 });

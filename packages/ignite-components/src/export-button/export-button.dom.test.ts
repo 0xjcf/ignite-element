@@ -55,16 +55,18 @@ describe("ExportButton DOM", () => {
 			element.setAttribute("readylabel", fixture.input.readyLabel);
 			showPhase(element, fixture.input.phase, fixture.input.reason);
 			const name =
-				fixture.input.phase === "preparing"
-					? fixture.input.pendingLabel
-					: fixture.input.phase === "ready"
-						? fixture.input.readyLabel
-						: fixture.input.phase === "failed"
-							? "Try again"
-							: fixture.input.label;
+				fixture.input.phase === "failed" ? "Try again" : fixture.input.label;
 			expect(view.getByRole("button", { name })).toBeTruthy();
+			if (fixture.input.phase === "preparing") {
+				expect(view.getAllByText(fixture.input.pendingLabel)).toHaveLength(1);
+			}
+			if (fixture.input.phase === "ready") {
+				expect(view.getAllByText(fixture.input.readyLabel)).toHaveLength(1);
+			}
 			if (fixture.input.reason) {
-				expect(view.getByText(fixture.input.reason)).toBeTruthy();
+				expect(
+					view.getAllByText(`error: ${fixture.input.reason}`),
+				).toHaveLength(1);
 			}
 		}
 	});
@@ -82,11 +84,12 @@ describe("ExportButton DOM", () => {
 		view.getByRole("button", { name: "Export JSON" }).click();
 		expect(formats).toEqual(["json"]);
 		expect(hostClicks).toEqual([1]);
-		view.getByRole("button", { name: "Preparing…" }).click();
+		view.getByRole("button", { name: "Export JSON" }).click();
 		expect(formats).toEqual(["json"]);
 		expect(hostClicks).toEqual([1]);
 		element.succeed();
-		expect(view.getByRole("button", { name: "Exported" })).toBeTruthy();
+		expect(view.getAllByText("Exported")).toHaveLength(1);
+		expect(view.getByRole("button", { name: "Export JSON" })).toBeTruthy();
 	});
 
 	it("reads a lowercased readylabel attribute after connect", async () => {
@@ -95,6 +98,7 @@ describe("ExportButton DOM", () => {
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		element.export();
 		element.succeed();
-		expect(view.getByRole("button", { name: "File ready" })).toBeTruthy();
+		expect(view.getAllByText("File ready")).toHaveLength(1);
+		expect(view.getByRole("button", { name: "Export JSON" })).toBeTruthy();
 	});
 });

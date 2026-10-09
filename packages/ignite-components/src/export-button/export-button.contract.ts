@@ -74,4 +74,26 @@ export const exportButtonContract = {
 		cli: "M3",
 		mcp: "M3",
 	},
+	a11y: [
+		{
+			web: "LiveStatus announces busy, ready, and failed.",
+			cli: "in progress, then a settled line or an error line. No spinner. Honour NO_COLOR.",
+			mcp: "status {value, tone, reason}; progress while the export runs.",
+		},
+		{
+			web: "aria-disabled plus a visible reason while the export is unavailable.",
+			cli: "Non-zero exit plus a reason line.",
+			mcp: "isError plus reason.",
+		},
+		{
+			web: "aria-busy only on the busy region.",
+			cli: "in progress. A second call says already running.",
+			mcp: 'status "busy". The second call is idempotent.',
+		},
+		{
+			web: "The button label follows setFormat.",
+			cli: "The command names the format.",
+			mcp: "tone label names the format.",
+		},
+	],
 } as const satisfies ComponentContract;

@@ -1,5 +1,10 @@
 /** @jsxImportSource ignite-element/jsx */
 import type { IgniteJsxElement } from "ignite-element/jsx";
+import {
+	liveStatusRegion,
+	liveStatusRegionStyles,
+} from "../live-status/live-status.region";
+import { cliTone } from "../live-status/live-status.source";
 import { catalogHostStyles } from "../styles";
 import type {
 	ExportButtonCommands,
@@ -8,7 +13,7 @@ import type {
 
 export type ExportButtonViewContext = ExportButtonStates & ExportButtonCommands;
 
-const styles = `${catalogHostStyles()}
+const styles = `${catalogHostStyles()}${liveStatusRegionStyles()}
 :host { display: inline-block; max-width: 100%; }
 .export { display: grid; gap: 0.45rem; justify-items: start; }
 button {
@@ -35,23 +40,36 @@ button:focus { outline: 2px solid var(--catalog-fg); outline-offset: 2px; }
 `;
 
 /**
- * The label says what will be exported. The host writes the file.
- * A click that cannot run does not leave this button.
+ * The label names the format. The host writes the file.
+ * Unavailable keeps the button focusable with a visible reason.
+ * Busy lives on the announcer, not on the button.
  */
 export function exportButtonView(
 	ctx: ExportButtonViewContext,
 ): IgniteJsxElement {
+	const polite =
+		ctx.state === "preparing"
+			? ctx.pendingLabel
+			: ctx.state === "ready"
+				? ctx.readyLabel
+				: null;
+	const assertive =
+		ctx.state === "failed" && ctx.reason ? cliTone("error", ctx.reason) : null;
 	return (
 		<>
 			<style>{styles}</style>
 			<div class="export">
 				<button
 					type="button"
+					aria-describedby={
+						assertive ? `${ctx.instanceId}-assertive` : undefined
+					}
 					aria-disabled={ctx.canExport ? "false" : "true"}
 					onClick={(event: Event) => {
 						if (!ctx.canExport) {
 							event.preventDefault();
 							event.stopPropagation();
+							ctx.export();
 							return;
 						}
 						ctx.export();
@@ -59,7 +77,14 @@ export function exportButtonView(
 				>
 					{ctx.buttonLabel}
 				</button>
-				{ctx.showReason ? <p class="reason">{ctx.reason}</p> : null}
+				{liveStatusRegion({
+					instanceId: ctx.instanceId,
+					polite,
+					assertive,
+					busy: ctx.isPreparing,
+					progress: ctx.isPreparing ? "indeterminate" : "none",
+					settled: null,
+				})}
 			</div>
 		</>
 	);
