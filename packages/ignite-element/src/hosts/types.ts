@@ -4,8 +4,9 @@ export interface HostContext<Event = unknown> {
 	readonly reducedMotion: boolean;
 }
 
+/** `El` defaults to `unknown` so a host typechecks without a DOM lib. */
 export interface Host<
-	El extends Element = Element,
+	El = unknown,
 	Slice = unknown,
 	Handle = unknown,
 	Snapshot = unknown,
@@ -24,7 +25,7 @@ export interface Host<
  * bivariant, so a canvas host still assigns.
  */
 export interface IgniteHostLike {
-	mount(el: Element, ctx: HostContext<never>): unknown;
+	mount(el: unknown, ctx: HostContext<never>): unknown;
 	update?(handle: never, slice: never): void;
 	dispose(handle: never): void;
 	select?(snapshot: never): unknown;

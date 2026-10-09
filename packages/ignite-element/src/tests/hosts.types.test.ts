@@ -5,6 +5,14 @@ type SceneHosts = {
 	scene: Host<HTMLCanvasElement, number>;
 };
 
+describe("Host", () => {
+	it("defaults the mount target without a DOM element type", () => {
+		expectTypeOf<Host>().toEqualTypeOf<
+			Host<unknown, unknown, unknown, unknown, unknown>
+		>();
+	});
+});
+
 describe("HostProps", () => {
 	it("limits use to the names declared on a core", () => {
 		expectTypeOf<HostProps<SceneHosts>["use"]>().toEqualTypeOf<
