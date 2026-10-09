@@ -1,6 +1,7 @@
 // @vitest-environment node
 
 import { describe, expect, it } from "vitest";
+import { createActor } from "xstate";
 import {
 	assertFlagReasons,
 	assertGalleryCoversStates,
@@ -12,6 +13,10 @@ import {
 	type StatusPillFixtureInput,
 	statusPillGallery,
 } from "./status-pill.gallery";
+import {
+	type StatusPillContext,
+	statusPillMachine,
+} from "./status-pill.source";
 
 async function show(input: StatusPillFixtureInput) {
 	const core = createStatusPillCore();
@@ -70,16 +75,27 @@ describe("StatusPill states", () => {
 
 	it("accepts the igniteCore commands facade", () => {
 		const sent: unknown[] = [];
-		statusPillProjection
-			.commands({
-				source: {
-					send: (event) => {
-						sent.push(event);
-					},
+		const commands = statusPillProjection.commands({
+			source: {
+				send: (event) => {
+					sent.push(event);
 				},
-			})
-			.setValue("Saved");
-		expect(sent).toEqual([{ type: "SET_VALUE", value: "Saved" }]);
+			},
+		});
+		commands.setValue("Saved");
+		commands.setValue(null);
+		commands.setTone(null);
+		commands.setReason(null);
+		commands.setAnnounce("false");
+		commands.setAnnounce(null);
+		expect(sent).toEqual([
+			{ type: "SET_VALUE", value: "Saved" },
+			{ type: "SET_VALUE", value: "" },
+			{ type: "SET_TONE", tone: "neutral" },
+			{ type: "SET_REASON", reason: null },
+			{ type: "SET_ANNOUNCE", announce: false },
+			{ type: "SET_ANNOUNCE", announce: false },
+		]);
 	});
 
 	it("treats a whitespace-only reason as no reason", async () => {
@@ -149,8 +165,58 @@ describe("StatusPill states", () => {
 					mcp: { status: "polite", value: "Live" },
 				},
 			});
+			await core.execute({ command: "setTone", input: "danger" });
+			expect(core.get("states").announcement).toBe(
+				"Danger Live — Inspection is paused.",
+			);
+			await core.execute({ command: "setReason", input: "Needs a look." });
+			expect(core.get("states").announcement).toBe(
+				"Danger Live — Needs a look.",
+			);
+			await core.execute({ command: "setAnnounce", input: "false" });
+			expect(core.get("states")).toMatchObject({
+				announce: false,
+				announcement: null,
+				a11y: { mcp: { status: "quiet" } },
+			});
 		} finally {
 			core.dispose();
+		}
+	});
+
+	it("leaves context alone when an action sees the wrong event", () => {
+		const actor = createActor(statusPillMachine, {
+			input: {
+				value: "Saved",
+				tone: "success",
+				reason: "Done.",
+				announce: true,
+			},
+		});
+		actor.start();
+		try {
+			const context = actor.getSnapshot().context;
+			for (const name of [
+				"applyValue",
+				"applyTone",
+				"applyReason",
+				"applyAnnounce",
+			] as const) {
+				const action = statusPillMachine.implementations.actions[name] as {
+					assignment: (args: {
+						context: StatusPillContext;
+						event: { type: string };
+					}) => Record<string, unknown>;
+				};
+				expect(
+					action.assignment({
+						context,
+						event: { type: "NOT_THIS" },
+					}),
+				).toEqual({});
+			}
+		} finally {
+			actor.stop();
 		}
 	});
 
