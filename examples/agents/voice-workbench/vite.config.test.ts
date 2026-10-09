@@ -51,6 +51,7 @@ describe("voice workbench Vite capability boundary", () => {
 		});
 
 		expect(config.define).toEqual({
+			__IGNITE_DEV_WARNINGS__: "true",
 			__VOICE_WORKBENCH_WEB_SEARCH_AVAILABLE__: "true",
 		});
 		expect(JSON.stringify(config.define)).not.toContain("server-secret");
@@ -94,6 +95,7 @@ describe("voice workbench Vite capability boundary", () => {
 			fetch: fetchMock,
 		});
 		expect(config.define).toEqual({
+			__IGNITE_DEV_WARNINGS__: "true",
 			__VOICE_WORKBENCH_WEB_SEARCH_AVAILABLE__: "false",
 		});
 		await expect(
