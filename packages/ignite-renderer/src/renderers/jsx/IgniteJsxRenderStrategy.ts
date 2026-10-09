@@ -6,6 +6,7 @@ import {
 	mountIgniteJsx,
 	type NormalizedNode,
 	renderIgniteJsx,
+	unmountIgniteSubtree,
 } from "./renderer";
 import type { IgniteJsxChild } from "./types";
 
@@ -104,9 +105,17 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 		}
 	}
 
+	releaseView(): void {
+		if (!this.contentRoot) return;
+		for (const child of Array.from(this.contentRoot.childNodes)) {
+			unmountIgniteSubtree(child);
+		}
+	}
+
 	detach(): void {
-		if (this.contentRoot?.parentNode) {
-			this.contentRoot.parentNode.removeChild(this.contentRoot);
+		if (this.contentRoot) {
+			unmountIgniteSubtree(this.contentRoot);
+			this.contentRoot.parentNode?.removeChild(this.contentRoot);
 		}
 		this.contentRoot = null;
 		this.previousTree = null;

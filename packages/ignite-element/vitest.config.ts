@@ -89,6 +89,9 @@ export default defineConfig((configEnv) =>
 				include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
 				setupFiles: "./vitest.setup.ts",
 				coverage: {
+					// Sources under sibling packages are imported by these tests.
+					// Attribute them in the clover report Codecov uploads.
+					allowExternal: true,
 					exclude: [
 						"**/*.config.{js,ts}",
 						"vite.config.ts",

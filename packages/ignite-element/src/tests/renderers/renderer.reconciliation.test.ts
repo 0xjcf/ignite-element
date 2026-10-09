@@ -175,6 +175,167 @@ describe("keyed sibling reconciliation", () => {
 		).toEqual(["Beta", "Alpha"]);
 	});
 
+	it("keeps unkeyed siblings positional while keyed siblings move", () => {
+		const host = document.createElement("div");
+		let tree = mountIgniteJsx(
+			host,
+			list([
+				jsx("span", { children: "keyed" }, "k"),
+				jsx("i", { children: "plain" }),
+			]),
+		);
+		const keyed = host.querySelector("span");
+		const plain = host.querySelector("i");
+
+		tree = renderIgniteJsx(
+			host,
+			list([
+				jsx("i", { children: "plain" }),
+				jsx("b", { children: "added" }),
+				jsx("span", { children: "keyed" }, "k"),
+			]),
+			tree,
+		);
+
+		const parent = host.querySelector("div");
+		expect(parent?.childNodes[0]).toBe(plain);
+		expect(parent?.childNodes[1]?.textContent).toBe("added");
+		expect(parent?.childNodes[2]).toBe(keyed);
+	});
+
+	it("replaces a keyed node when its tag changes", () => {
+		const host = document.createElement("div");
+		const ref = vi.fn<Ref>();
+		let tree = mountIgniteJsx(
+			host,
+			list([jsx("span", { ref, children: "A" }, "a")]),
+		);
+
+		tree = renderIgniteJsx(
+			host,
+			list([jsx("em", { ref, children: "A" }, "a")]),
+			tree,
+		);
+
+		expect(host.querySelector("span")).toBeNull();
+		expect(host.querySelector("em")?.textContent).toBe("A");
+		expect(ref).toHaveBeenCalledWith(null);
+		expect(ref).toHaveBeenLastCalledWith(host.querySelector("em"));
+	});
+
+	it("leaves a node outside the keyed list in place", () => {
+		const host = document.createElement("div");
+		let tree = mountIgniteJsx(
+			host,
+			list([
+				jsx("span", { children: "A" }, "a"),
+				jsx("span", { children: "B" }, "b"),
+			]),
+		);
+		const parent = host.querySelector("div");
+		if (!parent) throw new Error("expected parent");
+		const extra = document.createElement("em");
+		extra.textContent = "extra";
+		parent.append(extra);
+
+		tree = renderIgniteJsx(
+			host,
+			list([
+				jsx("span", { children: "B" }, "b"),
+				jsx("span", { children: "A" }, "a"),
+			]),
+			tree,
+		);
+
+		expect(parent.lastElementChild).toBe(extra);
+		expect(
+			Array.from(parent.querySelectorAll("span")).map(
+				(node) => node.textContent,
+			),
+		).toEqual(["B", "A"]);
+	});
+
+	it("rebuilds a keyed list when a managed DOM node is missing", () => {
+		const host = document.createElement("div");
+		let tree = mountIgniteJsx(
+			host,
+			list([
+				jsx("span", { children: "A" }, "a"),
+				jsx("span", { children: "B" }, "b"),
+			]),
+		);
+		const parent = host.querySelector("div");
+		parent?.firstChild?.remove();
+
+		tree = renderIgniteJsx(
+			host,
+			list([
+				jsx("span", { children: "A" }, "a"),
+				jsx("span", { children: "B" }, "b"),
+			]),
+			tree,
+		);
+
+		expect(host.textContent).toBe("AB");
+	});
+
+	it("removes several trailing unkeyed children and keeps the first node", () => {
+		const host = document.createElement("div");
+		let tree = mountIgniteJsx(
+			host,
+			list([
+				jsx("span", { children: "A" }),
+				jsx("span", { children: "B" }),
+				jsx("span", { children: "C" }),
+			]),
+		);
+		const kept = host.querySelector("span");
+
+		tree = renderIgniteJsx(host, list([jsx("span", { children: "A" })]), tree);
+
+		expect(host.querySelectorAll("span")).toHaveLength(1);
+		expect(host.querySelector("span")).toBe(kept);
+		expect(host.textContent).toBe("A");
+	});
+
+	it("replaces an unkeyed sibling when a keyed sibling is also present", () => {
+		const host = document.createElement("div");
+		let tree = mountIgniteJsx(
+			host,
+			list([
+				jsx("span", { children: "keyed" }, "k"),
+				jsx("i", { children: "plain" }),
+			]),
+		);
+		const keyed = host.querySelector("span");
+
+		tree = renderIgniteJsx(
+			host,
+			list([
+				jsx("b", { children: "plain" }),
+				jsx("span", { children: "keyed" }, "k"),
+			]),
+			tree,
+		);
+
+		const parent = host.querySelector("div");
+		expect(parent?.querySelector("i")).toBeNull();
+		expect(parent?.querySelector("b")?.textContent).toBe("plain");
+		expect(parent?.querySelector("span")).toBe(keyed);
+	});
+
+	it("repairs a comment when the DOM node was replaced", () => {
+		const host = document.createElement("div");
+		let tree = mountIgniteJsx(host, null);
+		const comment = host.firstChild;
+		if (!comment) throw new Error("expected comment");
+		host.replaceChild(document.createElement("span"), comment);
+
+		tree = renderIgniteJsx(host, null, tree);
+
+		expect(host.firstChild?.nodeType).toBe(Node.COMMENT_NODE);
+	});
+
 	it("keeps unkeyed children on positional matching", () => {
 		const host = document.createElement("div");
 		let tree = mountIgniteJsx(
@@ -386,6 +547,37 @@ describe("ref lifecycle", () => {
 		expect(parentWhenRun).not.toBeNull();
 		renderIgniteJsx(host, jsx("div", { children: [] }), tree);
 		expect(hook).toHaveBeenCalledTimes(1);
+	});
+
+	it("ignores an unmount hook registered while unmount is already running", () => {
+		const onIgniteUnmount = (
+			renderer as unknown as {
+				onIgniteUnmount?: (node: Node, hook: () => void) => void;
+			}
+		).onIgniteUnmount;
+		expect(typeof onIgniteUnmount).toBe("function");
+		if (!onIgniteUnmount) return;
+
+		const host = document.createElement("div");
+		const late = vi.fn();
+		let tree = mountIgniteJsx(
+			host,
+			jsx("div", { children: jsx("span", { children: "gone" }) }),
+		);
+		const span = host.querySelector("span");
+		if (!span) throw new Error("expected span");
+		onIgniteUnmount(span, () => {
+			onIgniteUnmount(span, late);
+		});
+
+		tree = renderIgniteJsx(host, jsx("div", { children: [] }), tree);
+		expect(late).not.toHaveBeenCalled();
+		expect(host.querySelector("span")).toBeNull();
+	});
+
+	it("treats releaseView before attach as a no-op", () => {
+		const strategy = createIgniteJsxRenderStrategy();
+		expect(() => strategy.releaseView()).not.toThrow();
 	});
 });
 

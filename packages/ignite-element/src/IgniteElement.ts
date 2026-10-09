@@ -184,6 +184,7 @@ export function getIgniteElementClasses(
 			this.scheduleDisconnectTeardown(() => {
 				let disconnectError: unknown;
 				try {
+					this.strategy.releaseView?.();
 					this.onTrueDisconnect();
 				} catch (error) {
 					disconnectError = error;
