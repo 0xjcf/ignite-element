@@ -99,6 +99,9 @@ export function fieldView(ctx: FieldViewContext): IgniteJsxElement {
 			const value = readControl(event);
 			if (value !== null) ctx.setValue(value);
 		},
+		onChange: (event: Event) => {
+			event.stopPropagation();
+		},
 		onBlur: () => {
 			ctx.touch();
 		},

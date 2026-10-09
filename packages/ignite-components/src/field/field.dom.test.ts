@@ -112,4 +112,18 @@ describe("Field DOM", () => {
 		);
 		expect(received).toEqual([{ contract: true, value: "a" }]);
 	});
+
+	it("does not let a composed native change event leave the field", () => {
+		const { element, view } = mount("Title");
+		const received: Event[] = [];
+		element.addEventListener("change", (event) => {
+			received.push(event);
+		});
+		const control = view.getByRole("textbox") as HTMLInputElement;
+		control.value = "Buy milk";
+		control.dispatchEvent(
+			new Event("change", { bubbles: true, composed: true }),
+		);
+		expect(received).toEqual([]);
+	});
 });
