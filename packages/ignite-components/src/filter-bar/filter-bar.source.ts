@@ -151,6 +151,9 @@ export const filterBarMachine = setup({
 			context.query.length === 0 && context.active.length === 0,
 		knownFilter: ({ context, event }) =>
 			event.type === "TOGGLE" && context.filters.includes(event.id),
+		droppedActive: ({ context, event }) =>
+			event.type === "SET_FILTERS" &&
+			context.active.some((name) => !event.filters.includes(name)),
 	},
 }).createMachine({
 	id: "filter-bar",
@@ -169,7 +172,13 @@ export const filterBarMachine = setup({
 	on: {
 		SET_LABEL: { actions: "applyLabel" },
 		SET_QUERY: { actions: ["applyQuery", "announceChange"] },
-		SET_FILTERS: { actions: "applyFilters" },
+		SET_FILTERS: [
+			{
+				guard: "droppedActive",
+				actions: ["applyFilters", "announceChange"],
+			},
+			{ actions: "applyFilters" },
+		],
 		SET_ACTIVE: { actions: ["applyActive", "announceChange"] },
 		TOGGLE: [
 			{

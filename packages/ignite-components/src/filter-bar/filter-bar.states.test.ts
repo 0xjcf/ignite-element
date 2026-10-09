@@ -118,6 +118,29 @@ describe("FilterBar states", () => {
 		}
 	});
 
+	it("emits change when SET_FILTERS drops an active name", async () => {
+		const core = createFilterBarCore();
+		const changes: Array<{ query: string; active: string[] }> = [];
+		core.on("change", (event) => {
+			changes.push({ query: event.query, active: event.active });
+		});
+		try {
+			core.watch(() => {});
+			await core.execute({ command: "setFilters", input: "Type\nSurface" });
+			await core.execute({ command: "setActive", input: "Type\nSurface" });
+			changes.length = 0;
+			await core.execute({ command: "setFilters", input: "Surface" });
+			expect(core.get("states")).toMatchObject({
+				filters: ["Surface"],
+				active: ["Surface"],
+				warnings: ['Unknown filter "Type". Valid filters: Surface.'],
+			});
+			expect(changes).toEqual([{ query: "", active: ["Surface"] }]);
+		} finally {
+			core.dispose();
+		}
+	});
+
 	it("warns when SET_FILTERS drops an unknown filter", async () => {
 		const core = createFilterBarCore();
 		try {
