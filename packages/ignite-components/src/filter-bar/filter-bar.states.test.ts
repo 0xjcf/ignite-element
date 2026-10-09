@@ -71,6 +71,7 @@ describe("FilterBar states", () => {
 				filters: ["Type", "Surface"],
 				active: [],
 				canClear: true,
+				warnings: ['Unknown filter "Missing". Valid filters: Type, Surface.'],
 			});
 			await core.execute({ command: "clear" });
 			expect(core.get("states")).toMatchObject({
@@ -79,6 +80,8 @@ describe("FilterBar states", () => {
 				active: [],
 				canClear: false,
 				canClearRefusal: "Nothing is filtered.",
+				warnings: [],
+				a11y: { cli: null, mcp: { warnings: [], status: "quiet" } },
 			});
 		} finally {
 			core.dispose();
@@ -115,11 +118,66 @@ describe("FilterBar states", () => {
 		}
 	});
 
-	it("records CLI and MCP on the contract and ships no host", () => {
+	it("emits change when SET_FILTERS drops an active name", async () => {
+		const core = createFilterBarCore();
+		const changes: Array<{ query: string; active: string[] }> = [];
+		core.on("change", (event) => {
+			changes.push({ query: event.query, active: event.active });
+		});
+		try {
+			core.watch(() => {});
+			await core.execute({ command: "setFilters", input: "Type\nSurface" });
+			await core.execute({ command: "setActive", input: "Type\nSurface" });
+			changes.length = 0;
+			await core.execute({ command: "setFilters", input: "Surface" });
+			expect(core.get("states")).toMatchObject({
+				filters: ["Surface"],
+				active: ["Surface"],
+				warnings: ['Unknown filter "Type". Valid filters: Surface.'],
+			});
+			expect(changes).toEqual([{ query: "", active: ["Surface"] }]);
+		} finally {
+			core.dispose();
+		}
+	});
+
+	it("warns when SET_FILTERS drops an unknown filter", async () => {
+		const core = createFilterBarCore();
+		try {
+			core.watch(() => {});
+			await core.execute({
+				command: "setFilters",
+				input: "Type\nSurface",
+			});
+			await core.execute({ command: "setActive", input: "Type" });
+			await core.execute({ command: "setFilters", input: "Surface\nRuntime" });
+			expect(core.get("states")).toMatchObject({
+				filters: ["Surface", "Runtime"],
+				active: [],
+				warnings: ['Unknown filter "Type". Valid filters: Surface, Runtime.'],
+				a11y: {
+					cli: 'warning: Unknown filter "Type". Valid filters: Surface, Runtime.',
+					mcp: {
+						warnings: [
+							'Unknown filter "Type". Valid filters: Surface, Runtime.',
+						],
+					},
+				},
+			});
+		} finally {
+			core.dispose();
+		}
+	});
+
+	it("records CLI and MCP equivalents and ships no host", () => {
 		expect(filterBarContract.hosts).toEqual({ cli: "M3", mcp: "M3" });
 		expect(filterBarContract.surfaces.cli).toMatch(/filter/);
 		expect(filterBarContract.surfaces.mcp).toMatch(/property/);
 		expect(filterBarContract.layers.headless).toBe(true);
 		expect(filterBarContract.slots).toEqual([]);
+		expect(filterBarContract.a11y?.map((row) => row.mcp)).toEqual([
+			"Property title and enum titles.",
+			"warnings[] naming the dropped filters.",
+		]);
 	});
 });
