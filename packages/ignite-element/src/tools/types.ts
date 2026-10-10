@@ -48,8 +48,8 @@ export type ToolCommandSchema = {
 	input: ToolInputSchema;
 	gated?: boolean;
 	/**
-	 * Read or observe only. An ungated read stays available without
-	 * `canExecute`. A command needs an explicit allow.
+	 * Side-effect-free command. An ungated read skips `canExecute` and `run`
+	 * still calls `core.execute`. Do not set this when execute changes state.
 	 */
 	read?: boolean;
 	/**
@@ -89,7 +89,10 @@ export type NeutralTool = {
 	 * `docs/can-execute.md`).
 	 */
 	gated: boolean;
-	/** Ungated reads stay available when `canExecute` is omitted or denies them. */
+	/**
+	 * Side-effect-free command. Ungated reads skip the availability gate and
+	 * still execute. A consequential command is not a read.
+	 */
 	read?: boolean;
 	/**
 	 * Copied from the schema. Ignite does not approve or consume it. A
@@ -217,8 +220,17 @@ export interface ToolDialect<
 	>(result: NeutralToolResult<CommandResult, States, Events>): ResultBlock;
 }
 
-/** Per-command availability predicate, evaluated against the current snapshot. */
-export type AvailabilityPredicate = (name: string) => boolean;
+/**
+ * Application availability preflight. Return true only for an explicit allow.
+ * Listing calls `canExecute(name)`. A call also passes the validated input and
+ * `{ core }`. Ignite does not store or consume approvals. A throw, a thenable,
+ * or any result other than true denies the command.
+ */
+export type AvailabilityPredicate = (
+	name: string,
+	input?: unknown,
+	context?: { readonly core: object },
+) => boolean;
 
 /**
  * The source-backed runtime slice borrowed by tools: keyed discovery/state reads,

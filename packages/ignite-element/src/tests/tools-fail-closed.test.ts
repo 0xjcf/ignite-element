@@ -107,7 +107,11 @@ function createRuntime(options?: { defer?: boolean }) {
 function bind(
 	runtime: ReturnType<typeof createRuntime>,
 	options: {
-		canExecute?: (name: string) => boolean;
+		canExecute?: (
+			name: string,
+			input?: unknown,
+			context?: { core: object },
+		) => boolean;
 	} = {},
 ) {
 	return igniteTools({
@@ -265,5 +269,142 @@ describe("approval stays with the application", () => {
 		expect(again.ok).toBe(false);
 		if (!again.ok) expect(again.error.kind).toBe("ExecuteFailed");
 		expect(runtime.calls).toHaveLength(2);
+	});
+});
+
+describe("canExecute receives the call and fails closed", () => {
+	it("passes the validated input and the target runtime", async () => {
+		const runtime = createRuntime();
+		const seen: Array<{ name: string; input: unknown; core?: object }> = [];
+		const { run } = bind(runtime, {
+			canExecute: (name, input, context) => {
+				if (name !== "setLimit") return false;
+				if (!context) return true;
+				seen.push({ name, input, core: context.core });
+				return input === 5 && context.core === runtime;
+			},
+		});
+		const result = await run({ name: "setLimit", input: undefined });
+		expect(result.ok).toBe(true);
+		expect(seen).toContainEqual({
+			name: "setLimit",
+			input: 5,
+			core: runtime,
+		});
+		expect(runtime.calls).toEqual([{ command: "setLimit", input: 5 }]);
+	});
+
+	it("returns Unavailable when the predicate throws", () => {
+		expect(() =>
+			buildManifest(schema, () => {
+				throw new Error("predicate failed");
+			}),
+		).not.toThrow();
+		const manifest = buildManifest(schema, (name) => name === "increment");
+		expect(() =>
+			resolveCall(manifest, "increment", undefined, () => {
+				throw new Error("predicate failed");
+			}),
+		).not.toThrow();
+		expect(
+			resolveCall(manifest, "increment", undefined, () => {
+				throw new Error("predicate failed");
+			}),
+		).toEqual({
+			ok: false,
+			error: { kind: "Unavailable", name: "increment" },
+		});
+	});
+
+	it("returns Unavailable for a non-boolean predicate result", () => {
+		const manifest = buildManifest(schema, () => true);
+		expect(
+			resolveCall(
+				manifest,
+				"increment",
+				undefined,
+				() => 1 as unknown as boolean,
+			),
+		).toEqual({
+			ok: false,
+			error: { kind: "Unavailable", name: "increment" },
+		});
+	});
+
+	it("returns Unavailable for a promise and does not treat it as allow", async () => {
+		const manifest = buildManifest(schema, () => true);
+		const errors: unknown[] = [];
+		const onUnhandled = (reason: unknown) => {
+			errors.push(reason);
+		};
+		process.on("unhandledRejection", onUnhandled);
+		const pending = resolveCall(
+			manifest,
+			"increment",
+			undefined,
+			() => Promise.resolve(true) as unknown as boolean,
+		);
+		const rejected = resolveCall(manifest, "increment", undefined, () => {
+			return Promise.reject(new Error("denied")) as unknown as boolean;
+		});
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		process.off("unhandledRejection", onUnhandled);
+		expect(pending).toEqual({
+			ok: false,
+			error: { kind: "Unavailable", name: "increment" },
+		});
+		expect(rejected).toEqual({
+			ok: false,
+			error: { kind: "Unavailable", name: "increment" },
+		});
+		expect(errors).toEqual([]);
+	});
+
+	it("does not resolve prototype, case, or whitespace names", () => {
+		const manifest = buildManifest(schema, () => true);
+		for (const name of [
+			"constructor",
+			"toString",
+			"__proto__",
+			"Increment",
+			" increment",
+			"increment ",
+		]) {
+			expect(resolveCall(manifest, name, undefined, () => true)).toEqual({
+				ok: false,
+				error: { kind: "UnknownCommand", name },
+			});
+		}
+	});
+
+	it("checks each call in a batch and turns a throwing predicate into Unavailable", async () => {
+		const runtime = createRuntime();
+		const { run } = bind(runtime, {
+			canExecute: (name, input) => {
+				if (name === "setLimit" && input !== undefined) {
+					throw new Error("no");
+				}
+				return name === "increment" || name === "setLimit";
+			},
+		});
+		const [allowed, denied] = await Promise.all([
+			run({ name: "increment", input: undefined }),
+			run({ name: "setLimit", input: 5 }),
+		]);
+		expect(allowed.ok).toBe(true);
+		expect(denied).toEqual({
+			ok: false,
+			error: { kind: "Unavailable", name: "setLimit" },
+		});
+		expect(runtime.calls).toEqual([{ command: "increment" }]);
+	});
+
+	it("refuses a command on a stale manifest when the predicate is omitted at resolve", () => {
+		const manifest = buildManifest(schema, () => true);
+		expect(manifest.find((tool) => tool.name === "increment")).toBeDefined();
+		expect(resolveCall(manifest, "increment", undefined)).toEqual({
+			ok: false,
+			error: { kind: "Unavailable", name: "increment" },
+		});
 	});
 });

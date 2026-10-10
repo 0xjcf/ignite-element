@@ -122,22 +122,60 @@ function toInputSchema(metadata: ToolCommandSchema): ToolInputSchema {
  * this.
  *
  * Pure: explicit application schema → neutral tool manifest, sorted by name.
- * Ungated `read` tools stay available without a predicate. Every other tool is
- * omitted unless `canExecute` returns true. Deny when the predicate is missing.
+ * Gated commands are omitted when an availability predicate reports them
+ * currently unavailable. Without a predicate, commands are denied. An ungated
+ * `read: true` tool stays available only when that command is side-effect-free.
  *
  * Only the bare command map is read. Minimal core discovery does not provide
  * input validation; missing explicit definitions fail before execution.
  */
+function isSideEffectFreeRead(tool: {
+	read?: boolean;
+	gated?: boolean;
+	consequential?: boolean;
+}): boolean {
+	return (
+		tool.read === true && tool.consequential !== true && tool.gated !== true
+	);
+}
+
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		typeof (value as PromiseLike<unknown>).then === "function"
+	);
+}
+
+function predicateAllows(
+	canExecute: AvailabilityPredicate | undefined,
+	name: string,
+	call?: { input: unknown; context?: { readonly core: object } },
+): boolean {
+	if (typeof canExecute !== "function") return false;
+	let result: unknown;
+	try {
+		result = call
+			? canExecute(name, call.input, call.context)
+			: canExecute(name);
+	} catch {
+		return false;
+	}
+	if (isThenable(result)) {
+		void Promise.resolve(result).catch(() => undefined);
+		return false;
+	}
+	return result === true;
+}
+
 function allowsTool(
 	tool: { read?: boolean; gated?: boolean; consequential?: boolean },
 	name: string,
 	canExecute?: AvailabilityPredicate,
+	call?: { input: unknown; context?: { readonly core: object } },
 ): boolean {
-	const read = tool.read === true && tool.consequential !== true;
-	if (read && tool.gated !== true) {
-		return true;
-	}
-	return typeof canExecute === "function" && canExecute(name) === true;
+	if (isSideEffectFreeRead(tool)) return true;
+	return predicateAllows(canExecute, name, call);
 }
 
 export function buildManifest(
@@ -182,24 +220,22 @@ export function buildManifest(
  * `igniteTools({ core, schema })` bind instead of importing this.
  *
  * Pure: validate a model-supplied input against a command's schema and route it
- * to `{ command, input? }`. Errors are returned as values — `UnknownCommand`
- * (not in the manifest), `Unavailable` (a command or gated read the predicate
- * does not currently allow — including a missing predicate), or `InvalidInput`
- * (fails the input schema). Never throws.
+ * to `{ command, input? }`. A call then asks `canExecute(name, input, context)`
+ * with that validated input. Errors are returned as values — `UnknownCommand`
+ * (not in the manifest), `InvalidInput` (fails the input schema), or
+ * `Unavailable` (the predicate is missing, throws, returns a thenable, or
+ * returns anything other than true). Never throws.
  */
 export function resolveCall(
 	manifest: NeutralManifest,
 	name: string,
 	input: unknown,
 	canExecute?: AvailabilityPredicate,
+	context?: { readonly core: object },
 ): Result<Route, ToolError> {
 	const tool = manifest.find((candidate) => candidate.name === name);
 	if (!tool) {
 		return err({ kind: "UnknownCommand", name });
-	}
-
-	if (!allowsTool(tool, name, canExecute)) {
-		return err({ kind: "Unavailable", name });
 	}
 
 	const issues = validateToolInputValue(tool.inputSchema, input, "input");
@@ -207,7 +243,20 @@ export function resolveCall(
 		return err({ kind: "InvalidInput", name, issues });
 	}
 
-	return ok({ command: name, ...normalizeRouteInput(tool.inputSchema, input) });
+	const route = {
+		command: name,
+		...normalizeRouteInput(tool.inputSchema, input),
+	};
+	if (
+		!allowsTool(tool, name, canExecute, {
+			input: route.input,
+			context,
+		})
+	) {
+		return err({ kind: "Unavailable", name });
+	}
+
+	return ok(route);
 }
 
 /**

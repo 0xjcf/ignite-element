@@ -55,15 +55,20 @@ const tools = igniteTools({
 });
 ```
 
-The provider list omits commands the predicate does not allow. Ungated `read`
-tools stay listed without a predicate. Invocation rechecks the predicate.
-Omit `canExecute` and commands are denied. `canExecute` is application
+The provider list omits commands the predicate does not allow. Invocation
+rechecks it with the validated input and `{ core }`. Omit `canExecute` and
+commands are denied. Return `true` only for an explicit allow. A throw, a
+thenable, or any other result denies the call. `canExecute` is application
 preflight, never authentication.
 
-A `consequential` command uses the same predicate. The application checks a
-single-use approval bound to the actor, the tool name, the exact input, and
-the target runtime, and consumes it once in that application authority. Ignite
-does not store approval ids or decide replay.
+An ungated `read: true` tool skips that gate only when the command is
+side-effect-free. `run` still calls `core.execute`. Do not mark a command
+`read` if executing it changes source state.
+
+A `consequential` command uses the same predicate. The application hashes the
+tool name and the validated input, binds that hash to the actor and
+`context.core`, and consumes the hash once. Ignite does not store approval
+ids or decide replay.
 Refresh offered tools when the application needs a fresh availability list.
 Source enforcement must still handle state changes after preflight.
 
