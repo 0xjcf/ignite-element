@@ -39,6 +39,89 @@ export type ActorWebHostFactory<
 	| ActorWebSource<Context, Message, Emitted>
 	| ActorWebCommandSource<Context, Message, Emitted>;
 
+type WebCoreOptions<
+	Context extends object,
+	Message extends { type: string },
+	Emitted extends { type: string },
+	Events extends EventMap,
+	States extends Record<string, unknown>,
+	Commands extends FacadeCommandResult,
+	Source extends ActorWebHostFactory<Context, Message, Emitted>,
+> = {
+	adapter?: "actor-web";
+	source: Source & ActorWebHostFactory<Context, Message, Emitted>;
+	states?: FacadeStatesCallback<
+		ActorWebExtendedState<NoInfer<Context>>,
+		States
+	>;
+	commands?: FacadeCommandsCallback<
+		ActorWebCommandActor<NoInfer<Context>, NoInfer<Message>, NoInfer<Emitted>>,
+		Commands,
+		unknown,
+		ActorWebExtendedState<NoInfer<Context>>
+	>;
+	events?: EventsDefinition<
+		Events & CompatibleEvents<NoInfer<Events>, ChannelEmitted<NoInfer<Source>>>
+	>;
+	effects?: FacadeEffectsObjectCallback<
+		ActorWebExtendedState<NoInfer<Context>>,
+		ActorWebCommandActor<NoInfer<Context>, NoInfer<Message>, NoInfer<Emitted>>,
+		EffectEvents<NoInfer<Events>, ChannelEmitted<NoInfer<Source>>>
+	>;
+} & DisjointBindings<NoInfer<States>, NoInfer<Commands>> & {
+		hosts?: IgniteHostMap<ActorWebExtendedState<NoInfer<Context>>>;
+	};
+
+type WebCoreReturn<
+	Context extends object,
+	Message extends { type: string },
+	Emitted extends { type: string },
+	Events extends EventMap,
+	States extends Record<string, unknown>,
+	Commands extends FacadeCommandResult,
+	Source extends ActorWebHostFactory<Context, Message, Emitted>,
+	Hosts = undefined,
+> = IgniteCoreReturn<
+	ActorWebExtendedState<Context>,
+	Message,
+	ActorWebExtendedState<Context>,
+	States,
+	ActorWebCommandActor<Context, Message, Emitted>,
+	Commands,
+	ActorWebRuntimeEvents<Events, Source, Emitted, Message>,
+	Events,
+	Hosts
+>;
+
+export function igniteCore<
+	const Hosts extends IgniteHostMap<ActorWebExtendedState<Context>>,
+	Context extends object,
+	Message extends { type: string },
+	Emitted extends { type: string } = Message,
+	Events extends EventMap = EmptyEventMap,
+	States extends Record<string, unknown> = Record<never, never>,
+	Commands extends FacadeCommandResult = Record<never, never>,
+	Source extends ActorWebHostFactory<
+		Context,
+		Message,
+		Emitted
+	> = ActorWebHostFactory<Context, Message, Emitted>,
+>(
+	options: Omit<
+		WebCoreOptions<Context, Message, Emitted, Events, States, Commands, Source>,
+		"hosts"
+	> & { hosts: Hosts },
+): WebCoreReturn<
+	Context,
+	Message,
+	Emitted,
+	Events,
+	States,
+	Commands,
+	Source,
+	Hosts
+>;
+
 export function igniteCore<
 	Context extends object,
 	Message extends { type: string },
@@ -52,49 +135,40 @@ export function igniteCore<
 		Emitted
 	> = ActorWebHostFactory<Context, Message, Emitted>,
 >(
-	options: {
-		adapter?: "actor-web";
-		source: Source & ActorWebHostFactory<Context, Message, Emitted>;
-		states?: FacadeStatesCallback<
-			ActorWebExtendedState<NoInfer<Context>>,
-			States
-		>;
-		commands?: FacadeCommandsCallback<
-			ActorWebCommandActor<
-				NoInfer<Context>,
-				NoInfer<Message>,
-				NoInfer<Emitted>
-			>,
-			Commands,
-			unknown,
-			ActorWebExtendedState<NoInfer<Context>>
-		>;
-		events?: EventsDefinition<
-			Events &
-				CompatibleEvents<NoInfer<Events>, ChannelEmitted<NoInfer<Source>>>
-		>;
-		effects?: FacadeEffectsObjectCallback<
-			ActorWebExtendedState<NoInfer<Context>>,
-			ActorWebCommandActor<
-				NoInfer<Context>,
-				NoInfer<Message>,
-				NoInfer<Emitted>
-			>,
-			EffectEvents<NoInfer<Events>, ChannelEmitted<NoInfer<Source>>>
-		>;
-	} & DisjointBindings<NoInfer<States>, NoInfer<Commands>> & {
-			hosts?: IgniteHostMap<ActorWebExtendedState<NoInfer<Context>>>;
-		},
-): IgniteCoreReturn<
-	ActorWebExtendedState<Context>,
-	Message,
-	ActorWebExtendedState<Context>,
-	States,
-	ActorWebCommandActor<Context, Message, Emitted>,
-	Commands,
-	ActorWebRuntimeEvents<Events, Source, Emitted, Message>,
-	Events
-> {
+	options: WebCoreOptions<
+		Context,
+		Message,
+		Emitted,
+		Events,
+		States,
+		Commands,
+		Source
+	>,
+): WebCoreReturn<Context, Message, Emitted, Events, States, Commands, Source>;
+
+export function igniteCore<
+	Context extends object,
+	Message extends { type: string },
+	Emitted extends { type: string } = Message,
+	Events extends EventMap = EmptyEventMap,
+	States extends Record<string, unknown> = Record<never, never>,
+	Commands extends FacadeCommandResult = Record<never, never>,
+	Source extends ActorWebHostFactory<
+		Context,
+		Message,
+		Emitted
+	> = ActorWebHostFactory<Context, Message, Emitted>,
+>(
+	options: WebCoreOptions<
+		Context,
+		Message,
+		Emitted,
+		Events,
+		States,
+		Commands,
+		Source
+	>,
+): WebCoreReturn<Context, Message, Emitted, Events, States, Commands, Source> {
 	assertSupportedSourceOptions(options);
 	const factory = createActorWebAdapter<Context, Message, Emitted, HTMLElement>(
 		(context = {}) => options.source(context),
