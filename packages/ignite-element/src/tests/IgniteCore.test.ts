@@ -1295,7 +1295,11 @@ describe("igniteCore", () => {
 			},
 			increment: { input: { type: "object", properties: {} } },
 		} satisfies ToolSchema;
-		const tools = igniteTools({ core: register, schema });
+		const tools = igniteTools({
+			core: register,
+			schema,
+			canExecute: () => true,
+		});
 		// Shared construction publishes metadata, but does not execute tools.
 		expect(register.get("commands")).toEqual({
 			addByAmount: { input: null },
@@ -1387,7 +1391,11 @@ describe("igniteCore", () => {
 				},
 			},
 		} satisfies ToolSchema;
-		const tools = igniteTools({ core: register, schema });
+		const tools = igniteTools({
+			core: register,
+			schema,
+			canExecute: () => true,
+		});
 		const input = {
 			label: "shift-a",
 			enabled: true,
@@ -1461,7 +1469,11 @@ describe("igniteCore", () => {
 				},
 			},
 		} satisfies ToolSchema;
-		const tools = igniteTools({ core: register, schema });
+		const tools = igniteTools({
+			core: register,
+			schema,
+			canExecute: () => true,
+		});
 		expect((await tools.run({ name: "addSmall", input: 5 })).ok).toBe(false);
 		expect((await tools.run({ name: "addLarge", input: 2 })).ok).toBe(false);
 		expect(store.getState().counter.count).toBe(0);

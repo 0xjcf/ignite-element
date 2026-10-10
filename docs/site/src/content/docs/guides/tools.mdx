@@ -79,9 +79,13 @@ export const tools = igniteTools({
 });
 ```
 
-`canExecute?: (name: string) => boolean` is one predicate for every `gated: true` command.
+`canExecute?: (name: string) => boolean` is the explicit allow for commands.
 
-Omit it and gated tools stay available.
+Omit it and commands are denied. An ungated `read: true` tool still runs, and so do `observe` and `until`.
+
+Return true only for a command this application allows. `canExecute: () => true` allows every command in that schema. That is a choice, not the default.
+
+`gated: true` still rechecks the predicate when availability changes. A gated read follows the same predicate.
 
 `canExecute` is availability preflight; source guards still enforce.
 
@@ -122,6 +126,8 @@ const states = await until(
 ```
 
 Without a dialect, `igniteTools({ core, schema })` still exposes `run`, `until`, and `observe` for headless proof.
+
+`run` of a command still needs `canExecute`. `until` and `observe` do not.
 
 UI registration stays on the callable core: `home('smart-home', renderer)`.
 
@@ -181,9 +187,34 @@ The bound `toolCalls(response)` method unwraps them.
 
 For a raw fetch client, pass parsed Chat Completions JSON to `toolCalls`.
 
+## Consequential commands
+
+Mark a command `consequential: true` when a person must approve that exact call.
+
+Pass the current user as `actor` on the bind. Pass the approval on `run`, not a boolean `confirmed` flag:
+
+```ts
+const granted = {
+  actor: 'ada',
+  name: 'setLimit',
+  input: 6,
+  id: 'approval-1',
+  expiresAt: Date.now() + 60_000,
+};
+const result = await tools.run({
+  name: 'setLimit',
+  input: 6,
+  approval: granted,
+});
+```
+
+The record must name `actor`, the command, and the normalized input. `run` checks it, consumes `id` once, then calls `core.execute({ command, input })`.
+
+A second use, a different input, a different user, an expired record, or an unknown command does not execute. A failed execute still consumes the approval.
+
 ## Errors
 
-`run` returns tagged errors: `UnknownCommand`, `InvalidInput`, `Unavailable`, `ExecuteFailed`.
+`run` returns tagged errors: `UnknownCommand`, `InvalidInput`, `Unavailable`, `ApprovalRejected`, `ExecuteFailed`.
 
 Provider translators turn those results into provider result blocks so a model can react.
 

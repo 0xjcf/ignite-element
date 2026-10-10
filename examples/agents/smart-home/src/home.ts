@@ -572,5 +572,11 @@ export const homeToolSchema = defineToolSchema({
 	status: {
 		description: "Read the current home state (no change).",
 		input: { type: "object", properties: {} },
+		read: true,
 	},
 });
+
+/** Explicit allow for every command in `homeToolSchema`. Reads stay available without it. */
+export function allowHomeCommands(): boolean {
+	return true;
+}

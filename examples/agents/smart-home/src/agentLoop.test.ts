@@ -19,6 +19,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createActorWebHomeSession } from "./actor-web-home";
 import { runHomeAgent, runHomeOpenAICompatibleAgent } from "./agentLoop";
 import {
+	allowHomeCommands,
 	createHome,
 	createInitialHomeContext,
 	createLocalHomeSession,
@@ -80,6 +81,7 @@ describe("smart-home agent — Anthropic tool schemas (getSchema → adapter)", 
 		core: createHome(),
 		dialect: anthropic,
 		schema: homeToolSchema,
+		canExecute: allowHomeCommands,
 	});
 	const byName = (name: string) => tools.find((tool) => tool.name === name);
 
@@ -186,6 +188,7 @@ describe("smart-home agent — OpenAI-compatible tool schemas (getSchema → ada
 		core: createHome(),
 		dialect: openai,
 		schema: homeToolSchema,
+		canExecute: allowHomeCommands,
 	});
 	const byName = (name: string) =>
 		tools.find((tool) => tool.function.name === name);
@@ -361,6 +364,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 			core: home,
 			dialect: anthropic,
 			schema: homeToolSchema,
+			canExecute: allowHomeCommands,
 		});
 		const [call] = tools.toolCalls({
 			content: [
@@ -475,7 +479,11 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 	it("observes a delayed scene after run() acknowledges the pending view", async () => {
 		vi.useFakeTimers();
 		const home = createHome();
-		const tools = igniteTools({ core: home, schema: homeToolSchema });
+		const tools = igniteTools({
+			core: home,
+			schema: homeToolSchema,
+			canExecute: allowHomeCommands,
+		});
 		const observations: unknown[] = [];
 		const subscription = tools.observe((observation) => {
 			observations.push(observation);
@@ -540,7 +548,11 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 	it("cancels a delayed scene when a manual command runs before the timer", async () => {
 		vi.useFakeTimers();
 		const home = createHome();
-		const tools = igniteTools({ core: home, schema: homeToolSchema });
+		const tools = igniteTools({
+			core: home,
+			schema: homeToolSchema,
+			canExecute: allowHomeCommands,
+		});
 
 		try {
 			const result = await tools.run({
@@ -594,7 +606,11 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 	it("restarts a delayed scene when transitionScene is repeated", async () => {
 		vi.useFakeTimers();
 		const home = createHome();
-		const tools = igniteTools({ core: home, schema: homeToolSchema });
+		const tools = igniteTools({
+			core: home,
+			schema: homeToolSchema,
+			canExecute: allowHomeCommands,
+		});
 
 		try {
 			const firstResult = await tools.run({
@@ -667,6 +683,7 @@ describe("smart-home agent — scripted session (round-trip, headless)", () => {
 				core: session.home,
 				dialect: anthropic,
 				schema: homeToolSchema,
+				canExecute: allowHomeCommands,
 			});
 			const result = await tools.run({
 				name: "transitionScene",
@@ -869,6 +886,7 @@ describe("smart-home agent — OpenAI-compatible scripted session", () => {
 			core: createHome(),
 			dialect: openai,
 			schema: homeToolSchema,
+			canExecute: allowHomeCommands,
 		}).tools;
 		if (!tool) {
 			throw new Error("Expected smart-home OpenAI tool definitions.");
@@ -1780,6 +1798,7 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 				core: session.home,
 				dialect: anthropic,
 				schema: homeToolSchema,
+				canExecute: allowHomeCommands,
 			});
 			const result = await tools.run({ name: "runScene", input: "movie" });
 
@@ -1821,6 +1840,7 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 				core: session.home,
 				dialect: anthropic,
 				schema: homeToolSchema,
+				canExecute: allowHomeCommands,
 			});
 			const first = await tools.run({ name: "unlockDoor", input: "front" });
 			const second = await tools.run({ name: "unlockDoor", input: "back" });
@@ -1860,6 +1880,7 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 			core: session.home,
 			dialect: anthropic,
 			schema: homeToolSchema,
+			canExecute: allowHomeCommands,
 		});
 
 		await session.close();
@@ -1883,6 +1904,7 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 				core: session.home,
 				dialect: anthropic,
 				schema: homeToolSchema,
+				canExecute: allowHomeCommands,
 			});
 			const firstResult = await tools.run({
 				name: "transitionScene",
@@ -1952,6 +1974,7 @@ describe("smart-home agent — actor-web runtime dogfood", () => {
 				core: session.home,
 				dialect: anthropic,
 				schema: homeToolSchema,
+				canExecute: allowHomeCommands,
 			});
 			const timerCountBeforeTransition = vi.getTimerCount();
 			const result = await tools.run({

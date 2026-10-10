@@ -262,7 +262,7 @@ The [Smart Home example](https://github.com/0xjcf/ignite-element/tree/beta/examp
 
 The same features run without a view, with a view, or with both a view and tools.
 
-`canExecute` is one `(name) => boolean` function for every `gated: true` command.
+`canExecute` is one `(name) => boolean` allow for commands. Omit it and commands are denied. Ungated `read: true` tools stay available.
 
 ```ts title="house-tools.ts"
 import { defineToolSchema } from 'ignite-element/tools';

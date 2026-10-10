@@ -86,8 +86,8 @@ homeToolSchema → dialect.tools() → [ model ] → tool call
      └──  tool result  ←  dialect.toolResult  ←  run()  ←  toolCalls()
 ```
 
-`igniteTools({ core: home, schema: homeToolSchema, dialect: anthropic })` and
-`igniteTools({ core: home, schema: homeToolSchema, dialect: openai })` both return
+`igniteTools({ core: home, schema: homeToolSchema, canExecute: allowHomeCommands, dialect: anthropic })` and
+`igniteTools({ core: home, schema: homeToolSchema, canExecute: allowHomeCommands, dialect: openai })` both return
 `{ tools, toolCalls, run, until, observe, toolResult }`. Use dialect `textOf` for final
 assistant text. The consumer brings the model seam in `src/model.ts`: a scripted
 mock, the real `@anthropic-ai/sdk`, or any OpenAI-compatible `/v1/chat/completions`

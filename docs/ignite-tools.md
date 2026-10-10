@@ -34,9 +34,15 @@ the built-in structural validator, not Zod and not full JSON Schema. Unknown
 `type` strings are rejected at `defineToolSchema`. There is no Zod peer and no
 core Zod adapter.
 
-`canExecute?: (name: string) => boolean` is one predicate for every
-`gated: true` command. Omit it and gated tools stay available (`() => true`).
+`canExecute?: (name: string) => boolean` is the explicit allow for commands.
+Omit it and commands are denied. An ungated `read: true` tool stays available,
+and so do `observe` and `until`. `gated: true` rechecks the predicate.
 `canExecute` is availability preflight; source guards still enforce.
+
+A `consequential: true` command also needs `actor` on the bind and a single-use
+approval on `run` (`{ actor, name, input, id, expiresAt }`), bound to that
+user, the command, and the normalized input. A boolean `confirmed` flag is not
+an approval. `run` consumes it once, then calls `core.execute({ command, input })`.
 Rebuild the bind when a fresh provider list is needed.
 
 ## Provider port

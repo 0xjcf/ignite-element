@@ -122,13 +122,24 @@ function toInputSchema(metadata: ToolCommandSchema): ToolInputSchema {
  * this.
  *
  * Pure: explicit application schema → neutral tool manifest, sorted by name.
- * Gated commands are omitted when an availability predicate reports them
- * currently unavailable; without a predicate, every command is offered
- * (`() => true`).
+ * Ungated `read` tools stay available without a predicate. Every other tool is
+ * omitted unless `canExecute` returns true. Deny when the predicate is missing.
  *
  * Only the bare command map is read. Minimal core discovery does not provide
  * input validation; missing explicit definitions fail before execution.
  */
+function allowsTool(
+	tool: { read?: boolean; gated?: boolean; consequential?: boolean },
+	name: string,
+	canExecute?: AvailabilityPredicate,
+): boolean {
+	const read = tool.read === true && tool.consequential !== true;
+	if (read && tool.gated !== true) {
+		return true;
+	}
+	return typeof canExecute === "function" && canExecute(name) === true;
+}
+
 export function buildManifest(
 	schema: ToolSchema,
 	canExecute?: AvailabilityPredicate,
@@ -139,13 +150,14 @@ export function buildManifest(
 		);
 	}
 	assertSupportedToolSchema(schema);
-	const isAvailable = canExecute ?? (() => true);
 	const manifest: NeutralManifest = [];
 
 	for (const name of Object.keys(schema).sort()) {
 		const metadata = schema[name];
+		const consequential = metadata.consequential === true;
+		const read = metadata.read === true && !consequential;
 		const gated = metadata.gated === true;
-		if (gated && !isAvailable(name)) {
+		if (!allowsTool({ read, gated, consequential }, name, canExecute)) {
 			continue;
 		}
 
@@ -153,6 +165,8 @@ export function buildManifest(
 			name,
 			inputSchema: toInputSchema(metadata),
 			gated,
+			read,
+			consequential,
 		};
 		if (typeof metadata.description === "string") {
 			tool.description = metadata.description;
@@ -169,8 +183,8 @@ export function buildManifest(
  *
  * Pure: validate a model-supplied input against a command's schema and route it
  * to `{ command, input? }`. Errors are returned as values — `UnknownCommand`
- * (not in the manifest), `Unavailable` (gated and currently unavailable — the
- * availability may have changed since the manifest was built), or `InvalidInput`
+ * (not in the manifest), `Unavailable` (a command or gated read the predicate
+ * does not currently allow — including a missing predicate), or `InvalidInput`
  * (fails the input schema). Never throws.
  */
 export function resolveCall(
@@ -184,7 +198,7 @@ export function resolveCall(
 		return err({ kind: "UnknownCommand", name });
 	}
 
-	if (tool.gated && canExecute && !canExecute(name)) {
+	if (!allowsTool(tool, name, canExecute)) {
 		return err({ kind: "Unavailable", name });
 	}
 
