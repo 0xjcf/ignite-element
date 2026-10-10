@@ -139,9 +139,11 @@ type IgniteToolsResult<
 /**
  * Bridge the agent-runtime contract to LLM tool-use. Bind with named options
  * only: `{ core, schema, canExecute?, dialect? }`. Commands are denied
- * unless `canExecute` returns true. Ungated `read` tools, `observe`, and
- * `until` stay available without that predicate. `canExecute` is application
- * preflight, not authentication. The pure core builds a
+ * unless `canExecute` returns true. A call passes the validated input and
+ * `{ core }` so the application can bind an approval to that exact call.
+ * Ungated side-effect-free `read` tools, `observe`, and `until` stay available
+ * without that predicate. `canExecute` is application preflight, not
+ * authentication, and Ignite does not store approvals. The pure core builds a
  * neutral manifest from explicit tool definitions and routes validated calls;
  * the shell (`run`) performs the single `execute` side effect. `run` is
  * act-plus-acknowledgement; everyday settle uses `until`, and `observe`
@@ -181,7 +183,8 @@ export function igniteTools<
 	const boundResolveCall = (
 		name: string,
 		input: unknown,
-	): Result<Route, ToolError> => resolveCall(manifest, name, input, canExecute);
+	): Result<Route, ToolError> =>
+		resolveCall(manifest, name, input, canExecute, { core: runtime });
 
 	const run = async (
 		call: NeutralToolCall,

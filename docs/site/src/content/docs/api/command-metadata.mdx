@@ -102,7 +102,7 @@ See [Tools](/ignite-element/guides/tools/) for `run`, `until`, `observe`, and pr
 
 Project source-native capability into `states` for views and for the tools predicate.
 
-A command needs `canExecute(name)` to return true. Omit the predicate and commands are denied. An ungated `read: true` tool stays available. `gated: true` rechecks the predicate.
+A command needs `canExecute` to return true. A call passes the validated input and `{ core }`. Omit the predicate and commands are denied. An ungated `read: true` tool stays available only when that command is side-effect-free, and `run` still calls `core.execute`. `gated: true` rechecks the predicate.
 
 The predicate reads the current application projection; it is not a method on the core.
 

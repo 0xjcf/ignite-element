@@ -97,19 +97,22 @@ const reply = textOf({
 });
 ```
 
-`canExecute` remains one `(name: string) => boolean` predicate. Commands are
-denied when it is omitted. Pass an explicit allow to keep a command callable.
-`canExecute: () => true` allows every command in that schema. An ungated tool
-with `read: true` stays available without the predicate, and so do `observe`
-and `until`.
+`canExecute` is `(name, input?, context?) => boolean`. Commands are denied
+when it is omitted or returns anything other than `true`. A throw or a
+promise denies the call as `Unavailable`. Pass an explicit allow to keep a
+command callable. `canExecute: () => true` allows every command in that
+schema. An ungated `read: true` tool stays available only when that command
+is side-effect-free. `run` still calls `core.execute` for it. `observe` and
+`until` do not execute commands.
 
-A `consequential: true` command is not an ungated read. It stays denied unless
-`canExecute` returns true. The application owns the single-use approval
-`{ actor, name, input, target, id, expiresAt }`, bound to the user, the tool
-name, the exact input, and the target runtime. Check and consume that record
-in the application authority the predicate closes over. Ignite does not
-validate it, store it, or consume it. A boolean `confirmed` flag is not an
-approval. `run` calls `core.execute({ command, input })`.
+A `consequential: true` command is not a side-effect-free read. Listing calls
+`canExecute(name)`. A call also passes the validated input and `{ core }`.
+The application owns the single-use approval
+`{ actor, name, input, target, id, expiresAt }`. Hash the name and the
+validated input, and consume that hash once in the application when
+`context.core` is present. Deny every command that is not explicitly allowed.
+Ignite does not validate, store, or consume the record. A boolean `confirmed`
+flag is not an approval. `run` calls `core.execute({ command, input })`.
 
 `ignite-element/tools/anthropic` exports
 `textOf` the same way as `ignite-element/tools/openai`.

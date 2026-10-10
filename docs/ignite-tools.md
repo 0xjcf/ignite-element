@@ -34,18 +34,22 @@ the built-in structural validator, not Zod and not full JSON Schema. Unknown
 `type` strings are rejected at `defineToolSchema`. There is no Zod peer and no
 core Zod adapter.
 
-`canExecute?: (name: string) => boolean` is the explicit allow for commands.
-Omit it and commands are denied. An ungated `read: true` tool stays available,
-and so do `observe` and `until`. `gated: true` rechecks the predicate.
-`canExecute` is availability preflight; source guards still enforce.
+`canExecute?: (name, input?, context?) => boolean` is the explicit allow for
+commands. Listing calls it with the name. A call passes the validated input
+and `{ core }`. Omit it and commands are denied. Return true only for an
+explicit allow. A throw, a thenable, or any other result denies the call.
+An ungated `read: true` tool stays available only when that command is
+side-effect-free; `run` still calls `core.execute`. `observe` and `until` do
+not execute commands. `gated: true` rechecks the predicate. `canExecute` is
+availability preflight; source guards still enforce.
 
-A `consequential: true` command is not an ungated read. It stays denied unless
-`canExecute` returns true. The application owns the single-use approval
-`{ actor, name, input, target, id, expiresAt }`, bound to the user, the tool
-name, the exact input, and the target runtime. The predicate closes over that
-application authority. Ignite does not validate, store, or consume the record.
-A boolean `confirmed` flag is not an approval. `run` calls
-`core.execute({ command, input })`.
+A `consequential: true` command is not a side-effect-free read. The
+application owns the single-use approval
+`{ actor, name, input, target, id, expiresAt }`. Hash the name and the
+validated input and consume that hash once when `context.core` is present.
+Deny every command that is not explicitly allowed. Ignite does not validate,
+store, or consume the record. A boolean `confirmed` flag is not an approval.
+`run` calls `core.execute({ command, input })`.
 Rebuild the bind when a fresh provider list is needed.
 
 ## Provider port

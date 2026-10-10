@@ -79,11 +79,13 @@ export const tools = igniteTools({
 });
 ```
 
-`canExecute?: (name: string) => boolean` is the explicit allow for commands.
+`canExecute?: (name, input?, context?) => boolean` is the explicit allow for commands.
 
-Omit it and commands are denied. An ungated `read: true` tool still runs, and so do `observe` and `until`.
+Listing calls it with the name. A call also passes the validated input and `{ core }`.
 
-Return true only for a command this application allows. `canExecute: () => true` allows every command in that schema. That is a choice, not the default.
+Omit it and commands are denied. An ungated `read: true` tool still runs only when that command is side-effect-free, and `run` still calls `core.execute`. Do not mark a command `read` if executing it changes source state. `observe` and `until` do not execute commands.
+
+Return true only for a command this application allows. Any other result, including a throw or a promise, denies the call. `canExecute: () => true` allows every command in that schema. That is a choice, not the default.
 
 `gated: true` still rechecks the predicate when availability changes. A gated read follows the same predicate.
 
@@ -191,13 +193,22 @@ For a raw fetch client, pass parsed Chat Completions JSON to `toolCalls`.
 
 Mark a command `consequential: true` when a person must approve that exact call.
 
-The mark is not an ungated read. The command stays denied unless `canExecute` returns true.
+The mark is not a side-effect-free read. The command stays denied unless `canExecute` returns true.
 
 Ignite does not validate or consume the approval. `canExecute` is application preflight, not authentication. A caller can fabricate a structurally valid record, so the library cannot prove a person approved the call.
 
-Keep the single-use record in the application. Check it in the authority `canExecute` closes over, and bind it to the actor, the tool name, the exact input, and the target runtime. Consume it once in that shared application authority. Do not store used ids on the runtime.
+Keep the single-use record in the application. When `context` is present, hash the command name and the validated input, require that hash, the actor, and `context.core`, and consume the hash once. Deny every other command. Listing calls `canExecute(name)` with no context, so do not consume there.
 
 ```ts
+const used = new Set<string>();
+function approvalHash(name: string, input: unknown): string {
+  const payload = `${name}\u0000${JSON.stringify(input)}`;
+  let hash = 5381;
+  for (let index = 0; index < payload.length; index += 1) {
+    hash = (hash * 33) ^ payload.charCodeAt(index);
+  }
+  return (hash >>> 0).toString(16);
+}
 const granted = {
   actor: 'ada',
   name: 'setLimit',
@@ -206,21 +217,31 @@ const granted = {
   id: 'approval-1',
   expiresAt: Date.now() + 60_000,
 };
-const matches =
-  granted.actor === 'ada' &&
-  granted.name === 'setLimit' &&
-  granted.input === 6 &&
-  granted.target === component &&
-  granted.expiresAt > Date.now();
+const grantedHash = approvalHash(granted.name, granted.input);
+function canExecute(
+  name: string,
+  input?: unknown,
+  context?: { core: object },
+): boolean {
+  if (!context) return name === 'setLimit';
+  if (name !== 'setLimit' || context.core !== granted.target) return false;
+  if (granted.actor !== 'ada' || granted.expiresAt <= Date.now()) return false;
+  const key = approvalHash(name, input);
+  if (key !== grantedHash || used.has(key)) return false;
+  used.add(key);
+  return true;
+}
 const { run } = igniteTools({
   core: component,
   schema: toolSchema,
-  canExecute: (name) => name !== 'setLimit' || matches,
+  canExecute,
 });
-const result = await run({ name: 'setLimit', input: 6 });
+const allowed = await run({ name: 'setLimit', input: 6 });
+const changed = await run({ name: 'setLimit', input: 7 });
+const reused = await run({ name: 'setLimit', input: 6 });
 ```
 
-`canExecute` also runs while the manifest is built. Consume the approval when the application authorizes that call, not on every predicate read. A boolean `confirmed` flag is not an approval. `run` calls `core.execute({ command, input })` and does not take the record.
+A boolean `confirmed` flag is not an approval. `run` calls `core.execute({ command, input })` and does not take the record.
 
 ## Errors
 
