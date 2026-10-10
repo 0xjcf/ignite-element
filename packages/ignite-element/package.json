@@ -288,6 +288,7 @@
 	],
 	"sideEffects": [
 		"./src/renderers/*.ts",
+		"./src/renderers/*.js",
 		"./dist/registry-*.js",
 		"./dist/jsx.es-*.js",
 		"./dist/renderers/*.es.js",

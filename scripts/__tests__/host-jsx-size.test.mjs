@@ -8,7 +8,7 @@ import { build } from "vite";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 
-async function bundle(source) {
+async function bundle(source, hostRuntime) {
 	const dir = await mkdtemp(path.join(tmpdir(), "ignite-host-jsx-"));
 	const entry = path.join(dir, "entry.mjs");
 	try {
@@ -18,6 +18,7 @@ async function bundle(source) {
 			define: {
 				"process.env.NODE_ENV": JSON.stringify("production"),
 				__IGNITE_DEV_WARNINGS__: JSON.stringify(false),
+				__IGNITE_HOST_RUNTIME__: JSON.stringify(hostRuntime),
 			},
 			build: {
 				emptyOutDir: false,
@@ -55,13 +56,16 @@ const hostRuntime = JSON.stringify(
 
 describe("JSX host runtime size", () => {
 	it("keeps the host runtime out of a no-host JSX bundle", async () => {
-		const code = await bundle(`
+		const code = await bundle(
+			`
 			import { jsx } from ${jsxRuntime};
 			import { renderIgniteJsx } from ${jsxRenderer};
 			export function render(host) {
 				return renderIgniteJsx(host, jsx("div", { children: "hello" }));
 			}
-		`);
+		`,
+			false,
+		);
 		const gzip = gzipSync(code).byteLength;
 		assert.equal(code.includes("prefers-reduced-motion"), false);
 		assert.equal(code.includes("Host mount failed"), false);
@@ -73,7 +77,8 @@ describe("JSX host runtime size", () => {
 	});
 
 	it("includes the host runtime when the internal module is imported", async () => {
-		const code = await bundle(`
+		const code = await bundle(
+			`
 			import { jsx } from ${jsxRuntime};
 			import { renderIgniteJsx } from ${jsxRenderer};
 			import { describeIgniteHosts } from ${hostRuntime};
@@ -81,7 +86,9 @@ describe("JSX host runtime size", () => {
 				describeIgniteHosts({}, {});
 				return renderIgniteJsx(host, jsx("canvas", { use: "scene" }));
 			}
-		`);
+		`,
+			true,
+		);
 		const gzip = gzipSync(code).byteLength;
 		assert.equal(code.includes("Host mount failed"), true);
 		assert.ok(gzip > 3600, `host JSX gzip ${gzip} dropped the host runtime`);

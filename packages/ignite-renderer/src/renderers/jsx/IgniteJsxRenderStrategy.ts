@@ -12,6 +12,7 @@ import {
 import type { IgniteJsxChild } from "./types";
 
 declare const __IGNITE_DEV_WARNINGS__: boolean;
+declare const __IGNITE_HOST_RUNTIME__: boolean;
 
 class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 	private contentRoot: HTMLElement | null = null;
@@ -78,7 +79,8 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 	}
 
 	render(view: IgniteJsxChild): void {
-		if (!this.contentRoot) {
+		const contentRoot = this.contentRoot;
+		if (!contentRoot) {
 			throw new Error(
 				"[IgniteJsxRenderStrategy] Cannot render before attach has been invoked.",
 			);
@@ -93,24 +95,23 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 					? "flag-disabled"
 					: null);
 
-		const rootNode = this.contentRoot.getRootNode();
-		const runtime = readBoundHostRuntime(
-			rootNode instanceof ShadowRoot ? rootNode.host : undefined,
-		);
-		this.previousTree = withIgniteHostRuntime(runtime, () =>
+		const render = () =>
 			this.previousTree === null
-				? mountIgniteJsx(this.contentRoot as HTMLElement, view)
-				: renderIgniteJsx(
-						this.contentRoot as HTMLElement,
-						view,
-						this.previousTree ?? undefined,
-						{
-							mode,
-							onFallbackReplace: (reason) =>
-								this.logFallback(reason, this.getHostTag()),
-						},
-					),
-		);
+				? mountIgniteJsx(contentRoot, view)
+				: renderIgniteJsx(contentRoot, view, this.previousTree ?? undefined, {
+						mode,
+						onFallbackReplace: (reason) =>
+							this.logFallback(reason, this.getHostTag()),
+					});
+		if (__IGNITE_HOST_RUNTIME__) {
+			const rootNode = contentRoot.getRootNode();
+			const runtime = readBoundHostRuntime(
+				rootNode instanceof ShadowRoot ? rootNode.host : undefined,
+			);
+			this.previousTree = withIgniteHostRuntime(runtime, render);
+		} else {
+			this.previousTree = render();
+		}
 
 		if (forceReason) {
 			this.logFallback(forceReason, this.getHostTag());

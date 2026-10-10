@@ -15,6 +15,7 @@ import {
 } from "./types";
 
 declare const __IGNITE_DEV_WARNINGS__: boolean;
+declare const __IGNITE_HOST_RUNTIME__: boolean;
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 // Spec nodeType values. Disconnect cleanup runs in example tests that have
@@ -67,11 +68,14 @@ export function mountIgniteJsx(
 	view: IgniteJsxChild,
 	options: RenderOptions = {},
 ): NormalizedNode[] {
-	return withIgniteHostRuntime(options.hosts, () => {
+	const mount = () => {
 		const normalized = normalizeRoot(view);
 		replaceAll(host, normalized);
 		return normalized;
-	});
+	};
+	if (__IGNITE_HOST_RUNTIME__)
+		return withIgniteHostRuntime(options.hosts, mount);
+	return mount();
 }
 
 type RenderOptions = {
@@ -86,9 +90,12 @@ export function renderIgniteJsx(
 	previous?: NormalizedNode[],
 	options: RenderOptions = {},
 ): NormalizedNode[] {
-	return withIgniteHostRuntime(options.hosts, () =>
-		renderIgniteJsxNow(host, view, previous, options),
-	);
+	if (__IGNITE_HOST_RUNTIME__) {
+		return withIgniteHostRuntime(options.hosts, () =>
+			renderIgniteJsxNow(host, view, previous, options),
+		);
+	}
+	return renderIgniteJsxNow(host, view, previous, options);
 }
 
 function renderIgniteJsxNow(
@@ -330,11 +337,13 @@ export function releaseSubtree(element: Element): void {
 	subtreeOwners.delete(element);
 }
 
-configureHostOwnership({
-	claimSubtree,
-	releaseSubtree,
-	onUnmount: onIgniteUnmount,
-});
+if (__IGNITE_HOST_RUNTIME__) {
+	configureHostOwnership({
+		claimSubtree,
+		releaseSubtree,
+		onUnmount: onIgniteUnmount,
+	});
+}
 
 const freshNodes = new WeakSet<ChildNode>();
 
@@ -352,18 +361,6 @@ function commitFresh(node: ChildNode, normalized: NormalizedNode): void {
 		if (child && spec) commitFresh(child, spec);
 	}
 	syncHostElement(element, normalized.props.use);
-}
-
-function placeFresh(
-	parent: ParentNode,
-	normalized: NormalizedNode,
-	before?: ChildNode | null,
-): ChildNode {
-	const node = createDomFromNormalized(normalized);
-	if (before === undefined) parent.appendChild(node);
-	else parent.insertBefore(node, before);
-	commitFresh(node, normalized);
-	return node;
 }
 
 /**
@@ -580,12 +577,18 @@ function patchChildren(
 				);
 				if (patched !== domChild) {
 					parent.replaceChild(patched, domChild);
-					const spec = newChildren[i];
-					if (spec) commitFresh(patched, spec);
+					if (__IGNITE_HOST_RUNTIME__) {
+						const spec = newChildren[i];
+						if (spec) commitFresh(patched, spec);
+					}
 				}
 			} else if (i >= oldChildren.length) {
-				const created = newChildren[i];
-				if (created) placeFresh(parent, created);
+				parent.appendChild(createDomFromNormalized(newChildren[i]));
+				if (__IGNITE_HOST_RUNTIME__) {
+					const created = newChildren[i];
+					const placed = parent.lastChild;
+					if (created && placed) commitFresh(placed, created);
+				}
 			} else if (i >= newChildren.length && domChild) {
 				detachChild(parent, domChild);
 			}
@@ -611,14 +614,20 @@ function patchChildren(
 		);
 		if (patched !== domChild) {
 			parent.replaceChild(patched, domChild);
-			const spec = newChildren[childIndex];
-			if (spec) commitFresh(patched, spec);
+			if (__IGNITE_HOST_RUNTIME__) {
+				const spec = newChildren[childIndex];
+				if (spec) commitFresh(patched, spec);
+			}
 		}
 	}
 
 	for (; childIndex < newChildren.length; childIndex++) {
-		const created = newChildren[childIndex];
-		if (created) placeFresh(parent, created);
+		parent.appendChild(createDomFromNormalized(newChildren[childIndex]));
+		if (__IGNITE_HOST_RUNTIME__) {
+			const created = newChildren[childIndex];
+			const placed = parent.lastChild;
+			if (created && placed) commitFresh(placed, created);
+		}
 	}
 
 	// If the parent has extra nodes beyond managed children, leave them untouched.
@@ -701,15 +710,16 @@ function patchKeyedChildren(
 	let cursor: ChildNode | null = parent.firstChild;
 	for (let index = 0; index < nextDom.length; index++) {
 		const node = nextDom[index];
-		const spec = newChildren[index];
 		if (!node) continue;
 		if (node === cursor) {
 			cursor = node.nextSibling;
-			if (spec) commitFresh(node, spec);
-			continue;
+		} else {
+			parent.insertBefore(node, cursor);
 		}
-		parent.insertBefore(node, cursor);
-		if (spec) commitFresh(node, spec);
+		if (__IGNITE_HOST_RUNTIME__) {
+			const spec = newChildren[index];
+			if (spec) commitFresh(node, spec);
+		}
 	}
 	// Moving a node drops focus in some DOM implementations. Restore the
 	// element that was focused inside this parent, including inside a shadow root.
@@ -812,11 +822,14 @@ function patchNode(
 	}
 
 	const elementNode = domNode as Element & ParentNode;
-	const previouslyOwned = subtreeIsOwned(elementNode, oldNode.props);
 
 	patchProps(elementNode, oldNode.props, newNode.props);
-	syncHostElement(elementNode, newNode.props.use);
-
+	const previouslyOwned = __IGNITE_HOST_RUNTIME__
+		? subtreeIsOwned(elementNode, oldNode.props)
+		: ownsSubtreeViaProps(oldNode.props);
+	if (__IGNITE_HOST_RUNTIME__) {
+		syncHostElement(elementNode, newNode.props.use);
+	}
 	// A subtree owner (innerHTML, textContent, or a host claim) is opaque.
 	// patchProps already applied the owning prop — skip child diffing so the
 	// positional patch does not desync against untracked DOM nodes (issue #57).
@@ -856,7 +869,11 @@ function patchNode(
 			detachChild(elementNode, elementNode.firstChild);
 		}
 		for (const child of mappedChildren) {
-			placeFresh(elementNode, child);
+			elementNode.appendChild(createDomFromNormalized(child));
+			if (__IGNITE_HOST_RUNTIME__) {
+				const placed = elementNode.lastChild;
+				if (placed) commitFresh(placed, child);
+			}
 		}
 	}
 
@@ -883,7 +900,7 @@ function createDomFromNormalized(node: NormalizedNode): ChildNode {
 				element.appendChild(createDomFromNormalized(child));
 			}
 			assignRef(element, node.props.ref);
-			freshNodes.add(element);
+			if (__IGNITE_HOST_RUNTIME__) freshNodes.add(element);
 			return element;
 		}
 	}
@@ -950,14 +967,24 @@ function patchProps(
 	const isSvgElement = element instanceof SVGElement;
 
 	for (const key of Object.keys(oldProps)) {
-		if (key === "children" || key === "ref" || key === "use") continue;
+		if (
+			key === "children" ||
+			key === "ref" ||
+			(__IGNITE_HOST_RUNTIME__ && key === "use")
+		)
+			continue;
 		if (!(key in newProps)) {
 			removeProp(element, key, oldProps[key], isSvgElement);
 		}
 	}
 
 	for (const [key, next] of Object.entries(newProps)) {
-		if (key === "children" || key === "ref" || key === "use") continue;
+		if (
+			key === "children" ||
+			key === "ref" ||
+			(__IGNITE_HOST_RUNTIME__ && key === "use")
+		)
+			continue;
 		const prev = oldProps[key];
 		if (
 			(key === "innerHTML" || key === "textContent") &&
@@ -1150,7 +1177,11 @@ function replaceAll(parent: ParentNode, children: NormalizedNode[]): void {
 		detachChild(parent, parent.firstChild);
 	}
 	for (const child of children) {
-		placeFresh(parent, child);
+		parent.appendChild(createDomFromNormalized(child));
+		if (__IGNITE_HOST_RUNTIME__) {
+			const placed = parent.lastChild;
+			if (placed) commitFresh(placed, child);
+		}
 	}
 }
 

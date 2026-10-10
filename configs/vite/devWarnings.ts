@@ -5,4 +5,5 @@
  */
 export const igniteDevWarningsDefine = {
 	__IGNITE_DEV_WARNINGS__: "true",
+	__IGNITE_HOST_RUNTIME__: "true",
 } as const;
