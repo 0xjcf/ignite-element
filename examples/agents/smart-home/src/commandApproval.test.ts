@@ -92,6 +92,98 @@ describe("app-owned command approvals", () => {
 		);
 	});
 
+	it("does not let an approval for zero authorize signed zero", async () => {
+		const home = createHome();
+		const authority = createCommandApprovalAuthority("ada");
+		const closed = { room: "living", percent: 0 };
+		const signed = { room: "living", percent: -0 };
+		expect(canonicalCall("setBlinds", closed)).not.toBe(
+			canonicalCall("setBlinds", signed),
+		);
+		authority.grant({
+			actor: "ada",
+			name: "setBlinds",
+			input: closed,
+			target: home,
+			id: "blinds-zero",
+			expiresAt: Date.now() + 60_000,
+		});
+		const { run } = igniteTools({
+			core: home,
+			schema: homeToolSchema,
+			canExecute: authority.canExecute,
+		});
+		expect((await run({ name: "setBlinds", input: signed })).ok).toBe(false);
+		expect((await run({ name: "setBlinds", input: closed })).ok).toBe(true);
+	});
+
+	it("tags numbers with Object.is so signed zero and non-finite values stay distinct", () => {
+		expect(canonicalCall("n", 0)).not.toBe(canonicalCall("n", -0));
+		expect(canonicalCall("n", Number.POSITIVE_INFINITY)).not.toBe(
+			canonicalCall("n", Number.NEGATIVE_INFINITY),
+		);
+		expect(canonicalCall("n", [1, undefined, 2])).not.toBe(
+			canonicalCall("n", [1, null, 2]),
+		);
+		expect(canonicalCall("n", { a: 1, b: undefined })).not.toBe(
+			canonicalCall("n", { a: 1 }),
+		);
+	});
+
+	it("prunes expired approvals, spent ids, and empty target buckets", async () => {
+		let clock = 1_000;
+		const home = createHome();
+		const authority = createCommandApprovalAuthority("ada", () => clock);
+		authority.grant({
+			actor: "ada",
+			name: "setThermostat",
+			input: livingAt70,
+			target: home,
+			id: "short",
+			expiresAt: 1_500,
+		});
+		const { run } = igniteTools({
+			core: home,
+			schema: homeToolSchema,
+			canExecute: authority.canExecute,
+		});
+		expect((await run({ name: "setThermostat", input: livingAt70 })).ok).toBe(
+			true,
+		);
+		expect(authority.ledger()).toEqual({ targets: 0, pending: 0, spent: 1 });
+		clock = 1_500;
+		expect(authority.ledger()).toEqual({ targets: 0, pending: 0, spent: 0 });
+		authority.grant({
+			actor: "ada",
+			name: "setThermostat",
+			input: livingAt70,
+			target: home,
+			id: "short",
+			expiresAt: 2_000,
+		});
+		expect((await run({ name: "setThermostat", input: livingAt70 })).ok).toBe(
+			true,
+		);
+	});
+
+	it("drops an expired pending approval and its empty target bucket", () => {
+		let clock = 1_000;
+		const home = createHome();
+		const authority = createCommandApprovalAuthority("ada", () => clock);
+		authority.grant({
+			actor: "ada",
+			name: "setThermostat",
+			input: livingAt70,
+			target: home,
+			id: "expire",
+			expiresAt: 1_200,
+		});
+		expect(authority.ledger()).toEqual({ targets: 1, pending: 1, spent: 0 });
+		clock = 1_200;
+		expect(authority.ledger()).toEqual({ targets: 0, pending: 0, spent: 0 });
+		expect(authority.canExecute("setThermostat")).toBe(false);
+	});
+
 	it("does not consume an approval when resolveCall validates the call", async () => {
 		const home = createHome();
 		const authority = createCommandApprovalAuthority("ada");
