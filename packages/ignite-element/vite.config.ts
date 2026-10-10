@@ -5,19 +5,6 @@ import { createLibConfig } from "../../configs/vite/lib";
 const resolvePath = (path: string) =>
 	fileURLToPath(new URL(path, import.meta.url));
 
-function externalRendererInjectStyles() {
-	const shim = resolvePath("./src/internal/externalInjectStyles.ts");
-	return {
-		name: "external-renderer-inject-styles",
-		enforce: "pre" as const,
-		resolveId(source: string, importer: string | undefined) {
-			if (!importer?.includes("IgniteJsxRenderStrategy.ts")) return null;
-			if (source !== "../../injectStyles") return null;
-			return shim;
-		},
-	};
-}
-
 type ViteCommand = "build" | "serve";
 
 const resolveNodeEnv = (
@@ -86,12 +73,22 @@ export default defineConfig(({ command }) => {
 	const warningsOn = command !== "build" || devArtifact;
 	return {
 		...libConfig,
+		resolve: {
+			alias: [
+				{
+					find: "@ignite-element/renderer/jsx/executable-uri",
+					replacement: resolvePath(
+						"../ignite-renderer/src/renderers/jsx/executableUri.ts",
+					),
+				},
+			],
+		},
 		define: {
 			...libConfig.define,
 			"process.env.NODE_ENV": JSON.stringify(resolveNodeEnv(command)),
 			__IGNITE_DEV_WARNINGS__: JSON.stringify(warningsOn),
 			__IGNITE_HOST_RUNTIME__: JSON.stringify(true),
 		},
-		plugins: [...(libConfig.plugins ?? []), externalRendererInjectStyles()],
+		plugins: libConfig.plugins,
 	};
 });

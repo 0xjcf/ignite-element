@@ -1,10 +1,14 @@
 import {
+	executableUriPattern,
+	uriBearingKeyPattern,
+	uriSpacePattern,
+} from "./executableUri";
+import {
 	configureHostOwnership,
 	type IgniteHostRuntime,
 	syncHostElement,
 	withIgniteHostRuntime,
 } from "./hostBridge";
-
 import { isNoDiffDenylistedTag } from "./noDiffDenylist";
 import {
 	Fragment,
@@ -299,10 +303,7 @@ function applySlotKey(
 	return nodes;
 }
 
-function warnDeprecatedContentProp(
-	element: Element,
-	key: "innerHTML" | "textContent",
-): void {
+function warnIgnoredProp(element: Element, key: string, message: string): void {
 	if (!__IGNITE_DEV_WARNINGS__) return;
 	let seen = deprecatedContentWarnings.get(element);
 	if (!seen) {
@@ -311,8 +312,42 @@ function warnDeprecatedContentProp(
 	}
 	if (seen.has(key)) return;
 	seen.add(key);
-	console.warn(
+	console.warn(message);
+}
+
+function warnDeprecatedContentProp(element: Element, key: string): void {
+	warnIgnoredProp(
+		element,
+		key,
 		`[ignite-jsx] \`${key}\` is deprecated and will be removed in the next major release. Use JSX children for text, and hosts for trusted rich content.`,
+	);
+}
+
+function warnBlockedUrl(element: Element, key: string): void {
+	warnIgnoredProp(
+		element,
+		`url:${key}`,
+		`[ignite-jsx] \`${key}\` was not applied because its URL scheme is not allowed.`,
+	);
+}
+
+function isBlockedMarkupProp(key: string): boolean {
+	const normalized = key.toLowerCase();
+	return (
+		normalized === "innerhtml" ||
+		normalized === "outerhtml" ||
+		normalized === "srcdoc"
+	);
+}
+
+function isBlockedUrlValue(key: string, value: unknown): boolean {
+	if (!uriBearingKeyPattern.test(key) || value == null || value === false) {
+		return false;
+	}
+	if (typeof value !== "string") return true;
+	uriSpacePattern.lastIndex = 0;
+	return executableUriPattern.test(
+		value.replace(uriSpacePattern, "").toLowerCase(),
 	);
 }
 
@@ -755,20 +790,12 @@ function keyShapeIsInvalid(shape: KeyShape): boolean {
 	return shape === "duplicate" || shape === "mixed";
 }
 
-// Props whose value imperatively replaces the element's entire subtree as a DOM
-// property. Nodes they create are not tracked by the normalized children model,
-// so the child diff must defer to them rather than reconcile against them.
-// Hosts claim the same rule through `claimSubtree`.
-const SUBTREE_OWNING_PROPS = ["innerHTML", "textContent"] as const;
-
+// textContent replaces the element's subtree as a DOM property. Nodes it creates
+// are not tracked by the normalized children model, so the child diff must defer
+// to it. Hosts claim the same rule through `claimSubtree`. innerHTML is not applied.
 function ownsSubtreeViaProps(props: IgniteJsxProps): boolean {
-	for (const key of SUBTREE_OWNING_PROPS) {
-		const value = (props as Record<string, unknown>)[key];
-		if (value !== undefined && value !== null && value !== false) {
-			return true;
-		}
-	}
-	return false;
+	const value = (props as Record<string, unknown>).textContent;
+	return value !== undefined && value !== null && value !== false;
 }
 
 function subtreeIsOwned(element: Element, props: IgniteJsxProps): boolean {
@@ -846,9 +873,9 @@ function patchNode(
 	if (hostRuntimeEnabled && !droppingHost) {
 		syncHostElement(elementNode, nextUse);
 	}
-	// A subtree owner (innerHTML, textContent, or a host claim) is opaque.
-	// patchProps already applied the owning prop — skip child diffing so the
-	// positional patch does not desync against untracked DOM nodes (issue #57).
+	// A subtree owner (textContent or a host claim) is opaque. patchProps already
+	// applied the owning prop — skip child diffing so the positional patch does
+	// not desync against untracked DOM nodes (issue #57).
 	if (subtreeIsOwned(elementNode, newNode.props)) {
 		assignRef(elementNode, newNode.props.ref);
 		return domNode;
@@ -936,19 +963,6 @@ function isAppendOnlyCompatible(
 		}
 	}
 
-	// Detect reorder (same multiset, different order)
-	if (oldChildren.length > 1 && newChildren.length === oldChildren.length) {
-		const oldFingerprints = oldChildren.map(fingerprintNode).join("|");
-		const newFingerprints = newChildren.map(fingerprintNode).join("|");
-		if (oldFingerprints !== newFingerprints) {
-			const oldSorted = [...oldChildren].map(fingerprintNode).sort().join("|");
-			const newSorted = [...newChildren].map(fingerprintNode).sort().join("|");
-			if (oldSorted === newSorted) {
-				return false;
-			}
-		}
-	}
-
 	return true;
 }
 
@@ -962,19 +976,6 @@ function isSameKind(a: NormalizedNode, b: NormalizedNode): boolean {
 	return true;
 }
 
-function fingerprintNode(node: NormalizedNode): string {
-	switch (node.kind) {
-		case "text":
-			return `t:${node.value}`;
-		case "comment":
-			return `c:${node.comment ?? ""}`;
-		case "element":
-			return `e:${node.namespace ?? ""}:${node.tag}:${node.children
-				.map((child) => fingerprintNode(child))
-				.join(",")}`;
-	}
-}
-
 function patchProps(
 	element: Element,
 	oldProps: IgniteJsxProps,
@@ -986,7 +987,8 @@ function patchProps(
 		if (
 			key === "children" ||
 			key === "ref" ||
-			(hostRuntimeEnabled && key === "use")
+			(hostRuntimeEnabled && key === "use") ||
+			isBlockedMarkupProp(key)
 		)
 			continue;
 		if (!(key in newProps)) {
@@ -1001,9 +1003,21 @@ function patchProps(
 			(hostRuntimeEnabled && key === "use")
 		)
 			continue;
+		if (isBlockedMarkupProp(key)) {
+			if (next !== undefined && next !== null && next !== false) {
+				warnDeprecatedContentProp(element, key);
+			}
+			continue;
+		}
+		if (isBlockedUrlValue(key, next)) {
+			warnBlockedUrl(element, key);
+			const attrName = isSvgElement ? normalizeSvgAttributeName(key) : key;
+			if (element.hasAttribute(attrName)) element.removeAttribute(attrName);
+			continue;
+		}
 		const prev = oldProps[key];
 		if (
-			(key === "innerHTML" || key === "textContent") &&
+			key === "textContent" &&
 			next !== undefined &&
 			next !== null &&
 			next !== false

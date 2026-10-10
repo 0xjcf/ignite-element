@@ -1,5 +1,5 @@
 import { getIgniteConfig } from "../../config";
-import injectStyles from "../../injectStyles";
+import { injectStyles } from "../../styleHook";
 import type { RenderStrategy } from "../RenderStrategy";
 import { readBoundHostRuntime, withIgniteHostRuntime } from "./hostBridge";
 import { isNoDiffDenylistedTag } from "./noDiffDenylist";

@@ -20,6 +20,12 @@ export default defineConfig((configEnv) =>
 			},
 			resolve: {
 				alias: [
+					{
+						find: "@ignite-element/renderer/jsx/executable-uri",
+						replacement: resolvePath(
+							"../ignite-renderer/src/renderers/jsx/executableUri.ts",
+						),
+					},
 					// The subpath alias must precede the bare alias, or
 					// `ignite-element/xstate` gets captured by `ignite-element` and
 					// rewritten to `src/index.ts/xstate`. Ordering this way lets example

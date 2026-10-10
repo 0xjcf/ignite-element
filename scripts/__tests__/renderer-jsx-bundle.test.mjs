@@ -53,6 +53,7 @@ const WARNING_STRINGS = [
 	"Mixed keyed and unkeyed",
 	"requires a single element",
 	"is deprecated and will be removed",
+	"URL scheme is not allowed",
 ];
 const EVENT_ORIGIN_WARNING = "observed from both native and effect";
 

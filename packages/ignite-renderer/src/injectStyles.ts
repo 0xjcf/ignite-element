@@ -1,4 +1,5 @@
 import { getGlobalStyles } from "./globalStyles";
+import { installStyleInject } from "./styleHook";
 
 type PendingRootRef = {
 	deref(): ShadowRoot | undefined;
@@ -289,3 +290,5 @@ export function flushPendingStyles(): void {
 		injectStyles(root);
 	}
 }
+
+installStyleInject(injectStyles);

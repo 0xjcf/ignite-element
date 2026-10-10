@@ -626,19 +626,21 @@ describe("ref lifecycle", () => {
 });
 
 describe("subtree ownership", () => {
-	it("keeps externally injected children when innerHTML owns the subtree", () => {
+	it("does not let innerHTML inject markup or own the subtree", () => {
 		const host = document.createElement("div");
 		let tree = mountIgniteJsx(
 			host,
 			jsx("div", {
-				children: jsx("section", { innerHTML: "<p>owned</p>" }),
+				children: jsx("section", {
+					innerHTML: "<p>owned</p>",
+					children: "kept",
+				}),
 			}),
 		);
 		const section = host.querySelector("section");
 		if (!section) throw new Error("expected section");
-		const injected = document.createElement("span");
-		injected.textContent = "external";
-		section.append(injected);
+		expect(section.textContent).toBe("kept");
+		expect(section.querySelector("p")).toBeNull();
 
 		tree = renderIgniteJsx(
 			host,
@@ -646,14 +648,15 @@ describe("subtree ownership", () => {
 				children: jsx("section", {
 					innerHTML: "<p>owned</p>",
 					id: "next",
+					children: "kept",
 				}),
 			}),
 			tree,
 		);
 
 		expect(section.id).toBe("next");
-		expect(section.querySelector("p")?.textContent).toBe("owned");
-		expect(section.querySelector("span")).toBe(injected);
+		expect(section.textContent).toBe("kept");
+		expect(section.querySelector("p")).toBeNull();
 	});
 
 	it("does not diff children of an element that claims its subtree", () => {
@@ -920,7 +923,7 @@ describe("approved ref and key corrections", () => {
 		);
 		expect(order).toEqual(["dispose-connected"]);
 		expect(host.querySelector("input")).toBeNull();
-		expect(host.querySelector("p")?.textContent).toBe("owned");
+		expect(host.querySelector("p")).toBeNull();
 	});
 
 	it("calls ref(null) before textContent replaces a void ref", () => {
