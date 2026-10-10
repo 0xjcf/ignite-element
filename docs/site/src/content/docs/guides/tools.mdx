@@ -191,30 +191,40 @@ For a raw fetch client, pass parsed Chat Completions JSON to `toolCalls`.
 
 Mark a command `consequential: true` when a person must approve that exact call.
 
-Pass the current user as `actor` on the bind. Pass the approval on `run`, not a boolean `confirmed` flag:
+The mark is not an ungated read. The command stays denied unless `canExecute` returns true.
+
+Ignite does not validate or consume the approval. `canExecute` is application preflight, not authentication. A caller can fabricate a structurally valid record, so the library cannot prove a person approved the call.
+
+Keep the single-use record in the application. Check it in the authority `canExecute` closes over, and bind it to the actor, the tool name, the exact input, and the target runtime. Consume it once in that shared application authority. Do not store used ids on the runtime.
 
 ```ts
 const granted = {
   actor: 'ada',
   name: 'setLimit',
   input: 6,
+  target: component,
   id: 'approval-1',
   expiresAt: Date.now() + 60_000,
 };
-const result = await tools.run({
-  name: 'setLimit',
-  input: 6,
-  approval: granted,
+const matches =
+  granted.actor === 'ada' &&
+  granted.name === 'setLimit' &&
+  granted.input === 6 &&
+  granted.target === component &&
+  granted.expiresAt > Date.now();
+const { run } = igniteTools({
+  core: component,
+  schema: toolSchema,
+  canExecute: (name) => name !== 'setLimit' || matches,
 });
+const result = await run({ name: 'setLimit', input: 6 });
 ```
 
-The record must name `actor`, the command, and the normalized input. `run` checks it, consumes `id` once, then calls `core.execute({ command, input })`.
-
-A second use, a different input, a different user, an expired record, or an unknown command does not execute. A failed execute still consumes the approval.
+`canExecute` also runs while the manifest is built. Consume the approval when the application authorizes that call, not on every predicate read. A boolean `confirmed` flag is not an approval. `run` calls `core.execute({ command, input })` and does not take the record.
 
 ## Errors
 
-`run` returns tagged errors: `UnknownCommand`, `InvalidInput`, `Unavailable`, `ApprovalRejected`, `ExecuteFailed`.
+`run` returns tagged errors: `UnknownCommand`, `InvalidInput`, `Unavailable`, `ExecuteFailed`.
 
 Provider translators turn those results into provider result blocks so a model can react.
 

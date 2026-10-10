@@ -520,14 +520,6 @@ export const createWorkbenchModelTurnPort = (
 								message: "The component could not execute the command.",
 								reason: execution.error.kind,
 							};
-						case "ApprovalRejected":
-							return {
-								type: "unavailable",
-								ownerId: "workbench-component",
-								toolName: call.name,
-								message: "The component command was not approved.",
-								reason: execution.error.reason,
-							};
 					}
 				}
 				const rejected = execution.value.events.find(

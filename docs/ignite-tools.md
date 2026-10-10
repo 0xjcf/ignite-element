@@ -39,10 +39,13 @@ Omit it and commands are denied. An ungated `read: true` tool stays available,
 and so do `observe` and `until`. `gated: true` rechecks the predicate.
 `canExecute` is availability preflight; source guards still enforce.
 
-A `consequential: true` command also needs `actor` on the bind and a single-use
-approval on `run` (`{ actor, name, input, id, expiresAt }`), bound to that
-user, the command, and the normalized input. A boolean `confirmed` flag is not
-an approval. `run` consumes it once, then calls `core.execute({ command, input })`.
+A `consequential: true` command is not an ungated read. It stays denied unless
+`canExecute` returns true. The application owns the single-use approval
+`{ actor, name, input, target, id, expiresAt }`, bound to the user, the tool
+name, the exact input, and the target runtime. The predicate closes over that
+application authority. Ignite does not validate, store, or consume the record.
+A boolean `confirmed` flag is not an approval. `run` calls
+`core.execute({ command, input })`.
 Rebuild the bind when a fresh provider list is needed.
 
 ## Provider port
