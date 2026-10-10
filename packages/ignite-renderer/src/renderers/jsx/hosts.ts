@@ -100,9 +100,7 @@ export function describeIgniteHosts(
 	return text;
 }
 
-function isDevelopment(): boolean {
-	return process.env.NODE_ENV !== "production";
-}
+declare const __IGNITE_DEV_WARNINGS__: boolean;
 
 function isClient(): boolean {
 	return typeof globalThis.window !== "undefined";
@@ -258,7 +256,7 @@ function applyDescription(
 }
 
 function warnUnknownHost(element: Element, name: string): void {
-	if (!isDevelopment()) return;
+	if (!__IGNITE_DEV_WARNINGS__) return;
 	let seen = unknownHostWarnings.get(element);
 	if (!seen) {
 		seen = new Set();
@@ -399,7 +397,7 @@ export function syncHostElement(element: Element, useName: unknown): void {
 	}
 	const definition = runtime.hosts[useName];
 	if (!definition) {
-		warnUnknownHost(element, useName);
+		if (__IGNITE_DEV_WARNINGS__) warnUnknownHost(element, useName);
 		retireHost(element);
 		releaseHostSubtree(element);
 		clearDescription(element);

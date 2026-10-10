@@ -57,12 +57,14 @@ export type IgniteHostMap<Snapshot = unknown> = {
 };
 
 /**
- * Type-only brand for one core's host map. The runtime value is the host-name
- * string. A bare string, or a handle whose map is a different core's, does not
- * match. `__igniteHost` is the same brand the JSX `use` prop requires.
+ * Opaque handle for one host on one core's map. The runtime value is the
+ * host-name string. The type is an object, so a string cast does not forge it;
+ * that takes `as unknown as`. Two handles match only when their maps and names
+ * match, so identical host maps are interchangeable and a different map is not.
+ * `__igniteHost` is the brand the JSX `use` prop recognizes.
  */
-export type HostHandle<Hosts, Name extends string> = Name & {
-	readonly __igniteHost: Hosts;
+export type HostHandle<Hosts, Name extends string> = {
+	readonly __igniteHost: (map: Hosts) => Name;
 };
 
 /**

@@ -28,3 +28,13 @@ export const radio = igniteCore({
 	source: machine,
 	hosts: radioHosts,
 });
+
+/** Same host map shape as `orbit`. JSX treats these handles as interchangeable. */
+export const twin = igniteCore({
+	source: machine,
+	hosts: { scene },
+});
+
+export const plain = igniteCore({
+	source: machine,
+});

@@ -45,9 +45,13 @@ type IgniteRefCallback<T extends Element> = {
 
 /**
  * Type-only brand. The runtime value is the host-name string. A bare string
- * has no brand, so `use` requires a handle from the view's `hosts`.
+ * has no brand. The parameter is `never` so every real handle assigns here;
+ * which core it belongs to is checked where the element type still carries
+ * `use`. JSX tag syntax does not.
  */
-type HostNameHandle = string & { readonly __igniteHost: object };
+type HostNameHandle = {
+	readonly __igniteHost: (map: never) => string;
+};
 
 type IgniteTagProps<T extends Element> = {
 	ref?: IgniteRefCallback<T>;

@@ -24,20 +24,20 @@ import type {
 
 // Dynamic index signatures need the runtime check; exact known keys can also
 // reject a collision at construction without changing either callback's inference.
-export type HostSafeChild<Names extends string> =
-	| HostSafeElement<Names>
+export type HostSafeChild<Use> =
+	| HostSafeElement<Use>
 	| string
 	| number
 	| boolean
 	| null
 	| undefined
-	| readonly HostSafeChild<Names>[];
+	| readonly HostSafeChild<Use>[];
 
-type HostSafeElement<Names extends string> = {
+type HostSafeElement<Use> = {
 	readonly type?: unknown;
 	readonly props?: {
-		use?: Names;
-		children?: HostSafeChild<Names>;
+		use?: Use;
+		children?: HostSafeChild<Use>;
 		readonly [key: string]: unknown;
 	};
 	readonly key?: unknown;
@@ -49,7 +49,11 @@ type HostUseOf<Hosts> = HostRenderSlot<Hosts> extends {
 	? Handles[keyof Handles & string]
 	: never;
 
-/** Unconstrained when a core declares no host map. */
+/**
+ * Hosted views check a preserved `use` against this core's handles. A core
+ * with no host map stays unconstrained so non-JSX renderers keep typechecking.
+ * JSX tag syntax erases `use`, so this sees a `jsx()` result.
+ */
 export type HostCheckedView<Hosts = undefined> = HostRenderSlot<Hosts> extends {
 	readonly hosts: unknown;
 }
@@ -57,6 +61,35 @@ export type HostCheckedView<Hosts = undefined> = HostRenderSlot<Hosts> extends {
 		? unknown
 		: HostSafeChild<HostUseOf<Hosts>>
 	: unknown;
+
+type HostUseBrand = {
+	readonly __igniteHost: (map: never) => string;
+};
+
+/**
+ * `never` when a `jsx()` result still carries a branded host handle. Tag
+ * syntax erases `use` to `unknown`, so `<canvas use={...} />` is not rejected
+ * on a core with no hosts.
+ */
+type RejectUnhostedBrand<View> = View extends {
+	readonly props: { readonly use?: infer Use };
+}
+	? [Use] extends [HostUseBrand]
+		? never
+		: unknown
+	: unknown;
+
+/**
+ * Hosted calls keep the concrete handle check. A core with no host map accepts
+ * any view except a `jsx()` result whose `use` is still a branded handle.
+ */
+type HostCallView<Hosts, View> = HostRenderSlot<Hosts> extends {
+	readonly hosts: unknown;
+}
+	? string extends keyof Hosts
+		? View
+		: HostCheckedView<Hosts>
+	: View & RejectUnhostedBrand<View>;
 
 export type DisjointBindings<States, Commands> = string extends
 	| keyof States
@@ -152,7 +185,7 @@ export type IgniteCoreReturn<
 	Hosts = undefined,
 > = {
 	(target: IgniteProjectionTarget): IgniteProjectionSession;
-	(
+	<View>(
 		elementName: string,
 		renderer: ComponentRenderer<
 			PublicFacadeRenderArgs<
@@ -164,7 +197,7 @@ export type IgniteCoreReturn<
 				Hosts
 			> &
 				Record<never, Snapshot>,
-			HostCheckedView<Hosts>
+			HostCallView<Hosts, View>
 		>,
 	): IgniteComponent<CommandsResult, DeclaredEvents>;
 	readonly __igniteRenderArgs?: PublicFacadeRenderArgs<

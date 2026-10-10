@@ -16,11 +16,16 @@ describe("Host", () => {
 describe("HostProps", () => {
 	it("requires a handle from this core", () => {
 		type Use = NonNullable<HostProps<SceneHosts>["use"]>;
-		expectTypeOf<Use>().toMatchTypeOf<string>();
+		expectTypeOf<Use>().not.toMatchTypeOf<string>();
+		expectTypeOf<string>().not.toMatchTypeOf<Use>();
 
 		const handle = null as unknown as Use;
 		const named: HostProps<SceneHosts> = { use: handle };
 		expectTypeOf(named.use).toEqualTypeOf<Use | undefined>();
+
+		// @ts-expect-error a string cast cannot forge this core's handle
+		const cast = "scene" as Use;
+		expectTypeOf(cast).toEqualTypeOf<Use>();
 
 		// @ts-expect-error a bare string is not this core's handle
 		const literal: HostProps<SceneHosts> = { use: "scene" };

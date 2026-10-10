@@ -306,14 +306,16 @@ describe("host binding", () => {
 		);
 	});
 
-	it("stays quiet about an unknown host in production", () => {
+	it("warns about an unknown host even when NODE_ENV is production", () => {
 		vi.stubEnv("NODE_ENV", "production");
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 		const root = document.createElement("div");
 		renderIgniteJsx(root, jsx("canvas", { use: "missing" }), undefined, {
 			hosts: runtime(sceneHost(), 1),
 		});
-		expect(warn).not.toHaveBeenCalled();
+		expect(warn).toHaveBeenCalledWith(
+			expect.stringContaining('Unknown host "missing"'),
+		);
 	});
 
 	it("uses Object.is when equals is omitted, and skips a host with no describe", () => {

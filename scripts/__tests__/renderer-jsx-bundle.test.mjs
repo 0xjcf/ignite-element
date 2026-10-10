@@ -285,7 +285,9 @@ describe("published renderer jsx bundle", { concurrency: false }, () => {
 		const elementDevelopment = readModuleGraph(elementDevBundle);
 		assert.equal(elementProduction.includes("process"), false);
 		assert.equal(elementProduction.includes(EVENT_ORIGIN_WARNING), false);
+		assert.equal(elementProduction.includes("Unknown host"), false);
 		assert.equal(elementDevelopment.includes(EVENT_ORIGIN_WARNING), true);
+		assert.equal(elementDevelopment.includes("Unknown host"), true);
 		assert.equal(elementDevelopment.includes("typeof process"), false);
 	});
 

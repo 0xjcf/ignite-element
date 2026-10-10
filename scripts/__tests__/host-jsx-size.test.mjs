@@ -91,6 +91,7 @@ describe("JSX host runtime size", () => {
 		);
 		const gzip = gzipSync(code).byteLength;
 		assert.equal(code.includes("Host mount failed"), true);
+		assert.equal(code.includes("Unknown host"), false);
 		assert.ok(gzip > 3600, `host JSX gzip ${gzip} dropped the host runtime`);
 	});
 });
