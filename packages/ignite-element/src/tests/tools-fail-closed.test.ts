@@ -484,7 +484,7 @@ describe("canExecute receives the call and fails closed", () => {
 		expect(resolveCall(manifest, "amount", 0, allow).ok).toBe(true);
 		expect(resolveCall(manifest, "amount", -0, allow).ok).toBe(true);
 		expect(Object.is(seen[0], 0)).toBe(true);
-		expect(Object.is(seen[1], -0)).toBe(true);
+		expect(Object.is(seen[1], 0)).toBe(true);
 	});
 
 	it("refuses a command on a stale manifest when the predicate is omitted at resolve", () => {
@@ -496,7 +496,7 @@ describe("canExecute receives the call and fails closed", () => {
 		});
 	});
 
-	it("uses one immutable snapshot for validation, preflight, and execution", async () => {
+	it("rejects an accessor instead of copying a live read", async () => {
 		const runtime = createRuntime();
 		let reads = 0;
 		const input: { temp?: number } = {};
@@ -505,7 +505,7 @@ describe("canExecute receives the call and fails closed", () => {
 			configurable: true,
 			get() {
 				reads += 1;
-				return reads === 1 ? 72 : 99;
+				return reads >= 3 ? 99 : 72;
 			},
 		});
 		const seen: unknown[] = [];
@@ -529,20 +529,56 @@ describe("canExecute receives the call and fails closed", () => {
 		});
 
 		const result = await tools.run({ name: "setThermostat", input });
-		expect(result.ok).toBe(true);
-		expect(runtime.calls).toEqual([
-			{ command: "setThermostat", input: { temp: 72 } },
-		]);
-		const executed = runtime.calls[0]?.input;
-		expect(seen).toEqual([executed]);
-		expect(Object.isFrozen(executed)).toBe(true);
-		expect(Object.getOwnPropertyDescriptor(executed, "temp")?.get).toBe(
-			undefined,
-		);
-		expect(input.temp).toBe(99);
+		expect(result).toMatchObject({
+			ok: false,
+			error: { kind: "InvalidInput", name: "setThermostat" },
+		});
+		expect(runtime.calls).toEqual([]);
+		expect(seen).toEqual([]);
+		expect(reads).toBe(0);
 	});
 
 	it("snapshots a schema default before preflight and execution", async () => {
+		const runtime = createRuntime();
+		const fallback = { temp: 70 };
+		const seen: unknown[] = [];
+		const tools = igniteTools({
+			core: runtime as unknown as IgniteToolsRuntime,
+			schema: defineToolSchema({
+				setThermostat: {
+					description: "Set the thermostat.",
+					input: {
+						type: "object",
+						properties: { temp: { type: "number" } },
+						required: ["temp"],
+						default: fallback,
+					},
+					consequential: true,
+				},
+			}),
+			canExecute: (_name, value, context) => {
+				if (context?.execute) seen.push(value);
+				return true;
+			},
+		});
+
+		const result = await tools.run({
+			name: "setThermostat",
+			input: undefined,
+		});
+		expect(result.ok).toBe(true);
+		const executed = runtime.calls[0]?.input;
+		expect(runtime.calls).toEqual([
+			{ command: "setThermostat", input: { temp: 70 } },
+		]);
+		expect(seen).toEqual([executed]);
+		expect(Object.isFrozen(executed)).toBe(true);
+		expect(executed).not.toBe(fallback);
+		fallback.temp = 12;
+		expect(executed).toEqual({ temp: 70 });
+	});
+
+	it("rejects an accessor used as a schema default", async () => {
 		const runtime = createRuntime();
 		let reads = 0;
 		const fallback: { temp?: number } = {};
@@ -551,7 +587,7 @@ describe("canExecute receives the call and fails closed", () => {
 			configurable: true,
 			get() {
 				reads += 1;
-				return reads === 1 ? 70 : 12;
+				return 70;
 			},
 		});
 		const seen: unknown[] = [];
@@ -579,12 +615,13 @@ describe("canExecute receives the call and fails closed", () => {
 			name: "setThermostat",
 			input: undefined,
 		});
-		expect(result.ok).toBe(true);
-		expect(runtime.calls).toEqual([
-			{ command: "setThermostat", input: { temp: 70 } },
-		]);
-		expect(seen).toEqual([runtime.calls[0]?.input]);
-		expect(fallback.temp).toBe(12);
+		expect(result).toMatchObject({
+			ok: false,
+			error: { kind: "InvalidInput", name: "setThermostat" },
+		});
+		expect(runtime.calls).toEqual([]);
+		expect(seen).toEqual([]);
+		expect(reads).toBe(0);
 	});
 
 	it("returns InvalidInput when an accessor throws while reading the call", () => {
@@ -926,6 +963,7 @@ describe("plain objects from another JavaScript realm", () => {
 			expect(result.value.input).toEqual({ room: "living", temp: 72 });
 			expect(result.value.input).not.toBe(input);
 			expect(Object.isFrozen(result.value.input)).toBe(true);
+			expect(Object.getPrototypeOf(result.value.input)).toBe(Object.prototype);
 		}
 	});
 
@@ -957,6 +995,8 @@ describe("plain objects from another JavaScript realm", () => {
 		expect(result.ok).toBe(true);
 		if (result.ok) {
 			expect(result.value.input).toEqual({ room: "living", temp: 72 });
+			expect(Object.getPrototypeOf(result.value.input)).toBe(Object.prototype);
+			expect(Object.isFrozen(result.value.input)).toBe(true);
 		}
 		expect(
 			resolveCall(manifest, "payload", new Room(), () => true),
@@ -971,7 +1011,7 @@ describe("plain objects from another JavaScript realm", () => {
 			defineToolSchema({
 				payload: {
 					description: "An object.",
-					input: { type: "object", properties: {} },
+					input: { type: "object", properties: { self: {} } },
 				},
 			}),
 			() => true,

@@ -103,15 +103,51 @@ function isNoArgSchema(schema: ToolInputSchema): boolean {
 	);
 }
 
-type Materialized =
+/** Nesting limit for one plain-JSON tool input. Deeper values are InvalidInput. */
+const MAX_TOOL_INPUT_DEPTH = 32;
+
+type JsonSnapshot =
 	| { readonly ok: true; readonly value: unknown }
 	| { readonly ok: false; readonly issues: string[] };
 
-function materializeIssue(path: string, detail: string): Materialized {
+function snapshotIssue(path: string, detail: string): JsonSnapshot {
 	return { ok: false, issues: [`${path}: ${detail}`] };
 }
 
-function sourceForRoute(schema: ToolInputSchema, input: unknown): Materialized {
+function isNodeProxy(value: object): boolean {
+	try {
+		const builtin = (
+			globalThis as {
+				process?: {
+					getBuiltinModule?: (name: string) => {
+						types?: { isProxy?: (candidate: object) => boolean };
+					};
+				};
+			}
+		).process?.getBuiltinModule?.("node:util");
+		return builtin?.types?.isProxy?.(value) === true;
+	} catch {
+		return false;
+	}
+}
+
+function isPlainArray(value: object): boolean {
+	if (!Array.isArray(value)) return false;
+	const prototype = Object.getPrototypeOf(value);
+	if (prototype === null) return false;
+	const parent = Object.getPrototypeOf(prototype);
+	if (parent === null || Object.getPrototypeOf(parent) !== null) return false;
+	const ctor = (prototype as { constructor?: unknown }).constructor;
+	return (
+		typeof ctor === "function" &&
+		(ctor as { prototype?: unknown }).prototype === prototype
+	);
+}
+
+function applySchemaDefaults(
+	schema: ToolInputSchema,
+	input: unknown,
+): JsonSnapshot {
 	try {
 		if (isNoArgSchema(schema)) return { ok: true, value: input };
 		if (input === undefined && "default" in schema) {
@@ -119,80 +155,129 @@ function sourceForRoute(schema: ToolInputSchema, input: unknown): Materialized {
 		}
 		return { ok: true, value: input };
 	} catch {
-		return materializeIssue("input", "unable to read value");
+		return snapshotIssue("input", "unable to read value");
 	}
 }
 
-function materializeValue(
+function snapshotJsonValue(
 	value: unknown,
 	path: string,
+	depth: number,
 	active: WeakSet<object>,
-): Materialized {
+): JsonSnapshot {
 	try {
-		if (
-			value === undefined ||
-			value === null ||
-			typeof value === "boolean" ||
-			typeof value === "string" ||
-			typeof value === "number"
-		) {
+		if (value === null) return { ok: true, value: null };
+		if (typeof value === "string" || typeof value === "boolean") {
 			return { ok: true, value };
 		}
+		if (typeof value === "number") {
+			if (!Number.isFinite(value)) {
+				return snapshotIssue(path, "expected finite number");
+			}
+			return { ok: true, value: value === 0 ? 0 : value };
+		}
+		if (typeof value !== "object") {
+			return snapshotIssue(path, "expected a JSON value");
+		}
+		if (isNodeProxy(value)) {
+			return snapshotIssue(path, "expected a JSON value");
+		}
+		if (depth > MAX_TOOL_INPUT_DEPTH) {
+			return snapshotIssue(path, "exceeds the maximum nesting depth");
+		}
+		if (active.has(value)) {
+			return snapshotIssue(path, "cyclic data is not allowed");
+		}
 		if (Array.isArray(value)) {
-			return materializeArray(value, path, active);
+			return snapshotJsonArray(value, path, depth, active);
 		}
 		if (isPlainObject(value)) {
-			return materializeObject(value, path, active);
+			return snapshotJsonObject(value, path, depth, active);
 		}
-		return { ok: true, value };
+		return snapshotIssue(path, "expected a JSON value");
 	} catch {
-		return materializeIssue(path, "unable to read value");
+		return snapshotIssue(path, "unable to read value");
 	}
 }
 
-function materializeArray(
+function snapshotJsonArray(
 	value: unknown[],
 	path: string,
+	depth: number,
 	active: WeakSet<object>,
-): Materialized {
-	if (active.has(value)) {
-		return materializeIssue(path, "cyclic data is not allowed");
+): JsonSnapshot {
+	if (!isPlainArray(value)) {
+		return snapshotIssue(path, "expected array");
 	}
 	active.add(value);
 	try {
+		const output: unknown[] = [];
 		const length = value.length;
 		if (!Number.isSafeInteger(length) || length < 0) {
-			return materializeIssue(path, "expected array");
+			return snapshotIssue(path, "expected array");
 		}
-		const output: unknown[] = [];
+		for (const key of Reflect.ownKeys(value)) {
+			if (typeof key === "symbol") {
+				return snapshotIssue(path, "symbol properties are not allowed");
+			}
+			if (key === "length") continue;
+			if (!/^(?:0|[1-9]\d*)$/.test(key)) {
+				return snapshotIssue(`${path}.${key}`, "unexpected property");
+			}
+		}
 		for (let index = 0; index < length; index += 1) {
 			const itemPath = `${path}[${index}]`;
-			const item = materializeValue(value[index], itemPath, active);
+			const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+			if (!descriptor) {
+				return snapshotIssue(itemPath, "sparse array entries are not allowed");
+			}
+			if (!("value" in descriptor) || descriptor.enumerable !== true) {
+				return snapshotIssue(itemPath, "accessor properties are not allowed");
+			}
+			const item = snapshotJsonValue(
+				descriptor.value,
+				itemPath,
+				depth + 1,
+				active,
+			);
 			if (!item.ok) return item;
 			output.push(item.value);
 		}
 		return { ok: true, value: Object.freeze(output) };
 	} catch {
-		return materializeIssue(path, "unable to read value");
+		return snapshotIssue(path, "unable to read value");
 	} finally {
 		active.delete(value);
 	}
 }
 
-function materializeObject(
+function snapshotJsonObject(
 	value: Record<string, unknown>,
 	path: string,
+	depth: number,
 	active: WeakSet<object>,
-): Materialized {
-	if (active.has(value)) {
-		return materializeIssue(path, "cyclic data is not allowed");
-	}
+): JsonSnapshot {
 	active.add(value);
 	try {
 		const output: Record<string, unknown> = {};
-		for (const key of Object.keys(value)) {
-			const propertyPath = `${path}.${key}`;
-			const property = materializeValue(value[key], propertyPath, active);
+		for (const key of Reflect.ownKeys(value)) {
+			if (typeof key === "symbol") {
+				return snapshotIssue(path, "symbol properties are not allowed");
+			}
+			const descriptor = Object.getOwnPropertyDescriptor(value, key);
+			if (!descriptor || descriptor.enumerable !== true) continue;
+			if (!("value" in descriptor)) {
+				return snapshotIssue(
+					`${path}.${key}`,
+					"accessor properties are not allowed",
+				);
+			}
+			const property = snapshotJsonValue(
+				descriptor.value,
+				`${path}.${key}`,
+				depth + 1,
+				active,
+			);
 			if (!property.ok) return property;
 			Object.defineProperty(output, key, {
 				value: property.value,
@@ -203,14 +288,14 @@ function materializeObject(
 		}
 		return { ok: true, value: Object.freeze(output) };
 	} catch {
-		return materializeIssue(path, "unable to read value");
+		return snapshotIssue(path, "unable to read value");
 	} finally {
 		active.delete(value);
 	}
 }
 
-function materializeToolInput(value: unknown, path: string): Materialized {
-	return materializeValue(value, path, new WeakSet());
+function snapshotPlainJson(value: unknown, path: string): JsonSnapshot {
+	return snapshotJsonValue(value, path, 0, new WeakSet());
 }
 
 // Explicit application input schema, scalar or object, mirrored verbatim.
@@ -339,16 +424,18 @@ export function buildManifest(
  * Advanced/testing helper. Everyday apps should call `run` on a named
  * `igniteTools({ core, schema })` bind instead of importing this.
  *
- * Pure: validate a model-supplied input against a command's schema and route it
- * to `{ command, input? }`. The routed input is one immutable snapshot of the
- * caller value, or of the schema default when the caller omits input. Validation
- * and `canExecute(name, input, context)` both see that snapshot. This function
+ * Pure: apply a schema default, validate that value, then build one detached
+ * plain-JSON snapshot. `canExecute(name, input, context)` and the returned
+ * route share that frozen snapshot. Only finite numbers (with `-0` normalized
+ * to `0`), strings, booleans, null, arrays, and plain objects are copied.
+ * Accessors, proxies, bigint, symbols, functions, `Date` / `Map` / `Set`,
+ * cycles, and values past the nesting limit are `InvalidInput`. This function
  * forwards `context` and does not set `execute`. `run` calls it without
  * `execute`, then calls `canExecute` with `{ execute: true }` only after
- * observation is subscribed and immediately before `core.execute`. Errors are
- * returned as values — `UnknownCommand` (not in the manifest), `InvalidInput`
- * (fails the input schema), or `Unavailable` (the predicate is missing, throws,
- * returns a thenable, or returns anything other than true). Never throws.
+ * observation is subscribed and immediately before `core.execute`. A throw
+ * while reading the input is `InvalidInput`, never an exception. `UnknownCommand`
+ * means the name is not in the manifest. `Unavailable` means the predicate is
+ * missing, throws, returns a thenable, or returns anything other than true.
  */
 export function resolveCall(
 	manifest: NeutralManifest,
@@ -362,27 +449,40 @@ export function resolveCall(
 		return err({ kind: "UnknownCommand", name });
 	}
 
-	const source = sourceForRoute(tool.inputSchema, input);
-	if (!source.ok) {
-		return err({ kind: "InvalidInput", name, issues: source.issues });
+	let route: Route;
+	try {
+		const source = applySchemaDefaults(tool.inputSchema, input);
+		if (!source.ok) {
+			return err({ kind: "InvalidInput", name, issues: source.issues });
+		}
+		const issues = validateToolInputValue(
+			tool.inputSchema,
+			source.value,
+			"input",
+		);
+		if (issues.length > 0) {
+			return err({ kind: "InvalidInput", name, issues });
+		}
+		if (isNoArgSchema(tool.inputSchema)) {
+			route = { command: name };
+		} else if (source.value === undefined) {
+			// An omitted optional object stays omitted. It is not a no-arg command,
+			// which drops the input field, and it is not a JSON value to snapshot.
+			route = { command: name, input: undefined };
+		} else {
+			const snapshot = snapshotPlainJson(source.value, "input");
+			if (!snapshot.ok) {
+				return err({ kind: "InvalidInput", name, issues: snapshot.issues });
+			}
+			route = { command: name, input: snapshot.value };
+		}
+	} catch {
+		return err({
+			kind: "InvalidInput",
+			name,
+			issues: ["input: unable to read value"],
+		});
 	}
-	const snapshot = materializeToolInput(source.value, "input");
-	if (!snapshot.ok) {
-		return err({ kind: "InvalidInput", name, issues: snapshot.issues });
-	}
-
-	const issues = validateToolInputValue(
-		tool.inputSchema,
-		snapshot.value,
-		"input",
-	);
-	if (issues.length > 0) {
-		return err({ kind: "InvalidInput", name, issues });
-	}
-
-	const route = isNoArgSchema(tool.inputSchema)
-		? { command: name }
-		: { command: name, input: snapshot.value };
 	if (
 		!allowsTool(tool, name, canExecute, {
 			input: route.input,
@@ -483,7 +583,10 @@ export function validateToolInputValue(
 		case "boolean":
 			return typeof value === "boolean" ? [] : [`${path}: expected boolean`];
 		case "object": {
-			if (!isPlainObject(value)) {
+			if (
+				(typeof value === "object" && value !== null && isNodeProxy(value)) ||
+				!isPlainObject(value)
+			) {
 				return [`${path}: expected object`];
 			}
 			const issues: string[] = [];
@@ -498,22 +601,46 @@ export function validateToolInputValue(
 			}
 			if (Array.isArray(schema.required)) {
 				for (const key of schema.required) {
-					if (typeof key === "string" && !(key in value)) {
-						issues.push(`${path}.${key}: required`);
+					if (typeof key !== "string") continue;
+					const descriptor = Object.getOwnPropertyDescriptor(value, key);
+					if (
+						!descriptor ||
+						descriptor.enumerable !== true ||
+						!("value" in descriptor)
+					) {
+						issues.push(
+							descriptor && !("value" in descriptor)
+								? `${path}.${key}: accessor properties are not allowed`
+								: `${path}.${key}: required`,
+						);
 					}
 				}
 			}
 			for (const [key, propSchema] of Object.entries(properties)) {
-				if (key in value && isPlainObject(propSchema)) {
-					issues.push(
-						...validateToolInputValue(propSchema, value[key], `${path}.${key}`),
-					);
+				if (!isPlainObject(propSchema)) continue;
+				const descriptor = Object.getOwnPropertyDescriptor(value, key);
+				if (!descriptor || descriptor.enumerable !== true) continue;
+				if (!("value" in descriptor)) {
+					issues.push(`${path}.${key}: accessor properties are not allowed`);
+					continue;
 				}
+				issues.push(
+					...validateToolInputValue(
+						propSchema,
+						descriptor.value,
+						`${path}.${key}`,
+					),
+				);
 			}
 			return issues;
 		}
 		case "array": {
-			if (!Array.isArray(value)) {
+			if (
+				typeof value !== "object" ||
+				value === null ||
+				isNodeProxy(value) ||
+				!Array.isArray(value)
+			) {
 				return [`${path}: expected array`];
 			}
 			const issues: string[] = [];
@@ -532,13 +659,25 @@ export function validateToolInputValue(
 			const itemSchema = isPlainObject(schema.items) ? schema.items : undefined;
 			for (let index = 0; index < value.length; index += 1) {
 				const itemPath = `${path}[${index}]`;
-				if (!(index in value) || value[index] === undefined) {
+				const descriptor = Object.getOwnPropertyDescriptor(
+					value,
+					String(index),
+				);
+				if (!descriptor || !("value" in descriptor)) {
+					issues.push(
+						descriptor
+							? `${itemPath}: accessor properties are not allowed`
+							: `${itemPath}: expected a JSON value`,
+					);
+					continue;
+				}
+				if (descriptor.value === undefined) {
 					issues.push(`${itemPath}: expected a JSON value`);
 					continue;
 				}
 				if (itemSchema) {
 					issues.push(
-						...validateToolInputValue(itemSchema, value[index], itemPath),
+						...validateToolInputValue(itemSchema, descriptor.value, itemPath),
 					);
 				}
 			}
