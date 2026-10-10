@@ -205,8 +205,7 @@ export type IgniteCoreReturn<
 		CommandActor,
 		CommandsResult,
 		Record<never, never>,
-		DeclaredEvents,
-		Hosts
+		DeclaredEvents
 	> &
 		Record<never, Snapshot>;
 } & IgniteAgentRuntime<

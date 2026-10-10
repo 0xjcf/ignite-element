@@ -666,6 +666,152 @@ describe("host binding", () => {
 		);
 	});
 
+	it("does not mount a nested host under an owned host, and unmount disposes it", () => {
+		const child = sceneHost();
+		const parent = sceneHost({
+			mount(el) {
+				el.replaceChildren();
+				return { id: 1 };
+			},
+		});
+		const hosts = {
+			snapshot: 1,
+			send: () => undefined,
+			reducedMotion: () => false,
+			hosts: { parent, child },
+		};
+		const root = document.createElement("div");
+		let tree = renderIgniteJsx(
+			root,
+			jsx("div", {
+				children: jsx("canvas", { use: "child" }),
+			}),
+			undefined,
+			{ hosts },
+		);
+		expect(child.mounts).toBe(1);
+		expect(child.disposed).toEqual([]);
+
+		tree = renderIgniteJsx(
+			root,
+			jsx("div", {
+				use: "parent",
+				children: jsx("canvas", { use: "child" }),
+			}),
+			tree,
+			{ hosts },
+		);
+		expect(child.disposed).toHaveLength(1);
+		expect(child.mounts).toBe(1);
+		expect(parent.mounts).toBe(1);
+
+		renderIgniteJsx(root, null, tree, { hosts });
+		expect(parent.disposed).toHaveLength(1);
+		expect(child.disposed).toHaveLength(child.mounts);
+	});
+
+	it("keeps the accessible description after the host replaces its subtree", () => {
+		let element: Element | undefined;
+		const host = sceneHost({
+			mount(el) {
+				element = el;
+				el.replaceChildren();
+				return { id: 1 };
+			},
+			update() {
+				element?.replaceChildren();
+			},
+		});
+		const root = document.createElement("div");
+		const tree = renderIgniteJsx(
+			root,
+			jsx("canvas", { use: "scene" }),
+			undefined,
+			{ hosts: runtime(host, 1) },
+		);
+		const canvas = root.querySelector("canvas");
+		expect(canvas?.getAttribute("aria-describedby")).toBeTruthy();
+		expect(
+			canvas?.querySelector(`[id="${canvas.getAttribute("aria-describedby")}"]`)
+				?.textContent,
+		).toBe("angle 1");
+
+		renderIgniteJsx(root, jsx("canvas", { use: "scene" }), tree, {
+			hosts: runtime(host, 4),
+		});
+		const next = root.querySelector("canvas");
+		expect(
+			next?.querySelector(`[id="${next.getAttribute("aria-describedby")}"]`)
+				?.textContent,
+		).toBe("angle 4");
+	});
+
+	it("does not recurse when update sends during delivery", async () => {
+		let depth = 0;
+		let maxDepth = 0;
+		let calls = 0;
+		const root = document.createElement("div");
+		let tree: ReturnType<typeof renderIgniteJsx> | undefined;
+		const host = sceneHost({
+			mount: () => Promise.resolve({ id: 1 }),
+			update() {
+				depth += 1;
+				maxDepth = Math.max(maxDepth, depth);
+				calls += 1;
+				if (calls === 1) {
+					tree = renderIgniteJsx(root, jsx("canvas", { use: "scene" }), tree, {
+						hosts: runtime(host, 2, {
+							send: () => undefined,
+						}),
+					});
+				}
+				depth -= 1;
+			},
+		});
+		tree = renderIgniteJsx(root, jsx("canvas", { use: "scene" }), undefined, {
+			hosts: runtime(host, 1),
+		});
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(maxDepth).toBe(1);
+		expect(calls).toBe(2);
+		expect(host.updates).toEqual([{ angle: 1 }, { angle: 2 }]);
+	});
+
+	it("retires a mounted host when a later select throws", () => {
+		const error = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => undefined);
+		let fail = false;
+		const host = sceneHost();
+		host.select = (snapshot) => {
+			if (fail) throw new Error("select failed");
+			return { angle: snapshot };
+		};
+		const root = document.createElement("div");
+		let tree = renderIgniteJsx(
+			root,
+			jsx("canvas", { use: "scene" }),
+			undefined,
+			{ hosts: runtime(host, 1) },
+		);
+		expect(host.mounts).toBe(1);
+		fail = true;
+		tree = renderIgniteJsx(root, jsx("canvas", { use: "scene" }), tree, {
+			hosts: runtime(host, 2),
+		});
+		expect(host.disposed).toHaveLength(1);
+		expect(host.mounts).toBe(1);
+		fail = false;
+		renderIgniteJsx(root, jsx("canvas", { use: "scene" }), tree, {
+			hosts: runtime(host, 3),
+		});
+		expect(host.mounts).toBe(2);
+		expect(error.mock.calls.map((call) => String(call[0]))).toEqual(
+			expect.arrayContaining([expect.stringContaining("Host select failed.")]),
+		);
+	});
+
 	it("still mounts when reduced-motion media queries throw", () => {
 		vi.stubGlobal("matchMedia", () => {
 			throw new Error("unavailable");

@@ -86,7 +86,7 @@ type HostsUnspecified<Hosts> = [Hosts] extends [undefined]
 export type HostHandles<Hosts> = HostsUnspecified<Hosts> extends true
 	? Record<never, never>
 	: string extends keyof Hosts
-		? { readonly [name: string]: string }
+		? { readonly [name: string]: HostHandle<Hosts, string> }
 		: {
 				readonly [Name in keyof Hosts & string]: HostHandle<
 					Hosts,

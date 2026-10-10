@@ -1,5 +1,7 @@
 /** @jsxImportSource ignite-element/jsx */
+import { createMachine } from "xstate";
 import { jsx } from "../../renderers/jsx/jsx-runtime";
+import { igniteCore } from "../../xstate";
 import { orbit, plain, radio, twin } from "./host-use-hosts";
 
 orbit("orbit", ({ hosts }) => <canvas use={hosts.scene} />);
@@ -77,5 +79,15 @@ orbit("orbit", ({ hosts }) => {
 	void cast;
 	return <canvas use={forged} />;
 });
+
+const dynamicHosts: Record<string, { mount(): void; dispose(): void }> = {
+	scene: { mount() {}, dispose() {} },
+};
+const dynamic = igniteCore({
+	source: createMachine({ context: { angle: 0 } }),
+	hosts: dynamicHosts,
+});
+const dynamicName = "scene";
+dynamic("dynamic", ({ hosts }) => <canvas use={hosts[dynamicName]} />);
 
 export const hostedJsx = orbit;

@@ -351,9 +351,16 @@ export default function igniteElementFactory<
 		send: (event: Event) => void,
 		additionalArgs: RuntimeAdditionalArgs,
 	) => {
-		const hosts: Record<string, string> = {};
+		const hosts = Object.create(null) as Record<string, string>;
 		if (coreHosts) {
-			for (const name of Object.keys(coreHosts)) hosts[name] = name;
+			for (const name of Object.keys(coreHosts)) {
+				Object.defineProperty(hosts, name, {
+					value: name,
+					enumerable: true,
+					configurable: true,
+					writable: true,
+				});
+			}
 		}
 		return {
 			...createBaseRenderArgs(snapshot, send, additionalArgs),

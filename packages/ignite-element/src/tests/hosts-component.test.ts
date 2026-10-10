@@ -171,6 +171,40 @@ describe("igniteCore hosts", () => {
 		core.dispose();
 	});
 
+	it("keeps a __proto__ host name as the handle string", async () => {
+		let mounts = 0;
+		const proto = Object.create(null) as Record<string, Host>;
+		proto["__proto__"] = {
+			mount() {
+				mounts += 1;
+				return { id: 1 };
+			},
+			dispose() {},
+		};
+		const machine = createMachine({
+			types: { context: {} as { n: number } },
+			context: { n: 1 },
+		});
+		let handle: unknown;
+		const core = igniteCore({
+			source: machine,
+			hosts: proto,
+		});
+		const name = tag();
+		core(name, (args) => {
+			const table = (args as { hosts?: Record<string, unknown> }).hosts;
+			handle = table?.["__proto__"];
+			return jsx("div", { use: handle as string });
+		});
+		const element = document.createElement(name);
+		document.body.append(element);
+		await flush();
+		expect(handle).toBe("__proto__");
+		expect(mounts).toBe(1);
+		element.remove();
+		core.dispose();
+	});
+
 	it("treats an empty host map as no hosts and survives a broken reduced-motion query", () => {
 		const machine = createMachine({
 			types: { context: {} as { n: number } },

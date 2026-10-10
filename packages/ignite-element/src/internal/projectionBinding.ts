@@ -106,19 +106,52 @@ function hostEntries(
 	);
 }
 
+function takenNodeIds(nodes: readonly unknown[]): Set<string> {
+	const ids = new Set<string>();
+	const visit = (value: unknown): void => {
+		if (!value || typeof value !== "object") return;
+		if (Array.isArray(value)) {
+			for (const item of value) visit(item);
+			return;
+		}
+		const record = value as Record<string, unknown>;
+		if (typeof record.id === "string") ids.add(record.id);
+		for (const nested of Object.values(record)) visit(nested);
+	};
+	for (const node of nodes) visit(node);
+	return ids;
+}
+
+function hostNodeId(name: string, taken: Set<string>): string {
+	const base = `ignite-host-${name}`;
+	if (!taken.has(base)) {
+		taken.add(base);
+		return base;
+	}
+	let suffix = 2;
+	let id = `${base}-${suffix}`;
+	while (taken.has(id)) {
+		suffix += 1;
+		id = `${base}-${suffix}`;
+	}
+	taken.add(id);
+	return id;
+}
+
 function withHostDescriptions(
 	document: ProjectionDocument | null,
 	descriptions: Readonly<Record<string, string>> | undefined,
 ): ProjectionDocument | null {
 	const entries = hostEntries(descriptions);
 	if (!document || entries.length === 0) return document;
+	const taken = takenNodeIds(document.nodes);
 	return {
 		...document,
 		nodes: [
 			...document.nodes,
 			...entries.map(([name, text]) => ({
 				kind: "text" as const,
-				id: `ignite-host-${name}`,
+				id: hostNodeId(name, taken),
 				text,
 			})),
 		],
@@ -268,6 +301,9 @@ export async function commitProjectionDocumentTarget({
 
 	const issues = validateProjectionSelection(document, inspection);
 	if (issues.length > 0) {
+		if (issues.some((issue) => issue.includes("duplicate node id"))) {
+			releaseDocumentReservation(state, document.id, documentIdentity);
+		}
 		return {
 			channel: "document",
 			status: "error",
@@ -356,10 +392,7 @@ export async function commitProjectionSpeechTarget({
 	}
 	let speechId: string;
 	try {
-		speechId = projectionIdentity(
-			projection.identity(speech),
-			inspection.hostDescriptions,
-		);
+		speechId = projection.identity(speech);
 	} catch (error) {
 		return {
 			channel: "speech",

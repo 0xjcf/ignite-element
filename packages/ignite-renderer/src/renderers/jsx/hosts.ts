@@ -12,6 +12,7 @@ import {
 	installHostSync,
 	onHostUnmount,
 	releaseHostSubtree,
+	unmountOwnedSubtree,
 } from "./hostBridge";
 
 export type {
@@ -31,6 +32,8 @@ type HostRecord = {
 	hasSlice: boolean;
 	delivered: boolean;
 	deliveredSlice: unknown;
+	delivering: boolean;
+	redeliver: boolean;
 	stopMotion: () => void;
 };
 
@@ -148,19 +151,41 @@ function watchReducedMotion(onChange: () => void): () => void {
 
 function deliver(record: HostRecord, force: boolean): void {
 	if (!record.settled || !record.definition.update || !record.hasSlice) return;
-	if (
-		!force &&
-		record.delivered &&
-		slicesEqual(record.definition, record.deliveredSlice, record.slice)
-	) {
+	if (record.delivering) {
+		record.redeliver = true;
 		return;
 	}
+	record.delivering = true;
 	try {
-		record.definition.update(record.handle, record.slice);
-		record.delivered = true;
-		record.deliveredSlice = record.slice;
-	} catch (error) {
-		reportHostError("[ignite-jsx] Host update failed.", error);
+		let deliverForce = force;
+		do {
+			record.redeliver = false;
+			if (
+				!deliverForce &&
+				record.delivered &&
+				slicesEqual(record.definition, record.deliveredSlice, record.slice)
+			) {
+				deliverForce = false;
+				continue;
+			}
+			const slice = record.slice;
+			try {
+				record.definition.update(record.handle, slice);
+				record.delivered = true;
+				record.deliveredSlice = slice;
+			} catch (error) {
+				reportHostError("[ignite-jsx] Host update failed.", error);
+			}
+			deliverForce = false;
+		} while (record.redeliver && record.settled && record.hasSlice);
+	} finally {
+		record.delivering = false;
+	}
+}
+
+function retireDescendantHosts(element: Element): void {
+	for (const child of Array.from(element.childNodes)) {
+		unmountOwnedSubtree(child);
 	}
 }
 
@@ -325,6 +350,8 @@ function startHost(
 		hasSlice: true,
 		delivered: false,
 		deliveredSlice: undefined,
+		delivering: false,
+		redeliver: false,
 		stopMotion: () => undefined,
 	};
 	record.stopMotion = watchReducedMotion(() => {
@@ -335,11 +362,13 @@ function startHost(
 	onHostUnmount(element, () => {
 		const current = hostRecords.get(element);
 		if (current !== record) return;
+		retireDescendantHosts(element);
 		hostRecords.delete(element);
 		controller.abort();
 		record.stopMotion();
 		disposeSettled(record);
 	});
+	retireDescendantHosts(element);
 	const queuedBefore = deferredSends.length;
 	let result: unknown;
 	try {
@@ -406,12 +435,16 @@ export function syncHostElement(element: Element, useName: unknown): void {
 	claimHostSubtree(element);
 	const selected = readSlice(definition, runtime.snapshot);
 	if (!selected.ok) {
+		retireHost(element);
 		releaseHostSubtree(element);
+		clearDescription(element);
 		return;
 	}
 	const slice = selected.slice;
-	applyDescription(element, definition, slice);
-	if (!isClient()) return;
+	if (!isClient()) {
+		applyDescription(element, definition, slice);
+		return;
+	}
 	const existing = hostRecords.get(element);
 	if (
 		!existing ||
@@ -420,11 +453,13 @@ export function syncHostElement(element: Element, useName: unknown): void {
 	) {
 		if (existing) retireHost(element);
 		startHost(element, useName, definition, runtime, slice);
+		applyDescription(element, definition, slice);
 		return;
 	}
 	existing.slice = slice;
 	existing.hasSlice = true;
 	deliver(existing, false);
+	applyDescription(element, definition, slice);
 }
 
 installHostSync(syncHostElement);

@@ -648,6 +648,111 @@ describe("private projection binding", () => {
 		expect(state.lastAcknowledgedSpeechId).toBe("delivery:speech-1");
 	});
 
+	it("keeps speech dedup keyed to the request id when host text changes", async () => {
+		const state = createProjectionBindingState();
+		const commitSpeech = vi.fn(
+			async (_speech: ProjectionSpeechRequest) => undefined,
+		);
+		const acknowledge = vi.fn(async () => undefined);
+		const base = createInspection();
+
+		await expect(
+			commitProjectionSpeechTarget({
+				state,
+				inspection: {
+					...base,
+					hostDescriptions: { scene: "angle 1" },
+				},
+				commitSpeech,
+				acknowledge,
+			}),
+		).resolves.toEqual({
+			channel: "speech",
+			status: "committed",
+			speechId: "speech-1",
+		});
+		await expect(
+			commitProjectionSpeechTarget({
+				state,
+				inspection: {
+					...base,
+					hostDescriptions: { scene: "angle 2" },
+				},
+				commitSpeech,
+				acknowledge,
+			}),
+		).resolves.toEqual({
+			channel: "speech",
+			status: "skipped",
+			reason: "duplicate-speech",
+		});
+
+		expect(commitSpeech).toHaveBeenCalledTimes(1);
+		expect(acknowledge).toHaveBeenCalledTimes(1);
+		expect(commitSpeech.mock.calls[0]?.[0]).toMatchObject({
+			id: "speech-1",
+			text: expect.stringContaining("angle 1"),
+		});
+		expect(state.lastAcknowledgedSpeechId).toBe("speech-1");
+	});
+
+	it("gives host projection nodes ids that do not collide, and does not skip a retry", async () => {
+		const state = createProjectionBindingState();
+		const commitDocument = vi.fn();
+		const inspection: ProjectionInspection = {
+			...createInspection(),
+			documents: [
+				{
+					id: "panel",
+					revision: "1",
+					nodes: [
+						{
+							kind: "text",
+							id: "ignite-host-summary",
+							text: "Authored",
+						},
+					],
+				},
+			],
+			hostDescriptions: { summary: "Orbit angle 1" },
+		};
+
+		await expect(
+			commitProjectionDocumentTarget({
+				state,
+				inspection,
+				commitDocument,
+			}),
+		).resolves.toEqual({
+			channel: "document",
+			status: "committed",
+			documentId: "panel",
+			revision: "1",
+		});
+
+		const document = commitDocument.mock.calls[0]?.[0] as {
+			nodes: Array<{ id: string; text: string }>;
+		};
+		const ids = document.nodes.map((node) => node.id);
+		expect(new Set(ids).size).toBe(ids.length);
+		expect(ids).toContain("ignite-host-summary");
+		expect(ids).toContain("ignite-host-summary-2");
+		expect(document.nodes.map((node) => node.text)).toContain("Orbit angle 1");
+
+		await expect(
+			commitProjectionDocumentTarget({
+				state,
+				inspection,
+				commitDocument,
+			}),
+		).resolves.toEqual({
+			channel: "document",
+			status: "skipped",
+			reason: "duplicate-document",
+		});
+		expect(commitDocument).toHaveBeenCalledTimes(1);
+	});
+
 	it("keeps only the latest document revision and current speech identity in binding state", async () => {
 		const state = createProjectionBindingState();
 		const firstInspection = createInspection();

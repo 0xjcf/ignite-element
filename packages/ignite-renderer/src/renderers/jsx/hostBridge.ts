@@ -49,6 +49,7 @@ type HostOwnershipTools = {
 	claimSubtree(element: Element): void;
 	releaseSubtree(element: Element): void;
 	onUnmount(node: Node, hook: () => void): void;
+	unmountSubtree(node: Node): void;
 };
 
 type HostSlot = {
@@ -64,6 +65,7 @@ function emptyOwnership(): HostOwnershipTools {
 		claimSubtree() {},
 		releaseSubtree() {},
 		onUnmount() {},
+		unmountSubtree() {},
 	};
 }
 
@@ -93,6 +95,10 @@ export function releaseHostSubtree(element: Element): void {
 
 export function onHostUnmount(node: Node, hook: () => void): void {
 	hostSlot().ownership.onUnmount(node, hook);
+}
+
+export function unmountOwnedSubtree(node: Node): void {
+	hostSlot().ownership.unmountSubtree(node);
 }
 
 export function installHostSync(sync: HostSlot["sync"]): void {
