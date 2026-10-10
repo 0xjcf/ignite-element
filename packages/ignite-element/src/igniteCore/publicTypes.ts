@@ -5,6 +5,7 @@ import type {
 	FacadeCommandFunction,
 	FacadeCommandResult,
 } from "@ignite-element/core";
+import type { HostRenderSlot } from "../hosts/types";
 import type {
 	IgniteAgentRuntime,
 	IgniteProjectionSession,
@@ -23,6 +24,73 @@ import type {
 
 // Dynamic index signatures need the runtime check; exact known keys can also
 // reject a collision at construction without changing either callback's inference.
+export type HostSafeChild<Use> =
+	| HostSafeElement<Use>
+	| string
+	| number
+	| boolean
+	| null
+	| undefined
+	| readonly HostSafeChild<Use>[];
+
+type HostSafeElement<Use> = {
+	readonly type?: unknown;
+	readonly props?: {
+		use?: Use;
+		children?: HostSafeChild<Use>;
+		readonly [key: string]: unknown;
+	};
+	readonly key?: unknown;
+};
+
+type HostUseOf<Hosts> = HostRenderSlot<Hosts> extends {
+	readonly hosts: infer Handles;
+}
+	? Handles[keyof Handles & string]
+	: never;
+
+/**
+ * Hosted views check a preserved `use` against this core's handles. A core
+ * with no host map stays unconstrained so non-JSX renderers keep typechecking.
+ * JSX tag syntax erases `use`, so this sees a `jsx()` result.
+ */
+export type HostCheckedView<Hosts = undefined> = HostRenderSlot<Hosts> extends {
+	readonly hosts: unknown;
+}
+	? string extends keyof Hosts
+		? unknown
+		: HostSafeChild<HostUseOf<Hosts>>
+	: unknown;
+
+type HostUseBrand = {
+	readonly __igniteHost: (map: never) => string;
+};
+
+/**
+ * `never` when a `jsx()` result still carries a branded host handle. Tag
+ * syntax erases `use` to `unknown`, so `<canvas use={...} />` is not rejected
+ * on a core with no hosts.
+ */
+type RejectUnhostedBrand<View> = View extends {
+	readonly props: { readonly use?: infer Use };
+}
+	? [Use] extends [HostUseBrand]
+		? never
+		: unknown
+	: unknown;
+
+/**
+ * Hosted calls keep the concrete handle check. A core with no host map accepts
+ * any view except a `jsx()` result whose `use` is still a branded handle.
+ */
+type HostCallView<Hosts, View> = HostRenderSlot<Hosts> extends {
+	readonly hosts: unknown;
+}
+	? string extends keyof Hosts
+		? View
+		: HostCheckedView<Hosts>
+	: View & RejectUnhostedBrand<View>;
+
 export type DisjointBindings<States, Commands> = string extends
 	| keyof States
 	| keyof Commands
@@ -114,9 +182,10 @@ export type IgniteCoreReturn<
 	// Native headless emissions do not imply a declared DOM event. Defaulting
 	// preserves existing type-alias consumers and adapters with one event map.
 	DeclaredEvents extends EventMap = Events,
+	Hosts = undefined,
 > = {
 	(target: IgniteProjectionTarget): IgniteProjectionSession;
-	(
+	<View>(
 		elementName: string,
 		renderer: ComponentRenderer<
 			PublicFacadeRenderArgs<
@@ -124,9 +193,11 @@ export type IgniteCoreReturn<
 				CommandActor,
 				CommandsResult,
 				Record<never, never>,
-				DeclaredEvents
+				DeclaredEvents,
+				Hosts
 			> &
-				Record<never, Snapshot>
+				Record<never, Snapshot>,
+			HostCallView<Hosts, View>
 		>,
 	): IgniteComponent<CommandsResult, DeclaredEvents>;
 	readonly __igniteRenderArgs?: PublicFacadeRenderArgs<

@@ -1,3 +1,4 @@
+export type { Host, HostContext, HostProps } from "./hosts/types";
 export { igniteCoreRedux as igniteCore } from "./igniteCore/redux";
 export type {
 	IgniteCoreReturn,

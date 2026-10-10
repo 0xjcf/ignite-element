@@ -1,0 +1,82 @@
+---
+title: Hosts
+description: Mount canvas, audio, and other imperative engines from a use prop.
+---
+
+A host mounts an imperative engine on an element and disposes it on the shared unmount path. Declare hosts on the core. The view receives one handle per host.
+
+```ts
+import type { HostContext } from "ignite-element";
+import { igniteCore } from "ignite-element/xstate";
+import { assign, createMachine } from "xstate";
+
+type OrbitEvent = { type: "NUDGE" };
+
+const orbitMachine = createMachine({
+  types: {
+    context: {} as { angle: number },
+    events: {} as OrbitEvent,
+  },
+  context: { angle: 0 },
+  on: {
+    NUDGE: {
+      actions: assign({
+        angle: ({ context }) => context.angle + 15,
+      }),
+    },
+  },
+});
+
+type SceneView = {
+  render(angle: number): void;
+  stop(): void;
+};
+
+function startScene(canvas: HTMLCanvasElement): SceneView {
+  const context = canvas.getContext("2d");
+  return {
+    render(angle) {
+      context?.clearRect(0, 0, canvas.width, canvas.height);
+      context?.fillText(String(angle), 8, 16);
+    },
+    stop() {
+      context?.clearRect(0, 0, canvas.width, canvas.height);
+    },
+  };
+}
+
+const orbit = igniteCore({
+  source: orbitMachine,
+  hosts: {
+    scene: {
+      mount(canvas: HTMLCanvasElement, ctx: HostContext<OrbitEvent>) {
+        const view = startScene(canvas);
+        canvas.addEventListener(
+          "pointerdown",
+          () => ctx.send({ type: "NUDGE" }),
+          { signal: ctx.signal },
+        );
+        return view;
+      },
+      update(view: SceneView, angle: number) {
+        view.render(angle);
+      },
+      dispose(view: SceneView) {
+        view.stop();
+      },
+      select: (snapshot) => snapshot.context.angle,
+      describe: (angle: number) => `Orbit angle ${angle}`,
+    },
+  },
+});
+
+orbit("orbit-preview", ({ hosts }) => (
+  <canvas use={hosts.scene} aria-label="Orbit preview" />
+));
+```
+
+`use` takes a handle from that view's `hosts`. The runtime value is the host name. Types reject a typo, a bare string, a cast, and a handle from a different host map on assignment and in `jsx()`. On JSX tags, TypeScript cannot reject a handle from another core. The development-build warning catches a name that is not on the element's core. Cores with identical host maps are not distinguished. `LibraryManagedAttributes` leaves application components alone, so a component that declares its own `use` prop, such as `<Button use="primary" />`, keeps that prop. Host `use` stays on intrinsic elements. `HostProps` keeps that same branded `use` for an index-signature map, so a bare string still does not typecheck. A core that declares no host map does not replace a derived state or command named `hosts`. An explicit empty `hosts: {}` is still a host map: the view receives `hosts`, and names added to that object later are recognized. `select` reads that core's snapshot. `mount` runs only in the browser, after the element is in the document. `describe` is the accessible description, rendered as visually hidden text referenced by `aria-describedby`, and the same text is appended to document and speech projections for CLI and MCP clients. Server render and those projections never call `mount`.
+
+An element-less lifecycle such as an `AudioContext` or a socket is a host on the component's root element. There is no separate connect callback.
+
+A bundle that only renders JSX does not include the host runtime. Authoring code uses `Host`, `igniteCore({ hosts })`, and `use`. The host-free JSX entry registers `ignite-jsx` only when none is present, so a later import does not replace a host-aware registration. A host-aware registration still replaces a host-free one.

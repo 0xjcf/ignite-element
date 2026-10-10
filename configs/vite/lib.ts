@@ -23,6 +23,9 @@ export function createLibConfig({
 	return {
 		define: {
 			__IGNITE_DEV_WARNINGS__: JSON.stringify(devArtifact),
+			// Published renderer entries stay host-free. Element and source
+			// runners set this true and bundle the internal host module.
+			__IGNITE_HOST_RUNTIME__: JSON.stringify(false),
 		},
 		build: {
 			emptyOutDir: !devArtifact,

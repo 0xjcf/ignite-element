@@ -13,6 +13,7 @@ import type {
 	StateScope,
 } from "@ignite-element/core";
 import type { EnhancedStore, Slice } from "@reduxjs/toolkit";
+import type { IgniteHostMap } from "../hosts/types";
 import { assertSupportedSourceOptions } from "../internal/assertSupportedSourceOptions";
 import {
 	createIgniteComponentFactory,
@@ -79,6 +80,58 @@ function createReduxAdapterFactory(source: ReduxSource): ReduxAdapterFactory {
 
 	throw new TypeError("[igniteCoreRedux] Unsupported Redux source.");
 }
+
+export function igniteCoreRedux<
+	const Hosts extends IgniteHostMap<InferStateAndEvent<Source>["State"]>,
+	Source extends ReduxBlueprintSource,
+	Events extends EventMap = EmptyEventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+>(
+	options: Omit<
+		ReduxBlueprintConfig<Source, Events, StatesResult, CommandsResult>,
+		"hosts"
+	> & { hosts: Hosts },
+): IgniteCoreReturn<
+	InferStateAndEvent<Source>["State"],
+	InferStateAndEvent<Source>["Event"],
+	InferStateAndEvent<Source>["State"],
+	StatesResult,
+	ReduxCommandActorFor<Source>,
+	CommandsResult,
+	Events,
+	Events,
+	Hosts
+>;
+
+export function igniteCoreRedux<
+	const Hosts extends IgniteHostMap<InferStateAndEvent<Source>["State"]>,
+	Source extends ReduxInstanceSource,
+	Events extends EventMap = EmptyEventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+>(
+	options: Omit<
+		ReduxInstanceConfig<Source, Events, StatesResult, CommandsResult>,
+		"hosts"
+	> & { hosts: Hosts },
+): IgniteCoreReturn<
+	InferStateAndEvent<Source>["State"],
+	InferStateAndEvent<Source>["Event"],
+	InferStateAndEvent<Source>["State"],
+	StatesResult,
+	ReduxCommandActorFor<Source>,
+	CommandsResult,
+	Events,
+	Events,
+	Hosts
+>;
 
 export function igniteCoreRedux<
 	Source extends ReduxBlueprintSource,

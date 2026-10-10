@@ -1,3 +1,10 @@
+import {
+	configureHostOwnership,
+	type IgniteHostRuntime,
+	syncHostElement,
+	withIgniteHostRuntime,
+} from "./hostBridge";
+
 import { isNoDiffDenylistedTag } from "./noDiffDenylist";
 import {
 	Fragment,
@@ -8,6 +15,11 @@ import {
 } from "./types";
 
 declare const __IGNITE_DEV_WARNINGS__: boolean;
+declare const __IGNITE_HOST_RUNTIME__: boolean | undefined;
+
+// Example browser configs leave this unset. Library builds replace it.
+const hostRuntimeEnabled =
+	typeof __IGNITE_HOST_RUNTIME__ !== "undefined" && __IGNITE_HOST_RUNTIME__;
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 // Spec nodeType values. Disconnect cleanup runs in example tests that have
@@ -58,15 +70,21 @@ export function createDomNode(
 export function mountIgniteJsx(
 	host: (Node & ParentNode) | ShadowRoot,
 	view: IgniteJsxChild,
+	options: RenderOptions = {},
 ): NormalizedNode[] {
-	const normalized = normalizeRoot(view);
-	replaceAll(host, normalized);
-	return normalized;
+	const mount = () => {
+		const normalized = normalizeRoot(view);
+		replaceAll(host, normalized);
+		return normalized;
+	};
+	if (hostRuntimeEnabled) return withIgniteHostRuntime(options.hosts, mount);
+	return mount();
 }
 
 type RenderOptions = {
 	mode?: "diff" | "replace";
 	onFallbackReplace?: (reason: string) => void;
+	hosts?: IgniteHostRuntime;
 };
 
 export function renderIgniteJsx(
@@ -74,6 +92,20 @@ export function renderIgniteJsx(
 	view: IgniteJsxChild,
 	previous?: NormalizedNode[],
 	options: RenderOptions = {},
+): NormalizedNode[] {
+	if (hostRuntimeEnabled) {
+		return withIgniteHostRuntime(options.hosts, () =>
+			renderIgniteJsxNow(host, view, previous, options),
+		);
+	}
+	return renderIgniteJsxNow(host, view, previous, options);
+}
+
+function renderIgniteJsxNow(
+	host: (Node & ParentNode) | ShadowRoot,
+	view: IgniteJsxChild,
+	previous: NormalizedNode[] | undefined,
+	options: RenderOptions,
 ): NormalizedNode[] {
 	const next = normalizeRoot(view);
 
@@ -304,6 +336,41 @@ export function claimSubtree(element: Element): void {
 	subtreeOwners.add(element);
 }
 
+export function releaseSubtree(element: Element): void {
+	subtreeOwners.delete(element);
+}
+
+if (hostRuntimeEnabled) {
+	configureHostOwnership({
+		claimSubtree,
+		releaseSubtree,
+		onUnmount: onIgniteUnmount,
+		unmountSubtree: unmountIgniteSubtree,
+	});
+}
+
+const freshNodes = new WeakSet<ChildNode>();
+
+function commitFresh(node: ChildNode, normalized: NormalizedNode): void {
+	if (!freshNodes.has(node)) return;
+	freshNodes.delete(node);
+	if (node.nodeType !== ELEMENT_NODE || normalized.kind !== "element") {
+		return;
+	}
+	const element = node as Element;
+	// A failed host mount retires descendant refs before commitFresh reaches
+	// them. Rebind here; an already-bound fresh node returns immediately.
+	if (hostRuntimeEnabled) assignRef(element, normalized.props.ref);
+	syncHostElement(element, normalized.props.use);
+	if (hostRuntimeEnabled && subtreeOwners.has(element)) return;
+	const children = Array.from(element.childNodes);
+	for (let index = 0; index < normalized.children.length; index++) {
+		const child = children[index];
+		const spec = normalized.children[index];
+		if (child && spec) commitFresh(child, spec);
+	}
+}
+
 /**
  * Register a hook on the shared unmount path. It runs before the node is
  * detached, exactly once.
@@ -518,9 +585,18 @@ function patchChildren(
 				);
 				if (patched !== domChild) {
 					parent.replaceChild(patched, domChild);
+					if (hostRuntimeEnabled) {
+						const spec = newChildren[i];
+						if (spec) commitFresh(patched, spec);
+					}
 				}
 			} else if (i >= oldChildren.length) {
 				parent.appendChild(createDomFromNormalized(newChildren[i]));
+				if (hostRuntimeEnabled) {
+					const created = newChildren[i];
+					const placed = parent.lastChild;
+					if (created && placed) commitFresh(placed, created);
+				}
 			} else if (i >= newChildren.length && domChild) {
 				detachChild(parent, domChild);
 			}
@@ -546,11 +622,20 @@ function patchChildren(
 		);
 		if (patched !== domChild) {
 			parent.replaceChild(patched, domChild);
+			if (hostRuntimeEnabled) {
+				const spec = newChildren[childIndex];
+				if (spec) commitFresh(patched, spec);
+			}
 		}
 	}
 
 	for (; childIndex < newChildren.length; childIndex++) {
 		parent.appendChild(createDomFromNormalized(newChildren[childIndex]));
+		if (hostRuntimeEnabled) {
+			const created = newChildren[childIndex];
+			const placed = parent.lastChild;
+			if (created && placed) commitFresh(placed, created);
+		}
 	}
 
 	// If the parent has extra nodes beyond managed children, leave them untouched.
@@ -631,12 +716,18 @@ function patchKeyedChildren(
 	}
 
 	let cursor: ChildNode | null = parent.firstChild;
-	for (const node of nextDom) {
+	for (let index = 0; index < nextDom.length; index++) {
+		const node = nextDom[index];
+		if (!node) continue;
 		if (node === cursor) {
 			cursor = node.nextSibling;
-			continue;
+		} else {
+			parent.insertBefore(node, cursor);
 		}
-		parent.insertBefore(node, cursor);
+		if (hostRuntimeEnabled) {
+			const spec = newChildren[index];
+			if (spec) commitFresh(node, spec);
+		}
 	}
 	// Moving a node drops focus in some DOM implementations. Restore the
 	// element that was focused inside this parent, including inside a shadow root.
@@ -739,9 +830,22 @@ function patchNode(
 	}
 
 	const elementNode = domNode as Element & ParentNode;
+	const nextUse = newNode.props.use;
+	const droppingHost =
+		hostRuntimeEnabled &&
+		ownsSubtreeViaProps(newNode.props) &&
+		(typeof nextUse !== "string" || nextUse.length === 0);
+	if (droppingHost) {
+		syncHostElement(elementNode, nextUse);
+	}
 
 	patchProps(elementNode, oldNode.props, newNode.props);
-
+	const previouslyOwned = hostRuntimeEnabled
+		? subtreeIsOwned(elementNode, oldNode.props)
+		: ownsSubtreeViaProps(oldNode.props);
+	if (hostRuntimeEnabled && !droppingHost) {
+		syncHostElement(elementNode, nextUse);
+	}
 	// A subtree owner (innerHTML, textContent, or a host claim) is opaque.
 	// patchProps already applied the owning prop — skip child diffing so the
 	// positional patch does not desync against untracked DOM nodes (issue #57).
@@ -749,10 +853,9 @@ function patchNode(
 		assignRef(elementNode, newNode.props.ref);
 		return domNode;
 	}
-	// If the PREVIOUS render owned the subtree via props but this one renders
-	// JSX children, hard-clear the imperatively-managed content before
-	// reconciling so stale or duplicate nodes are not left behind.
-	if (ownsSubtreeViaProps(oldNode.props)) {
+	// The previous render owned the subtree. Clear it before reconciling JSX
+	// children, including when a host released its claim on this render.
+	if (previouslyOwned) {
 		while (elementNode.firstChild) {
 			detachChild(elementNode, elementNode.firstChild);
 		}
@@ -783,6 +886,10 @@ function patchNode(
 		}
 		for (const child of mappedChildren) {
 			elementNode.appendChild(createDomFromNormalized(child));
+			if (hostRuntimeEnabled) {
+				const placed = elementNode.lastChild;
+				if (placed) commitFresh(placed, child);
+			}
 		}
 	}
 
@@ -809,6 +916,7 @@ function createDomFromNormalized(node: NormalizedNode): ChildNode {
 				element.appendChild(createDomFromNormalized(child));
 			}
 			assignRef(element, node.props.ref);
+			if (hostRuntimeEnabled) freshNodes.add(element);
 			return element;
 		}
 	}
@@ -875,14 +983,24 @@ function patchProps(
 	const isSvgElement = element instanceof SVGElement;
 
 	for (const key of Object.keys(oldProps)) {
-		if (key === "children" || key === "ref") continue;
+		if (
+			key === "children" ||
+			key === "ref" ||
+			(hostRuntimeEnabled && key === "use")
+		)
+			continue;
 		if (!(key in newProps)) {
 			removeProp(element, key, oldProps[key], isSvgElement);
 		}
 	}
 
 	for (const [key, next] of Object.entries(newProps)) {
-		if (key === "children" || key === "ref") continue;
+		if (
+			key === "children" ||
+			key === "ref" ||
+			(hostRuntimeEnabled && key === "use")
+		)
+			continue;
 		const prev = oldProps[key];
 		if (
 			(key === "innerHTML" || key === "textContent") &&
@@ -1076,6 +1194,10 @@ function replaceAll(parent: ParentNode, children: NormalizedNode[]): void {
 	}
 	for (const child of children) {
 		parent.appendChild(createDomFromNormalized(child));
+		if (hostRuntimeEnabled) {
+			const placed = parent.lastChild;
+			if (placed) commitFresh(placed, child);
+		}
 	}
 }
 

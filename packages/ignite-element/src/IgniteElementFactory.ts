@@ -1,12 +1,17 @@
 import type { IgniteAdapter } from "@ignite-element/core";
 import { StateScope } from "@ignite-element/core";
 import type { RenderStrategyFactory } from "@ignite-element/renderer";
+import { coreHostsFor, readReducedMotion } from "./hosts/registry";
 import {
 	endElementRendering,
 	getIgniteElementClasses,
 	rollbackElementSetup,
 } from "./IgniteElement";
 import { assertSupportedSourceOptions } from "./internal/assertSupportedSourceOptions";
+import {
+	describeIgniteHosts,
+	HOST_RUNTIME_FIELD,
+} from "./internal/hostRuntime.js";
 import {
 	commitProjectionDocumentTarget,
 	commitProjectionSpeechTarget,
@@ -262,6 +267,30 @@ export default function igniteElementFactory<
 	options?: FactoryOptions<State, Event, RenderArgs, RuntimeView, View>,
 ): ComponentFactory<State, Event, RenderArgs, View> {
 	assertSupportedSourceOptions(options);
+	const coreHosts = coreHostsFor(createAdapter);
+	const publishHosts = (
+		element: EventTarget,
+		snapshot: State,
+		send: (event: Event) => void,
+	) => {
+		if (!coreHosts) {
+			delete (element as unknown as Record<string, unknown>)[
+				HOST_RUNTIME_FIELD
+			];
+			return;
+		}
+		Object.defineProperty(element, HOST_RUNTIME_FIELD, {
+			configurable: true,
+			enumerable: false,
+			writable: true,
+			value: {
+				snapshot,
+				send: (event: unknown) => send(event as Event),
+				reducedMotion: readReducedMotion,
+				hosts: coreHosts,
+			},
+		});
+	};
 	type RuntimeAdditionalArgs = AdditionalRenderArgs<State, Event, RenderArgs>;
 	const lifetime = createLifetime();
 	lifetime.own(() => options?.disposeEffects?.());
@@ -305,7 +334,7 @@ export default function igniteElementFactory<
 			snapshot: adapter.getSnapshot(),
 			states: resolveStates(adapter),
 		}));
-	const createRenderArgs =
+	const createBaseRenderArgs =
 		options?.createRenderArgs ??
 		((
 			snapshot: State,
@@ -317,6 +346,27 @@ export default function igniteElementFactory<
 				state: snapshot,
 				send,
 			}) as RenderArgs);
+	const createRenderArgs = (
+		snapshot: State,
+		send: (event: Event) => void,
+		additionalArgs: RuntimeAdditionalArgs,
+	) => {
+		const base = createBaseRenderArgs(snapshot, send, additionalArgs);
+		if (!coreHosts) return base;
+		const hosts = Object.create(null) as Record<string, string>;
+		for (const name of Object.keys(coreHosts)) {
+			Object.defineProperty(hosts, name, {
+				value: name,
+				enumerable: true,
+				configurable: true,
+				writable: true,
+			});
+		}
+		return {
+			...base,
+			hosts,
+		} as RenderArgs;
+	};
 
 	const cleanupAdditionalArgs = (
 		additionalArgs?: AdditionalRenderArgs<State, Event, RenderArgs> | null,
@@ -618,6 +668,7 @@ export default function igniteElementFactory<
 			snapshot,
 			states,
 			schema,
+			hostDescriptions: describeIgniteHosts(coreHosts ?? {}, snapshot),
 			canExecute: (commandName: string) => {
 				const command = getAdditionalArg(additionalArgs, commandName);
 				if (typeof command !== "function") {
@@ -940,15 +991,13 @@ export default function igniteElementFactory<
 				renderView(): View {
 					if (!this.additionalArgs)
 						throw new Error("[igniteCore] View is not initialized.");
+					const send = (event: Event) => {
+						lifetime.assertActive();
+						this.send(event);
+					};
+					publishHosts(this, this.currentState, send);
 					return render(
-						createRenderArgs(
-							this.currentState,
-							(event) => {
-								lifetime.assertActive();
-								this.send(event);
-							},
-							this.additionalArgs,
-						),
+						createRenderArgs(this.currentState, send, this.additionalArgs),
 					);
 				}
 			}
@@ -1070,16 +1119,13 @@ export default function igniteElementFactory<
 						`[igniteElementFactory] Unable to render "${elementName}" before initialization.`,
 					);
 				}
-
+				const send = (event: Event) => {
+					lifetime.assertActive();
+					this.send(event);
+				};
+				publishHosts(this, this.currentState, send);
 				return this.renderImpl(
-					createRenderArgs(
-						this.currentState,
-						(event) => {
-							lifetime.assertActive();
-							this.send(event);
-						},
-						this.additionalArgs,
-					),
+					createRenderArgs(this.currentState, send, this.additionalArgs),
 				);
 			}
 		}

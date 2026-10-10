@@ -1,5 +1,22 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import { createLibConfig } from "../../configs/vite/lib";
+
+const resolvePath = (path: string) =>
+	fileURLToPath(new URL(path, import.meta.url));
+
+function externalRendererInjectStyles() {
+	const shim = resolvePath("./src/internal/externalInjectStyles.ts");
+	return {
+		name: "external-renderer-inject-styles",
+		enforce: "pre" as const,
+		resolveId(source: string, importer: string | undefined) {
+			if (!importer?.includes("IgniteJsxRenderStrategy.ts")) return null;
+			if (source !== "../../injectStyles") return null;
+			return shim;
+		},
+	};
+}
 
 type ViteCommand = "build" | "serve";
 
@@ -73,6 +90,8 @@ export default defineConfig(({ command }) => {
 			...libConfig.define,
 			"process.env.NODE_ENV": JSON.stringify(resolveNodeEnv(command)),
 			__IGNITE_DEV_WARNINGS__: JSON.stringify(warningsOn),
+			__IGNITE_HOST_RUNTIME__: JSON.stringify(true),
 		},
+		plugins: [...(libConfig.plugins ?? []), externalRendererInjectStyles()],
 	};
 });

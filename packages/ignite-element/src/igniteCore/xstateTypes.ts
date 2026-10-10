@@ -1,13 +1,14 @@
 import type { XStateConfig as AdapterXStateConfig } from "@ignite-element/adapters/xstate";
 import type {
 	EmptyEventMap,
+	EventBuilder,
 	EventMap,
 	FacadeCommandFunction,
 	FacadeCommandResult,
 	FacadeEffectsObjectCallback,
-	EventBuilder,
 } from "@ignite-element/core";
 import type { AnyStateMachine, EmittedFrom, StateFrom } from "xstate";
+import type { IgniteHostMap } from "../hosts/types";
 import type { CompatibleEvents, EffectEvents } from "./eventProducerTypes";
 import type { DisjointBindings } from "./publicTypes";
 
@@ -32,4 +33,6 @@ export type XStateConfig<
 		unknown,
 		EffectEvents<NoInfer<Events>, NoInfer<EmittedFrom<Machine>>>
 	>;
-} & DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>>;
+} & DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>> & {
+		hosts?: IgniteHostMap<StateFrom<Machine>>;
+	};

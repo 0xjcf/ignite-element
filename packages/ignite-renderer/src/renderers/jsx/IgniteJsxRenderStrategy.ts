@@ -1,6 +1,7 @@
 import { getIgniteConfig } from "../../config";
 import injectStyles from "../../injectStyles";
 import type { RenderStrategy } from "../RenderStrategy";
+import { readBoundHostRuntime, withIgniteHostRuntime } from "./hostBridge";
 import { isNoDiffDenylistedTag } from "./noDiffDenylist";
 import {
 	mountIgniteJsx,
@@ -11,6 +12,10 @@ import {
 import type { IgniteJsxChild } from "./types";
 
 declare const __IGNITE_DEV_WARNINGS__: boolean;
+declare const __IGNITE_HOST_RUNTIME__: boolean | undefined;
+
+const hostRuntimeEnabled =
+	typeof __IGNITE_HOST_RUNTIME__ !== "undefined" && __IGNITE_HOST_RUNTIME__;
 
 class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 	private contentRoot: HTMLElement | null = null;
@@ -77,7 +82,8 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 	}
 
 	render(view: IgniteJsxChild): void {
-		if (!this.contentRoot) {
+		const contentRoot = this.contentRoot;
+		if (!contentRoot) {
 			throw new Error(
 				"[IgniteJsxRenderStrategy] Cannot render before attach has been invoked.",
 			);
@@ -92,19 +98,23 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 					? "flag-disabled"
 					: null);
 
-		this.previousTree =
+		const render = () =>
 			this.previousTree === null
-				? mountIgniteJsx(this.contentRoot, view)
-				: renderIgniteJsx(
-						this.contentRoot,
-						view,
-						this.previousTree ?? undefined,
-						{
-							mode,
-							onFallbackReplace: (reason) =>
-								this.logFallback(reason, this.getHostTag()),
-						},
-					);
+				? mountIgniteJsx(contentRoot, view)
+				: renderIgniteJsx(contentRoot, view, this.previousTree ?? undefined, {
+						mode,
+						onFallbackReplace: (reason) =>
+							this.logFallback(reason, this.getHostTag()),
+					});
+		if (hostRuntimeEnabled) {
+			const rootNode = contentRoot.getRootNode();
+			const runtime = readBoundHostRuntime(
+				rootNode instanceof ShadowRoot ? rootNode.host : undefined,
+			);
+			this.previousTree = withIgniteHostRuntime(runtime, render);
+		} else {
+			this.previousTree = render();
+		}
 
 		if (forceReason) {
 			this.logFallback(forceReason, this.getHostTag());

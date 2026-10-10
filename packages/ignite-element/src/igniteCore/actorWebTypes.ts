@@ -17,6 +17,7 @@ import type {
 
 export type { IgniteCoreReturn, WithEmittedEvents } from "./publicTypes";
 
+import type { IgniteHostMap } from "../hosts/types";
 import type { DisjointBindings } from "./publicTypes";
 
 type ActorWebSourceValue<
@@ -68,7 +69,9 @@ export type ActorWebConfig<
 		Events
 	>;
 } & ActorWebConfigSource<Context, Message, Emitted, Source> &
-	DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>>;
+	DisjointBindings<NoInfer<StatesResult>, NoInfer<CommandsResult>> & {
+		hosts?: IgniteHostMap<ActorWebExtendedState<Context>>;
+	};
 
 type ActorWebConfigSource<
 	Context extends object,

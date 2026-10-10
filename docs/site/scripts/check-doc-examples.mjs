@@ -139,6 +139,12 @@ const COMPILER_OPTIONS = {
 		"@ignite-element/adapters": [DT("ignite-adapters/src/index.ts")],
 		"@ignite-element/adapters/*": [DT("ignite-adapters/src/*")],
 		"@ignite-element/renderer": [DT("ignite-renderer/src/index.ts")],
+		"@ignite-element/renderer/jsx-runtime": [
+			DT("ignite-renderer/src/jsx/jsx-runtime.ts"),
+		],
+		"@ignite-element/renderer/jsx-dev-runtime": [
+			DT("ignite-renderer/src/jsx/jsx-dev-runtime.ts"),
+		],
 		"@ignite-element/renderer/*": [DT("ignite-renderer/src/*")],
 	},
 };

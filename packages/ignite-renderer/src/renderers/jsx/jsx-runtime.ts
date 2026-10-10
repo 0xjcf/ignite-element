@@ -24,20 +24,31 @@ function createElement(
 	};
 }
 
-export function jsx(
+type JsxResult<Props> = IgniteJsxElement &
+	(Props extends object ? { readonly props: Props } : Record<never, never>);
+
+export function jsx<const Props extends object | null | undefined>(
 	type: ElementType,
-	props: IgniteJsxProps | null | undefined,
+	props: Props,
 	key?: string | number | null,
-): IgniteJsxElement {
-	return createElement(type, props, key);
+): JsxResult<Props> {
+	return createElement(
+		type,
+		props as IgniteJsxProps | null | undefined,
+		key,
+	) as JsxResult<Props>;
 }
 
-export function jsxs(
+export function jsxs<const Props extends object | null | undefined>(
 	type: ElementType,
-	props: IgniteJsxProps | null | undefined,
+	props: Props,
 	key?: string | number | null,
-): IgniteJsxElement {
-	return createElement(type, props, key);
+): JsxResult<Props> {
+	return createElement(
+		type,
+		props as IgniteJsxProps | null | undefined,
+		key,
+	) as JsxResult<Props>;
 }
 
 export function jsxDEV(

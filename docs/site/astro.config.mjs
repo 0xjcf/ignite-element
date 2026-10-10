@@ -81,6 +81,10 @@ export default defineConfig({
 					slug: "handbook/views",
 				},
 				{
+					label: "Hosts",
+					slug: "handbook/hosts",
+				},
+				{
 					label: "Events & effects",
 					slug: "handbook/events",
 				},

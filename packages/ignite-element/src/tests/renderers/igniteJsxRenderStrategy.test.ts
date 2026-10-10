@@ -92,7 +92,7 @@ describe("Ignite JSX render strategy", () => {
 		const style = element.shadowRoot?.querySelector("style");
 		const styleText = style?.firstChild;
 		expect(style).toBeTruthy();
-		expect(styleText?.nodeType).toBe(Node.TEXT_NODE);
+		expect(styleText?.nodeType).toBe(3);
 
 		const listener = adapter.subscribeSnapshots.mock.calls[0]?.[0];
 		listener?.({ count: 1 });
@@ -235,9 +235,9 @@ describe("Ignite JSX render strategy", () => {
 	it("creates fallback comment nodes for null and unknown values", () => {
 		const empty = createDomNode(null);
 		const unknown = createDomNode({} as unknown as IgniteJsxChild);
-		expect(empty.nodeType).toBe(Node.COMMENT_NODE);
+		expect(empty.nodeType).toBe(8);
 		expect((empty as Comment).data).toBe("ignite-empty");
-		expect(unknown.nodeType).toBe(Node.COMMENT_NODE);
+		expect(unknown.nodeType).toBe(8);
 		expect((unknown as Comment).data).toBe("ignite-unknown");
 	});
 

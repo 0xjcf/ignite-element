@@ -1,4 +1,4 @@
-import { igniteCore } from "ignite-element/xstate";
+import { type Host, igniteCore } from "ignite-element/xstate";
 import { createActor, createMachine } from "xstate";
 
 const source = createActor(
@@ -90,3 +90,12 @@ function commandContextContract() {
 	});
 }
 void commandContextContract;
+
+// Published host types must typecheck in this no-DOM consumer.
+const headless: Host = {
+	mount() {
+		return undefined;
+	},
+	dispose() {},
+};
+void headless;

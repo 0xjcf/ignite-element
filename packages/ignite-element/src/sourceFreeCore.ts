@@ -1,11 +1,11 @@
 import type { IgniteJsxChild } from "@ignite-element/renderer";
+import { getIgniteElementClasses } from "./IgniteElement";
+import { requireDomRegistration } from "./internal/requireDomRegistration";
 import {
 	mountIgniteJsxOnce,
 	reacquireMountedView,
 	releaseMountedView,
-} from "@ignite-element/renderer/jsx";
-import { getIgniteElementClasses } from "./IgniteElement";
-import { requireDomRegistration } from "./internal/requireDomRegistration";
+} from "./renderers/hostStrategy.js";
 
 /** Register static JSX components without a source or public lifecycle hooks. */
 export function igniteCore(

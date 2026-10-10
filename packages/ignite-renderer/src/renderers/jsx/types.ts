@@ -43,8 +43,20 @@ type IgniteRefCallback<T extends Element> = {
 	bivarianceHack(node: T | null): void | (() => void | PromiseLike<void>);
 }["bivarianceHack"];
 
+/**
+ * Type-only brand. The runtime value is the host-name string. A bare string
+ * has no brand. The parameter is `never` so every real handle assigns here;
+ * which core it belongs to is checked where the element type still carries
+ * `use`. JSX tag syntax does not.
+ */
+type HostNameHandle = {
+	readonly __igniteHost: (map: never) => string;
+};
+
 type IgniteTagProps<T extends Element> = {
 	ref?: IgniteRefCallback<T>;
+	/** Host-name string from the owning core's `hosts` handle. */
+	use?: HostNameHandle;
 	children?: IgniteJsxChild;
 	[attribute: string]: unknown;
 };
@@ -77,6 +89,7 @@ export namespace JSX {
 	export interface IntrinsicElements extends IgniteKnownTags {
 		[element: string]: IgniteTagProps<globalThis.Element>;
 	}
+	export type LibraryManagedAttributes<C, P> = C extends unknown ? P : P;
 }
 
 declare global {

@@ -12,6 +12,7 @@ export type {
 	ActorWebTransportState,
 	ActorWebTransportStatus,
 } from "@ignite-element/adapters/actor-web";
+export type { Host, HostContext, HostProps } from "./hosts/types";
 export { igniteCoreActorWeb as igniteCore } from "./igniteCore/actor-web";
 export type {
 	ActorWebConfig,

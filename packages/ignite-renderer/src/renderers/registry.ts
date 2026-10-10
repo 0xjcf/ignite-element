@@ -27,8 +27,16 @@ export function registerRenderStrategy(
 	renderer: string,
 	factory: RenderStrategyFactory<unknown>,
 ): void {
+	getRegistry().set(renderer, factory);
+}
+
+/** Register the built-in JSX strategy without replacing one already present. */
+export function registerIgniteJsxIfAbsent(
+	factory: RenderStrategyFactory<unknown>,
+): void {
 	const registry = getRegistry();
-	registry.set(renderer, factory);
+	if (registry.has("ignite-jsx")) return;
+	registry.set("ignite-jsx", factory);
 }
 
 /**

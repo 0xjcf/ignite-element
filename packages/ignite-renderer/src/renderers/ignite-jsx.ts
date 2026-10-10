@@ -1,7 +1,7 @@
 import { createIgniteJsxRenderStrategy } from "./jsx/IgniteJsxRenderStrategy";
-import { registerRenderStrategy } from "./registry";
+import { registerIgniteJsxIfAbsent } from "./registry";
 
-registerRenderStrategy("ignite-jsx", createIgniteJsxRenderStrategy);
+registerIgniteJsxIfAbsent(createIgniteJsxRenderStrategy);
 
 export {
 	clearNoDiffDenylistForTests,

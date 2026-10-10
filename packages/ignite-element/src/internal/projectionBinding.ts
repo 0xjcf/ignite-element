@@ -27,6 +27,7 @@ export type ProjectionInspection = {
 	readonly revision: string;
 	readonly documents: readonly ProjectionDocument[];
 	readonly speech: ProjectionSpeechRequest | null;
+	readonly hostDescriptions?: Readonly<Record<string, string>>;
 };
 
 type Projection<Format extends "document" | "speech", Output> = {
@@ -93,6 +94,86 @@ export type ProjectionBindingFact =
 
 function errorReason(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
+}
+
+function hostEntries(
+	descriptions: Readonly<Record<string, string>> | undefined,
+): Array<[string, string]> {
+	if (!descriptions) return [];
+	return Object.entries(descriptions).filter(
+		(entry): entry is [string, string] =>
+			typeof entry[1] === "string" && entry[1].length > 0,
+	);
+}
+
+function takenNodeIds(nodes: readonly unknown[]): Set<string> {
+	const ids = new Set<string>();
+	const visit = (value: unknown): void => {
+		if (!value || typeof value !== "object") return;
+		if (Array.isArray(value)) {
+			for (const item of value) visit(item);
+			return;
+		}
+		const record = value as Record<string, unknown>;
+		if (typeof record.id === "string") ids.add(record.id);
+		for (const nested of Object.values(record)) visit(nested);
+	};
+	for (const node of nodes) visit(node);
+	return ids;
+}
+
+function hostNodeId(name: string, taken: Set<string>): string {
+	const base = `ignite-host-${name}`;
+	if (!taken.has(base)) {
+		taken.add(base);
+		return base;
+	}
+	let suffix = 2;
+	let id = `${base}-${suffix}`;
+	while (taken.has(id)) {
+		suffix += 1;
+		id = `${base}-${suffix}`;
+	}
+	taken.add(id);
+	return id;
+}
+
+function withHostDescriptions(
+	document: ProjectionDocument | null,
+	descriptions: Readonly<Record<string, string>> | undefined,
+): ProjectionDocument | null {
+	const entries = hostEntries(descriptions);
+	if (!document || entries.length === 0) return document;
+	const taken = takenNodeIds(document.nodes);
+	return {
+		...document,
+		nodes: [
+			...document.nodes,
+			...entries.map(([name, text]) => ({
+				kind: "text" as const,
+				id: hostNodeId(name, taken),
+				text,
+			})),
+		],
+	};
+}
+
+function encodeIdentityField(value: string): string {
+	return `${value.length}:${value}`;
+}
+
+function projectionIdentity(
+	identity: string,
+	descriptions: Readonly<Record<string, string>> | undefined,
+): string {
+	const entries = hostEntries(descriptions);
+	if (entries.length === 0) return identity;
+	return `${identity}\n${entries
+		.map(
+			([name, text]) =>
+				`${encodeIdentityField(name)}${encodeIdentityField(text)}`,
+		)
+		.join("")}`;
 }
 
 export function createProjectionBindingState(): ProjectionBindingState {
@@ -180,7 +261,10 @@ export async function commitProjectionDocumentTarget({
 }): Promise<ProjectionBindingFact> {
 	let document: ProjectionDocument | null;
 	try {
-		document = projection.select(inspection);
+		document = withHostDescriptions(
+			projection.select(inspection),
+			inspection.hostDescriptions,
+		);
 	} catch (error) {
 		return {
 			channel: "document",
@@ -199,7 +283,10 @@ export async function commitProjectionDocumentTarget({
 
 	let documentIdentity: string;
 	try {
-		documentIdentity = projection.identity(document);
+		documentIdentity = projectionIdentity(
+			projection.identity(document),
+			inspection.hostDescriptions,
+		);
 	} catch (error) {
 		return {
 			channel: "document",
@@ -223,6 +310,9 @@ export async function commitProjectionDocumentTarget({
 
 	const issues = validateProjectionSelection(document, inspection);
 	if (issues.length > 0) {
+		if (issues.some((issue) => issue.includes("duplicate node id"))) {
+			releaseDocumentReservation(state, document.id, documentIdentity);
+		}
 		return {
 			channel: "document",
 			status: "error",
@@ -287,6 +377,13 @@ export async function commitProjectionSpeechTarget({
 	let speech: ProjectionSpeechRequest | null;
 	try {
 		speech = projection.select(inspection);
+		const lines = hostEntries(inspection.hostDescriptions);
+		if (speech && lines.length > 0) {
+			speech = {
+				...speech,
+				text: `${speech.text}\n${lines.map(([, text]) => text).join("\n")}`,
+			};
+		}
 	} catch (error) {
 		return {
 			channel: "speech",
