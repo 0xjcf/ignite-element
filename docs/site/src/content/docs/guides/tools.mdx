@@ -42,6 +42,7 @@ export const toolSchema = defineToolSchema({
     description: 'Set the counter limit.',
     input: { type: 'number', minimum: 3, maximum: 12 },
     gated: true,
+    consequential: true,
   },
   increment: {
     description: 'Add one to the count.',
@@ -197,15 +198,41 @@ The mark is not a side-effect-free read. The command stays denied unless `canExe
 
 Ignite does not validate or consume the approval. `canExecute` is application preflight, not authentication. A caller can fabricate a structurally valid record, so the library cannot prove a person approved the call.
 
-Keep the single-use record in the application. Compare the canonical call, the command name plus the validated input, with the granted call. Track consumption by approval id. Consume that id only when `context.execute` is true, which `run` sets immediately before `execute`. `resolveCall` does not set it. Listing calls `canExecute(name)` with no context. Deny every command that is not explicitly allowed.
+Keep the single-use record in the application. Compare the canonical call, the command name plus the validated input, with the granted call. Tag each value with its type, and use `Object.is` for numbers so `0` and `-0` stay distinct. Compare `granted.actor` with the live session actor. Track consumption by approval id. `run` calls `canExecute` once and sets `context.execute` only on that call, immediately before `execute`. `resolveCall` does not set it. Listing calls `canExecute(name)` with no context. Non-finite numbers, `undefined` array slots, and non-plain objects such as `Date`, `Map`, and `Set` are `InvalidInput` before the predicate runs. Deny every command that is not explicitly allowed.
 
 ```ts
+const session = { actor: 'ada' };
 const spent = new Set<string>();
+function canonicalValue(value: unknown): string {
+  if (typeof value === 'number') {
+    if (Object.is(value, -0)) return 'number:-0';
+    if (value === Infinity) return 'number:Infinity';
+    if (value === -Infinity) return 'number:-Infinity';
+    if (Number.isNaN(value)) return 'number:NaN';
+    return `number:${value}`;
+  }
+  if (typeof value === 'string') return `string:${JSON.stringify(value)}`;
+  if (typeof value === 'boolean') return `boolean:${value}`;
+  if (value === null) return 'null';
+  if (value === undefined) return 'undefined';
+  if (Array.isArray(value)) {
+    return `array:[${value.map((item) => canonicalValue(item)).join(',')}]`;
+  }
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    const body = Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalValue(record[key])}`)
+      .join(',');
+    return `object:{${body}}`;
+  }
+  return `other:${typeof value}`;
+}
 function canonicalCall(name: string, input: unknown): string {
-  return `${name}\u0000${JSON.stringify(input)}`;
+  return `${canonicalValue(name)}\u0000${canonicalValue(input)}`;
 }
 const granted = {
-  actor: 'ada',
+  actor: session.actor,
   name: 'setLimit',
   input: 6,
   target: component,
@@ -220,7 +247,7 @@ function canExecute(
 ): boolean {
   if (name !== 'setLimit') return false;
   if (!context) return true;
-  if (context.core !== granted.target || granted.actor !== 'ada') return false;
+  if (context.core !== granted.target || granted.actor !== session.actor) return false;
   if (granted.expiresAt <= Date.now() || spent.has(granted.id)) return false;
   if (canonicalCall(name, input) !== grantedCall) return false;
   if (context.execute) spent.add(granted.id);

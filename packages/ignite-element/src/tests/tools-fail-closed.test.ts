@@ -316,6 +316,32 @@ describe("canExecute receives the call and fails closed", () => {
 		});
 	});
 
+	it("denies a predicate result whose then getter throws", () => {
+		const boom = () => {
+			const value: { then?: unknown } = {};
+			// The getter must throw when the library inspects it.
+			// biome-ignore lint/suspicious/noThenProperty: this is the throwing thenable under test
+			Object.defineProperty(value, "then", {
+				get() {
+					throw new Error("then");
+				},
+			});
+			return value as unknown as boolean;
+		};
+		expect(() => buildManifest(schema, boom)).not.toThrow();
+		expect(buildManifest(schema, boom).map((tool) => tool.name)).toEqual([
+			"status",
+		]);
+		const manifest = buildManifest(schema, () => true);
+		expect(() =>
+			resolveCall(manifest, "increment", undefined, boom),
+		).not.toThrow();
+		expect(resolveCall(manifest, "increment", undefined, boom)).toEqual({
+			ok: false,
+			error: { kind: "Unavailable", name: "increment" },
+		});
+	});
+
 	it("returns Unavailable for a non-boolean predicate result", () => {
 		const manifest = buildManifest(schema, () => true);
 		expect(
@@ -411,8 +437,52 @@ describe("canExecute receives the call and fails closed", () => {
 		expect(tools.resolveCall("setLimit", 6).ok).toBe(true);
 		expect(phases).toEqual([undefined]);
 		expect((await tools.run({ name: "setLimit", input: 6 })).ok).toBe(true);
-		expect(phases).toEqual([undefined, undefined, true]);
+		expect(phases).toEqual([undefined, true]);
 		expect(runtime.calls).toEqual([{ command: "setLimit", input: 6 }]);
+	});
+
+	it("rejects non-JSON inputs before canExecute", () => {
+		const open = defineToolSchema({
+			amount: {
+				description: "Any finite number.",
+				input: { type: "number" },
+			},
+			series: {
+				description: "Numbers.",
+				input: { type: "array", items: { type: "number" } },
+			},
+			payload: {
+				description: "An object.",
+				input: {
+					type: "object",
+					properties: { a: { type: "number" } },
+				},
+			},
+		});
+		const manifest = buildManifest(open, () => true);
+		const seen: unknown[] = [];
+		const allow = (_name: string, input?: unknown) => {
+			seen.push(input);
+			return true;
+		};
+		for (const [name, input] of [
+			["amount", Number.POSITIVE_INFINITY],
+			["amount", Number.NEGATIVE_INFINITY],
+			["series", [1, undefined, 2]],
+			["payload", new Date(0)],
+			["payload", new Map()],
+			["payload", new Set()],
+		] as const) {
+			expect(resolveCall(manifest, name, input, allow)).toMatchObject({
+				ok: false,
+				error: { kind: "InvalidInput", name },
+			});
+		}
+		expect(seen).toEqual([]);
+		expect(resolveCall(manifest, "amount", 0, allow).ok).toBe(true);
+		expect(resolveCall(manifest, "amount", -0, allow).ok).toBe(true);
+		expect(Object.is(seen[0], 0)).toBe(true);
+		expect(Object.is(seen[1], -0)).toBe(true);
 	});
 
 	it("refuses a command on a stale manifest when the predicate is omitted at resolve", () => {

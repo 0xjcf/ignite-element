@@ -11,7 +11,11 @@ import type {
 } from "./types";
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return false;
+	}
+	const prototype = Object.getPrototypeOf(value);
+	return prototype === Object.prototype || prototype === null;
 }
 
 const TOOL_INPUT_TYPES = new Set([
@@ -156,19 +160,18 @@ function predicateAllows(
 	},
 ): boolean {
 	if (typeof canExecute !== "function") return false;
-	let result: unknown;
 	try {
-		result = call
+		const result = call
 			? canExecute(name, call.input, call.context)
 			: canExecute(name);
+		if (isThenable(result)) {
+			void Promise.resolve(result).catch(() => undefined);
+			return false;
+		}
+		return result === true;
 	} catch {
 		return false;
 	}
-	if (isThenable(result)) {
-		void Promise.resolve(result).catch(() => undefined);
-		return false;
-	}
-	return result === true;
 }
 
 function allowsTool(
@@ -294,8 +297,8 @@ export function validateToolInputValue(
 
 	switch (type) {
 		case "number": {
-			if (typeof value !== "number" || Number.isNaN(value)) {
-				return [`${path}: expected number`];
+			if (typeof value !== "number" || !Number.isFinite(value)) {
+				return [`${path}: expected finite number`];
 			}
 			const issues: string[] = [];
 			if (typeof schema.minimum === "number" && value < schema.minimum) {
@@ -392,13 +395,18 @@ export function validateToolInputValue(
 			) {
 				issues.push(`${path}: more than maxItems ${schema.maxItems}`);
 			}
-			if (isPlainObject(schema.items)) {
-				const itemSchema = schema.items;
-				value.forEach((item, index) => {
+			const itemSchema = isPlainObject(schema.items) ? schema.items : undefined;
+			for (let index = 0; index < value.length; index += 1) {
+				const itemPath = `${path}[${index}]`;
+				if (!(index in value) || value[index] === undefined) {
+					issues.push(`${itemPath}: expected a JSON value`);
+					continue;
+				}
+				if (itemSchema) {
 					issues.push(
-						...validateToolInputValue(itemSchema, item, `${path}[${index}]`),
+						...validateToolInputValue(itemSchema, value[index], itemPath),
 					);
-				});
+				}
 			}
 			return issues;
 		}

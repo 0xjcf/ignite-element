@@ -141,9 +141,8 @@ type IgniteToolsResult<
  * only: `{ core, schema, canExecute?, dialect? }`. Commands are denied
  * unless `canExecute` returns true. A call passes the validated input and
  * `{ core }` so the application can bind an approval to that exact call.
- * `resolveCall` does not set `execute`. `run` sets `context.execute` only
- * immediately before `execute`, so a validation call does not consume an
- * application approval.
+ * `resolveCall` does not set `execute`. `run` calls `canExecute` once, with
+ * `context.execute` set, immediately before `execute`.
  * Ungated side-effect-free `read` tools, `observe`, and `until` stay available
  * without that predicate. `canExecute` is application preflight, not
  * authentication, and Ignite does not store approvals. The pure core builds a
@@ -201,7 +200,10 @@ export function igniteTools<
 			ToolError
 		>
 	> => {
-		const routed = boundResolveCall(call.name, call.input);
+		const routed = resolveCall(manifest, call.name, call.input, canExecute, {
+			core: runtime,
+			execute: true,
+		});
 		if (!routed.ok) {
 			return routed;
 		}
@@ -237,14 +239,6 @@ export function igniteTools<
 					}),
 				);
 			}
-			const committed = resolveCall(
-				manifest,
-				routed.value.command,
-				call.input,
-				canExecute,
-				{ core: runtime, execute: true },
-			);
-			if (!committed.ok) return committed;
 			const result = await runtime.execute(routed.value);
 			const states = runtime.get("states");
 			return ok({ result, states, events });
