@@ -38,6 +38,9 @@
 			"@ignite-element/renderer": [
 				"../../../packages/ignite-renderer/src/index.ts"
 			],
+			"@ignite-element/renderer/jsx/executable-uri": [
+				"../../../packages/ignite-renderer/src/renderers/jsx/executableUri.ts"
+			],
 			"@ignite-element/renderer/jsx": [
 				"../../../packages/ignite-renderer/src/renderers/ignite-jsx.ts"
 			],
