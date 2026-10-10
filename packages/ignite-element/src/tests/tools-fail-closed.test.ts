@@ -108,7 +108,6 @@ function bind(
 	runtime: ReturnType<typeof createRuntime>,
 	options: {
 		canExecute?: (name: string) => boolean;
-		actor?: string;
 	} = {},
 ) {
 	return igniteTools({
@@ -116,17 +115,6 @@ function bind(
 		schema,
 		...options,
 	});
-}
-
-function approval(overrides: Record<string, unknown> = {}) {
-	return {
-		actor: "ada",
-		name: "setLimit",
-		input: 5,
-		id: "approval-1",
-		expiresAt: Date.now() + 60_000,
-		...overrides,
-	};
 }
 
 describe("igniteTools fails closed", () => {
@@ -234,219 +222,48 @@ describe("igniteTools fails closed", () => {
 	});
 });
 
-describe("consequential approvals", () => {
-	it("does not treat a boolean confirmed flag as approval", async () => {
+describe("approval stays with the application", () => {
+	it("runs an allowed consequential command without an approval record", async () => {
 		const runtime = createRuntime();
-		const { run } = bind(runtime, {
-			actor: "ada",
-			canExecute: () => true,
-		});
-		const result = await run({
-			name: "setLimit",
-			input: 5,
-			approval: { confirmed: true } as never,
-		});
-		expect(result).toEqual({
-			ok: false,
-			error: { kind: "ApprovalRejected", name: "setLimit", reason: "missing" },
-		});
-		expect(runtime.calls).toEqual([]);
-	});
-
-	it("requires an approval bound to the actor, command, and normalized input", async () => {
-		const runtime = createRuntime();
-		const tools = bind(runtime, {
-			actor: "ada",
-			canExecute: () => true,
-		});
-		expect(await tools.run({ name: "setLimit", input: 5 })).toEqual({
-			ok: false,
-			error: { kind: "ApprovalRejected", name: "setLimit", reason: "missing" },
-		});
-
-		const unbound = bind(runtime, { canExecute: () => true });
-		expect(
-			await unbound.run({
-				name: "setLimit",
-				input: 5,
-				approval: approval({ id: "unbound" }),
-			}),
-		).toEqual({
-			ok: false,
-			error: { kind: "ApprovalRejected", name: "setLimit", reason: "actor" },
-		});
-
-		expect(
-			await tools.run({
-				name: "setLimit",
-				input: 6,
-				approval: approval({ id: "mismatch" }),
-			}),
-		).toEqual({
-			ok: false,
-			error: { kind: "ApprovalRejected", name: "setLimit", reason: "mismatch" },
-		});
-		expect(runtime.calls).toEqual([]);
-
-		const normalized = await tools.run({
-			name: "setLimit",
-			input: undefined,
-			approval: approval({ id: "normalized", input: 5 }),
-		});
-		expect(normalized.ok).toBe(true);
-		expect(runtime.calls).toEqual([{ command: "setLimit", input: 5 }]);
-	});
-
-	it("rejects a different actor and does not consume the approval", async () => {
-		const runtime = createRuntime();
-		const { run } = bind(runtime, {
-			actor: "ada",
-			canExecute: () => true,
-		});
-		const granted = approval();
-		expect(
-			await run({
-				name: "setLimit",
-				input: 5,
-				approval: approval({ actor: "eve", id: granted.id }),
-			}),
-		).toEqual({
-			ok: false,
-			error: { kind: "ApprovalRejected", name: "setLimit", reason: "actor" },
-		});
-		expect(
-			(await run({ name: "setLimit", input: 5, approval: granted })).ok,
-		).toBe(true);
-		expect(runtime.calls).toHaveLength(1);
-	});
-
-	it("matches object args independent of key order", async () => {
-		const runtime = createRuntime();
-		const { run } = bind(runtime, {
-			actor: "ada",
-			canExecute: () => true,
-		});
-		const result = await run({
-			name: "rename",
-			input: { b: 2, a: 1 },
-			approval: approval({
-				name: "rename",
-				input: { a: 1, b: 2 },
-			}),
-		});
-		expect(result.ok).toBe(true);
+		const { run } = bind(runtime, { canExecute: () => true });
+		const first = await run({ name: "setLimit", input: 5 });
+		const second = await run({ name: "setLimit", input: 5 });
+		expect(first.ok).toBe(true);
+		expect(second.ok).toBe(true);
 		expect(runtime.calls).toEqual([
+			{ command: "setLimit", input: 5 },
+			{ command: "setLimit", input: 5 },
+		]);
+	});
+
+	it("does not keep a replay ledger on the runtime", async () => {
+		const firstRuntime = createRuntime();
+		const secondRuntime = createRuntime();
+		const first = bind(firstRuntime, { canExecute: () => true });
+		const second = bind(secondRuntime, { canExecute: () => true });
+		expect(
+			(await first.run({ name: "rename", input: { b: 2, a: 1 } })).ok,
+		).toBe(true);
+		expect(
+			(await second.run({ name: "rename", input: { b: 2, a: 1 } })).ok,
+		).toBe(true);
+		expect(firstRuntime.calls).toEqual([
+			{ command: "rename", input: { b: 2, a: 1 } },
+		]);
+		expect(secondRuntime.calls).toEqual([
 			{ command: "rename", input: { b: 2, a: 1 } },
 		]);
 	});
 
-	it("rejects an expired approval without consuming it", async () => {
+	it("still executes when a previous allowed call failed", async () => {
 		const runtime = createRuntime();
-		const { run } = bind(runtime, {
-			actor: "ada",
-			canExecute: () => true,
-		});
-		const granted = approval({ expiresAt: Date.now() - 1 });
-		expect(
-			await run({ name: "setLimit", input: 5, approval: granted }),
-		).toEqual({
-			ok: false,
-			error: { kind: "ApprovalRejected", name: "setLimit", reason: "expired" },
-		});
-		expect(
-			(
-				await run({
-					name: "setLimit",
-					input: 5,
-					approval: approval({ id: granted.id }),
-				})
-			).ok,
-		).toBe(true);
-	});
-
-	it("rejects changed parameters and still accepts the original call", async () => {
-		const runtime = createRuntime();
-		const { run } = bind(runtime, {
-			actor: "ada",
-			canExecute: () => true,
-		});
-		const granted = approval();
-		expect(
-			await run({ name: "setLimit", input: 6, approval: granted }),
-		).toEqual({
-			ok: false,
-			error: { kind: "ApprovalRejected", name: "setLimit", reason: "mismatch" },
-		});
-		expect(
-			(await run({ name: "setLimit", input: 5, approval: granted })).ok,
-		).toBe(true);
-		expect(runtime.calls).toEqual([{ command: "setLimit", input: 5 }]);
-	});
-
-	it("does not consume an approval for an unknown command", async () => {
-		const runtime = createRuntime();
-		const { run } = bind(runtime, {
-			actor: "ada",
-			canExecute: () => true,
-		});
-		const granted = approval();
-		expect(await run({ name: "ghost", input: 5, approval: granted })).toEqual({
-			ok: false,
-			error: { kind: "UnknownCommand", name: "ghost" },
-		});
-		expect(
-			(await run({ name: "setLimit", input: 5, approval: granted })).ok,
-		).toBe(true);
-		expect(runtime.calls).toHaveLength(1);
-	});
-
-	it("consumes an approval once, including when execute fails", async () => {
-		const runtime = createRuntime();
-		const { run } = bind(runtime, {
-			actor: "ada",
-			canExecute: () => true,
-		});
-		const granted = approval({ name: "boom", input: undefined, id: "boom-1" });
-		const failed = await run({
-			name: "boom",
-			input: undefined,
-			approval: granted,
-		});
+		const { run } = bind(runtime, { canExecute: () => true });
+		const failed = await run({ name: "boom", input: undefined });
 		expect(failed.ok).toBe(false);
 		if (!failed.ok) expect(failed.error.kind).toBe("ExecuteFailed");
-		const replay = await run({
-			name: "boom",
-			input: undefined,
-			approval: granted,
-		});
-		expect(replay).toEqual({
-			ok: false,
-			error: { kind: "ApprovalRejected", name: "boom", reason: "replay" },
-		});
-		expect(runtime.calls).toHaveLength(1);
-	});
-
-	it("consumes one shared approval across overlapping runs and binds", async () => {
-		const runtime = createRuntime({ defer: true });
-		const first = bind(runtime, { actor: "ada", canExecute: () => true });
-		const second = bind(runtime, { actor: "ada", canExecute: () => true });
-		const granted = approval({ id: "once" });
-		const pending = first.run({
-			name: "setLimit",
-			input: 5,
-			approval: granted,
-		});
-		const replay = await second.run({
-			name: "setLimit",
-			input: 5,
-			approval: granted,
-		});
-		expect(replay).toEqual({
-			ok: false,
-			error: { kind: "ApprovalRejected", name: "setLimit", reason: "replay" },
-		});
-		runtime.release();
-		expect((await pending).ok).toBe(true);
-		expect(runtime.calls).toHaveLength(1);
+		const again = await run({ name: "boom", input: undefined });
+		expect(again.ok).toBe(false);
+		if (!again.ok) expect(again.error.kind).toBe("ExecuteFailed");
+		expect(runtime.calls).toHaveLength(2);
 	});
 });

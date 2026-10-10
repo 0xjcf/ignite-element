@@ -103,11 +103,13 @@ denied when it is omitted. Pass an explicit allow to keep a command callable.
 with `read: true` stays available without the predicate, and so do `observe`
 and `until`.
 
-A `consequential: true` command also needs `actor` on the bind and a single-use
-approval on `run`: `{ actor, name, input, id, expiresAt }`. The approval must
-match the user, the command, and the normalized input. A boolean `confirmed`
-flag does not authorize the call. `run` consumes the approval once, then calls
-`core.execute({ command, input })`.
+A `consequential: true` command is not an ungated read. It stays denied unless
+`canExecute` returns true. The application owns the single-use approval
+`{ actor, name, input, target, id, expiresAt }`, bound to the user, the tool
+name, the exact input, and the target runtime. Check and consume that record
+in the application authority the predicate closes over. Ignite does not
+validate it, store it, or consume it. A boolean `confirmed` flag is not an
+approval. `run` calls `core.execute({ command, input })`.
 
 `ignite-element/tools/anthropic` exports
 `textOf` the same way as `ignite-element/tools/openai`.
@@ -118,8 +120,7 @@ flag does not authorize the call. `run` consumes the approval once, then calls
 observation itself. On success, `acknowledged.value` is
 `{ result, states, events }`: the command value, the projected states at
 acknowledgement, and declared events from the call window. `UnknownCommand`,
-`InvalidInput`, `Unavailable`, `ApprovalRejected`, and `ExecuteFailed` are
-`acknowledged.error`.
+`InvalidInput`, `Unavailable`, and `ExecuteFailed` are `acknowledged.error`.
 Check `isOk(acknowledged)` before waiting; an error does not imply a later states
 transition. A successful `run` does not mean detached work has finished.
 

@@ -155,17 +155,7 @@ describe("igniteTools types", () => {
 		expectTypeOf(tools.toolResult).returns.toEqualTypeOf<Block>();
 	});
 
-	it("rejects a boolean confirmed flag as an approval record", () => {
-		const call: NeutralToolCall = {
-			name: "toggle",
-			input: undefined,
-			// @ts-expect-error a boolean confirmed flag is not an approval
-			approval: { confirmed: true },
-		};
-		void call;
-	});
-
-	it("accepts read, consequential, and actor on the existing bind", () => {
+	it("does not accept an actor or an approval record on the tool bind", () => {
 		const defined = defineToolSchema({
 			status: { input: { type: "object", properties: {} }, read: true },
 			setLimit: { input: { type: "number" }, consequential: true },
@@ -173,10 +163,18 @@ describe("igniteTools types", () => {
 		const tools = igniteTools({
 			core: component,
 			schema: defined,
+			// @ts-expect-error actor belongs to the application, not the bind
 			actor: "ada",
 			canExecute: () => true,
 		});
+		const call: NeutralToolCall = {
+			name: "setLimit",
+			input: 5,
+			// @ts-expect-error approval records are not a tool-call field
+			approval: { confirmed: true },
+		};
 		expectTypeOf(tools.run).toBeFunction();
+		void call;
 	});
 
 	it("accepts satisfies ToolSchema and defineToolSchema factories", () => {

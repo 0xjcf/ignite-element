@@ -59,6 +59,11 @@ The provider list omits commands the predicate does not allow. Ungated `read`
 tools stay listed without a predicate. Invocation rechecks the predicate.
 Omit `canExecute` and commands are denied. `canExecute` is application
 preflight, never authentication.
+
+A `consequential` command uses the same predicate. The application checks a
+single-use approval bound to the actor, the tool name, the exact input, and
+the target runtime, and consumes it once in that application authority. Ignite
+does not store approval ids or decide replay.
 Refresh offered tools when the application needs a fresh availability list.
 Source enforcement must still handle state changes after preflight.
 

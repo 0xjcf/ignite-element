@@ -66,8 +66,6 @@ export type IgniteToolsBind<
 	core: IgniteToolsRuntime<State, Commands, Events, SchemaState, States>;
 	schema: S;
 	canExecute?: AvailabilityPredicate;
-	/** Current user. Consequential approvals must name this actor. */
-	actor?: string;
 };
 
 const NAMED_BIND_ERROR =
@@ -91,91 +89,6 @@ function abortReason(signal?: AbortSignal): unknown {
 	const error = new Error("This operation was aborted.");
 	error.name = "AbortError";
 	return error;
-}
-
-const consumedApprovals = new WeakMap<object, Set<string>>();
-
-function isToolApproval(value: unknown): value is {
-	actor: string;
-	name: string;
-	input?: unknown;
-	id: string;
-	expiresAt: number;
-} {
-	return (
-		isPlainObject(value) &&
-		typeof value.actor === "string" &&
-		value.actor.length > 0 &&
-		typeof value.name === "string" &&
-		value.name.length > 0 &&
-		typeof value.id === "string" &&
-		value.id.length > 0 &&
-		typeof value.expiresAt === "number" &&
-		Number.isFinite(value.expiresAt)
-	);
-}
-
-function stableValue(value: unknown): string {
-	if (value === undefined) {
-		return "undefined";
-	}
-	if (typeof value === "number" && !Number.isFinite(value)) {
-		return "nonfinite";
-	}
-	if (Array.isArray(value)) {
-		return `[${value.map((item) => stableValue(item)).join(",")}]`;
-	}
-	if (isPlainObject(value)) {
-		return `{${Object.keys(value)
-			.sort()
-			.map((key) => `${JSON.stringify(key)}:${stableValue(value[key])}`)
-			.join(",")}}`;
-	}
-	return JSON.stringify(value) ?? "null";
-}
-
-function takeApproval(runtime: object, id: string): boolean {
-	let used = consumedApprovals.get(runtime);
-	if (!used) {
-		used = new Set();
-		consumedApprovals.set(runtime, used);
-	}
-	if (used.has(id)) {
-		return false;
-	}
-	used.add(id);
-	return true;
-}
-
-function rejectApproval(
-	runtime: object,
-	actor: string | undefined,
-	route: { command: string; input?: unknown },
-	approval: unknown,
-): ToolError | undefined {
-	if (!isToolApproval(approval)) {
-		return { kind: "ApprovalRejected", name: route.command, reason: "missing" };
-	}
-	if (actor === undefined || actor.length === 0 || approval.actor !== actor) {
-		return { kind: "ApprovalRejected", name: route.command, reason: "actor" };
-	}
-	if (
-		approval.name !== route.command ||
-		stableValue(approval.input) !== stableValue(route.input)
-	) {
-		return {
-			kind: "ApprovalRejected",
-			name: route.command,
-			reason: "mismatch",
-		};
-	}
-	if (approval.expiresAt <= Date.now()) {
-		return { kind: "ApprovalRejected", name: route.command, reason: "expired" };
-	}
-	if (!takeApproval(runtime, approval.id)) {
-		return { kind: "ApprovalRejected", name: route.command, reason: "replay" };
-	}
-	return undefined;
 }
 
 function isNamedBind(
@@ -225,11 +138,10 @@ type IgniteToolsResult<
 
 /**
  * Bridge the agent-runtime contract to LLM tool-use. Bind with named options
- * only: `{ core, schema, canExecute?, actor?, dialect? }`. Commands are denied
+ * only: `{ core, schema, canExecute?, dialect? }`. Commands are denied
  * unless `canExecute` returns true. Ungated `read` tools, `observe`, and
- * `until` stay available without that predicate. A `consequential` command
- * also needs a single-use approval bound to `actor`, the command, and the
- * normalized input before `run` calls `core.execute`. The pure core builds a
+ * `until` stay available without that predicate. `canExecute` is application
+ * preflight, not authentication. The pure core builds a
  * neutral manifest from explicit tool definitions and routes validated calls;
  * the shell (`run`) performs the single `execute` side effect. `run` is
  * act-plus-acknowledgement; everyday settle uses `until`, and `observe`
@@ -309,18 +221,6 @@ export function igniteTools<
 					name: routed.value.command,
 					issues: ["input: command route could not be typed for execution"],
 				});
-			}
-
-			if (routedTool.consequential === true) {
-				const rejected = rejectApproval(
-					runtime,
-					options.actor,
-					routed.value,
-					call.approval,
-				);
-				if (rejected) {
-					return err(rejected);
-				}
 			}
 
 			const events: RuntimeEvent<Events>[] = [];
