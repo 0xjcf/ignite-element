@@ -89,11 +89,7 @@ export namespace JSX {
 	export interface IntrinsicElements extends IgniteKnownTags {
 		[element: string]: IgniteTagProps<globalThis.Element>;
 	}
-	export type LibraryManagedAttributes<C, P> = [C] extends [never]
-		? P
-		: P & {
-				use?: HostNameHandle;
-			};
+	export type LibraryManagedAttributes<C, P> = C extends unknown ? P : P;
 }
 
 declare global {

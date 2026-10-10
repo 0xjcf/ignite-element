@@ -38,6 +38,13 @@ type HostRecord = {
 };
 
 const hostRecords = new WeakMap<Element, HostRecord>();
+const hostUnmountBound = new WeakSet<Element>();
+let hostUnmountBindings = 0;
+
+/** @internal Counts unmount hooks registered for host elements. */
+export function hostUnmountBindingsForTests(): number {
+	return hostUnmountBindings;
+}
 const unknownHostWarnings = new WeakMap<Element, Set<string>>();
 const descriptionIds = new WeakMap<Element, string>();
 let descriptionSerial = 0;
@@ -89,13 +96,20 @@ export function describeIgniteHosts(
 	hosts: Record<string, IgniteHostDefinition>,
 	snapshot: unknown,
 ): Record<string, string> {
-	const text: Record<string, string> = {};
-	for (const [name, host] of Object.entries(hosts)) {
-		if (!host.describe) continue;
+	const text = Object.create(null) as Record<string, string>;
+	for (const name of Object.keys(hosts)) {
+		const host = hosts[name];
+		if (!host?.describe) continue;
 		try {
 			const slice = host.select ? host.select(snapshot) : snapshot;
 			const description = host.describe(slice);
-			if (typeof description === "string") text[name] = description;
+			if (typeof description !== "string") continue;
+			Object.defineProperty(text, name, {
+				value: description,
+				enumerable: true,
+				configurable: true,
+				writable: true,
+			});
 		} catch (error) {
 			reportHostError("[ignite-jsx] Host describe failed.", error);
 		}
@@ -215,12 +229,15 @@ function retireHost(element: Element): void {
 }
 
 function descriptionId(element: Element): string {
-	let id = descriptionIds.get(element);
-	if (!id) {
+	const existing = descriptionIds.get(element);
+	if (existing) return existing;
+	const documentRef = element.ownerDocument;
+	let id = "";
+	do {
 		descriptionSerial += 1;
 		id = `ignite-host-desc-${descriptionSerial}`;
-		descriptionIds.set(element, id);
-	}
+	} while (documentRef.getElementById(id) !== null);
+	descriptionIds.set(element, id);
 	return id;
 }
 
@@ -280,6 +297,14 @@ function applyDescription(
 	}
 }
 
+function ownName(value: object, key: string): boolean {
+	return (
+		Object as typeof Object & {
+			hasOwn(target: object, property: PropertyKey): boolean;
+		}
+	).hasOwn(value, key);
+}
+
 function warnUnknownHost(element: Element, name: string): void {
 	if (!__IGNITE_DEV_WARNINGS__) return;
 	let seen = unknownHostWarnings.get(element);
@@ -316,6 +341,21 @@ function acceptHandle(
 		return;
 	}
 	deliver(record, false);
+}
+
+function ensureHostUnmount(element: Element): void {
+	if (hostUnmountBound.has(element)) return;
+	hostUnmountBound.add(element);
+	hostUnmountBindings += 1;
+	onHostUnmount(element, () => {
+		const current = hostRecords.get(element);
+		if (!current) return;
+		retireDescendantHosts(element);
+		hostRecords.delete(element);
+		current.controller.abort();
+		current.stopMotion();
+		disposeSettled(current);
+	});
 }
 
 function startHost(
@@ -359,15 +399,7 @@ function startHost(
 		deliver(record, true);
 	});
 	hostRecords.set(element, record);
-	onHostUnmount(element, () => {
-		const current = hostRecords.get(element);
-		if (current !== record) return;
-		retireDescendantHosts(element);
-		hostRecords.delete(element);
-		controller.abort();
-		record.stopMotion();
-		disposeSettled(record);
-	});
+	ensureHostUnmount(element);
 	retireDescendantHosts(element);
 	const queuedBefore = deferredSends.length;
 	let result: unknown;
@@ -419,6 +451,13 @@ export function syncHostElement(element: Element, useName: unknown): void {
 	const runtime = activeRuntime;
 	if (!runtime) return;
 	if (typeof useName !== "string" || useName.length === 0) {
+		retireHost(element);
+		releaseHostSubtree(element);
+		clearDescription(element);
+		return;
+	}
+	if (!ownName(runtime.hosts, useName)) {
+		if (__IGNITE_DEV_WARNINGS__) warnUnknownHost(element, useName);
 		retireHost(element);
 		releaseHostSubtree(element);
 		clearDescription(element);

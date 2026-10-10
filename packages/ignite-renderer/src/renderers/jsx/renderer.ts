@@ -358,18 +358,14 @@ function commitFresh(node: ChildNode, normalized: NormalizedNode): void {
 		return;
 	}
 	const element = node as Element;
-	const useName = normalized.props.use;
-	const hostOwnsSubtree =
-		hostRuntimeEnabled && typeof useName === "string" && useName.length > 0;
-	if (!hostOwnsSubtree) {
-		const children = Array.from(element.childNodes);
-		for (let index = 0; index < normalized.children.length; index++) {
-			const child = children[index];
-			const spec = normalized.children[index];
-			if (child && spec) commitFresh(child, spec);
-		}
+	syncHostElement(element, normalized.props.use);
+	if (hostRuntimeEnabled && subtreeOwners.has(element)) return;
+	const children = Array.from(element.childNodes);
+	for (let index = 0; index < normalized.children.length; index++) {
+		const child = children[index];
+		const spec = normalized.children[index];
+		if (child && spec) commitFresh(child, spec);
 	}
-	syncHostElement(element, useName);
 }
 
 /**

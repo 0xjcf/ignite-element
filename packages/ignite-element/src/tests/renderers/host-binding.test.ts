@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { describeIgniteHosts } from "../../../../ignite-renderer/src/renderers/jsx/hosts";
+import {
+	describeIgniteHosts,
+	hostUnmountBindingsForTests,
+} from "../../../../ignite-renderer/src/renderers/jsx/hosts";
 import type { Host, HostContext } from "../../hosts/types";
 import { jsx } from "../../renderers/jsx/jsx-runtime";
 import { renderIgniteJsx } from "../../renderers/jsx/renderer";
@@ -809,6 +812,157 @@ describe("host binding", () => {
 		expect(host.mounts).toBe(2);
 		expect(error.mock.calls.map((call) => String(call[0]))).toEqual(
 			expect.arrayContaining([expect.stringContaining("Host select failed.")]),
+		);
+	});
+
+	it("does not reuse an authored accessible-description id", () => {
+		for (let index = 1; index <= 64; index += 1) {
+			const authored = document.createElement("span");
+			authored.id = `ignite-host-desc-${index}`;
+			authored.textContent = "authored";
+			document.body.append(authored);
+		}
+		const host = sceneHost();
+		const root = document.createElement("div");
+		document.body.append(root);
+		renderIgniteJsx(root, jsx("canvas", { use: "scene" }), undefined, {
+			hosts: runtime(host, 2),
+		});
+		const canvas = root.querySelector("canvas");
+		const id = canvas?.getAttribute("aria-describedby");
+		expect(id).toBeTruthy();
+		expect(document.getElementById(id ?? "")?.textContent).toBe("angle 2");
+		expect(document.querySelectorAll(`[id="${id}"]`)).toHaveLength(1);
+	});
+
+	it("keeps one unmount hook when a host is retired and mounted again", () => {
+		const before = hostUnmountBindingsForTests();
+		const host = sceneHost();
+		const root = document.createElement("div");
+		document.body.append(root);
+		let tree = renderIgniteJsx(
+			root,
+			jsx("canvas", { use: "scene" }),
+			undefined,
+			{ hosts: runtime(host, 1) },
+		);
+		for (let index = 0; index < 4; index += 1) {
+			tree = renderIgniteJsx(root, jsx("canvas", {}), tree, {
+				hosts: runtime(host, 1),
+			});
+			tree = renderIgniteJsx(root, jsx("canvas", { use: "scene" }), tree, {
+				hosts: runtime(host, 1),
+			});
+		}
+		expect(hostUnmountBindingsForTests() - before).toBe(1);
+		expect(host.mounts).toBe(5);
+		expect(host.disposed).toHaveLength(4);
+	});
+
+	it("does not treat an inherited host name as a declared host", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+		const child = sceneHost();
+		const root = document.createElement("div");
+		document.body.append(root);
+		renderIgniteJsx(
+			root,
+			jsx("div", {
+				use: "constructor",
+				children: jsx("canvas", { use: "child" }),
+			}),
+			undefined,
+			{
+				hosts: {
+					snapshot: 1,
+					send: () => undefined,
+					reducedMotion: () => false,
+					hosts: { child },
+				},
+			},
+		);
+		expect(child.mounts).toBe(1);
+		expect(warn.mock.calls.map((call) => String(call[0]))).toEqual(
+			expect.arrayContaining([
+				expect.stringContaining('Unknown host "constructor"'),
+			]),
+		);
+	});
+
+	it("commits descendant hosts and refs when the first use name is rejected", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+		const error = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => undefined);
+		const parent = sceneHost();
+		parent.select = () => {
+			throw new Error("select failed");
+		};
+		const child = sceneHost();
+		const seen: { current: Element | null } = { current: null };
+		const root = document.createElement("div");
+		document.body.append(root);
+		const hosts = {
+			snapshot: 1,
+			send: () => undefined,
+			reducedMotion: () => false,
+			hosts: { scene: parent, child },
+		};
+		renderIgniteJsx(
+			root,
+			jsx("section", {
+				use: "missing",
+				children: jsx("canvas", {
+					use: "child",
+					ref: (element: Element | null) => {
+						seen.current = element;
+					},
+				}),
+			}),
+			undefined,
+			{ hosts },
+		);
+		expect(child.mounts).toBe(1);
+		expect(seen.current?.tagName).toBe("CANVAS");
+		expect(warn.mock.calls.map((call) => String(call[0]))).toEqual(
+			expect.arrayContaining([
+				expect.stringContaining('Unknown host "missing"'),
+			]),
+		);
+
+		renderIgniteJsx(
+			root,
+			jsx("section", {
+				use: "scene",
+				children: jsx("canvas", {
+					use: "child",
+					ref: (element: Element | null) => {
+						seen.current = element;
+					},
+				}),
+			}),
+			undefined,
+			{ hosts },
+		);
+		expect(parent.mounts).toBe(0);
+		expect(child.mounts).toBe(2);
+		expect(seen.current?.tagName).toBe("CANVAS");
+		expect(error.mock.calls.map((call) => String(call[0]))).toEqual(
+			expect.arrayContaining([expect.stringContaining("Host select failed.")]),
+		);
+	});
+
+	it("keeps an own __proto__ description", () => {
+		const host = sceneHost();
+		const hosts = Object.create(null) as Record<string, typeof host>;
+		Object.defineProperty(hosts, "__proto__", {
+			value: host,
+			enumerable: true,
+			configurable: true,
+			writable: true,
+		});
+		const text = describeIgniteHosts(hosts, 4);
+		expect(Object.getOwnPropertyDescriptor(text, "__proto__")?.value).toBe(
+			"angle 4",
 		);
 	});
 

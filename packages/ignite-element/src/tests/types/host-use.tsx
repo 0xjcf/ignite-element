@@ -72,6 +72,13 @@ radio("radio", (radioView) => {
 	return <canvas use={radioView.hosts.speaker} />;
 });
 
+function Swatch(props: { use: "primary" }) {
+	return <span>{props.use}</span>;
+}
+
+const swatch = <Swatch use="primary" />;
+void swatch;
+
 orbit("orbit", ({ hosts }) => {
 	// @ts-expect-error a string cast cannot forge this core's handle
 	const cast = "scene" as typeof hosts.scene;
