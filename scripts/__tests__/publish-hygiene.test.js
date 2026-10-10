@@ -3,12 +3,14 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import { planRelease } from "../release-plan.mjs";
+import { assertHeadIsCurrentMain } from "../require-current-main.mjs";
 import {
 	assertNoLegacyNpmCredentials,
 	assertPinnedNpmVersion,
 	formatChangesetTagLine,
 	PINNED_NPM_VERSION,
 	planStablePublish,
+	pushReleaseTag,
 	runStablePublish,
 } from "../stable-publish.mjs";
 
@@ -22,6 +24,16 @@ const actionUses = (workflow) =>
 	[...workflow.matchAll(/^\s*uses:\s*([^@\s]+)@([^\s#]+)/gm)].map(
 		([, action, revision]) => ({ action, revision }),
 	);
+
+const stepRun = (workflow, stepName) => {
+	const marker = `- name: ${stepName}\n`;
+	const start = workflow.indexOf(marker);
+	if (start < 0) {
+		throw new Error(`Missing step ${stepName}`);
+	}
+	const next = workflow.indexOf("\n      - name:", start + marker.length);
+	return workflow.slice(start, next === -1 ? undefined : next);
+};
 
 describe("publish hygiene", () => {
 	it("removes the token refresh script and workflow", () => {
@@ -87,7 +99,37 @@ describe("publish hygiene", () => {
 		);
 		expect(workflow).toContain("persist-credentials: false");
 		expect(workflow).toContain("package-manager-cache: false");
-		expect(workflow).toContain("pnpm install --frozen-lockfile");
+		expect(workflow).toContain(
+			"pnpm install --frozen-lockfile --ignore-scripts",
+		);
+		expect(workflow).toContain("pnpm rebuild esbuild");
+		expect(workflow).not.toMatch(/git commit|git add /);
+		expect(
+			workflow.match(/node scripts\/require-current-main\.mjs/g)?.length,
+		).toBe(2);
+		const versionStep = stepRun(workflow, "Open the version pull request");
+		expect(versionStep.indexOf("pnpm exec changeset version")).toBeLessThan(
+			versionStep.indexOf("node scripts/require-current-main.mjs"),
+		);
+		expect(
+			versionStep.indexOf("node scripts/require-current-main.mjs"),
+		).toBeLessThan(
+			versionStep.indexOf(
+				"git push --force origin HEAD:changeset-release/main",
+			),
+		);
+		expect(versionStep).not.toMatch(/git commit|git add /);
+		expect(versionStep).toContain(
+			`HEAD_SHA: ${actionsOpen} github.event.workflow_run.head_sha }}`,
+		);
+		const publishStep = stepRun(workflow, "Publish with provenance");
+		expect(
+			publishStep.indexOf("node scripts/require-current-main.mjs"),
+		).toBeLessThan(publishStep.indexOf("node scripts/stable-publish.mjs"));
+		expect(publishStep).toContain("gh auth setup-git");
+		expect(publishStep).toContain(
+			`HEAD_SHA: ${actionsOpen} github.event.workflow_run.head_sha }}`,
+		);
 		expect(workflow).toContain(`npm@${PINNED_NPM_VERSION}`);
 		expect(workflow).toContain("environment: npm");
 		expect(workflow).toMatch(/id-token: write/);
@@ -189,8 +231,14 @@ describe("publish hygiene", () => {
 		expect(onPublished).not.toHaveBeenCalled();
 	});
 
-	it("publishes once and records a v-prefixed tag for changesets", () => {
-		const publish = vi.fn();
+	it("publishes once and pushes a v-prefixed tag without changesets output", () => {
+		const order = [];
+		const publish = vi.fn(() => {
+			order.push("publish");
+		});
+		const pushTag = vi.fn(() => {
+			order.push("tag");
+		});
 		const onPublished = vi.fn();
 		const plan = runStablePublish({
 			distReady: true,
@@ -200,9 +248,11 @@ describe("publish hygiene", () => {
 			packageName: "ignite-element",
 			publish,
 			publishedVersions: [],
+			pushTag,
 			version: "2.3.0",
 		});
-		expect(plan).toMatchObject({ publish: true });
+		expect(plan).toMatchObject({ publish: true, tag: "v2.3.0" });
+		expect(order).toEqual(["publish", "tag"]);
 		expect(publish).toHaveBeenCalledWith([
 			"publish",
 			"--provenance",
@@ -210,6 +260,7 @@ describe("publish hygiene", () => {
 			"public",
 			"--json",
 		]);
+		expect(pushTag).toHaveBeenCalledWith({ tag: "v2.3.0" });
 		expect(formatChangesetTagLine("2.3.0", "ignite-element")).toBe(
 			`${JSON.stringify({
 				type: "git-tag",
@@ -218,8 +269,36 @@ describe("publish hygiene", () => {
 			})}\n`,
 		);
 		expect(onPublished).toHaveBeenCalledWith({
+			tag: "v2.3.0",
 			tagLine: formatChangesetTagLine("2.3.0", "ignite-element"),
 		});
+	});
+
+	it("creates and pushes only a release tag", () => {
+		const run = vi.fn();
+		pushReleaseTag("v2.3.0", run);
+		expect(run.mock.calls).toEqual([
+			["git", ["tag", "v2.3.0"]],
+			["git", ["push", "origin", "refs/tags/v2.3.0"]],
+		]);
+		expect(() => pushReleaseTag("main", run)).toThrow(/release tag/);
+		expect(() => pushReleaseTag("v2.3.0;touch /tmp/x", run)).toThrow(
+			/release tag/,
+		);
+	});
+
+	it("refuses to release a commit that is no longer main", () => {
+		const headSha = "a".repeat(40);
+		const mainSha = "b".repeat(40);
+		expect(() =>
+			assertHeadIsCurrentMain({ headSha, mainSha: headSha }),
+		).not.toThrow();
+		expect(() => assertHeadIsCurrentMain({ headSha, mainSha })).toThrow(
+			new RegExp(`Refusing to release ${headSha} because main is ${mainSha}`),
+		);
+		expect(() =>
+			assertHeadIsCurrentMain({ headSha: "HEAD", mainSha: headSha }),
+		).toThrow(/full tested commit SHA/);
 	});
 
 	it("does not publish when a legacy token is present", () => {

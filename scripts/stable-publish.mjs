@@ -51,6 +51,16 @@ export function formatChangesetTagLine(version, packageName) {
 	})}\n`;
 }
 
+const RELEASE_TAG = /^v\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
+
+export function pushReleaseTag(tag, run) {
+	if (!RELEASE_TAG.test(tag)) {
+		throw new Error(`Refusing to push ${tag}. Expected a release tag.`);
+	}
+	run("git", ["tag", tag]);
+	run("git", ["push", "origin", `refs/tags/${tag}`]);
+}
+
 export function runStablePublish({
 	distReady,
 	env,
@@ -59,6 +69,7 @@ export function runStablePublish({
 	packageName,
 	publish,
 	publishedVersions,
+	pushTag,
 	version,
 }) {
 	assertNoLegacyNpmCredentials(env);
@@ -66,9 +77,14 @@ export function runStablePublish({
 	const plan = planStablePublish({ distReady, publishedVersions, version });
 	if (!plan.publish) return plan;
 	publish(plan.args);
+	const tag = `v${version}`;
+	if (typeof pushTag !== "function") {
+		throw new Error("Refusing to publish without pushing the release tag.");
+	}
+	pushTag({ tag });
 	const tagLine = formatChangesetTagLine(version, packageName);
-	onPublished?.({ tagLine });
-	return { ...plan, tagLine };
+	onPublished?.({ tag, tagLine });
+	return { ...plan, tag, tagLine };
 }
 
 function readPublishedVersions(packageName) {
@@ -115,6 +131,11 @@ function publishCli() {
 			execFileSync("npm", args, { cwd: root, stdio: "inherit" });
 		},
 		publishedVersions,
+		pushTag: ({ tag }) => {
+			pushReleaseTag(tag, (command, args) => {
+				execFileSync(command, args, { cwd: root, stdio: "inherit" });
+			});
+		},
 		version: manifest.version,
 		onPublished: ({ tagLine }) => {
 			const outputFile = env.CHANGESETS_OUTPUT;

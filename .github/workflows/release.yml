@@ -58,7 +58,9 @@ jobs:
           test "$(pnpm --version)" = "9.15.9"
 
       - name: Install frozen dependencies
-        run: pnpm install --frozen-lockfile
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm rebuild esbuild
 
       - name: Build the package
         run: pnpm run build
@@ -71,13 +73,14 @@ jobs:
         if: steps.plan.outputs.action == 'version'
         env:
           GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B changeset-release/main
           pnpm exec changeset version
-          git add -A
-          git commit -m "Version Packages"
+          git fetch origin main
+          node scripts/require-current-main.mjs
           gh auth setup-git
           git push --force origin HEAD:changeset-release/main
           if gh pr view changeset-release/main --json url >/dev/null 2>&1; then
@@ -88,4 +91,11 @@ jobs:
 
       - name: Publish with provenance
         if: steps.plan.outputs.action == 'publish'
-        run: node scripts/stable-publish.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          git fetch origin main
+          node scripts/require-current-main.mjs
+          gh auth setup-git
+          node scripts/stable-publish.mjs
