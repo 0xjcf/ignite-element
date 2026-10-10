@@ -358,6 +358,9 @@ function commitFresh(node: ChildNode, normalized: NormalizedNode): void {
 		return;
 	}
 	const element = node as Element;
+	// A failed host mount retires descendant refs before commitFresh reaches
+	// them. Rebind here; an already-bound fresh node returns immediately.
+	if (hostRuntimeEnabled) assignRef(element, normalized.props.ref);
 	syncHostElement(element, normalized.props.use);
 	if (hostRuntimeEnabled && subtreeOwners.has(element)) return;
 	const children = Array.from(element.childNodes);

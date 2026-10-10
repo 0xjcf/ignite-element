@@ -102,7 +102,7 @@ export type HostRenderSlot<Hosts> = HostsUnspecified<Hosts> extends true
 /** `use` requires a handle from this core. A bare string does not match. */
 export type HostProps<Hosts extends Record<string, unknown>> = {
 	use?: string extends keyof Hosts
-		? string
+		? HostHandle<Hosts, string>
 		: {
 				[Name in keyof Hosts & string]: HostHandle<Hosts, Name & string>;
 			}[keyof Hosts & string];

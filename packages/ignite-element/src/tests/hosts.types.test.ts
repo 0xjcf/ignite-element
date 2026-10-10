@@ -1,6 +1,6 @@
 import { describe, expectTypeOf, it } from "vitest";
 import { createMachine } from "xstate";
-import type { Host, HostHandles, HostProps } from "../hosts/types";
+import type { Host, HostHandle, HostHandles, HostProps } from "../hosts/types";
 import { igniteCore } from "../xstate";
 
 type SceneHosts = {
@@ -68,5 +68,12 @@ describe("dynamic host maps", () => {
 		expectTypeOf<string>().not.toMatchTypeOf<Handle>();
 		type StaticUse = NonNullable<HostProps<SceneHosts>["use"]>;
 		expectTypeOf<string>().not.toMatchTypeOf<StaticUse>();
+
+		type DynamicUse = NonNullable<HostProps<Dynamic>["use"]>;
+		expectTypeOf<DynamicUse>().toEqualTypeOf<HostHandle<Dynamic, string>>();
+		expectTypeOf<string>().not.toMatchTypeOf<DynamicUse>();
+		// @ts-expect-error a bare string is not a dynamic host handle
+		const missing: HostProps<Dynamic> = { use: "missing" };
+		expectTypeOf(missing).toEqualTypeOf<HostProps<Dynamic>>();
 	});
 });

@@ -228,15 +228,22 @@ function retireHost(element: Element): void {
 	disposeSettled(record);
 }
 
+function descriptionIdTaken(element: Element, id: string): boolean {
+	const root = element.getRootNode();
+	if (root instanceof Document || root instanceof ShadowRoot) {
+		return root.getElementById(id) !== null;
+	}
+	return element.ownerDocument.getElementById(id) !== null;
+}
+
 function descriptionId(element: Element): string {
 	const existing = descriptionIds.get(element);
 	if (existing) return existing;
-	const documentRef = element.ownerDocument;
 	let id = "";
 	do {
 		descriptionSerial += 1;
 		id = `ignite-host-desc-${descriptionSerial}`;
-	} while (documentRef.getElementById(id) !== null);
+	} while (descriptionIdTaken(element, id));
 	descriptionIds.set(element, id);
 	return id;
 }
@@ -275,6 +282,7 @@ function applyDescription(
 		text = definition.describe(slice);
 	} catch (error) {
 		reportHostError("[ignite-jsx] Host describe failed.", error);
+		clearDescription(element);
 		return;
 	}
 	if (typeof text !== "string") return;
@@ -408,8 +416,11 @@ function startHost(
 	try {
 		result = definition.mount(element, ctx);
 	} catch (error) {
-		dropRecord(element, record);
 		reportHostError("[ignite-jsx] Host mount failed.", error);
+		if (hostRecords.get(element) === record) {
+			dropRecord(element, record);
+			releaseHostSubtree(element);
+		}
 		return;
 	}
 	const deferDeliver = deferredSends.length > queuedBefore;
@@ -427,6 +438,7 @@ function startHost(
 					return;
 				}
 				dropRecord(element, record);
+				releaseHostSubtree(element);
 			},
 		);
 		return;

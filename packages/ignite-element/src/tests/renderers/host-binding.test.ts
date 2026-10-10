@@ -1055,6 +1055,166 @@ describe("host binding", () => {
 		);
 	});
 
+	it("does not reuse an accessible-description id that already exists in the shadow root", () => {
+		const host = sceneHost({
+			mount(el) {
+				for (let index = 1; index <= 1024; index += 1) {
+					const taken = document.createElement("span");
+					taken.id = `ignite-host-desc-${index}`;
+					taken.textContent = "taken";
+					el.append(taken);
+				}
+				return { id: 1 };
+			},
+		});
+		const element = document.createElement("div");
+		const shadow = element.attachShadow({ mode: "open" });
+		document.body.append(element);
+		renderIgniteJsx(shadow, jsx("canvas", { use: "scene" }), undefined, {
+			hosts: runtime(host, 2),
+		});
+		const canvas = shadow.querySelector("canvas");
+		const id = canvas?.getAttribute("aria-describedby") ?? "";
+		expect(id).toMatch(/^ignite-host-desc-\d+$/);
+		const matches = shadow.querySelectorAll(`[id="${id}"]`);
+		expect(matches).toHaveLength(1);
+		expect(matches[0]?.textContent).toBe("angle 2");
+	});
+
+	it("clears the previous description when a later describe throws", () => {
+		const error = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => undefined);
+		let fail = false;
+		const host = sceneHost();
+		host.describe = (slice) => {
+			if (fail) throw new Error("describe failed");
+			return `angle ${slice.angle}`;
+		};
+		const root = document.createElement("div");
+		document.body.append(root);
+		const tree = renderIgniteJsx(
+			root,
+			jsx("canvas", { use: "scene" }),
+			undefined,
+			{ hosts: runtime(host, 1) },
+		);
+		const canvas = root.querySelector("canvas");
+		expect(hostDescription(canvas)).toBe("angle 1");
+		fail = true;
+		renderIgniteJsx(root, jsx("canvas", { use: "scene" }), tree, {
+			hosts: runtime(host, 2),
+		});
+		expect(canvas?.hasAttribute("aria-describedby")).toBe(false);
+		expect(canvas?.querySelector("[data-ignite-host-description]")).toBeNull();
+		expect(error.mock.calls.map((call) => String(call[0]))).toEqual(
+			expect.arrayContaining([
+				expect.stringContaining("Host describe failed."),
+			]),
+		);
+	});
+
+	it("commits fallback descendants when mount throws", () => {
+		const error = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => undefined);
+		const parent = sceneHost({
+			mount() {
+				throw new Error("mount failed");
+			},
+		});
+		const child = sceneHost();
+		const seen: { current: Element | null } = { current: null };
+		const root = document.createElement("div");
+		document.body.append(root);
+		renderIgniteJsx(
+			root,
+			jsx("section", {
+				use: "scene",
+				children: jsx("canvas", {
+					use: "child",
+					ref: (element: Element | null) => {
+						seen.current = element;
+					},
+				}),
+			}),
+			undefined,
+			{
+				hosts: {
+					snapshot: 1,
+					send: () => undefined,
+					reducedMotion: () => false,
+					hosts: { scene: parent, child },
+				},
+			},
+		);
+		expect(child.mounts).toBe(1);
+		expect(seen.current?.tagName).toBe("CANVAS");
+		expect(error.mock.calls.map((call) => String(call[0]))).toEqual(
+			expect.arrayContaining([expect.stringContaining("Host mount failed.")]),
+		);
+	});
+
+	it("releases the subtree after an async mount rejects so a later render commits fallback descendants", async () => {
+		const error = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => undefined);
+		let rejectMount: (reason: Error) => void = () => undefined;
+		const parent = sceneHost({
+			mount: () =>
+				new Promise((_resolve, reject) => {
+					rejectMount = reject;
+				}),
+		});
+		const child = sceneHost();
+		const seen: { current: Element | null } = { current: null };
+		const root = document.createElement("div");
+		document.body.append(root);
+		const hosts = {
+			snapshot: 1,
+			send: () => undefined,
+			reducedMotion: () => false,
+			hosts: { scene: parent, child },
+		};
+		const tree = renderIgniteJsx(
+			root,
+			jsx("section", {
+				use: "scene",
+				children: jsx("canvas", {
+					use: "child",
+					ref: (element: Element | null) => {
+						seen.current = element;
+					},
+				}),
+			}),
+			undefined,
+			{ hosts },
+		);
+		const canvas = root.querySelector("canvas");
+		expect(child.mounts).toBe(0);
+		rejectMount(new Error("mount rejected"));
+		await Promise.resolve();
+		renderIgniteJsx(
+			root,
+			jsx("section", {
+				children: jsx("canvas", {
+					use: "child",
+					ref: (element: Element | null) => {
+						seen.current = element;
+					},
+				}),
+			}),
+			tree,
+			{ hosts },
+		);
+		expect(root.querySelector("canvas")).toBe(canvas);
+		expect(child.mounts).toBe(1);
+		expect(seen.current?.tagName).toBe("CANVAS");
+		expect(error.mock.calls.map((call) => String(call[0]))).toEqual(
+			expect.arrayContaining([expect.stringContaining("Host mount failed.")]),
+		);
+	});
+
 	it("still mounts when reduced-motion media queries throw", () => {
 		vi.stubGlobal("matchMedia", () => {
 			throw new Error("unavailable");

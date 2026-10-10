@@ -246,6 +246,45 @@ describe("igniteCore hosts", () => {
 		hosted.dispose();
 	});
 
+	it("keeps a derived state or command named hosts when the core declares no host map", () => {
+		const machine = createMachine({
+			types: { context: {} as { n: number } },
+			context: { n: 1 },
+		});
+		let derived: unknown = "missing";
+		const stated = igniteCore({
+			source: machine,
+			states: () => ({ hosts: "fleet" }),
+		});
+		const statedName = tag();
+		stated(statedName, (args) => {
+			derived = Reflect.get(args, "hosts");
+			return jsx("p", { children: "ok" });
+		});
+		document.body.append(document.createElement(statedName));
+		expect(derived).toBe("fleet");
+		stated.dispose();
+
+		let command: unknown = "missing";
+		const commanded = igniteCore({
+			source: machine,
+			commands: () => ({
+				hosts() {
+					return "ready";
+				},
+			}),
+		});
+		const commandedName = tag();
+		commanded(commandedName, (args) => {
+			command = Reflect.get(args, "hosts");
+			return jsx("p", { children: "ok" });
+		});
+		document.body.append(document.createElement(commandedName));
+		expect(typeof command).toBe("function");
+		expect((command as () => string)()).toBe("ready");
+		commanded.dispose();
+	});
+
 	it("projects host describe text to a document target without mounting", async () => {
 		let mounts = 0;
 		const committed: string[] = [];
