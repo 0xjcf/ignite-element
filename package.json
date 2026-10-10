@@ -23,6 +23,7 @@
 		"lint": "biome lint . && pnpm run lint:md",
 		"lint:md": "markdownlint-cli2",
 		"architecture:check": "node scripts/check-architecture-rules.mjs",
+		"check:nodenext": "node scripts/check-nodenext-declarations.mjs",
 		"verify:packed": "node scripts/verify-packed-consumers.mjs",
 		"size:entrypoints": "pnpm --filter ignite-element... build && node scripts/measure-bundle-sizes.mjs",
 		"docs:dev": "pnpm --filter docs-site dev",
@@ -38,6 +39,7 @@
 		"release:beta:verify": "node scripts/verify-beta-release.mjs"
 	},
 	"devDependencies": {
+		"@arethetypeswrong/cli": "0.18.5",
 		"@biomejs/biome": "2.3.1",
 		"@changesets/cli": "^2.29.8",
 		"@rollup/plugin-node-resolve": "^16.0.3",

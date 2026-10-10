@@ -68,7 +68,7 @@
 	"scripts": {
 		"build:types": "tsc",
 		"build:js": "vite build",
-		"build": "pnpm run build:types && pnpm run build:js",
+		"build": "pnpm run build:types && pnpm run build:js && node ../../scripts/rewrite-declaration-extensions.mjs .",
 		"typecheck": "tsc --pretty false --project tsconfig.typecheck.json"
 	},
 	"devDependencies": {

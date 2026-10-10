@@ -108,7 +108,7 @@ sources. Root `igniteCore()` is the source-free registrar only.
 
 v3 is native ESM-only. Install only your chosen source peers; Lit is optional.
 See [compatibility](https://0xjcf.github.io/ignite-element/api/compatibility/) for
-the known NodeNext declaration limitation and tested platform boundaries.
+NodeNext declaration resolution and tested platform boundaries.
 
 ## Contributing and support
 
