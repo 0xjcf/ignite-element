@@ -3,6 +3,7 @@ import type {
 	EventMap,
 	FacadeCommandResult,
 } from "@ignite-element/core";
+import type { HostRenderSlot } from "../hosts/types";
 
 export type BaseRenderArgs<State, Event> = {
 	state: State;
@@ -24,6 +25,7 @@ export type PublicFacadeRenderArgs<
 	CommandsResult,
 	Additional extends Record<string, unknown> = Record<never, never>,
 	Events extends EventMap = EmptyEventMap,
+	Hosts = undefined,
 > = Additional &
 	([StatesResult] extends [Record<string, unknown>]
 		? StatesResult
@@ -32,4 +34,5 @@ export type PublicFacadeRenderArgs<
 		? CommandsResult
 		: Record<never, never>) &
 	Record<never, CommandActor> &
-	Record<never, Events>;
+	Record<never, Events> &
+	HostRenderSlot<Hosts>;

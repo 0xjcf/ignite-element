@@ -3,7 +3,7 @@ title: Hosts
 description: Mount canvas, audio, and other imperative engines from a use prop.
 ---
 
-A host mounts an imperative engine on an element and disposes it on the shared unmount path. Declare hosts on the core, then name one with `use`.
+A host mounts an imperative engine on an element and disposes it on the shared unmount path. Declare hosts on the core. The view receives one handle per host.
 
 ```ts
 import type { HostContext } from "ignite-element";
@@ -70,10 +70,12 @@ const orbit = igniteCore({
   },
 });
 
-orbit("orbit-preview", () => <canvas use="scene" aria-label="Orbit preview" />);
+orbit("orbit-preview", ({ hosts }) => (
+  <canvas use={hosts.scene} aria-label="Orbit preview" />
+));
 ```
 
-`use` is limited to the names on that core. `select` reads that core's snapshot. `mount` runs only in the browser, after the element is in the document. `describe` is the accessible description, rendered as visually hidden text referenced by `aria-describedby`, and the same text is appended to document and speech projections for CLI and MCP clients. Server render and those projections never call `mount`.
+`use` takes a handle from that view's `hosts`. A string literal, or a handle from another core, does not typecheck. `select` reads that core's snapshot. `mount` runs only in the browser, after the element is in the document. `describe` is the accessible description, rendered as visually hidden text referenced by `aria-describedby`, and the same text is appended to document and speech projections for CLI and MCP clients. Server render and those projections never call `mount`.
 
 An element-less lifecycle such as an `AudioContext` or a socket is a host on the component's root element. There is no separate connect callback.
 

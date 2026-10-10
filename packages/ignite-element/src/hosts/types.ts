@@ -56,15 +56,52 @@ export type IgniteHostMap<Snapshot = unknown> = {
 	};
 };
 
-export type HostNamesOf<Hosts> = [Hosts] extends [undefined]
-	? string
-	: [undefined] extends [Hosts]
-		? string
-		: string extends keyof Hosts
-			? string
-			: keyof Hosts & string;
+/**
+ * Type-only brand for one core's host map. The runtime value is the host-name
+ * string. A bare string, or a handle whose map is a different core's, does not
+ * match. `__igniteHost` is the same brand the JSX `use` prop requires.
+ */
+export type HostHandle<Hosts, Name extends string> = Name & {
+	readonly __igniteHost: Hosts;
+};
 
-/** JSX props whose `use` name is one of a core's hosts. */
+/**
+ * A core with no host map. `undefined extends Hosts` is true for every type
+ * when strictNullChecks is off, so only the reverse direction means "no map".
+ */
+type HostsUnspecified<Hosts> = [Hosts] extends [undefined]
+	? true
+	: true extends (
+				Hosts extends unknown
+					? [Hosts] extends [undefined]
+						? true
+						: false
+					: never
+			)
+		? true
+		: false;
+
+export type HostHandles<Hosts> = HostsUnspecified<Hosts> extends true
+	? Record<never, never>
+	: string extends keyof Hosts
+		? { readonly [name: string]: string }
+		: {
+				readonly [Name in keyof Hosts & string]: HostHandle<
+					Hosts,
+					Name & string
+				>;
+			};
+
+/** Present on the view only when this core declared a host map. */
+export type HostRenderSlot<Hosts> = HostsUnspecified<Hosts> extends true
+	? Record<never, never>
+	: { readonly hosts: HostHandles<Hosts> };
+
+/** `use` requires a handle from this core. A bare string does not match. */
 export type HostProps<Hosts extends Record<string, unknown>> = {
-	use?: keyof Hosts & string;
+	use?: string extends keyof Hosts
+		? string
+		: {
+				[Name in keyof Hosts & string]: HostHandle<Hosts, Name & string>;
+			}[keyof Hosts & string];
 };

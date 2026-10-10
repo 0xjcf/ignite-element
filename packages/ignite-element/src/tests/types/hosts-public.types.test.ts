@@ -35,9 +35,11 @@ function hostContracts() {
 		source: machine,
 		hosts: { scene },
 	});
+	core("orbit", ({ hosts }) => jsx("canvas", { use: hosts.scene }));
+	// @ts-expect-error use must be a handle on this core
+	core("orbit", ({ hosts }) => jsx("canvas", { use: hosts.missing }));
+	// @ts-expect-error a bare string is not this core's handle
 	core("orbit", () => jsx("canvas", { use: "scene" }));
-	// @ts-expect-error use must name a host on this core
-	core("orbit", () => jsx("canvas", { use: "missing" }));
 
 	xstateCore({
 		source: machine,
@@ -55,9 +57,11 @@ function hostContracts() {
 		source: shipmentSource,
 		hosts: { scene: headless },
 	});
+	actor("orbit", ({ hosts }) => jsx("canvas", { use: hosts.scene }));
+	// @ts-expect-error use must be a handle on this actor-web core
+	actor("orbit", ({ hosts }) => jsx("canvas", { use: hosts.missing }));
+	// @ts-expect-error a bare string is not this core's handle
 	actor("orbit", () => jsx("canvas", { use: "scene" }));
-	// @ts-expect-error use must name a host on this actor-web core
-	actor("orbit", () => jsx("canvas", { use: "missing" }));
 }
 
 describe("public host contracts", () => {

@@ -5,6 +5,7 @@ import type {
 	FacadeCommandFunction,
 	FacadeCommandResult,
 } from "@ignite-element/core";
+import type { HostRenderSlot } from "../hosts/types";
 import type {
 	IgniteAgentRuntime,
 	IgniteProjectionSession,
@@ -42,10 +43,20 @@ type HostSafeElement<Names extends string> = {
 	readonly key?: unknown;
 };
 
-/** Unconstrained when a core declares no host names. */
-export type HostCheckedView<Names extends string> = string extends Names
-	? unknown
-	: HostSafeChild<Names>;
+type HostUseOf<Hosts> = HostRenderSlot<Hosts> extends {
+	readonly hosts: infer Handles;
+}
+	? Handles[keyof Handles & string]
+	: never;
+
+/** Unconstrained when a core declares no host map. */
+export type HostCheckedView<Hosts = undefined> = HostRenderSlot<Hosts> extends {
+	readonly hosts: unknown;
+}
+	? string extends keyof Hosts
+		? unknown
+		: HostSafeChild<HostUseOf<Hosts>>
+	: unknown;
 
 export type DisjointBindings<States, Commands> = string extends
 	| keyof States
@@ -138,7 +149,7 @@ export type IgniteCoreReturn<
 	// Native headless emissions do not imply a declared DOM event. Defaulting
 	// preserves existing type-alias consumers and adapters with one event map.
 	DeclaredEvents extends EventMap = Events,
-	HostNames extends string = string,
+	Hosts = undefined,
 > = {
 	(target: IgniteProjectionTarget): IgniteProjectionSession;
 	(
@@ -149,10 +160,11 @@ export type IgniteCoreReturn<
 				CommandActor,
 				CommandsResult,
 				Record<never, never>,
-				DeclaredEvents
+				DeclaredEvents,
+				Hosts
 			> &
 				Record<never, Snapshot>,
-			HostCheckedView<HostNames>
+			HostCheckedView<Hosts>
 		>,
 	): IgniteComponent<CommandsResult, DeclaredEvents>;
 	readonly __igniteRenderArgs?: PublicFacadeRenderArgs<
@@ -160,7 +172,8 @@ export type IgniteCoreReturn<
 		CommandActor,
 		CommandsResult,
 		Record<never, never>,
-		DeclaredEvents
+		DeclaredEvents,
+		Hosts
 	> &
 		Record<never, Snapshot>;
 } & IgniteAgentRuntime<

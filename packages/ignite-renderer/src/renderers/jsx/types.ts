@@ -43,26 +43,16 @@ type IgniteRefCallback<T extends Element> = {
 	bivarianceHack(node: T | null): void | (() => void | PromiseLike<void>);
 }["bivarianceHack"];
 
-declare global {
-	/**
-	 * Host names JSX will accept on `use`. A program extends this from the
-	 * owning core's host map (`keyof typeof hosts`). With no members, `use`
-	 * stays a string.
-	 */
-	interface IgniteHostNames {}
-}
-
-type RegisteredHostName = keyof IgniteHostNames & string;
-
-/** `string` until a program registers host names, then those names only. */
-type HostUseName = [RegisteredHostName] extends [never]
-	? string
-	: RegisteredHostName;
+/**
+ * Type-only brand. The runtime value is the host-name string. A bare string
+ * has no brand, so `use` requires a handle from the view's `hosts`.
+ */
+type HostNameHandle = string & { readonly __igniteHost: object };
 
 type IgniteTagProps<T extends Element> = {
 	ref?: IgniteRefCallback<T>;
-	/** Names a core host. Not copied to the DOM. */
-	use?: HostUseName;
+	/** Host-name string from the owning core's `hosts` handle. */
+	use?: HostNameHandle;
 	children?: IgniteJsxChild;
 	[attribute: string]: unknown;
 };
@@ -98,7 +88,7 @@ export namespace JSX {
 	export type LibraryManagedAttributes<C, P> = [C] extends [never]
 		? P
 		: P & {
-				use?: HostUseName;
+				use?: HostNameHandle;
 			};
 }
 

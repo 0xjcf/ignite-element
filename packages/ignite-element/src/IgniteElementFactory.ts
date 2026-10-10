@@ -334,7 +334,7 @@ export default function igniteElementFactory<
 			snapshot: adapter.getSnapshot(),
 			states: resolveStates(adapter),
 		}));
-	const createRenderArgs =
+	const createBaseRenderArgs =
 		options?.createRenderArgs ??
 		((
 			snapshot: State,
@@ -346,6 +346,20 @@ export default function igniteElementFactory<
 				state: snapshot,
 				send,
 			}) as RenderArgs);
+	const createRenderArgs = (
+		snapshot: State,
+		send: (event: Event) => void,
+		additionalArgs: RuntimeAdditionalArgs,
+	) => {
+		const hosts: Record<string, string> = {};
+		if (coreHosts) {
+			for (const name of Object.keys(coreHosts)) hosts[name] = name;
+		}
+		return {
+			...createBaseRenderArgs(snapshot, send, additionalArgs),
+			hosts,
+		} as RenderArgs;
+	};
 
 	const cleanupAdditionalArgs = (
 		additionalArgs?: AdditionalRenderArgs<State, Event, RenderArgs> | null,

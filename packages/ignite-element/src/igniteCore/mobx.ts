@@ -6,11 +6,67 @@ import type {
 	FacadeCommandFunction,
 	FacadeCommandResult,
 } from "@ignite-element/core";
+import type { IgniteHostMap } from "../hosts/types";
 import { assertSupportedSourceOptions } from "../internal/assertSupportedSourceOptions";
 import { createIgniteComponentFactory } from "./createIgniteComponentFactory";
 import type { IgniteCoreReturn, MobxConfig } from "./mobxTypes";
 
 // Keep inline makeAutoObservable(...) contextual inference on the instance path.
+export function igniteCoreMobx<
+	const Hosts extends IgniteHostMap<State>,
+	State extends object,
+	Events extends EventMap = EmptyEventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+>(
+	options: Omit<
+		MobxConfig<State, Events, StatesResult, CommandsResult>,
+		"hosts"
+	> & {
+		hosts: Hosts;
+		source: State extends (...args: unknown[]) => unknown ? never : State;
+	},
+): IgniteCoreReturn<
+	State,
+	MobxEvent<State>,
+	State,
+	StatesResult,
+	State,
+	CommandsResult,
+	Events,
+	Events,
+	Hosts
+>;
+
+export function igniteCoreMobx<
+	const Hosts extends IgniteHostMap<State>,
+	State extends object,
+	Events extends EventMap = EmptyEventMap,
+	StatesResult extends Record<string, unknown> = Record<never, never>,
+	CommandsResult extends FacadeCommandResult = Record<
+		never,
+		FacadeCommandFunction
+	>,
+>(
+	options: Omit<
+		MobxConfig<State, Events, StatesResult, CommandsResult>,
+		"hosts"
+	> & { hosts: Hosts },
+): IgniteCoreReturn<
+	State,
+	MobxEvent<State>,
+	State,
+	StatesResult,
+	State,
+	CommandsResult,
+	Events,
+	Events,
+	Hosts
+>;
+
 export function igniteCoreMobx<
 	State extends object,
 	Events extends EventMap = EmptyEventMap,

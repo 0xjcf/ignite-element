@@ -8,5 +8,5 @@
 		"types": ["vitest"]
 	},
 	"include": ["./**/*", "../renderers/jsx/jsx.d.ts"],
-	"exclude": ["types/radio-host"]
+	"exclude": []
 }

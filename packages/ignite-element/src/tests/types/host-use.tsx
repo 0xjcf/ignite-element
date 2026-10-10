@@ -1,43 +1,40 @@
 /** @jsxImportSource ignite-element/jsx */
 import { jsx } from "../../renderers/jsx/jsx-runtime";
-import { orbit, type orbitHosts, radio } from "./host-use-hosts";
+import { orbit, radio } from "./host-use-hosts";
 
-declare global {
-	interface IgniteHostNames extends Record<keyof typeof orbitHosts, true> {}
-}
+orbit("orbit", ({ hosts }) => <canvas use={hosts.scene} />);
 
+orbit("orbit", ({ hosts }) => (
+	<div>
+		<canvas use={hosts.scene} />
+	</div>
+));
+
+radio("radio", ({ hosts }) => <canvas use={hosts.speaker} />);
+
+// @ts-expect-error use must be a handle on this core
+orbit("orbit", ({ hosts }) => <canvas use={hosts.missing} />);
+
+orbit("orbit", ({ hosts }) => (
+	<div>
+		{/* @ts-expect-error use must be a handle on this core */}
+		<canvas use={hosts.missing} />
+	</div>
+));
+
+// @ts-expect-error a bare string is not this core's handle
 orbit("orbit", () => <canvas use="scene" />);
-orbit("orbit", () => (
-	<div>
-		<canvas use="scene" />
-	</div>
-));
 
-// @ts-expect-error use must name a host on this core
-orbit("orbit", () => <canvas use="missing" />);
+orbit("orbit", (orbitView) => {
+	// @ts-expect-error a handle from another core is not this core's handle
+	radio("radio", () => jsx("canvas", { use: orbitView.hosts.scene }));
+	return <canvas use={orbitView.hosts.scene} />;
+});
 
-orbit("orbit", () => (
-	<div>
-		{/* @ts-expect-error use must name a host on this core */}
-		<canvas use="missing" />
-	</div>
-));
-
-// @ts-expect-error use must name a host on this core
-orbit("orbit", () => <canvas use="speaker" />);
-
-// @ts-expect-error use must name a host on this core
-orbit("orbit", () => jsx("canvas", { use: "missing" }));
-
-// @ts-expect-error use must name a host on this core
-orbit("orbit", () => jsx("canvas", { use: "speaker" }));
-
-// @ts-expect-error use must name a host on this core
-radio("radio", () => jsx("canvas", { use: "scene" }));
-
-// @ts-expect-error use must name a host on this core
-orbit("orbit", () =>
-	jsx("div", { children: jsx("canvas", { use: "speaker" }) }),
-);
+radio("radio", (radioView) => {
+	// @ts-expect-error a handle from another core is not this core's handle
+	orbit("orbit", () => jsx("canvas", { use: radioView.hosts.speaker }));
+	return <canvas use={radioView.hosts.speaker} />;
+});
 
 export const hostedJsx = orbit;

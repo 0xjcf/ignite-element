@@ -130,9 +130,22 @@ describe("igniteCore hosts", () => {
 			hosts: { scene },
 		});
 		const name = tag();
-		core(name, () => jsx("canvas", { use: "scene", "aria-label": "Orbit" }));
+		let handle = "";
+		core(name, (args) => {
+			const hosts = Reflect.get(args, "hosts");
+			if (
+				hosts &&
+				typeof hosts === "object" &&
+				hosts !== null &&
+				"scene" in hosts
+			) {
+				handle = String(Reflect.get(hosts, "scene"));
+			}
+			return jsx("canvas", { use: handle, "aria-label": "Orbit" });
+		});
 		const element = document.createElement(name);
 		document.body.append(element);
+		expect(handle).toBe("scene");
 		const canvas = element.shadowRoot?.querySelector("canvas");
 		expect(canvas?.getAttribute("aria-label")).toBe("Orbit");
 		expect(

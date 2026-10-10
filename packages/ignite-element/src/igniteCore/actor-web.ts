@@ -15,7 +15,7 @@ import type {
 	FacadeEffectsObjectCallback,
 	FacadeStatesCallback,
 } from "@ignite-element/core";
-import type { HostNamesOf, IgniteHostMap } from "../hosts/types";
+import type { IgniteHostMap } from "../hosts/types";
 import { assertSupportedSourceOptions } from "../internal/assertSupportedSourceOptions";
 import type { IgniteCoreReturn } from "./actorWebTypes";
 import {
@@ -118,7 +118,7 @@ export function igniteCoreActorWeb<
 	CommandsResult,
 	ActorWebRuntimeEvents<Events, Source, Emitted, Message>,
 	Events,
-	HostNamesOf<Hosts>
+	Hosts
 > {
 	// Actor-Web remains the runtime owner; Ignite only adapts projection snapshots
 	// and command access into the headless component contract.
@@ -150,6 +150,6 @@ export function igniteCoreActorWeb<
 		CommandsResult,
 		ActorWebRuntimeEvents<Events, Source, Emitted, Message>,
 		Events,
-		HostNamesOf<Hosts>
+		Hosts
 	>;
 }

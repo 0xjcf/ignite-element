@@ -14,13 +14,17 @@ describe("Host", () => {
 });
 
 describe("HostProps", () => {
-	it("limits use to the names declared on a core", () => {
-		expectTypeOf<HostProps<SceneHosts>["use"]>().toEqualTypeOf<
-			"scene" | undefined
-		>();
+	it("requires a handle from this core", () => {
+		type Use = NonNullable<HostProps<SceneHosts>["use"]>;
+		expectTypeOf<Use>().toMatchTypeOf<string>();
 
-		const named: HostProps<SceneHosts> = { use: "scene" };
-		expectTypeOf(named.use).toEqualTypeOf<"scene" | undefined>();
+		const handle = null as unknown as Use;
+		const named: HostProps<SceneHosts> = { use: handle };
+		expectTypeOf(named.use).toEqualTypeOf<Use | undefined>();
+
+		// @ts-expect-error a bare string is not this core's handle
+		const literal: HostProps<SceneHosts> = { use: "scene" };
+		expectTypeOf(literal).toEqualTypeOf<HostProps<SceneHosts>>();
 
 		// @ts-expect-error use must name a host on this core
 		const missing: HostProps<SceneHosts> = { use: "missing" };

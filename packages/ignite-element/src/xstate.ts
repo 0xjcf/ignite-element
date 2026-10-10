@@ -16,7 +16,7 @@ import type {
 	EventFrom,
 	StateFrom,
 } from "xstate";
-import type { HostNamesOf, IgniteHostMap } from "./hosts/types";
+import type { IgniteHostMap } from "./hosts/types";
 import type {
 	CompatibleEvents,
 	EffectEvents,
@@ -175,7 +175,7 @@ export function igniteCore<
 			: EmptyEventMap
 	>,
 	ReturnType<EventDefinition>,
-	HostNamesOf<Hosts>
+	Hosts
 >;
 
 export function igniteCore<
@@ -200,7 +200,7 @@ export function igniteCore<
 	CommandsResult,
 	XStateRuntimeEvents<Machine, EmptyEventMap>,
 	EmptyEventMap,
-	HostNamesOf<Hosts>
+	Hosts
 >;
 
 export function igniteCore<
