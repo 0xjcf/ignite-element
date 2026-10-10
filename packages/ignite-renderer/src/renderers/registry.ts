@@ -3,19 +3,6 @@ import type { RenderStrategyFactory } from "./RenderStrategy";
 type RenderStrategyRegistry = Map<string, RenderStrategyFactory<unknown>>;
 
 const REGISTRY_SYMBOL = Symbol.for("ignite-renderer.renderStrategyRegistry");
-const HOST_RUNTIME_STRATEGY = Symbol.for("ignite-renderer.hostRuntimeStrategy");
-
-function isHostRuntimeStrategy(
-	factory: RenderStrategyFactory<unknown>,
-): boolean {
-	return (
-		(
-			factory as RenderStrategyFactory<unknown> & {
-				[HOST_RUNTIME_STRATEGY]?: boolean;
-			}
-		)[HOST_RUNTIME_STRATEGY] === true
-	);
-}
 
 type RegistryHost = typeof globalThis & {
 	[REGISTRY_SYMBOL]?: RenderStrategyRegistry;
@@ -40,18 +27,16 @@ export function registerRenderStrategy(
 	renderer: string,
 	factory: RenderStrategyFactory<unknown>,
 ): void {
+	getRegistry().set(renderer, factory);
+}
+
+/** Register the built-in JSX strategy without replacing one already present. */
+export function registerIgniteJsxIfAbsent(
+	factory: RenderStrategyFactory<unknown>,
+): void {
 	const registry = getRegistry();
-	const existing = registry.get(renderer);
-	// A host-free entry must not clobber a host-aware one already registered
-	// for the same id. The host-aware entry may still replace a host-free one.
-	if (
-		existing &&
-		isHostRuntimeStrategy(existing) &&
-		!isHostRuntimeStrategy(factory)
-	) {
-		return;
-	}
-	registry.set(renderer, factory);
+	if (registry.has("ignite-jsx")) return;
+	registry.set("ignite-jsx", factory);
 }
 
 /**

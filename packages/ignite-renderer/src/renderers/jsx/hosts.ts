@@ -336,6 +336,7 @@ function acceptHandle(
 	}
 	record.handle = handle;
 	record.settled = true;
+	applyDescription(element, definition, record.slice);
 	if (deferDeliver) {
 		pendingDeliver.push(record);
 		return;
@@ -348,6 +349,7 @@ function ensureHostUnmount(element: Element): void {
 	hostUnmountBound.add(element);
 	hostUnmountBindings += 1;
 	onHostUnmount(element, () => {
+		hostUnmountBound.delete(element);
 		const current = hostRecords.get(element);
 		if (!current) return;
 		retireDescendantHosts(element);

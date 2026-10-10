@@ -3,6 +3,7 @@ import {
 	resolveRenderStrategy,
 } from "@ignite-element/renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { registerIgniteJsxIfAbsent } from "../../../../ignite-renderer/src/renderers/registry";
 import { defineIgniteConfig } from "../../config";
 import { createIgniteJsxRenderStrategy } from "../../renderers/jsx/IgniteJsxRenderStrategy";
 import { createLitRenderStrategy } from "../../renderers/LitRenderStrategy";
@@ -13,18 +14,9 @@ import {
 	resolveConfiguredRenderStrategy,
 } from "../../renderers/resolveConfiguredRenderStrategy";
 
-const HOST_RUNTIME_STRATEGY = Symbol.for("ignite-renderer.hostRuntimeStrategy");
-
-function hostAwareFactory(kind: string): RenderStrategyFactory<unknown> {
-	const factory = () =>
-		({ kind }) as unknown as ReturnType<RenderStrategyFactory<unknown>>;
-	Object.defineProperty(factory, HOST_RUNTIME_STRATEGY, { value: true });
-	return factory;
-}
-
-function hostFreeFactory(): RenderStrategyFactory<unknown> {
+function plainFactory(kind: string): RenderStrategyFactory<unknown> {
 	return () =>
-		({ kind: "free" }) as unknown as ReturnType<RenderStrategyFactory<unknown>>;
+		({ kind }) as unknown as ReturnType<RenderStrategyFactory<unknown>>;
 }
 
 const CONFIG_SYMBOL = Symbol.for("ignite-element.config");
@@ -107,18 +99,18 @@ describe("resolveConfiguredRenderStrategy", () => {
 	});
 
 	it("keeps a host-aware ignite-jsx registration ahead of a later host-free one", () => {
-		const aware = hostAwareFactory("aware");
-		const free = hostFreeFactory();
+		const aware = plainFactory("aware");
+		const free = plainFactory("free");
 		registerRenderStrategy("ignite-jsx", aware);
-		registerRenderStrategy("ignite-jsx", free);
+		registerIgniteJsxIfAbsent(free);
 
 		expect(resolveRenderStrategy("ignite-jsx")).toBe(aware);
 	});
 
 	it("lets a host-aware ignite-jsx registration replace a host-free one", () => {
-		const aware = hostAwareFactory("aware");
-		const free = hostFreeFactory();
-		registerRenderStrategy("ignite-jsx", free);
+		const aware = plainFactory("aware");
+		const free = plainFactory("free");
+		registerIgniteJsxIfAbsent(free);
 		registerRenderStrategy("ignite-jsx", aware);
 
 		expect(resolveRenderStrategy("ignite-jsx")).toBe(aware);

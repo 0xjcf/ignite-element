@@ -827,13 +827,21 @@ function patchNode(
 	}
 
 	const elementNode = domNode as Element & ParentNode;
+	const nextUse = newNode.props.use;
+	const droppingHost =
+		hostRuntimeEnabled &&
+		ownsSubtreeViaProps(newNode.props) &&
+		(typeof nextUse !== "string" || nextUse.length === 0);
+	if (droppingHost) {
+		syncHostElement(elementNode, nextUse);
+	}
 
 	patchProps(elementNode, oldNode.props, newNode.props);
 	const previouslyOwned = hostRuntimeEnabled
 		? subtreeIsOwned(elementNode, oldNode.props)
 		: ownsSubtreeViaProps(oldNode.props);
-	if (hostRuntimeEnabled) {
-		syncHostElement(elementNode, newNode.props.use);
+	if (hostRuntimeEnabled && !droppingHost) {
+		syncHostElement(elementNode, nextUse);
 	}
 	// A subtree owner (innerHTML, textContent, or a host claim) is opaque.
 	// patchProps already applied the owning prop — skip child diffing so the

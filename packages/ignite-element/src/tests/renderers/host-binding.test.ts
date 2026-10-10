@@ -4,6 +4,7 @@ import {
 	hostUnmountBindingsForTests,
 } from "../../../../ignite-renderer/src/renderers/jsx/hosts";
 import type { Host, HostContext } from "../../hosts/types";
+import { createIgniteJsxRenderStrategy } from "../../renderers/jsx/IgniteJsxRenderStrategy";
 import { jsx } from "../../renderers/jsx/jsx-runtime";
 import { renderIgniteJsx } from "../../renderers/jsx/renderer";
 
@@ -747,6 +748,94 @@ describe("host binding", () => {
 			next?.querySelector(`[id="${next.getAttribute("aria-describedby")}"]`)
 				?.textContent,
 		).toBe("angle 4");
+	});
+
+	it("reapplies the description after an async mount replaces the subtree", async () => {
+		const host = sceneHost({
+			mount(el) {
+				return Promise.resolve().then(() => {
+					el.replaceChildren();
+					return { id: 1 };
+				});
+			},
+		});
+		const root = document.createElement("div");
+		document.body.append(root);
+		renderIgniteJsx(root, jsx("canvas", { use: "scene" }), undefined, {
+			hosts: runtime(host, 2),
+		});
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(hostDescription(root.querySelector("canvas"))).toBe("angle 2");
+	});
+
+	it("disposes the host before innerHTML or textContent becomes final", () => {
+		const clearOnDispose = () => {
+			let element: Element | null = null;
+			const host = sceneHost({
+				mount(el) {
+					element = el;
+					return { id: 1 };
+				},
+				dispose() {
+					element?.replaceChildren();
+				},
+			});
+			return host;
+		};
+		const rich = clearOnDispose();
+		const root = document.createElement("div");
+		document.body.append(root);
+		const tree = renderIgniteJsx(
+			root,
+			jsx("section", { use: "scene" }),
+			undefined,
+			{ hosts: runtime(rich, 1) },
+		);
+		renderIgniteJsx(root, jsx("section", { innerHTML: "<p>kept</p>" }), tree, {
+			hosts: runtime(rich, 1),
+		});
+		expect(rich.disposed).toHaveLength(1);
+		expect(root.querySelector("p")?.textContent).toBe("kept");
+
+		const plain = clearOnDispose();
+		const textRoot = document.createElement("div");
+		document.body.append(textRoot);
+		const textTree = renderIgniteJsx(
+			textRoot,
+			jsx("section", { use: "scene" }),
+			undefined,
+			{ hosts: runtime(plain, 1) },
+		);
+		renderIgniteJsx(
+			textRoot,
+			jsx("section", { textContent: "plain" }),
+			textTree,
+			{ hosts: runtime(plain, 1) },
+		);
+		expect(plain.disposed).toHaveLength(1);
+		expect(textRoot.querySelector("section")?.textContent).toBe("plain");
+	});
+
+	it("disposes the new host after a reconnect of the same element", () => {
+		const host = sceneHost();
+		const element = document.createElement("div");
+		Object.defineProperty(element, "__igniteHostRuntime", {
+			configurable: true,
+			value: runtime(host, 1),
+		});
+		document.body.append(element);
+		const shadow = element.attachShadow({ mode: "open" });
+		const strategy = createIgniteJsxRenderStrategy();
+		strategy.attach(shadow);
+		strategy.render(jsx("canvas", { use: "scene" }));
+		expect(host.mounts).toBe(1);
+		strategy.releaseView?.();
+		expect(host.disposed).toHaveLength(1);
+		strategy.render(jsx("canvas", { use: "scene" }));
+		expect(host.mounts).toBe(2);
+		strategy.releaseView?.();
+		expect(host.disposed).toHaveLength(2);
 	});
 
 	it("does not recurse when update sends during delivery", async () => {
