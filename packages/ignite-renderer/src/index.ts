@@ -5,8 +5,9 @@
 //   - Advanced-public: defineIgniteConfig/getIgniteConfig, the JSX types and
 //     Fragment, and the render-strategy registry (register/resolve/list).
 //   - Internal (@internal): get/setGlobalStyles, injectStyles/flushPendingStyles,
-//     and clearRegisteredRenderStrategiesForTests. They stay exported only for
-//     internal cross-package use, not as a supported API.
+//     clearRegisteredRenderStrategiesForTests, and the executable-URI guard.
+//     They stay exported only for internal cross-package use, not as a
+//     supported API.
 export type {
 	IgniteConfig,
 	IgniteLoggingLevel,
@@ -22,6 +23,11 @@ export {
 	createAutoDetectRenderStrategy,
 	isLitTemplateResult,
 } from "./renderers/AutoDetectRenderStrategy";
+/** @internal Shared executable-URI guard for projection documents. */
+export {
+	containsExecutableUri,
+	isUriBearingKey,
+} from "./renderers/jsx/executableUri";
 export type {
 	IgniteJsxChild,
 	IgniteJsxElement,

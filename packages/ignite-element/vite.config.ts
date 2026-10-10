@@ -1,9 +1,5 @@
-import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import { createLibConfig } from "../../configs/vite/lib";
-
-const resolvePath = (path: string) =>
-	fileURLToPath(new URL(path, import.meta.url));
 
 type ViteCommand = "build" | "serve";
 
@@ -73,16 +69,6 @@ export default defineConfig(({ command }) => {
 	const warningsOn = command !== "build" || devArtifact;
 	return {
 		...libConfig,
-		resolve: {
-			alias: [
-				{
-					find: "@ignite-element/renderer/jsx/executable-uri",
-					replacement: resolvePath(
-						"../ignite-renderer/src/renderers/jsx/executableUri.ts",
-					),
-				},
-			],
-		},
 		define: {
 			...libConfig.define,
 			"process.env.NODE_ENV": JSON.stringify(resolveNodeEnv(command)),

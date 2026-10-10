@@ -1,7 +1,13 @@
 import type { MockInstance } from "vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+	installStyleInject,
+	injectStyles as queueStylesBeforeInjector,
+} from "../../../ignite-renderer/src/styleHook";
 import { setGlobalStyles } from "../globalStyles";
 import injectStyles, { flushPendingStyles } from "../injectStyles";
+
+const STYLE_INJECT_SLOT = Symbol.for("ignite-element.style-inject");
 
 describe("injectStyles", () => {
 	let shadowRoot: ShadowRoot;
@@ -112,6 +118,28 @@ describe("injectStyles", () => {
 		expect(secondLinks).toHaveLength(1);
 		expect(links[0]?.href).toContain("theme.css");
 		expect(secondLinks[0]?.href).toContain("theme.css");
+	});
+
+	it("queues a root attached before the style injector loads", () => {
+		const host = globalThis as typeof globalThis & {
+			[STYLE_INJECT_SLOT]?: (root: ShadowRoot) => void;
+		};
+		const previous = host[STYLE_INJECT_SLOT];
+		delete host[STYLE_INJECT_SLOT];
+		const earlyRoot = createShadowRoot();
+
+		try {
+			queueStylesBeforeInjector(earlyRoot);
+			setGlobalStyles(undefined);
+			if (previous) installStyleInject(previous);
+
+			setGlobalStyles("./late.css");
+			flushPendingStyles();
+
+			expect(earlyRoot.querySelector("link")?.href).toContain("late.css");
+		} finally {
+			if (previous) installStyleInject(previous);
+		}
 	});
 
 	it("should ignore redundant calls for the same shadow root", () => {

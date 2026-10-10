@@ -67,10 +67,6 @@ export default defineConfig({
 				replacement: `${rendererSrc}/jsx/index.ts`,
 			},
 			{
-				find: "@ignite-element/renderer/jsx/executable-uri",
-				replacement: `${rendererSrc}/renderers/jsx/executableUri.ts`,
-			},
-			{
 				find: "@ignite-element/renderer/jsx",
 				replacement: `${rendererSrc}/renderers/ignite-jsx.ts`,
 			},

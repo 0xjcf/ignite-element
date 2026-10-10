@@ -219,8 +219,73 @@ describe("URL scheme guard", () => {
 			tree,
 		);
 
-		expect(host.querySelector("a")?.getAttribute("href")).toBeNull();
+		const anchor = host.querySelector("a");
+		expect(anchor?.getAttribute("href")).toBeNull();
+		expect(anchor?.href ?? "").not.toContain("example.com/ok");
+		expect(anchor?.href ?? "").not.toContain("javascript:");
 	});
+
+	it("does not apply an executable data URL on object", () => {
+		const { host } = mount(
+			jsx("object", {
+				data: "data:text/html,<script>alert(1)</script>",
+				type: "text/html",
+			}),
+		);
+		const object = host.querySelector("object");
+
+		expect(object?.getAttribute("data")).toBeNull();
+		expect(object?.data ?? "").not.toContain("text/html");
+		expect(object?.getAttribute("type")).toBe("text/html");
+	});
+
+	it("still applies a document URL on object", () => {
+		const { host } = mount(
+			jsx("object", { data: "https://example.com/file.pdf" }),
+		);
+
+		expect(host.querySelector("object")?.getAttribute("data")).toContain(
+			"https://example.com/file.pdf",
+		);
+	});
+
+	it("still applies a data attribute on elements that are not object", () => {
+		const { host } = mount(
+			jsx("div", { data: "data:text/html,<p>not a document</p>" }),
+		);
+
+		expect(host.querySelector("div")?.getAttribute("data")).toBe(
+			"data:text/html,<p>not a document</p>",
+		);
+	});
+
+	it.each(["href", "src", "action", "formAction"] as const)(
+		"clears a non-reflected %s property when a later value is executable",
+		(key) => {
+			const tag = `x-url-${key.toLowerCase()}`;
+			if (!customElements.get(tag)) {
+				class UrlElement extends HTMLElement {
+					href = "";
+					src = "";
+					action = "";
+					formAction = "";
+				}
+				customElements.define(tag, UrlElement);
+			}
+
+			const { host, tree } = mount(
+				jsx(tag, { [key]: "https://safe.example/keep" }),
+			);
+			const element = host.querySelector(tag) as HTMLElement &
+				Record<typeof key, string>;
+			expect(element[key]).toBe("https://safe.example/keep");
+
+			renderIgniteJsx(host, jsx(tag, { [key]: "javascript:alert(1)" }), tree);
+
+			expect(element[key] ?? "").not.toBe("https://safe.example/keep");
+			expect(String(element[key] ?? "")).not.toContain("javascript:");
+		},
+	);
 
 	it("applies a safe URL after an executable one was rejected", () => {
 		const { host, tree } = mount(

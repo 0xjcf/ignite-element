@@ -340,8 +340,17 @@ function isBlockedMarkupProp(key: string): boolean {
 	);
 }
 
-function isBlockedUrlValue(key: string, value: unknown): boolean {
-	if (!uriBearingKeyPattern.test(key) || value == null || value === false) {
+function isBlockedUrlValue(
+	element: Element,
+	key: string,
+	value: unknown,
+): boolean {
+	if (value == null || value === false) return false;
+	// `data` is a document URL on <object> and ordinary text elsewhere.
+	if (
+		!uriBearingKeyPattern.test(key) &&
+		(key !== "data" || element.localName !== "object")
+	) {
 		return false;
 	}
 	if (typeof value !== "string") return true;
@@ -984,12 +993,8 @@ function patchProps(
 	const isSvgElement = element instanceof SVGElement;
 
 	for (const key of Object.keys(oldProps)) {
-		if (
-			key === "children" ||
-			key === "ref" ||
-			(hostRuntimeEnabled && key === "use") ||
-			isBlockedMarkupProp(key)
-		)
+		if (hostRuntimeEnabled && key === "use") continue;
+		if (key === "children" || key === "ref" || isBlockedMarkupProp(key))
 			continue;
 		if (!(key in newProps)) {
 			removeProp(element, key, oldProps[key], isSvgElement);
@@ -997,22 +1002,19 @@ function patchProps(
 	}
 
 	for (const [key, next] of Object.entries(newProps)) {
-		if (
-			key === "children" ||
-			key === "ref" ||
-			(hostRuntimeEnabled && key === "use")
-		)
-			continue;
+		if (hostRuntimeEnabled && key === "use") continue;
+		if (key === "children" || key === "ref") continue;
 		if (isBlockedMarkupProp(key)) {
 			if (next !== undefined && next !== null && next !== false) {
 				warnDeprecatedContentProp(element, key);
 			}
 			continue;
 		}
-		if (isBlockedUrlValue(key, next)) {
+		if (isBlockedUrlValue(element, key, next)) {
 			warnBlockedUrl(element, key);
-			const attrName = isSvgElement ? normalizeSvgAttributeName(key) : key;
-			if (element.hasAttribute(attrName)) element.removeAttribute(attrName);
+			// removeProp clears a non-reflected property and the attribute.
+			// Attribute removal alone leaves a stale custom-element URL.
+			removeProp(element, key, oldProps[key], isSvgElement);
 			continue;
 		}
 		const prev = oldProps[key];

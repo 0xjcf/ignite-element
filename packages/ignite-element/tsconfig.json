@@ -10,12 +10,7 @@
 		// config. It uses React.createElement (no JSX syntax) to stay
 		// pragma-agnostic, but TS still requires `jsx` to be set to compile a
 		// .tsx file. `react-jsx` is inert here (no JSX to transform).
-		"jsx": "react-jsx",
-		"paths": {
-			"@ignite-element/renderer/jsx/executable-uri": [
-				"./src/internal/executableUri.d.ts"
-			]
-		}
+		"jsx": "react-jsx"
 	},
 	"include": ["src"],
 	"exclude": [

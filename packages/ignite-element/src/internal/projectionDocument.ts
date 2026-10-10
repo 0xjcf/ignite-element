@@ -1,7 +1,7 @@
 import {
 	containsExecutableUri,
 	isUriBearingKey,
-} from "@ignite-element/renderer/jsx/executable-uri";
+} from "@ignite-element/renderer";
 import { validateToolInputValue } from "../tools/core";
 import type {
 	ProjectionActionNode,
