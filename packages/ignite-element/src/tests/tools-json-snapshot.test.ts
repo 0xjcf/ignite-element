@@ -190,7 +190,9 @@ describe("plain JSON snapshot pairs", () => {
 		});
 		expect(result.ok).toBe(true);
 		expect(seen).toEqual([{ a: 2 }]);
-		expect(Object.hasOwn(seen[0], "toJSON")).toBe(false);
+		expect(
+			Object.getOwnPropertyDescriptor(seen[0] as object, "toJSON"),
+		).toBeUndefined();
 	});
 
 	it("rejects cycles and over-depth without throwing", () => {
@@ -215,7 +217,9 @@ describe("plain JSON snapshot pairs", () => {
 		expect(result.ok).toBe(true);
 		const snapshot = seen[0] as { a: number; __proto__?: unknown };
 		expect(snapshot.a).toBe(1);
-		expect(Object.hasOwn(snapshot, "__proto__")).toBe(true);
+		expect(
+			Object.getOwnPropertyDescriptor(snapshot, "__proto__")?.enumerable,
+		).toBe(true);
 		expect(Object.getPrototypeOf(snapshot)).toBe(Object.prototype);
 		expect((Object.prototype as { admin?: boolean }).admin).toBeUndefined();
 
@@ -328,7 +332,7 @@ describe("plain JSON snapshot pairs", () => {
 		expect(reads).toBe(0);
 
 		const symbolArray = [1];
-		symbolArray[Symbol("id")] = "x";
+		Object.defineProperty(symbolArray, Symbol("id"), { value: "x" });
 		invalid("series", symbolArray);
 		const named = [1];
 		Object.defineProperty(named, "extra", {
