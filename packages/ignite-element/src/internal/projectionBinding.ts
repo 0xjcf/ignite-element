@@ -158,13 +158,22 @@ function withHostDescriptions(
 	};
 }
 
+function encodeIdentityField(value: string): string {
+	return `${value.length}:${value}`;
+}
+
 function projectionIdentity(
 	identity: string,
 	descriptions: Readonly<Record<string, string>> | undefined,
 ): string {
 	const entries = hostEntries(descriptions);
 	if (entries.length === 0) return identity;
-	return `${identity}\n${entries.map(([name, text]) => `${name}=${text}`).join("\n")}`;
+	return `${identity}\n${entries
+		.map(
+			([name, text]) =>
+				`${encodeIdentityField(name)}${encodeIdentityField(text)}`,
+		)
+		.join("")}`;
 }
 
 export function createProjectionBindingState(): ProjectionBindingState {

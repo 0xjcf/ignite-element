@@ -696,6 +696,41 @@ describe("private projection binding", () => {
 		expect(state.lastAcknowledgedSpeechId).toBe("speech-1");
 	});
 
+	it("does not treat different host descriptions as the same document", async () => {
+		const state = createProjectionBindingState();
+		const commitDocument = vi.fn();
+		const withDescriptions = (
+			descriptions: Record<string, string>,
+		): ProjectionInspection => ({
+			...createInspection(),
+			hostDescriptions: descriptions,
+		});
+
+		await commitProjectionDocumentTarget({
+			state,
+			inspection: withDescriptions({ a: "x\nc=y", c: "z" }),
+			commitDocument,
+		});
+		const second = await commitProjectionDocumentTarget({
+			state,
+			inspection: withDescriptions({ a: "x", c: "y\nc=z" }),
+			commitDocument,
+		});
+
+		expect(second).toMatchObject({
+			channel: "document",
+			status: "committed",
+			documentId: "panel",
+		});
+		expect(commitDocument).toHaveBeenCalledTimes(2);
+		const texts = commitDocument.mock.calls.map((call) =>
+			(call[0] as { nodes: Array<{ text: string }> }).nodes
+				.map((node) => node.text)
+				.join("|"),
+		);
+		expect(texts[0]).not.toBe(texts[1]);
+	});
+
 	it("gives host projection nodes ids that do not collide, and does not skip a retry", async () => {
 		const state = createProjectionBindingState();
 		const commitDocument = vi.fn();

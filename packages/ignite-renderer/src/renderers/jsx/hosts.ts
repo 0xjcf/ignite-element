@@ -51,7 +51,10 @@ let descriptionSerial = 0;
 let activeRuntime: IgniteHostRuntime | undefined;
 let renderDepth = 0;
 const deferredSends: Array<() => void> = [];
-const pendingDeliver: HostRecord[] = [];
+const pendingDeliver: Array<{
+	record: HostRecord;
+	afterDeliver: () => void;
+}> = [];
 let flushScheduled = false;
 
 function scheduleDeferredSends(): void {
@@ -62,9 +65,11 @@ function scheduleDeferredSends(): void {
 		const batch = deferredSends.splice(0, deferredSends.length);
 		const waiting = pendingDeliver.splice(0, pendingDeliver.length);
 		for (const send of batch) send();
-		for (const record of waiting) {
-			if (!record.settled) continue;
-			deliver(record, false);
+		for (const pending of waiting) {
+			if (!pending.record.settled) continue;
+			deliver(pending.record, false);
+			if (!pending.record.settled) continue;
+			pending.afterDeliver();
 		}
 		if (deferredSends.length > 0) scheduleDeferredSends();
 	});
@@ -236,9 +241,24 @@ function descriptionIdTaken(element: Element, id: string): boolean {
 	return element.ownerDocument.getElementById(id) !== null;
 }
 
+function forgetDescriptionId(element: Element, id: string): void {
+	descriptionIds.delete(element);
+	const current = element.getAttribute("aria-describedby");
+	if (!current) return;
+	const next = current.split(/\s+/).filter((token) => token && token !== id);
+	if (next.length === 0) element.removeAttribute("aria-describedby");
+	else element.setAttribute("aria-describedby", next.join(" "));
+}
+
 function descriptionId(element: Element): string {
 	const existing = descriptionIds.get(element);
-	if (existing) return existing;
+	if (existing) {
+		const node = descriptionNode(element);
+		if (node?.id === existing || !descriptionIdTaken(element, existing)) {
+			return existing;
+		}
+		forgetDescriptionId(element, existing);
+	}
 	let id = "";
 	do {
 		descriptionSerial += 1;
@@ -344,12 +364,14 @@ function acceptHandle(
 	}
 	record.handle = handle;
 	record.settled = true;
-	applyDescription(element, definition, record.slice);
+	const afterDeliver = () =>
+		applyDescription(element, definition, record.slice);
 	if (deferDeliver) {
-		pendingDeliver.push(record);
+		pendingDeliver.push({ record, afterDeliver });
 		return;
 	}
 	deliver(record, false);
+	afterDeliver();
 }
 
 function ensureHostUnmount(element: Element): void {

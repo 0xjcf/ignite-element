@@ -6,7 +6,7 @@ export function rememberCoreHosts<Snapshot>(
 	adapterFactory: object,
 	hosts: IgniteHostMap<Snapshot> | undefined,
 ): void {
-	if (!hosts || Object.keys(hosts).length === 0) return;
+	if (hosts === undefined) return;
 	hostsByAdapter.set(adapterFactory, hosts as IgniteHostMap<never>);
 }
 

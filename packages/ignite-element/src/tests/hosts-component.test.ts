@@ -246,6 +246,53 @@ describe("igniteCore hosts", () => {
 		hosted.dispose();
 	});
 
+	it("keeps an explicit empty host map and recognizes names added later", () => {
+		const machine = createMachine({
+			types: { context: {} as { n: number } },
+			context: { n: 1 },
+		});
+		let emptySlot: unknown = "missing";
+		const empty = igniteCore({
+			source: machine,
+			hosts: {},
+		});
+		const emptyName = tag();
+		empty(emptyName, (args) => {
+			emptySlot = Reflect.get(args, "hosts");
+			return jsx("p", { children: "ok" });
+		});
+		document.body.append(document.createElement(emptyName));
+		expect(emptySlot).not.toBeUndefined();
+		expect(Object.keys(emptySlot as object)).toEqual([]);
+		empty.dispose();
+
+		let mounts = 0;
+		const registry = Object.create(null) as Record<string, Host>;
+		const dynamic = igniteCore({
+			source: machine,
+			hosts: registry,
+		});
+		registry.scene = {
+			mount() {
+				mounts += 1;
+			},
+			dispose() {},
+		};
+		let handle = "missing";
+		const dynamicName = tag();
+		dynamic(dynamicName, (args) => {
+			const table = Reflect.get(args, "hosts") as
+				| Record<string, unknown>
+				| undefined;
+			handle = String(table?.scene ?? "missing");
+			return jsx("canvas", { use: handle });
+		});
+		document.body.append(document.createElement(dynamicName));
+		expect(handle).toBe("scene");
+		expect(mounts).toBe(1);
+		dynamic.dispose();
+	});
+
 	it("keeps a derived state or command named hosts when the core declares no host map", () => {
 		const machine = createMachine({
 			types: { context: {} as { n: number } },

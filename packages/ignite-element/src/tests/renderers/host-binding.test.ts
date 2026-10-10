@@ -750,6 +750,63 @@ describe("host binding", () => {
 		).toBe("angle 4");
 	});
 
+	it("assigns a new description id when an update reuses the cached one", () => {
+		let described = "";
+		const host = sceneHost({
+			update(_handle, slice) {
+				if (slice.angle !== 2) return;
+				const taken = document.createElement("span");
+				taken.id = described;
+				taken.textContent = "taken";
+				const canvas = document.querySelector("canvas");
+				canvas?.replaceChildren(taken);
+			},
+		});
+		const root = document.createElement("div");
+		document.body.append(root);
+		let tree = renderIgniteJsx(
+			root,
+			jsx("canvas", { use: "scene" }),
+			undefined,
+			{
+				hosts: runtime(host, 1),
+			},
+		);
+		const canvas = root.querySelector("canvas");
+		described = canvas?.getAttribute("aria-describedby") ?? "";
+		expect(described).toMatch(/^ignite-host-desc-\d+$/);
+		tree = renderIgniteJsx(root, jsx("canvas", { use: "scene" }), tree, {
+			hosts: runtime(host, 2),
+		});
+		const description = canvas?.querySelector("[data-ignite-host-description]");
+		expect(description?.textContent).toBe("angle 2");
+		expect(
+			canvas?.ownerDocument.querySelectorAll(`[id="${description?.id}"]`),
+		).toHaveLength(1);
+		expect(description?.id).not.toBe(described);
+	});
+
+	it("restores the description after the first update of an async mount", async () => {
+		let element: Element | null = null;
+		const host = sceneHost({
+			mount(el) {
+				element = el;
+				return Promise.resolve({ id: 1 });
+			},
+			update() {
+				element?.replaceChildren();
+			},
+		});
+		const root = document.createElement("div");
+		document.body.append(root);
+		renderIgniteJsx(root, jsx("canvas", { use: "scene" }), undefined, {
+			hosts: runtime(host, 1),
+		});
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(hostDescription(root.querySelector("canvas"))).toBe("angle 1");
+	});
+
 	it("reapplies the description after an async mount replaces the subtree", async () => {
 		const host = sceneHost({
 			mount(el) {
