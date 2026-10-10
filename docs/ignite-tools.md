@@ -47,8 +47,10 @@ A `consequential: true` command is not a side-effect-free read. The
 application owns the single-use approval
 `{ actor, name, input, target, id, expiresAt }`. Compare the canonical call,
 the name plus the validated input. Consume the approval id only when
-`context.execute` is true. `run` sets that flag immediately before
-`execute`. `resolveCall` does not. A new id can approve the same call again.
+`context.execute` is true. `run` sets that flag after observation setup
+succeeds and immediately before `execute`. The predicate and `execute` share
+one immutable snapshot of the validated input. `resolveCall` does not set the
+flag. A new id can approve the same call again.
 Deny every command that is not explicitly allowed. Ignite does not validate,
 store, or consume the record. A boolean `confirmed` flag is not an approval.
 `run` calls `core.execute({ command, input })`.

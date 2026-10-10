@@ -107,8 +107,9 @@ is side-effect-free. `run` still calls `core.execute` for it. `observe` and
 
 A `consequential: true` command is not a side-effect-free read. Listing calls
 `canExecute(name)`. A call also passes the validated input and `{ core }`.
-`run` sets `context.execute` only immediately before `execute`. `resolveCall`
-does not set it. The application owns the single-use approval
+`run` sets `context.execute` only after observation setup succeeds and
+immediately before `execute`. The predicate and `execute` share one immutable
+snapshot of the validated input. `resolveCall` does not set `execute`. The application owns the single-use approval
 `{ actor, name, input, target, id, expiresAt }`. Compare the canonical call,
 the name plus the validated input, and consume the approval id only when
 `context.execute` is true. A new id can approve the same call again. Deny

@@ -15,7 +15,10 @@ Status: **locked product cut, beta break OK**.
   Non-read commands are omitted unless `canExecute` returns true. Omitting
   the predicate denies those commands. An ungated `read: true` tool stays
   available only when that command is side-effect-free; `run` still calls
-  `core.execute`. `context.execute` is true only immediately before
+  `core.execute`. The validated input is one immutable snapshot, shared by
+  preflight and `execute`. A schema default is validated before it is routed.
+  Plain objects from another JavaScript realm are accepted. `context.execute`
+  is true only after observation setup succeeds and immediately before
   `execute`. `resolveCall` does not set it, so a validation call must not
   consume an application approval. Not authentication. Ignite does not store
   or consume approvals.
