@@ -11,11 +11,27 @@ import type {
 } from "./types";
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+	try {
+		if (typeof value !== "object" || value === null || Array.isArray(value)) {
+			return false;
+		}
+		// Brand rejects Date, Map, and Set from this realm or another. A plain
+		// object from another realm has that realm's Object.prototype, so the
+		// prototype check cannot require this realm's Object.prototype.
+		if (Object.prototype.toString.call(value) !== "[object Object]") {
+			return false;
+		}
+		const prototype = Object.getPrototypeOf(value);
+		if (prototype === null) return true;
+		if (Object.getPrototypeOf(prototype) !== null) return false;
+		const ctor = (prototype as { constructor?: unknown }).constructor;
+		return (
+			typeof ctor === "function" &&
+			(ctor as { prototype?: unknown }).prototype === prototype
+		);
+	} catch {
 		return false;
 	}
-	const prototype = Object.getPrototypeOf(value);
-	return prototype === Object.prototype || prototype === null;
 }
 
 const TOOL_INPUT_TYPES = new Set([
@@ -87,19 +103,114 @@ function isNoArgSchema(schema: ToolInputSchema): boolean {
 	);
 }
 
-function normalizeRouteInput(
-	schema: ToolInputSchema,
-	input: unknown,
-): { input?: unknown } {
-	if (isNoArgSchema(schema)) {
-		return {};
-	}
+type Materialized =
+	| { readonly ok: true; readonly value: unknown }
+	| { readonly ok: false; readonly issues: string[] };
 
-	if (input === undefined && "default" in schema) {
-		return { input: schema.default };
-	}
+function materializeIssue(path: string, detail: string): Materialized {
+	return { ok: false, issues: [`${path}: ${detail}`] };
+}
 
-	return { input };
+function sourceForRoute(schema: ToolInputSchema, input: unknown): Materialized {
+	try {
+		if (isNoArgSchema(schema)) return { ok: true, value: input };
+		if (input === undefined && "default" in schema) {
+			return { ok: true, value: schema.default };
+		}
+		return { ok: true, value: input };
+	} catch {
+		return materializeIssue("input", "unable to read value");
+	}
+}
+
+function materializeValue(
+	value: unknown,
+	path: string,
+	active: WeakSet<object>,
+): Materialized {
+	try {
+		if (
+			value === undefined ||
+			value === null ||
+			typeof value === "boolean" ||
+			typeof value === "string" ||
+			typeof value === "number"
+		) {
+			return { ok: true, value };
+		}
+		if (Array.isArray(value)) {
+			return materializeArray(value, path, active);
+		}
+		if (isPlainObject(value)) {
+			return materializeObject(value, path, active);
+		}
+		return { ok: true, value };
+	} catch {
+		return materializeIssue(path, "unable to read value");
+	}
+}
+
+function materializeArray(
+	value: unknown[],
+	path: string,
+	active: WeakSet<object>,
+): Materialized {
+	if (active.has(value)) {
+		return materializeIssue(path, "cyclic data is not allowed");
+	}
+	active.add(value);
+	try {
+		const length = value.length;
+		if (!Number.isSafeInteger(length) || length < 0) {
+			return materializeIssue(path, "expected array");
+		}
+		const output: unknown[] = [];
+		for (let index = 0; index < length; index += 1) {
+			const itemPath = `${path}[${index}]`;
+			const item = materializeValue(value[index], itemPath, active);
+			if (!item.ok) return item;
+			output.push(item.value);
+		}
+		return { ok: true, value: Object.freeze(output) };
+	} catch {
+		return materializeIssue(path, "unable to read value");
+	} finally {
+		active.delete(value);
+	}
+}
+
+function materializeObject(
+	value: Record<string, unknown>,
+	path: string,
+	active: WeakSet<object>,
+): Materialized {
+	if (active.has(value)) {
+		return materializeIssue(path, "cyclic data is not allowed");
+	}
+	active.add(value);
+	try {
+		const output: Record<string, unknown> = {};
+		for (const key of Object.keys(value)) {
+			const propertyPath = `${path}.${key}`;
+			const property = materializeValue(value[key], propertyPath, active);
+			if (!property.ok) return property;
+			Object.defineProperty(output, key, {
+				value: property.value,
+				enumerable: true,
+				writable: true,
+				configurable: true,
+			});
+		}
+		return { ok: true, value: Object.freeze(output) };
+	} catch {
+		return materializeIssue(path, "unable to read value");
+	} finally {
+		active.delete(value);
+	}
+}
+
+function materializeToolInput(value: unknown, path: string): Materialized {
+	return materializeValue(value, path, new WeakSet());
 }
 
 // Explicit application input schema, scalar or object, mirrored verbatim.
@@ -229,13 +340,15 @@ export function buildManifest(
  * `igniteTools({ core, schema })` bind instead of importing this.
  *
  * Pure: validate a model-supplied input against a command's schema and route it
- * to `{ command, input? }`. A call then asks `canExecute(name, input, context)`
- * with that validated input. This function forwards `context` and does not set
- * `execute`. The `run` shell passes `{ execute: true }` only immediately before
- * `core.execute`. Errors are returned as values — `UnknownCommand`
- * (not in the manifest), `InvalidInput` (fails the input schema), or
- * `Unavailable` (the predicate is missing, throws, returns a thenable, or
- * returns anything other than true). Never throws.
+ * to `{ command, input? }`. The routed input is one immutable snapshot of the
+ * caller value, or of the schema default when the caller omits input. Validation
+ * and `canExecute(name, input, context)` both see that snapshot. This function
+ * forwards `context` and does not set `execute`. `run` calls it without
+ * `execute`, then calls `canExecute` with `{ execute: true }` only after
+ * observation is subscribed and immediately before `core.execute`. Errors are
+ * returned as values — `UnknownCommand` (not in the manifest), `InvalidInput`
+ * (fails the input schema), or `Unavailable` (the predicate is missing, throws,
+ * returns a thenable, or returns anything other than true). Never throws.
  */
 export function resolveCall(
 	manifest: NeutralManifest,
@@ -249,15 +362,27 @@ export function resolveCall(
 		return err({ kind: "UnknownCommand", name });
 	}
 
-	const issues = validateToolInputValue(tool.inputSchema, input, "input");
+	const source = sourceForRoute(tool.inputSchema, input);
+	if (!source.ok) {
+		return err({ kind: "InvalidInput", name, issues: source.issues });
+	}
+	const snapshot = materializeToolInput(source.value, "input");
+	if (!snapshot.ok) {
+		return err({ kind: "InvalidInput", name, issues: snapshot.issues });
+	}
+
+	const issues = validateToolInputValue(
+		tool.inputSchema,
+		snapshot.value,
+		"input",
+	);
 	if (issues.length > 0) {
 		return err({ kind: "InvalidInput", name, issues });
 	}
 
-	const route = {
-		command: name,
-		...normalizeRouteInput(tool.inputSchema, input),
-	};
+	const route = isNoArgSchema(tool.inputSchema)
+		? { command: name }
+		: { command: name, input: snapshot.value };
 	if (
 		!allowsTool(tool, name, canExecute, {
 			input: route.input,
@@ -284,10 +409,19 @@ export function validateToolInputValue(
 	const type = schema.type;
 
 	if (value === undefined) {
-		// Absent input is acceptable when a default exists, or for an object schema
-		// with no required properties (the no-arg command case).
+		// A substituted default has to satisfy the same schema as a caller value.
+		// An undefined default is not a value, so it falls through to the missing
+		// input checks below.
 		if ("default" in schema) {
-			return [];
+			let fallback: unknown;
+			try {
+				fallback = schema.default;
+			} catch {
+				return [`${path}: unable to read value`];
+			}
+			if (fallback !== undefined) {
+				return validateToolInputValue(schema, fallback, path);
+			}
 		}
 		if (type === "object") {
 			return validateToolInputValue(schema, {}, path);

@@ -1,3 +1,4 @@
+import vm from "node:vm";
 import { describe, expect, it } from "vitest";
 import type { IgniteToolsRuntime } from "../tools";
 import {
@@ -6,6 +7,7 @@ import {
 	igniteTools,
 	resolveCall,
 } from "../tools";
+import type { ToolInputSchema } from "../tools/types";
 import type { IgniteAgentSchema } from "../types/schema";
 
 const schema = defineToolSchema({
@@ -492,5 +494,526 @@ describe("canExecute receives the call and fails closed", () => {
 			ok: false,
 			error: { kind: "Unavailable", name: "increment" },
 		});
+	});
+
+	it("uses one immutable snapshot for validation, preflight, and execution", async () => {
+		const runtime = createRuntime();
+		let reads = 0;
+		const input: { temp?: number } = {};
+		Object.defineProperty(input, "temp", {
+			enumerable: true,
+			configurable: true,
+			get() {
+				reads += 1;
+				return reads === 1 ? 72 : 99;
+			},
+		});
+		const seen: unknown[] = [];
+		const tools = igniteTools({
+			core: runtime as unknown as IgniteToolsRuntime,
+			schema: defineToolSchema({
+				setThermostat: {
+					description: "Set the thermostat.",
+					input: {
+						type: "object",
+						properties: { temp: { type: "number" } },
+						required: ["temp"],
+					},
+					consequential: true,
+				},
+			}),
+			canExecute: (_name, value, context) => {
+				if (context?.execute) seen.push(value);
+				return true;
+			},
+		});
+
+		const result = await tools.run({ name: "setThermostat", input });
+		expect(result.ok).toBe(true);
+		expect(runtime.calls).toEqual([
+			{ command: "setThermostat", input: { temp: 72 } },
+		]);
+		const executed = runtime.calls[0]?.input;
+		expect(seen).toEqual([executed]);
+		expect(Object.isFrozen(executed)).toBe(true);
+		expect(Object.getOwnPropertyDescriptor(executed, "temp")?.get).toBe(
+			undefined,
+		);
+		expect(input.temp).toBe(99);
+	});
+
+	it("snapshots a schema default before preflight and execution", async () => {
+		const runtime = createRuntime();
+		let reads = 0;
+		const fallback: { temp?: number } = {};
+		Object.defineProperty(fallback, "temp", {
+			enumerable: true,
+			configurable: true,
+			get() {
+				reads += 1;
+				return reads === 1 ? 70 : 12;
+			},
+		});
+		const seen: unknown[] = [];
+		const tools = igniteTools({
+			core: runtime as unknown as IgniteToolsRuntime,
+			schema: defineToolSchema({
+				setThermostat: {
+					description: "Set the thermostat.",
+					input: {
+						type: "object",
+						properties: { temp: { type: "number" } },
+						required: ["temp"],
+						default: fallback,
+					},
+					consequential: true,
+				},
+			}),
+			canExecute: (_name, value, context) => {
+				if (context?.execute) seen.push(value);
+				return true;
+			},
+		});
+
+		const result = await tools.run({
+			name: "setThermostat",
+			input: undefined,
+		});
+		expect(result.ok).toBe(true);
+		expect(runtime.calls).toEqual([
+			{ command: "setThermostat", input: { temp: 70 } },
+		]);
+		expect(seen).toEqual([runtime.calls[0]?.input]);
+		expect(fallback.temp).toBe(12);
+	});
+
+	it("returns InvalidInput when an accessor throws while reading the call", () => {
+		const input: { temp?: number } = {};
+		Object.defineProperty(input, "temp", {
+			enumerable: true,
+			configurable: true,
+			get() {
+				throw new Error("unreadable");
+			},
+		});
+		const manifest = buildManifest(
+			defineToolSchema({
+				setThermostat: {
+					description: "Set the thermostat.",
+					input: {
+						type: "object",
+						properties: { temp: { type: "number" } },
+						required: ["temp"],
+					},
+				},
+			}),
+			() => true,
+		);
+		const seen: unknown[] = [];
+		expect(() =>
+			resolveCall(manifest, "setThermostat", input, (_name, value) => {
+				seen.push(value);
+				return true;
+			}),
+		).not.toThrow();
+		expect(
+			resolveCall(manifest, "setThermostat", input, () => true),
+		).toMatchObject({
+			ok: false,
+			error: { kind: "InvalidInput", name: "setThermostat" },
+		});
+		expect(seen).toEqual([]);
+	});
+});
+
+describe("observation setup does not spend an approval", () => {
+	function observationRuntime(options?: {
+		events?: Array<{ type: string }>;
+		failGet?: () => boolean;
+		on?: (type: string) => { unsubscribe(): void };
+	}) {
+		const calls: Call[] = [];
+		const events = options?.events ?? [{ type: "tick" }];
+		const runtime = {
+			calls,
+			get(key: "states" | "schema" | "commands" | "events") {
+				if (key === "events") {
+					if (options?.failGet?.()) throw new Error("events down");
+					return events;
+				}
+				if (key === "states") return { count: 0 };
+				if (key === "schema") {
+					return {
+						...catalogue,
+						events: events.map((event) => ({
+							type: event.type,
+							payload: null,
+						})),
+					};
+				}
+				return catalogue[key];
+			},
+			async execute(call: Call) {
+				calls.push(call);
+				return { command: call.command };
+			},
+			on(type: string) {
+				return options?.on?.(type) ?? { unsubscribe() {} };
+			},
+			watch() {
+				return { unsubscribe() {} };
+			},
+		};
+		return runtime;
+	}
+
+	it("does not pass execute when event lookup throws, and a retry can run", async () => {
+		let failGet = true;
+		let spent = false;
+		const runtime = observationRuntime({
+			failGet: () => failGet,
+		});
+		const tools = igniteTools({
+			core: runtime as unknown as IgniteToolsRuntime,
+			schema,
+			canExecute: (_name, _input, context) => {
+				if (context?.execute) spent = true;
+				return true;
+			},
+		});
+
+		const failed = await tools.run({ name: "increment", input: undefined });
+		expect(failed).toMatchObject({
+			ok: false,
+			error: { kind: "ExecuteFailed", name: "increment" },
+		});
+		expect(spent).toBe(false);
+		expect(runtime.calls).toEqual([]);
+
+		failGet = false;
+		const retried = await tools.run({ name: "increment", input: undefined });
+		expect(retried.ok).toBe(true);
+		expect(spent).toBe(true);
+		expect(runtime.calls).toEqual([{ command: "increment" }]);
+	});
+
+	it("unsubscribes earlier handles when a later subscription throws", async () => {
+		let failSecond = true;
+		let ons = 0;
+		let spent = false;
+		const unsubscribed: string[] = [];
+		const runtime = observationRuntime({
+			events: [{ type: "a" }, { type: "b" }],
+			on(type) {
+				ons += 1;
+				if (failSecond && ons === 2) throw new Error("on failed");
+				return {
+					unsubscribe() {
+						unsubscribed.push(type);
+					},
+				};
+			},
+		});
+		const tools = igniteTools({
+			core: runtime as unknown as IgniteToolsRuntime,
+			schema,
+			canExecute: (_name, _input, context) => {
+				if (context?.execute) spent = true;
+				return true;
+			},
+		});
+
+		const failed = await tools.run({ name: "increment", input: undefined });
+		expect(failed).toMatchObject({
+			ok: false,
+			error: { kind: "ExecuteFailed", name: "increment" },
+		});
+		expect(spent).toBe(false);
+		expect(unsubscribed).toEqual(["a"]);
+		expect(runtime.calls).toEqual([]);
+
+		failSecond = false;
+		ons = 0;
+		const retried = await tools.run({ name: "increment", input: undefined });
+		expect(retried.ok).toBe(true);
+		expect(spent).toBe(true);
+		expect(runtime.calls).toEqual([{ command: "increment" }]);
+	});
+
+	it("unsubscribes when the consuming preflight denies the call", async () => {
+		const unsubscribed: string[] = [];
+		let sawExecute = false;
+		const runtime = observationRuntime({
+			on(type) {
+				return {
+					unsubscribe() {
+						unsubscribed.push(type);
+					},
+				};
+			},
+		});
+		const tools = igniteTools({
+			core: runtime as unknown as IgniteToolsRuntime,
+			schema,
+			canExecute: (_name, _input, context) => {
+				if (context?.execute) {
+					sawExecute = true;
+					return false;
+				}
+				return true;
+			},
+		});
+
+		const denied = await tools.run({ name: "increment", input: undefined });
+		expect(denied).toEqual({
+			ok: false,
+			error: { kind: "Unavailable", name: "increment" },
+		});
+		expect(sawExecute).toBe(true);
+		expect(unsubscribed).toEqual(["tick"]);
+		expect(runtime.calls).toEqual([]);
+	});
+
+	it("unsubscribes when the consuming preflight returns a thenable", async () => {
+		const unsubscribed: string[] = [];
+		const runtime = observationRuntime({
+			on(type) {
+				return {
+					unsubscribe() {
+						unsubscribed.push(type);
+					},
+				};
+			},
+		});
+		const tools = igniteTools({
+			core: runtime as unknown as IgniteToolsRuntime,
+			schema,
+			canExecute: (_name, _input, context) => {
+				if (context?.execute)
+					return Promise.resolve(true) as unknown as boolean;
+				return true;
+			},
+		});
+		const denied = await tools.run({ name: "increment", input: undefined });
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(denied).toEqual({
+			ok: false,
+			error: { kind: "Unavailable", name: "increment" },
+		});
+		expect(unsubscribed).toEqual(["tick"]);
+		expect(runtime.calls).toEqual([]);
+	});
+});
+
+describe("schema defaults are validated before they are routed", () => {
+	const seenInputs: unknown[] = [];
+	const allow = (_name: string, input?: unknown) => {
+		seenInputs.push(input);
+		return true;
+	};
+
+	function manifestFor(input: ToolInputSchema) {
+		return buildManifest(
+			defineToolSchema({
+				setLimit: {
+					description: "Set the limit.",
+					input,
+					consequential: true,
+				},
+			}),
+			() => true,
+		);
+	}
+
+	it("rejects a default that is non-finite, out of range, or the wrong type", () => {
+		const cases: Array<{ input: ToolInputSchema; issue: RegExp }> = [
+			{
+				input: { type: "number", default: Number.POSITIVE_INFINITY },
+				issue: /finite/,
+			},
+			{
+				input: { type: "number", default: Number.NEGATIVE_INFINITY },
+				issue: /finite/,
+			},
+			{
+				input: { type: "number", minimum: 1, maximum: 3, default: 0 },
+				issue: /minimum/,
+			},
+			{
+				input: { type: "number", minimum: 1, maximum: 3, default: 4 },
+				issue: /maximum/,
+			},
+			{
+				input: { type: "number", default: "nope" },
+				issue: /finite number/,
+			},
+			{
+				input: { type: "string", enum: ["a", "b"], default: "c" },
+				issue: /not one of/,
+			},
+			{
+				input: { type: "boolean", default: "yes" },
+				issue: /boolean/,
+			},
+		];
+
+		for (const { input, issue } of cases) {
+			seenInputs.length = 0;
+			const result = resolveCall(
+				manifestFor(input),
+				"setLimit",
+				undefined,
+				allow,
+			);
+			expect(result).toMatchObject({
+				ok: false,
+				error: { kind: "InvalidInput", name: "setLimit" },
+			});
+			if (!result.ok && result.error.kind === "InvalidInput") {
+				expect(result.error.issues.join("\n")).toMatch(issue);
+			}
+			expect(seenInputs).toEqual([]);
+		}
+	});
+
+	it("rejects a nested default that violates the property schema", () => {
+		seenInputs.length = 0;
+		const result = resolveCall(
+			manifestFor({
+				type: "object",
+				properties: {
+					limit: { type: "number", default: Number.POSITIVE_INFINITY },
+				},
+			}),
+			"setLimit",
+			{ limit: undefined },
+			allow,
+		);
+		expect(result).toMatchObject({
+			ok: false,
+			error: { kind: "InvalidInput", name: "setLimit" },
+		});
+		if (!result.ok && result.error.kind === "InvalidInput") {
+			expect(result.error.issues.join("\n")).toMatch(/finite/);
+		}
+		expect(seenInputs).toEqual([]);
+	});
+});
+
+describe("plain objects from another JavaScript realm", () => {
+	it("accepts a JSON object whose prototype belongs to another realm", () => {
+		const input = vm.runInNewContext("({ room: 'living', temp: 72 })");
+		expect(Object.getPrototypeOf(input)).not.toBe(Object.prototype);
+		const manifest = buildManifest(
+			defineToolSchema({
+				payload: {
+					description: "An object.",
+					input: {
+						type: "object",
+						properties: {
+							room: { type: "string" },
+							temp: { type: "number" },
+						},
+						required: ["room", "temp"],
+					},
+				},
+			}),
+			() => true,
+		);
+		const result = resolveCall(manifest, "payload", input, () => true);
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.value.input).toEqual({ room: "living", temp: 72 });
+			expect(result.value.input).not.toBe(input);
+			expect(Object.isFrozen(result.value.input)).toBe(true);
+		}
+	});
+
+	it("accepts a null-prototype object and rejects a class instance", () => {
+		const input = Object.create(null) as { room?: string; temp?: number };
+		input.room = "living";
+		input.temp = 72;
+		class Room {
+			room = "living";
+			temp = 72;
+		}
+		const manifest = buildManifest(
+			defineToolSchema({
+				payload: {
+					description: "An object.",
+					input: {
+						type: "object",
+						properties: {
+							room: { type: "string" },
+							temp: { type: "number" },
+						},
+						required: ["room", "temp"],
+					},
+				},
+			}),
+			() => true,
+		);
+		const result = resolveCall(manifest, "payload", input, () => true);
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.value.input).toEqual({ room: "living", temp: 72 });
+		}
+		expect(
+			resolveCall(manifest, "payload", new Room(), () => true),
+		).toMatchObject({
+			ok: false,
+			error: { kind: "InvalidInput", name: "payload" },
+		});
+	});
+
+	it("rejects cyclic input before canExecute", () => {
+		const manifest = buildManifest(
+			defineToolSchema({
+				payload: {
+					description: "An object.",
+					input: { type: "object", properties: {} },
+				},
+			}),
+			() => true,
+		);
+		const input: { self?: unknown } = {};
+		input.self = input;
+		const seen: unknown[] = [];
+		expect(
+			resolveCall(manifest, "payload", input, (_name, value) => {
+				seen.push(value);
+				return true;
+			}),
+		).toMatchObject({
+			ok: false,
+			error: { kind: "InvalidInput", name: "payload" },
+		});
+		expect(seen).toEqual([]);
+	});
+
+	it("still rejects Date, Map, and Set created in another realm", () => {
+		const manifest = buildManifest(
+			defineToolSchema({
+				payload: {
+					description: "An object.",
+					input: { type: "object", properties: {} },
+				},
+			}),
+			() => true,
+		);
+		const seen: unknown[] = [];
+		const allow = (_name: string, input?: unknown) => {
+			seen.push(input);
+			return true;
+		};
+		for (const source of ["new Date(0)", "new Map()", "new Set()"]) {
+			expect(
+				resolveCall(manifest, "payload", vm.runInNewContext(source), allow),
+			).toMatchObject({
+				ok: false,
+				error: { kind: "InvalidInput", name: "payload" },
+			});
+		}
+		expect(seen).toEqual([]);
 	});
 });
