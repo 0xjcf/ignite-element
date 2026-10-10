@@ -155,6 +155,30 @@ describe("igniteTools types", () => {
 		expectTypeOf(tools.toolResult).returns.toEqualTypeOf<Block>();
 	});
 
+	it("rejects a boolean confirmed flag as an approval record", () => {
+		const call: NeutralToolCall = {
+			name: "toggle",
+			input: undefined,
+			// @ts-expect-error a boolean confirmed flag is not an approval
+			approval: { confirmed: true },
+		};
+		void call;
+	});
+
+	it("accepts read, consequential, and actor on the existing bind", () => {
+		const defined = defineToolSchema({
+			status: { input: { type: "object", properties: {} }, read: true },
+			setLimit: { input: { type: "number" }, consequential: true },
+		});
+		const tools = igniteTools({
+			core: component,
+			schema: defined,
+			actor: "ada",
+			canExecute: () => true,
+		});
+		expectTypeOf(tools.run).toBeFunction();
+	});
+
 	it("accepts satisfies ToolSchema and defineToolSchema factories", () => {
 		const satisfied = {
 			toggle: { input: { type: "object", properties: {} } },

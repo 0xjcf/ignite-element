@@ -41,6 +41,7 @@ describe("command-defined execution results", () => {
 			schema: {
 				noop: { input: { type: "object", properties: {} } },
 			},
+			canExecute: () => true,
 		});
 		try {
 			expect(await tools.run({ name: "noop", input: {} })).toEqual({

@@ -85,6 +85,7 @@ describe("fromProviderInput", () => {
 			[{ name: "setLimit", inputSchema: schema, gated: false }],
 			"setLimit",
 			providerInput,
+			() => true,
 		);
 
 		expect(providerInput).toBe(input);

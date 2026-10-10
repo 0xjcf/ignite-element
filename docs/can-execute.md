@@ -55,9 +55,10 @@ const tools = igniteTools({
 });
 ```
 
-The provider list omits unavailable explicitly gated commands; invocation
-rechecks the predicate. Omit `canExecute` and gated tools stay available
-(`() => true`). `canExecute` is application preflight, never authentication.
+The provider list omits commands the predicate does not allow. Ungated `read`
+tools stay listed without a predicate. Invocation rechecks the predicate.
+Omit `canExecute` and commands are denied. `canExecute` is application
+preflight, never authentication.
 Refresh offered tools when the application needs a fresh availability list.
 Source enforcement must still handle state changes after preflight.
 

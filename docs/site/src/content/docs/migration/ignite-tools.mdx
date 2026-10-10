@@ -97,8 +97,19 @@ const reply = textOf({
 });
 ```
 
-`canExecute` remains one `(name: string) => boolean` predicate for gated tools.
-Omit it and gated tools stay available. `ignite-element/tools/anthropic` exports
+`canExecute` remains one `(name: string) => boolean` predicate. Commands are
+denied when it is omitted. Pass an explicit allow to keep a command callable.
+`canExecute: () => true` allows every command in that schema. An ungated tool
+with `read: true` stays available without the predicate, and so do `observe`
+and `until`.
+
+A `consequential: true` command also needs `actor` on the bind and a single-use
+approval on `run`: `{ actor, name, input, id, expiresAt }`. The approval must
+match the user, the command, and the normalized input. A boolean `confirmed`
+flag does not authorize the call. `run` consumes the approval once, then calls
+`core.execute({ command, input })`.
+
+`ignite-element/tools/anthropic` exports
 `textOf` the same way as `ignite-element/tools/openai`.
 
 ## Act, then settle
@@ -107,7 +118,8 @@ Omit it and gated tools stay available. `ignite-element/tools/anthropic` exports
 observation itself. On success, `acknowledged.value` is
 `{ result, states, events }`: the command value, the projected states at
 acknowledgement, and declared events from the call window. `UnknownCommand`,
-`InvalidInput`, `Unavailable`, and `ExecuteFailed` are `acknowledged.error`.
+`InvalidInput`, `Unavailable`, `ApprovalRejected`, and `ExecuteFailed` are
+`acknowledged.error`.
 Check `isOk(acknowledged)` before waiting; an error does not imply a later states
 transition. A successful `run` does not mean detached work has finished.
 

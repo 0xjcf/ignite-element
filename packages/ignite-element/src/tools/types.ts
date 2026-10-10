@@ -47,6 +47,16 @@ export type ToolCommandSchema = {
 	description?: string;
 	input: ToolInputSchema;
 	gated?: boolean;
+	/**
+	 * Read or observe only. An ungated read stays available without
+	 * `canExecute`. A command needs an explicit allow.
+	 */
+	read?: boolean;
+	/**
+	 * Human approval is required. `run` accepts only a single-use record bound
+	 * to the bind's `actor`, this command, and the normalized input.
+	 */
+	consequential?: boolean;
 };
 
 /**
@@ -78,6 +88,10 @@ export type NeutralTool = {
 	 * `docs/can-execute.md`).
 	 */
 	gated: boolean;
+	/** Ungated reads stay available when `canExecute` is omitted or denies them. */
+	read?: boolean;
+	/** `run` requires a single-use approval before `core.execute`. */
+	consequential?: boolean;
 };
 
 export type NeutralManifest = NeutralTool[];
@@ -91,6 +105,18 @@ export type NeutralToolCall = {
 	id?: string;
 	name: string;
 	input: unknown;
+	/**
+	 * Single-use approval for a `consequential` command. Bound to the user, the
+	 * command name, and the normalized input. A boolean confirmed flag is not
+	 * an approval.
+	 */
+	approval?: {
+		actor: string;
+		name: string;
+		input?: unknown;
+		id: string;
+		expiresAt: number;
+	};
 };
 
 /**
@@ -142,6 +168,11 @@ export type ToolError =
 	| { kind: "UnknownCommand"; name: string }
 	| { kind: "InvalidInput"; name: string; issues: string[] }
 	| { kind: "Unavailable"; name: string }
+	| {
+			kind: "ApprovalRejected";
+			name: string;
+			reason: "missing" | "actor" | "mismatch" | "expired" | "replay";
+	  }
 	| { kind: "ExecuteFailed"; name: string; message: string; cause?: unknown };
 
 /**
