@@ -10,6 +10,12 @@ import { createIgniteJsxRenderStrategy } from "../renderers/jsx/IgniteJsxRenderS
 
 const STYLE_INJECT_SLOT = Symbol.for("ignite-element.style-inject");
 
+type StyleInject = (root: ShadowRoot) => void;
+
+function isStyleInject(value: unknown): value is StyleInject {
+	return typeof value === "function";
+}
+
 describe("injectStyles", () => {
 	let shadowRoot: ShadowRoot;
 	let warnSpy: MockInstance<typeof console.warn>;
@@ -172,7 +178,7 @@ describe("injectStyles", () => {
 		} finally {
 			droppedElement.remove();
 			keptElement.remove();
-			if (typeof previous === "function") installStyleInject(previous);
+			if (isStyleInject(previous)) installStyleInject(previous);
 		}
 	});
 
@@ -195,9 +201,7 @@ describe("injectStyles", () => {
 			expect(removed.isConnected).toBe(false);
 
 			setGlobalStyles(undefined);
-			installStyleInject(
-				typeof previous === "function" ? previous : injectStyles,
-			);
+			installStyleInject(isStyleInject(previous) ? previous : injectStyles);
 			setGlobalStyles("./detached.css");
 			flushPendingStyles();
 
@@ -206,7 +210,7 @@ describe("injectStyles", () => {
 		} finally {
 			keptElement.remove();
 			setGlobalStyles(undefined);
-			if (typeof previous === "function") installStyleInject(previous);
+			if (isStyleInject(previous)) installStyleInject(previous);
 		}
 	});
 
