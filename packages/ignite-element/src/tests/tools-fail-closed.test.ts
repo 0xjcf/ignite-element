@@ -110,7 +110,7 @@ function bind(
 		canExecute?: (
 			name: string,
 			input?: unknown,
-			context?: { core: object },
+			context?: { core: object; execute?: boolean },
 		) => boolean;
 	} = {},
 ) {
@@ -397,6 +397,22 @@ describe("canExecute receives the call and fails closed", () => {
 			error: { kind: "Unavailable", name: "setLimit" },
 		});
 		expect(runtime.calls).toEqual([{ command: "increment" }]);
+	});
+
+	it("sets execute only on the run path, not on resolveCall", async () => {
+		const runtime = createRuntime();
+		const phases: Array<boolean | undefined> = [];
+		const tools = bind(runtime, {
+			canExecute: (name, _input, context) => {
+				if (context) phases.push(context.execute);
+				return name === "setLimit";
+			},
+		});
+		expect(tools.resolveCall("setLimit", 6).ok).toBe(true);
+		expect(phases).toEqual([undefined]);
+		expect((await tools.run({ name: "setLimit", input: 6 })).ok).toBe(true);
+		expect(phases).toEqual([undefined, undefined, true]);
+		expect(runtime.calls).toEqual([{ command: "setLimit", input: 6 }]);
 	});
 
 	it("refuses a command on a stale manifest when the predicate is omitted at resolve", () => {

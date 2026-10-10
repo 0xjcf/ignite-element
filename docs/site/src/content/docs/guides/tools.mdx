@@ -81,7 +81,7 @@ export const tools = igniteTools({
 
 `canExecute?: (name, input?, context?) => boolean` is the explicit allow for commands.
 
-Listing calls it with the name. A call also passes the validated input and `{ core }`.
+Listing calls it with the name. A call also passes the validated input and `{ core }`. `run` sets `context.execute` only immediately before `execute`. `resolveCall` does not set it.
 
 Omit it and commands are denied. An ungated `read: true` tool still runs only when that command is side-effect-free, and `run` still calls `core.execute`. Do not mark a command `read` if executing it changes source state. `observe` and `until` do not execute commands.
 
@@ -197,17 +197,12 @@ The mark is not a side-effect-free read. The command stays denied unless `canExe
 
 Ignite does not validate or consume the approval. `canExecute` is application preflight, not authentication. A caller can fabricate a structurally valid record, so the library cannot prove a person approved the call.
 
-Keep the single-use record in the application. When `context` is present, hash the command name and the validated input, require that hash, the actor, and `context.core`, and consume the hash once. Deny every other command. Listing calls `canExecute(name)` with no context, so do not consume there.
+Keep the single-use record in the application. Compare the canonical call, the command name plus the validated input, with the granted call. Track consumption by approval id. Consume that id only when `context.execute` is true, which `run` sets immediately before `execute`. `resolveCall` does not set it. Listing calls `canExecute(name)` with no context. Deny every command that is not explicitly allowed.
 
 ```ts
-const used = new Set<string>();
-function approvalHash(name: string, input: unknown): string {
-  const payload = `${name}\u0000${JSON.stringify(input)}`;
-  let hash = 5381;
-  for (let index = 0; index < payload.length; index += 1) {
-    hash = (hash * 33) ^ payload.charCodeAt(index);
-  }
-  return (hash >>> 0).toString(16);
+const spent = new Set<string>();
+function canonicalCall(name: string, input: unknown): string {
+  return `${name}\u0000${JSON.stringify(input)}`;
 }
 const granted = {
   actor: 'ada',
@@ -217,31 +212,32 @@ const granted = {
   id: 'approval-1',
   expiresAt: Date.now() + 60_000,
 };
-const grantedHash = approvalHash(granted.name, granted.input);
+const grantedCall = canonicalCall(granted.name, granted.input);
 function canExecute(
   name: string,
   input?: unknown,
-  context?: { core: object },
+  context?: { core: object; execute?: boolean },
 ): boolean {
-  if (!context) return name === 'setLimit';
-  if (name !== 'setLimit' || context.core !== granted.target) return false;
-  if (granted.actor !== 'ada' || granted.expiresAt <= Date.now()) return false;
-  const key = approvalHash(name, input);
-  if (key !== grantedHash || used.has(key)) return false;
-  used.add(key);
+  if (name !== 'setLimit') return false;
+  if (!context) return true;
+  if (context.core !== granted.target || granted.actor !== 'ada') return false;
+  if (granted.expiresAt <= Date.now() || spent.has(granted.id)) return false;
+  if (canonicalCall(name, input) !== grantedCall) return false;
+  if (context.execute) spent.add(granted.id);
   return true;
 }
-const { run } = igniteTools({
+const { resolveCall, run } = igniteTools({
   core: component,
   schema: toolSchema,
   canExecute,
 });
+const preview = resolveCall('setLimit', 6);
 const allowed = await run({ name: 'setLimit', input: 6 });
 const changed = await run({ name: 'setLimit', input: 7 });
 const reused = await run({ name: 'setLimit', input: 6 });
 ```
 
-A boolean `confirmed` flag is not an approval. `run` calls `core.execute({ command, input })` and does not take the record.
+A later grant uses a new id. A boolean `confirmed` flag is not an approval. `run` calls `core.execute({ command, input })` and does not take the record.
 
 ## Errors
 

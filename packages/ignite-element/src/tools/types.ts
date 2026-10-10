@@ -223,13 +223,15 @@ export interface ToolDialect<
 /**
  * Application availability preflight. Return true only for an explicit allow.
  * Listing calls `canExecute(name)`. A call also passes the validated input and
- * `{ core }`. Ignite does not store or consume approvals. A throw, a thenable,
- * or any result other than true denies the command.
+ * `{ core }`. `execute` is true only on the run path, immediately before
+ * `execute`. `resolveCall` does not set it. Ignite does not store or consume
+ * approvals. A throw, a thenable, or any result other than true denies the
+ * command.
  */
 export type AvailabilityPredicate = (
 	name: string,
 	input?: unknown,
-	context?: { readonly core: object },
+	context?: { readonly core: object; readonly execute?: boolean },
 ) => boolean;
 
 /**

@@ -1,7 +1,9 @@
 /**
  * Application-owned single-use approvals. Ignite does not store or consume
  * these records. `canExecute` receives the validated input and the target
- * runtime, and this module decides.
+ * runtime. This module compares the canonical call and consumes an approval
+ * id only when `context.execute` is set, which is the run path immediately
+ * before execute.
  */
 export type AppCommandApproval = {
 	actor: string;
@@ -32,57 +34,67 @@ function stable(value: unknown): string {
 	return JSON.stringify(value) ?? "null";
 }
 
-/** Hash of the command name and the validated input. Not an approval store. */
-export function approvalHash(name: string, input: unknown): string {
-	const payload = `${stable(name)}\u0000${stable(input)}`;
-	let hash = 5381;
-	for (let index = 0; index < payload.length; index += 1) {
-		hash = (hash * 33) ^ payload.charCodeAt(index);
-	}
-	return (hash >>> 0).toString(16);
+/** Canonical command name plus validated input. Compared in full, not hashed. */
+export function canonicalCall(name: string, input: unknown): string {
+	return `${stable(name)}\u0000${stable(input)}`;
 }
 
+type PendingApproval = {
+	id: string;
+	name: string;
+	call: string;
+	expiresAt: number;
+};
+
 export function createCommandApprovalAuthority(actor: string) {
-	const pending = new Map<
-		object,
-		Map<string, { name: string; expiresAt: number }>
-	>();
-	const used = new Map<object, Set<string>>();
+	const pending = new Map<object, PendingApproval[]>();
+	const spent = new Set<string>();
+
+	function live(record: PendingApproval): boolean {
+		return record.expiresAt > Date.now() && !spent.has(record.id);
+	}
 
 	return {
 		grant(approval: AppCommandApproval): void {
 			if (approval.actor !== actor || approval.expiresAt <= Date.now()) return;
-			const hash = approvalHash(approval.name, approval.input);
-			const bucket =
-				pending.get(approval.target) ??
-				new Map<string, { name: string; expiresAt: number }>();
-			bucket.set(hash, { name: approval.name, expiresAt: approval.expiresAt });
+			if (spent.has(approval.id)) return;
+			const bucket = (pending.get(approval.target) ?? []).filter(
+				(record) => record.id !== approval.id,
+			);
+			bucket.push({
+				id: approval.id,
+				name: approval.name,
+				call: canonicalCall(approval.name, approval.input),
+				expiresAt: approval.expiresAt,
+			});
 			pending.set(approval.target, bucket);
 		},
 		canExecute(
 			name: string,
 			input?: unknown,
-			context?: { core: object },
+			context?: { core: object; execute?: boolean },
 		): boolean {
 			if (!context) {
 				for (const bucket of pending.values()) {
-					for (const record of bucket.values()) {
-						if (record.name === name && record.expiresAt > Date.now()) {
-							return true;
-						}
+					if (bucket.some((record) => record.name === name && live(record))) {
+						return true;
 					}
 				}
 				return false;
 			}
-			const hash = approvalHash(name, input);
-			const bucket = pending.get(context.core);
-			const record = bucket?.get(hash);
-			if (!record || record.expiresAt <= Date.now()) return false;
-			const spent = used.get(context.core) ?? new Set<string>();
-			if (spent.has(hash)) return false;
-			spent.add(hash);
-			used.set(context.core, spent);
-			bucket?.delete(hash);
+			const call = canonicalCall(name, input);
+			const bucket = pending.get(context.core) ?? [];
+			const match = bucket.find(
+				(record) =>
+					record.name === name && record.call === call && live(record),
+			);
+			if (!match) return false;
+			if (context.execute !== true) return true;
+			spent.add(match.id);
+			pending.set(
+				context.core,
+				bucket.filter((record) => record.id !== match.id),
+			);
 			return true;
 		},
 	};
