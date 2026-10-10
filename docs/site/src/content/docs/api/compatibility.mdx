@@ -84,9 +84,11 @@ Do not install ambient browser stubs to make a native lane pass.
 
 The repository and strict packed-consumer profiles use TypeScript's `Bundler` module resolution.
 
-A separate NodeNext probe still reports extensionless declaration-import resolution failures; NodeNext support is not established or claimed by Bundler success.
+Published `.d.ts` files also resolve under `moduleResolution` `NodeNext` and `node16`. Relative declaration imports use the `.js` extension those modes require, so `igniteCore` callback parameters stay typed instead of collapsing to `any` when `skipLibCheck` is on. CI checks this with `@arethetypeswrong/cli` profile `node16`.
 
-Native ESM runtime imports and strict no-DOM declaration consumption are distinct from that compiler-mode limitation.
+The `types` condition stays first on every entry. `import` and `default` stay on the production build, so a consumer that ignores the custom `development` and `production` conditions still gets that build. Resolution that ignores `exports` still uses `types` and `typesVersions`.
+
+Native ESM runtime imports and strict no-DOM declaration consumption remain separate checks. CommonJS `require` is not a supported entry.
 
 ### Owning-core lifetime
 

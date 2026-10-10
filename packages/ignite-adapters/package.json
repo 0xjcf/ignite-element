@@ -66,8 +66,8 @@
 		"README.md"
 	],
 	"scripts": {
-		"build:types": "tsc",
-		"build:js": "vite build",
+		"build:types": "tsc && node ../../scripts/rewrite-declaration-extensions.mjs .",
+		"build:js": "vite build && node ../../scripts/rewrite-declaration-extensions.mjs .",
 		"build": "pnpm run build:types && pnpm run build:js",
 		"typecheck": "tsc --pretty false --project tsconfig.typecheck.json"
 	},
