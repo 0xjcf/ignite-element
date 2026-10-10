@@ -134,7 +134,7 @@
 	"scripts": {
 		"build:types": "tsc && node ../../scripts/rewrite-declaration-extensions.mjs .",
 		"build:js": "vite build && IGNITE_LIB_DEV=1 vite build && node ../../scripts/rewrite-declaration-extensions.mjs .",
-		"build": "pnpm run build:types && pnpm run build:js",
+		"build": "pnpm run build:types && pnpm run build:js && node ../../scripts/published-host-declarations.mjs",
 		"typecheck": "tsc --noEmit --pretty false --project tsconfig.json"
 	},
 	"devDependencies": {

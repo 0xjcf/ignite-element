@@ -299,7 +299,7 @@
 		"build:types": "tsc && node ../../scripts/rewrite-declaration-extensions.mjs .",
 		"build:js": "vite build && IGNITE_LIB_DEV=1 vite build && node ../../scripts/rewrite-declaration-extensions.mjs .",
 		"verify:exports": "node ./scripts/verify-exports.mjs",
-		"build": "pnpm run build:types && pnpm run build:js && pnpm run verify:exports",
+		"build": "pnpm run build:types && pnpm run build:js && node ../../scripts/published-host-declarations.mjs && pnpm run verify:exports",
 		"docs:dev": "pnpm --filter docs-site dev",
 		"docs:build": "pnpm --filter docs-site build",
 		"docs:preview": "pnpm --filter docs-site preview",
