@@ -12,7 +12,10 @@ import {
 import type { IgniteJsxChild } from "./types";
 
 declare const __IGNITE_DEV_WARNINGS__: boolean;
-declare const __IGNITE_HOST_RUNTIME__: boolean;
+declare const __IGNITE_HOST_RUNTIME__: boolean | undefined;
+
+const hostRuntimeEnabled =
+	typeof __IGNITE_HOST_RUNTIME__ !== "undefined" && __IGNITE_HOST_RUNTIME__;
 
 class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 	private contentRoot: HTMLElement | null = null;
@@ -103,7 +106,7 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 						onFallbackReplace: (reason) =>
 							this.logFallback(reason, this.getHostTag()),
 					});
-		if (__IGNITE_HOST_RUNTIME__) {
+		if (hostRuntimeEnabled) {
 			const rootNode = contentRoot.getRootNode();
 			const runtime = readBoundHostRuntime(
 				rootNode instanceof ShadowRoot ? rootNode.host : undefined,

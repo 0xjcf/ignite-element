@@ -15,7 +15,11 @@ import {
 } from "./types";
 
 declare const __IGNITE_DEV_WARNINGS__: boolean;
-declare const __IGNITE_HOST_RUNTIME__: boolean;
+declare const __IGNITE_HOST_RUNTIME__: boolean | undefined;
+
+// Example browser configs leave this unset. Library builds replace it.
+const hostRuntimeEnabled =
+	typeof __IGNITE_HOST_RUNTIME__ !== "undefined" && __IGNITE_HOST_RUNTIME__;
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 // Spec nodeType values. Disconnect cleanup runs in example tests that have
@@ -73,8 +77,7 @@ export function mountIgniteJsx(
 		replaceAll(host, normalized);
 		return normalized;
 	};
-	if (__IGNITE_HOST_RUNTIME__)
-		return withIgniteHostRuntime(options.hosts, mount);
+	if (hostRuntimeEnabled) return withIgniteHostRuntime(options.hosts, mount);
 	return mount();
 }
 
@@ -90,7 +93,7 @@ export function renderIgniteJsx(
 	previous?: NormalizedNode[],
 	options: RenderOptions = {},
 ): NormalizedNode[] {
-	if (__IGNITE_HOST_RUNTIME__) {
+	if (hostRuntimeEnabled) {
 		return withIgniteHostRuntime(options.hosts, () =>
 			renderIgniteJsxNow(host, view, previous, options),
 		);
@@ -337,7 +340,7 @@ export function releaseSubtree(element: Element): void {
 	subtreeOwners.delete(element);
 }
 
-if (__IGNITE_HOST_RUNTIME__) {
+if (hostRuntimeEnabled) {
 	configureHostOwnership({
 		claimSubtree,
 		releaseSubtree,
@@ -577,14 +580,14 @@ function patchChildren(
 				);
 				if (patched !== domChild) {
 					parent.replaceChild(patched, domChild);
-					if (__IGNITE_HOST_RUNTIME__) {
+					if (hostRuntimeEnabled) {
 						const spec = newChildren[i];
 						if (spec) commitFresh(patched, spec);
 					}
 				}
 			} else if (i >= oldChildren.length) {
 				parent.appendChild(createDomFromNormalized(newChildren[i]));
-				if (__IGNITE_HOST_RUNTIME__) {
+				if (hostRuntimeEnabled) {
 					const created = newChildren[i];
 					const placed = parent.lastChild;
 					if (created && placed) commitFresh(placed, created);
@@ -614,7 +617,7 @@ function patchChildren(
 		);
 		if (patched !== domChild) {
 			parent.replaceChild(patched, domChild);
-			if (__IGNITE_HOST_RUNTIME__) {
+			if (hostRuntimeEnabled) {
 				const spec = newChildren[childIndex];
 				if (spec) commitFresh(patched, spec);
 			}
@@ -623,7 +626,7 @@ function patchChildren(
 
 	for (; childIndex < newChildren.length; childIndex++) {
 		parent.appendChild(createDomFromNormalized(newChildren[childIndex]));
-		if (__IGNITE_HOST_RUNTIME__) {
+		if (hostRuntimeEnabled) {
 			const created = newChildren[childIndex];
 			const placed = parent.lastChild;
 			if (created && placed) commitFresh(placed, created);
@@ -716,7 +719,7 @@ function patchKeyedChildren(
 		} else {
 			parent.insertBefore(node, cursor);
 		}
-		if (__IGNITE_HOST_RUNTIME__) {
+		if (hostRuntimeEnabled) {
 			const spec = newChildren[index];
 			if (spec) commitFresh(node, spec);
 		}
@@ -824,10 +827,10 @@ function patchNode(
 	const elementNode = domNode as Element & ParentNode;
 
 	patchProps(elementNode, oldNode.props, newNode.props);
-	const previouslyOwned = __IGNITE_HOST_RUNTIME__
+	const previouslyOwned = hostRuntimeEnabled
 		? subtreeIsOwned(elementNode, oldNode.props)
 		: ownsSubtreeViaProps(oldNode.props);
-	if (__IGNITE_HOST_RUNTIME__) {
+	if (hostRuntimeEnabled) {
 		syncHostElement(elementNode, newNode.props.use);
 	}
 	// A subtree owner (innerHTML, textContent, or a host claim) is opaque.
@@ -870,7 +873,7 @@ function patchNode(
 		}
 		for (const child of mappedChildren) {
 			elementNode.appendChild(createDomFromNormalized(child));
-			if (__IGNITE_HOST_RUNTIME__) {
+			if (hostRuntimeEnabled) {
 				const placed = elementNode.lastChild;
 				if (placed) commitFresh(placed, child);
 			}
@@ -900,7 +903,7 @@ function createDomFromNormalized(node: NormalizedNode): ChildNode {
 				element.appendChild(createDomFromNormalized(child));
 			}
 			assignRef(element, node.props.ref);
-			if (__IGNITE_HOST_RUNTIME__) freshNodes.add(element);
+			if (hostRuntimeEnabled) freshNodes.add(element);
 			return element;
 		}
 	}
@@ -970,7 +973,7 @@ function patchProps(
 		if (
 			key === "children" ||
 			key === "ref" ||
-			(__IGNITE_HOST_RUNTIME__ && key === "use")
+			(hostRuntimeEnabled && key === "use")
 		)
 			continue;
 		if (!(key in newProps)) {
@@ -982,7 +985,7 @@ function patchProps(
 		if (
 			key === "children" ||
 			key === "ref" ||
-			(__IGNITE_HOST_RUNTIME__ && key === "use")
+			(hostRuntimeEnabled && key === "use")
 		)
 			continue;
 		const prev = oldProps[key];
@@ -1178,7 +1181,7 @@ function replaceAll(parent: ParentNode, children: NormalizedNode[]): void {
 	}
 	for (const child of children) {
 		parent.appendChild(createDomFromNormalized(child));
-		if (__IGNITE_HOST_RUNTIME__) {
+		if (hostRuntimeEnabled) {
 			const placed = parent.lastChild;
 			if (placed) commitFresh(placed, child);
 		}

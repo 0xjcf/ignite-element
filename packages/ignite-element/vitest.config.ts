@@ -10,7 +10,10 @@ export default defineConfig((configEnv) =>
 	mergeConfig(
 		typeof viteConfig === "function" ? viteConfig(configEnv) : viteConfig,
 		defineConfig({
-			define: igniteDevWarningsDefine,
+			define: {
+				...igniteDevWarningsDefine,
+				__IGNITE_HOST_RUNTIME__: "true",
+			},
 			esbuild: {
 				jsx: "automatic",
 				jsxImportSource: "./src/renderers/jsx",
