@@ -284,6 +284,15 @@ describe("host binding", () => {
 		expect(listeners.size).toBe(0);
 	});
 
+	it("stays quiet when use names a host on this core", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+		const root = document.createElement("div");
+		renderIgniteJsx(root, jsx("canvas", { use: "scene" }), undefined, {
+			hosts: runtime(sceneHost(), 1),
+		});
+		expect(warn).not.toHaveBeenCalled();
+	});
+
 	it("warns on an unknown host and does not mount", () => {
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 		const host = sceneHost();
