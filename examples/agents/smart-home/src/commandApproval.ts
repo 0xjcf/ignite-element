@@ -14,30 +14,112 @@ export type AppCommandApproval = {
 	expiresAt: number;
 };
 
-function stable(value: unknown): string {
-	if (typeof value === "number") {
-		if (Object.is(value, -0)) return "number:-0";
-		if (value === Number.POSITIVE_INFINITY) return "number:Infinity";
-		if (value === Number.NEGATIVE_INFINITY) return "number:-Infinity";
-		if (Number.isNaN(value)) return "number:NaN";
-		return `number:${value}`;
+const MAX_CANONICAL_DEPTH = 32;
+
+function isNodeProxy(value: object): boolean {
+	try {
+		const builtin = (
+			globalThis as {
+				process?: {
+					getBuiltinModule?: (name: string) => {
+						types?: { isProxy?: (candidate: object) => boolean };
+					};
+				};
+			}
+		).process?.getBuiltinModule?.("node:util");
+		return builtin?.types?.isProxy?.(value) === true;
+	} catch {
+		return false;
 	}
-	if (typeof value === "string") return `string:${JSON.stringify(value)}`;
-	if (typeof value === "boolean") return `boolean:${value}`;
-	if (value === null) return "null";
-	if (value === undefined) return "undefined";
-	if (Array.isArray(value)) {
-		return `array:[${value.map((item) => stable(item)).join(",")}]`;
+}
+
+function plainShape(value: object): boolean {
+	try {
+		if (isNodeProxy(value)) return false;
+		const brand = Object.prototype.toString.call(value);
+		const prototype = Object.getPrototypeOf(value);
+		if (brand === "[object Array]") {
+			if (prototype === null) return false;
+			const parent = Object.getPrototypeOf(prototype);
+			if (parent === null || Object.getPrototypeOf(parent) !== null) {
+				return false;
+			}
+			const ctor = (prototype as { constructor?: unknown }).constructor;
+			return (
+				typeof ctor === "function" &&
+				(ctor as { prototype?: unknown }).prototype === prototype
+			);
+		}
+		if (brand !== "[object Object]") return false;
+		if (prototype === null) return true;
+		if (Object.getPrototypeOf(prototype) !== null) return false;
+		const ctor = (prototype as { constructor?: unknown }).constructor;
+		return (
+			typeof ctor === "function" &&
+			(ctor as { prototype?: unknown }).prototype === prototype
+		);
+	} catch {
+		return false;
 	}
-	if (typeof value === "object") {
-		const record = value as Record<string, unknown>;
-		const body = Object.keys(record)
-			.sort()
-			.map((key) => `${JSON.stringify(key)}:${stable(record[key])}`)
-			.join(",");
-		return `object:{${body}}`;
+}
+
+function stable(value: unknown, depth = 0, seen?: WeakSet<object>): string {
+	try {
+		if (depth > MAX_CANONICAL_DEPTH) return "invalid:depth";
+		if (typeof value === "number") {
+			if (!Number.isFinite(value)) return `invalid:number:${String(value)}`;
+			return `number:${value === 0 ? 0 : value}`;
+		}
+		if (typeof value === "string") return `string:${JSON.stringify(value)}`;
+		if (typeof value === "boolean") return `boolean:${value}`;
+		if (value === null) return "null";
+		if (typeof value === "bigint") return `bigint:${value.toString()}`;
+		if (typeof value === "symbol") return `symbol:${String(value)}`;
+		if (typeof value !== "object") return `invalid:${typeof value}`;
+		if (isNodeProxy(value)) return "invalid:proxy";
+		const brand = Object.prototype.toString.call(value);
+		if (!plainShape(value)) return `invalid:${brand}`;
+		const active = seen ?? new WeakSet<object>();
+		if (active.has(value)) return "invalid:cycle";
+		active.add(value);
+		try {
+			if (Array.isArray(value)) {
+				const items: string[] = [];
+				for (let index = 0; index < value.length; index += 1) {
+					const descriptor = Object.getOwnPropertyDescriptor(
+						value,
+						String(index),
+					);
+					if (!descriptor || !("value" in descriptor)) return "invalid:array";
+					items.push(stable(descriptor.value, depth + 1, active));
+				}
+				return `array:[${items.join(",")}]`;
+			}
+			const record = value as Record<string, unknown>;
+			const keys: string[] = [];
+			for (const key of Reflect.ownKeys(record)) {
+				if (typeof key === "symbol") return "invalid:symbol";
+				const descriptor = Object.getOwnPropertyDescriptor(record, key);
+				if (!descriptor || descriptor.enumerable !== true) continue;
+				if (!("value" in descriptor)) return "invalid:accessor";
+				keys.push(key);
+			}
+			keys.sort();
+			const body = keys
+				.map((key) => {
+					const descriptor = Object.getOwnPropertyDescriptor(record, key);
+					const property =
+						descriptor && "value" in descriptor ? descriptor.value : undefined;
+					return `${JSON.stringify(key)}:${stable(property, depth + 1, active)}`;
+				})
+				.join(",");
+			return `object:{${body}}`;
+		} finally {
+			active.delete(value);
+		}
+	} catch {
+		return "invalid:unreadable";
 	}
-	return `other:${typeof value}`;
 }
 
 /** Canonical command name plus validated input. Compared in full, not hashed. */
@@ -58,13 +140,10 @@ export function createCommandApprovalAuthority(
 	now: () => number = Date.now,
 ) {
 	const pending = new Map<object, PendingApproval[]>();
-	const spent = new Map<string, number>();
+	const spent = new Set<string>();
 
 	function prune(): void {
 		const time = now();
-		for (const [id, expiresAt] of spent) {
-			if (expiresAt <= time) spent.delete(id);
-		}
 		for (const [target, bucket] of pending) {
 			const liveRecords = bucket.filter(
 				(record) => record.expiresAt > time && !spent.has(record.id),
@@ -122,7 +201,7 @@ export function createCommandApprovalAuthority(
 			);
 			if (!match) return false;
 			if (context.execute !== true) return true;
-			spent.set(match.id, match.expiresAt);
+			spent.add(match.id);
 			const rest = bucket.filter((record) => record.id !== match.id);
 			if (rest.length === 0) pending.delete(context.core);
 			else pending.set(context.core, rest);

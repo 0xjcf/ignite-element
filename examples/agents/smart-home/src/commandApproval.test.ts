@@ -92,12 +92,12 @@ describe("app-owned command approvals", () => {
 		);
 	});
 
-	it("does not let an approval for zero authorize signed zero", async () => {
+	it("treats signed zero as the same plain JSON number", async () => {
 		const home = createHome();
 		const authority = createCommandApprovalAuthority("ada");
 		const closed = { room: "living", percent: 0 };
 		const signed = { room: "living", percent: -0 };
-		expect(canonicalCall("setBlinds", closed)).not.toBe(
+		expect(canonicalCall("setBlinds", closed)).toBe(
 			canonicalCall("setBlinds", signed),
 		);
 		authority.grant({
@@ -113,21 +113,61 @@ describe("app-owned command approvals", () => {
 			schema: homeToolSchema,
 			canExecute: authority.canExecute,
 		});
-		expect((await run({ name: "setBlinds", input: signed })).ok).toBe(false);
-		expect((await run({ name: "setBlinds", input: closed })).ok).toBe(true);
+		expect((await run({ name: "setBlinds", input: signed })).ok).toBe(true);
 	});
 
-	it("tags numbers with Object.is so signed zero and non-finite values stay distinct", () => {
-		expect(canonicalCall("n", 0)).not.toBe(canonicalCall("n", -0));
+	it("canonicalizes a plain JSON snapshot and does not collapse exotic values", () => {
+		expect(canonicalCall("n", 0)).toBe(canonicalCall("n", -0));
 		expect(canonicalCall("n", Number.POSITIVE_INFINITY)).not.toBe(
 			canonicalCall("n", Number.NEGATIVE_INFINITY),
 		);
-		expect(canonicalCall("n", [1, undefined, 2])).not.toBe(
-			canonicalCall("n", [1, null, 2]),
+		expect(canonicalCall("n", new Date(0))).not.toBe(canonicalCall("n", {}));
+		expect(canonicalCall("n", new Map())).not.toBe(canonicalCall("n", {}));
+		expect(canonicalCall("n", new Set())).not.toBe(canonicalCall("n", {}));
+		expect(canonicalCall("n", [1n])).not.toBe(canonicalCall("n", [2n]));
+		expect(canonicalCall("n", { v: 1n })).not.toBe(
+			canonicalCall("n", { v: 2n }),
 		);
-		expect(canonicalCall("n", { a: 1, b: undefined })).not.toBe(
+		expect(canonicalCall("n", { a: 1, b: 2 })).toBe(
+			canonicalCall("n", { b: 2, a: 1 }),
+		);
+		class Box {
+			a = 1;
+		}
+		expect(canonicalCall("n", new Box())).not.toBe(
 			canonicalCall("n", { a: 1 }),
 		);
+		const keyed: { a: number; [key: symbol]: string } = { a: 1 };
+		keyed[Symbol("id")] = "x";
+		expect(canonicalCall("n", keyed)).not.toBe(canonicalCall("n", { a: 1 }));
+		let reads = 0;
+		const accessor: { a?: number } = {};
+		Object.defineProperty(accessor, "a", {
+			enumerable: true,
+			get() {
+				reads += 1;
+				return 1;
+			},
+		});
+		expect(canonicalCall("n", accessor)).not.toBe(canonicalCall("n", { a: 1 }));
+		expect(reads).toBe(0);
+		const proxy = new Proxy(
+			{ a: 1 },
+			{
+				get(target, key, receiver) {
+					reads += 1;
+					return Reflect.get(target, key, receiver);
+				},
+			},
+		);
+		expect(canonicalCall("n", proxy)).not.toBe(canonicalCall("n", { a: 1 }));
+		expect(reads).toBe(0);
+		const cycle: { a?: unknown } = {};
+		cycle.a = cycle;
+		expect(() => canonicalCall("n", cycle)).not.toThrow();
+		let deep: unknown = { a: 1 };
+		for (let index = 0; index < 8000; index += 1) deep = { a: deep };
+		expect(() => canonicalCall("n", deep)).not.toThrow();
 	});
 
 	it("prunes expired approvals, spent ids, and empty target buckets", async () => {
@@ -152,13 +192,24 @@ describe("app-owned command approvals", () => {
 		);
 		expect(authority.ledger()).toEqual({ targets: 0, pending: 0, spent: 1 });
 		clock = 1_500;
-		expect(authority.ledger()).toEqual({ targets: 0, pending: 0, spent: 0 });
+		expect(authority.ledger()).toEqual({ targets: 0, pending: 0, spent: 1 });
 		authority.grant({
 			actor: "ada",
 			name: "setThermostat",
 			input: livingAt70,
 			target: home,
 			id: "short",
+			expiresAt: 2_000,
+		});
+		expect((await run({ name: "setThermostat", input: livingAt70 })).ok).toBe(
+			false,
+		);
+		authority.grant({
+			actor: "ada",
+			name: "setThermostat",
+			input: livingAt70,
+			target: home,
+			id: "fresh",
 			expiresAt: 2_000,
 		});
 		expect((await run({ name: "setThermostat", input: livingAt70 })).ok).toBe(
