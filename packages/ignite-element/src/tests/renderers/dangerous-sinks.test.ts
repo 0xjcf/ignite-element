@@ -304,6 +304,185 @@ describe("URL scheme guard", () => {
 		);
 	});
 
+	it.each([
+		"data:text/javascript,alert(1)",
+		"data:application/javascript,alert(1)",
+		"data:text/ecmascript,alert(1)",
+		"data:application/ecmascript,alert(1)",
+		"data:\ntext/javascript,alert(1)",
+	])("does not apply %s on script", (src) => {
+		const { host } = mount(jsx("script", { src }));
+
+		expect(host.querySelector("script")?.getAttribute("src")).toBeNull();
+	});
+
+	it("still applies a network script src", () => {
+		const { host } = mount(
+			jsx("script", { src: "https://example.com/app.js" }),
+		);
+
+		expect(host.querySelector("script")?.getAttribute("src")).toContain(
+			"https://example.com/app.js",
+		);
+	});
+
+	it.each(["iframe", "frame", "embed"] as const)(
+		"does not apply any data URL on %s",
+		(tag) => {
+			const { host } = mount(
+				jsx("div", {
+					children: [
+						jsx(tag, { src: "data:,<script>alert(1)</script>" }),
+						jsx(tag, { src: "data:text/html,<script>alert(1)</script>" }),
+						jsx(tag, { src: "data:image/png;base64,aaaa" }),
+					],
+				}),
+			);
+
+			for (const element of host.querySelectorAll(tag)) {
+				expect(element.getAttribute("src")).toBeNull();
+			}
+		},
+	);
+
+	it("does not apply any data URL on object", () => {
+		const { host } = mount(
+			jsx("object", { data: "data:image/png;base64,aaaa" }),
+		);
+
+		expect(host.querySelector("object")?.getAttribute("data")).toBeNull();
+		expect(host.querySelector("object")?.data ?? "").not.toContain("image/png");
+	});
+
+	it.each(["DATA", "Data"] as const)(
+		"does not apply an executable %s URL on object",
+		(key) => {
+			const { host } = mount(
+				jsx("object", {
+					[key]: "data:text/html,<script>alert(1)</script>",
+					type: "text/html",
+				}),
+			);
+			const object = host.querySelector("object");
+
+			expect(object?.getAttribute("data")).toBeNull();
+			expect(object?.data ?? "").not.toContain("text/html");
+			expect(object?.getAttribute("type")).toBe("text/html");
+		},
+	);
+
+	it("still applies a safe object DATA url", () => {
+		const { host } = mount(
+			jsx("object", { DATA: "https://example.com/file.pdf" }),
+		);
+
+		expect(host.querySelector("object")?.getAttribute("data")).toContain(
+			"https://example.com/file.pdf",
+		);
+	});
+
+	it.each([
+		["div", "ONCLICK"],
+		["button", "OnClick"],
+		["img", "ONERROR"],
+		["div", "ONLOAD"],
+		["button", "OnFocus"],
+	] as const)(
+		"does not set a %s %s string as an event-handler attribute",
+		(tag, key) => {
+			const { host } = mount(
+				jsx(tag, {
+					[key]: "alert(1)",
+					src: tag === "img" ? "https://example.com/pixel.png" : undefined,
+					children: tag === "img" ? undefined : "click",
+				}),
+			);
+			const element = host.querySelector(tag);
+
+			expect(element?.getAttribute(key.toLowerCase())).toBeNull();
+			expect(element?.getAttribute(key)).toBeNull();
+			if (tag === "img") {
+				expect(element?.getAttribute("src")).toContain("example.com/pixel.png");
+			}
+		},
+	);
+
+	it("still binds a function onClick without an onclick attribute", () => {
+		const onClick = vi.fn();
+		const { host } = mount(jsx("button", { onClick, children: "click" }));
+		const button = host.querySelector("button");
+
+		expect(button?.getAttribute("onclick")).toBeNull();
+		button?.click();
+		expect(onClick).toHaveBeenCalledOnce();
+	});
+
+	it("still applies a data image srcset on img and source", () => {
+		const { host } = mount(
+			jsx("div", {
+				children: [
+					jsx("img", {
+						alt: "pixel",
+						srcset: "data:image/png;base64,aaaa 1x",
+					}),
+					jsx("source", { srcset: "data:image/png;base64,bbbb 1x" }),
+				],
+			}),
+		);
+
+		expect(host.querySelector("img")?.getAttribute("srcset")).toContain(
+			"data:image/png",
+		);
+		expect(host.querySelector("source")?.getAttribute("srcset")).toContain(
+			"data:image/png",
+		);
+	});
+
+	it("does not apply an executable codebase", () => {
+		const { host } = mount(jsx("object", { codebase: "javascript:alert(1)" }));
+
+		expect(host.querySelector("object")?.getAttribute("codebase")).toBeNull();
+	});
+
+	it("still applies a non-href SVG animate value", () => {
+		const { host } = mount(
+			jsx("svg", {
+				children: jsx("animate", {
+					attributeName: "width",
+					to: "100%",
+				}),
+			}),
+		);
+
+		expect(host.querySelector("animate")?.getAttribute("to")).toBe("100%");
+	});
+
+	it("still applies a safe meta refresh and a non-refresh content", () => {
+		const { host } = mount(
+			jsx("div", {
+				children: [
+					jsx("meta", {
+						httpEquiv: "refresh",
+						content: "0;url=https://example.com/next",
+					}),
+					jsx("meta", { name: "viewport", content: "width=device-width" }),
+				],
+			}),
+		);
+		const metas = host.querySelectorAll("meta");
+
+		expect(metas[0]?.getAttribute("content")).toContain(
+			"https://example.com/next",
+		);
+		expect(metas[1]?.getAttribute("content")).toBe("width=device-width");
+	});
+
+	it("does not apply base href", () => {
+		const { host } = mount(jsx("base", { href: "https://evil.example/base/" }));
+
+		expect(host.querySelector("base")?.getAttribute("href")).toBeNull();
+	});
+
 	it("warns once when a URL scheme is rejected", () => {
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		const { host, tree } = mount(

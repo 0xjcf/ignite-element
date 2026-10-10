@@ -340,23 +340,37 @@ function isBlockedMarkupProp(key: string): boolean {
 	);
 }
 
+const dataDocumentTagPattern = /^(?:script|iframe|frame|object|embed)$/;
+
+function isEventHandlerKey(key: string): boolean {
+	const name = key.toLowerCase();
+	return name.length > 2 && name.startsWith("on");
+}
+
 function isBlockedUrlValue(
 	element: Element,
 	key: string,
 	value: unknown,
 ): boolean {
 	if (value == null || value === false) return false;
-	// `data` is a document URL on <object> and ordinary text elsewhere.
+	const name = key.toLowerCase();
+	const tag = element.localName;
+	// <base href> retargets relative URLs. srcset lists, poster, SVG
+	// animate/set href targets, and meta refresh URLs are documented in the
+	// changeset; they are not checked here.
+	if (tag === "base" && name === "href") return true;
 	if (
-		!uriBearingKeyPattern.test(key) &&
-		(key !== "data" || element.localName !== "object")
+		!uriBearingKeyPattern.test(name) &&
+		!(name === "data" && tag === "object")
 	) {
 		return false;
 	}
 	if (typeof value !== "string") return true;
 	uriSpacePattern.lastIndex = 0;
-	return executableUriPattern.test(
-		value.replace(uriSpacePattern, "").toLowerCase(),
+	const normalized = value.replace(uriSpacePattern, "").toLowerCase();
+	return (
+		executableUriPattern.test(normalized) ||
+		(normalized.startsWith("data:") && dataDocumentTagPattern.test(tag))
 	);
 }
 
@@ -852,7 +866,9 @@ function patchNode(
 	}
 
 	if (isNoDiffDenylistedTag(newNode.tag)) {
-		onFallbackReplace?.(`denylist:${newNode.tag.toLowerCase()}`);
+		if (__IGNITE_DEV_WARNINGS__) {
+			onFallbackReplace?.(`denylist:${newNode.tag.toLowerCase()}`);
+		}
 		return replaceMounted(domNode, newNode);
 	}
 
@@ -1010,6 +1026,14 @@ function patchProps(
 			}
 			continue;
 		}
+		if (isEventHandlerKey(key)) {
+			// A string `ONCLICK` would become an executable attribute. Functions
+			// still bind through addEventListener.
+			if (typeof next === "function" || typeof oldProps[key] === "function") {
+				patchEventListener(element, key, oldProps[key], next);
+			}
+			continue;
+		}
 		if (isBlockedUrlValue(element, key, next)) {
 			warnBlockedUrl(element, key);
 			// removeProp clears a non-reflected property and the attribute.
@@ -1046,11 +1070,6 @@ function patchProps(
 
 		if (key === "style") {
 			patchStyle(element as HTMLElement, prev, next);
-			continue;
-		}
-
-		if (key.startsWith("on") && key.length > 2) {
-			patchEventListener(element, key, prev, next);
 			continue;
 		}
 
@@ -1161,7 +1180,7 @@ function removeProp(
 		return;
 	}
 
-	if (key.startsWith("on") && key.length > 2 && typeof prev === "function") {
+	if (isEventHandlerKey(key) && typeof prev === "function") {
 		const eventName = normalizeEventName(key.slice(2));
 		element.removeEventListener(eventName, prev as EventListener);
 		return;

@@ -2,7 +2,7 @@
 // URL attributes; projection documents reject them in model-readable data.
 
 export const uriBearingKeyPattern =
-	/^(?:href|src|action|formaction|xlink:href)$/i;
+	/^(?:href|src|codebase|action|formaction|xlink:href)$/i;
 export const executableUriPattern =
 	/^(?:java|vb)script:|^data:(?:text\/html|image\/svg\+xml|application\/xhtml\+xml)(?:;|,|$)/;
 // ASCII space and the controls at or below it, plus DEL. Obfuscated

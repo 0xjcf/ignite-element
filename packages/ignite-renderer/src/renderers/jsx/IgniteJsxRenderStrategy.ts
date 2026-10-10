@@ -1,5 +1,5 @@
 import { getIgniteConfig } from "../../config";
-import { injectStyles } from "../../styleHook";
+import { forgetQueuedStyles, injectStyles } from "../../styleHook";
 import type { RenderStrategy } from "../RenderStrategy";
 import { readBoundHostRuntime, withIgniteHostRuntime } from "./hostBridge";
 import { isNoDiffDenylistedTag } from "./noDiffDenylist";
@@ -73,11 +73,13 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 			isDenylistedHost
 		) {
 			this.forceReplace = true;
-			this.forceReplaceReason = isDenylistedHost
-				? `denylist:${tagName}`
-				: hostElement?.hasAttribute?.("data-ignite-hydrated")
-					? "hydrated"
-					: "nodiff-attr";
+			if (__IGNITE_DEV_WARNINGS__) {
+				this.forceReplaceReason = isDenylistedHost
+					? `denylist:${tagName}`
+					: hostElement?.hasAttribute?.("data-ignite-hydrated")
+						? "hydrated"
+						: "nodiff-attr";
+			}
 		}
 	}
 
@@ -90,21 +92,14 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 		}
 
 		const mode = this.forceReplace || !this.diffEnabled ? "replace" : this.mode;
-		const forceReason =
-			this.forceReplaceReason ??
-			(mode === "replace" && this.mode === "replace"
-				? "config-replace"
-				: !this.diffEnabled
-					? "flag-disabled"
-					: null);
-
 		const render = () =>
 			this.previousTree === null
 				? mountIgniteJsx(contentRoot, view)
 				: renderIgniteJsx(contentRoot, view, this.previousTree ?? undefined, {
 						mode,
-						onFallbackReplace: (reason) =>
-							this.logFallback(reason, this.getHostTag()),
+						onFallbackReplace: __IGNITE_DEV_WARNINGS__
+							? (reason) => this.logFallback(reason, this.getHostTag())
+							: undefined,
 					});
 		if (hostRuntimeEnabled) {
 			const rootNode = contentRoot.getRootNode();
@@ -116,8 +111,15 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 			this.previousTree = render();
 		}
 
-		if (forceReason) {
-			this.logFallback(forceReason, this.getHostTag());
+		if (__IGNITE_DEV_WARNINGS__) {
+			const forceReason =
+				this.forceReplaceReason ??
+				(mode === "replace" && this.mode === "replace"
+					? "config-replace"
+					: !this.diffEnabled
+						? "flag-disabled"
+						: null);
+			if (forceReason) this.logFallback(forceReason, this.getHostTag());
 		}
 	}
 
@@ -129,6 +131,8 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 	}
 
 	detach(): void {
+		const rootNode = this.contentRoot?.getRootNode();
+		if (rootNode instanceof ShadowRoot) forgetQueuedStyles(rootNode);
 		if (this.contentRoot) {
 			unmountIgniteSubtree(this.contentRoot);
 			this.contentRoot.parentNode?.removeChild(this.contentRoot);
@@ -143,7 +147,7 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 	}
 
 	private logFallback(reason: string, tag: string | null): void {
-		if (this.logging === "off") return;
+		if (!__IGNITE_DEV_WARNINGS__ || this.logging === "off") return;
 		const message = `[IgniteJsxRenderStrategy] Falling back to replace (${reason}${
 			tag ? `, tag=${tag}` : ""
 		})`;

@@ -6,6 +6,7 @@ import {
 } from "../../../ignite-renderer/src/styleHook";
 import { setGlobalStyles } from "../globalStyles";
 import injectStyles, { flushPendingStyles } from "../injectStyles";
+import { createIgniteJsxRenderStrategy } from "../renderers/jsx/IgniteJsxRenderStrategy";
 
 const STYLE_INJECT_SLOT = Symbol.for("ignite-element.style-inject");
 
@@ -139,6 +140,97 @@ describe("injectStyles", () => {
 			expect(earlyRoot.querySelector("link")?.href).toContain("late.css");
 		} finally {
 			if (previous) installStyleInject(previous);
+		}
+	});
+
+	it("drops a shadow root when the JSX strategy detaches before the injector loads", () => {
+		const slotHost = globalThis as typeof globalThis & {
+			[STYLE_INJECT_SLOT]?: unknown;
+		};
+		const previous = slotHost[STYLE_INJECT_SLOT];
+		delete slotHost[STYLE_INJECT_SLOT];
+		const droppedElement = document.createElement("div");
+		const keptElement = document.createElement("div");
+		document.body.append(droppedElement, keptElement);
+		const dropped = droppedElement.attachShadow({ mode: "open" });
+		const kept = keptElement.attachShadow({ mode: "open" });
+
+		try {
+			const droppedStrategy = createIgniteJsxRenderStrategy();
+			const keptStrategy = createIgniteJsxRenderStrategy();
+			droppedStrategy.attach(dropped);
+			keptStrategy.attach(kept);
+			droppedStrategy.detach();
+
+			const seen: ShadowRoot[] = [];
+			installStyleInject((root) => {
+				seen.push(root);
+			});
+
+			expect(seen).not.toContain(dropped);
+			expect(seen).toContain(kept);
+		} finally {
+			droppedElement.remove();
+			keptElement.remove();
+			if (typeof previous === "function") installStyleInject(previous);
+		}
+	});
+
+	it("does not inject styles into a shadow root removed before flush", () => {
+		const slotHost = globalThis as typeof globalThis & {
+			[STYLE_INJECT_SLOT]?: unknown;
+		};
+		const previous = slotHost[STYLE_INJECT_SLOT];
+		delete slotHost[STYLE_INJECT_SLOT];
+		const removedElement = document.createElement("div");
+		const keptElement = document.createElement("div");
+		document.body.append(removedElement, keptElement);
+		const removed = removedElement.attachShadow({ mode: "open" });
+		const kept = keptElement.attachShadow({ mode: "open" });
+
+		try {
+			queueStylesBeforeInjector(removed);
+			queueStylesBeforeInjector(kept);
+			removedElement.remove();
+			expect(removed.isConnected).toBe(false);
+
+			setGlobalStyles(undefined);
+			installStyleInject(
+				typeof previous === "function" ? previous : injectStyles,
+			);
+			setGlobalStyles("./detached.css");
+			flushPendingStyles();
+
+			expect(removed.querySelector("link")).toBeNull();
+			expect(kept.querySelector("link")?.href).toContain("detached.css");
+		} finally {
+			keptElement.remove();
+			setGlobalStyles(undefined);
+			if (typeof previous === "function") installStyleInject(previous);
+		}
+	});
+
+	it("does not flush styles into a connected root that was removed later", () => {
+		const removedElement = document.createElement("div");
+		const keptElement = document.createElement("div");
+		document.body.append(removedElement, keptElement);
+		const removed = removedElement.attachShadow({ mode: "open" });
+		const kept = keptElement.attachShadow({ mode: "open" });
+
+		try {
+			setGlobalStyles(undefined);
+			injectStyles(removed);
+			injectStyles(kept);
+			removedElement.remove();
+
+			setGlobalStyles("./detached.css");
+			flushPendingStyles();
+
+			expect(removed.querySelector("link")).toBeNull();
+			expect(kept.querySelector("link")?.href).toContain("detached.css");
+		} finally {
+			keptElement.remove();
+			setGlobalStyles(undefined);
 		}
 	});
 

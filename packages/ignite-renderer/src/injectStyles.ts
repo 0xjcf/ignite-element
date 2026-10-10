@@ -7,6 +7,8 @@ type PendingRootRef = {
 
 type PendingRootEntry = {
 	ref: PendingRootRef;
+	/** True when the root was connected at queue time. */
+	live: boolean;
 };
 
 type WeakRefConstructor = new <T extends ShadowRoot>(
@@ -62,6 +64,7 @@ function enqueuePendingRoot(shadowRoot: ShadowRoot): void {
 
 	const entry = {
 		ref: createPendingRootRef(shadowRoot),
+		live: shadowRoot.isConnected,
 	};
 	pendingRoots.add(entry);
 	pendingRootIndex.set(shadowRoot, entry);
@@ -80,7 +83,7 @@ function collectPendingRoots(): ShadowRoot[] {
 
 	for (const entry of Array.from(pendingRoots)) {
 		const shadowRoot = entry.ref.deref();
-		if (!shadowRoot) {
+		if (!shadowRoot || (!shadowRoot.isConnected && entry.live)) {
 			deletePendingRootEntry(entry);
 			continue;
 		}
