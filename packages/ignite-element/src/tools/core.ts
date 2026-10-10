@@ -150,7 +150,10 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
 function predicateAllows(
 	canExecute: AvailabilityPredicate | undefined,
 	name: string,
-	call?: { input: unknown; context?: { readonly core: object } },
+	call?: {
+		input: unknown;
+		context?: { readonly core: object; readonly execute?: boolean };
+	},
 ): boolean {
 	if (typeof canExecute !== "function") return false;
 	let result: unknown;
@@ -172,7 +175,10 @@ function allowsTool(
 	tool: { read?: boolean; gated?: boolean; consequential?: boolean },
 	name: string,
 	canExecute?: AvailabilityPredicate,
-	call?: { input: unknown; context?: { readonly core: object } },
+	call?: {
+		input: unknown;
+		context?: { readonly core: object; readonly execute?: boolean };
+	},
 ): boolean {
 	if (isSideEffectFreeRead(tool)) return true;
 	return predicateAllows(canExecute, name, call);
@@ -221,7 +227,9 @@ export function buildManifest(
  *
  * Pure: validate a model-supplied input against a command's schema and route it
  * to `{ command, input? }`. A call then asks `canExecute(name, input, context)`
- * with that validated input. Errors are returned as values — `UnknownCommand`
+ * with that validated input. This function forwards `context` and does not set
+ * `execute`. The `run` shell passes `{ execute: true }` only immediately before
+ * `core.execute`. Errors are returned as values — `UnknownCommand`
  * (not in the manifest), `InvalidInput` (fails the input schema), or
  * `Unavailable` (the predicate is missing, throws, returns a thenable, or
  * returns anything other than true). Never throws.
@@ -231,7 +239,7 @@ export function resolveCall(
 	name: string,
 	input: unknown,
 	canExecute?: AvailabilityPredicate,
-	context?: { readonly core: object },
+	context?: { readonly core: object; readonly execute?: boolean },
 ): Result<Route, ToolError> {
 	const tool = manifest.find((candidate) => candidate.name === name);
 	if (!tool) {

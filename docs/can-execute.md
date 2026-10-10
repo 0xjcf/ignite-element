@@ -65,10 +65,12 @@ An ungated `read: true` tool skips that gate only when the command is
 side-effect-free. `run` still calls `core.execute`. Do not mark a command
 `read` if executing it changes source state.
 
-A `consequential` command uses the same predicate. The application hashes the
-tool name and the validated input, binds that hash to the actor and
-`context.core`, and consumes the hash once. Ignite does not store approval
-ids or decide replay.
+A `consequential` command uses the same predicate. The application compares
+the canonical call, the tool name plus the validated input, binds it to the
+actor and `context.core`, and consumes the approval id only when
+`context.execute` is true. `run` sets that flag immediately before
+`execute`. `resolveCall` does not. A new id can approve the same call again.
+Ignite does not store approval ids or decide replay.
 Refresh offered tools when the application needs a fresh availability list.
 Source enforcement must still handle state changes after preflight.
 
