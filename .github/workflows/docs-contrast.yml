@@ -12,6 +12,8 @@ on:
       - "packages/**" # doc examples are typechecked against the package API
       - ".github/workflows/docs-contrast.yml"
       - ".github/workflows/docs-deploy.yml"
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/release.yml"
   workflow_dispatch:
 
 permissions: {}

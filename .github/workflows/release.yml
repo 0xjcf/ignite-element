@@ -1,0 +1,101 @@
+name: Release
+
+# Publishes stable releases with npm trusted publishing. CI must succeed on a
+# push to main first. The npmjs trusted publisher is workflow release.yml in
+# the npm environment.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ignite-stable-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-22.04
+    environment: npm
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    env:
+      HUSKY: 0
+      NPM_CONFIG_PROVENANCE: "true"
+    steps:
+      - name: Check out the tested commit
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          version: 9.15.9
+          run_install: false
+
+      - name: Set up Node.js 22 without dependency caching
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+          registry-url: https://registry.npmjs.org
+
+      - name: Pin npm publish client
+        run: npm install --global npm@11.19.1
+
+      - name: Authenticate publish toolchain
+        run: |
+          test "$(node --version | cut -d. -f1)" = "v22"
+          test "$(npm --version)" = "11.19.1"
+          test "$(pnpm --version)" = "9.15.9"
+
+      - name: Install frozen dependencies
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm rebuild esbuild
+
+      - name: Build the package
+        run: pnpm run build
+
+      - name: Choose version pull request or trusted publish
+        id: plan
+        run: node scripts/release-plan.mjs
+
+      - name: Open the version pull request
+        if: steps.plan.outputs.action == 'version'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B changeset-release/main
+          pnpm exec changeset version
+          git fetch origin main
+          node scripts/require-current-main.mjs
+          gh auth setup-git
+          git push --force origin HEAD:changeset-release/main
+          if gh pr view changeset-release/main --json url >/dev/null 2>&1; then
+            gh pr edit changeset-release/main --title "Version Packages" --body "Version packages for the next stable release."
+          else
+            gh pr create --base main --head changeset-release/main --title "Version Packages" --body "Version packages for the next stable release."
+          fi
+
+      - name: Publish with provenance
+        if: steps.plan.outputs.action == 'publish'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          git fetch origin main
+          node scripts/require-current-main.mjs
+          gh auth setup-git
+          node scripts/stable-publish.mjs
