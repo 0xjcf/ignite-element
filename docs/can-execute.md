@@ -57,8 +57,8 @@ const tools = igniteTools({
 
 The provider list omits commands the predicate does not allow. Invocation
 rechecks it with one detached plain-JSON snapshot and `{ core }`. The library
-reads the call once, then validates that copy. Finite numbers are copied
-(`-0` is `0`). A proxy is not forwarded live, and the check does not use a
+reads the call once, then validates that copy. Finite numbers are copied, and
+signed zero is collapsed to `0` on purpose. A proxy is not forwarded live, and the check does not use a
 Node-only proxy detector. Accessors, bigint, symbols, functions, `Date`,
 `Map`, `Set`, cycles, over-depth values, and non-finite defaults are
 `InvalidInput`. A plain object from another JavaScript realm is accepted.
@@ -76,8 +76,9 @@ the canonical call, the tool name plus the validated input, binds it to the
 actor and `context.core`, and consumes the approval id only when
 `context.execute` is true. `run` sets that flag after observation setup
 succeeds and immediately before `execute`. `resolveCall` does not. A new id
-can approve the same call again. A spent id stays tombstoned so pruning
-cannot grant it again.
+can approve the same call again. A spent id stays tombstoned until the
+grant's maximum lifetime has passed. A grant older than that window is
+refused, so an expired id cannot come back.
 Ignite does not store approval ids or decide replay.
 Refresh offered tools when the application needs a fresh availability list.
 Source enforcement must still handle state changes after preflight.

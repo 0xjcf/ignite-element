@@ -118,32 +118,57 @@ function snapshotJsonArray(
 	}
 	active.add(value);
 	try {
-		const output: unknown[] = [];
-		const length = value.length;
-		if (!Number.isSafeInteger(length) || length < 0) {
-			return snapshotIssue(path, "expected array");
-		}
+		const indexed = new Map<number, unknown>();
+		let length: number | undefined;
 		for (const key of Reflect.ownKeys(value)) {
 			if (typeof key === "symbol") {
 				return snapshotIssue(path, "symbol properties are not allowed");
 			}
-			if (key === "length") continue;
+			const descriptor = Object.getOwnPropertyDescriptor(value, key);
+			if (!descriptor) {
+				return snapshotIssue(path, "unable to read value");
+			}
+			if (key === "length") {
+				const reported = descriptor.value;
+				if (
+					!("value" in descriptor) ||
+					typeof reported !== "number" ||
+					!Number.isSafeInteger(reported) ||
+					reported < 0
+				) {
+					return snapshotIssue(path, "expected array");
+				}
+				length = reported;
+				continue;
+			}
 			if (!/^(?:0|[1-9]\d*)$/.test(key)) {
 				return snapshotIssue(`${path}.${key}`, "unexpected property");
 			}
-		}
-		for (let index = 0; index < length; index += 1) {
-			const itemPath = `${path}[${index}]`;
-			const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
-			if (!descriptor) {
-				return snapshotIssue(itemPath, "sparse array entries are not allowed");
-			}
+			const itemPath = `${path}[${key}]`;
 			if (!("value" in descriptor) || descriptor.enumerable !== true) {
 				return snapshotIssue(itemPath, "accessor properties are not allowed");
 			}
+			indexed.set(Number(key), descriptor.value);
+		}
+		if (length === undefined) {
+			length = 0;
+			for (const index of indexed.keys()) {
+				if (index + 1 > length) length = index + 1;
+			}
+		}
+		for (const index of indexed.keys()) {
+			if (index >= length) {
+				return snapshotIssue(`${path}[${index}]`, "unexpected property");
+			}
+		}
+		if (indexed.size !== length) {
+			return snapshotIssue(path, "sparse array entries are not allowed");
+		}
+		const output: unknown[] = [];
+		for (let index = 0; index < length; index += 1) {
 			const item = snapshotJsonValue(
-				descriptor.value,
-				itemPath,
+				indexed.get(index),
+				`${path}[${index}]`,
 				depth + 1,
 				active,
 				itemSchema(schema),

@@ -204,8 +204,11 @@ export function buildManifest(
  * route share that frozen snapshot. Only finite numbers (with `-0` normalized
  * to `0`), strings, booleans, null, arrays, and plain objects are copied.
  * Accessors, bigint, symbols, functions, `Date` / `Map` / `Set`, cycles, and
- * values past the nesting limit are `InvalidInput`. A proxy is read once into
- * that snapshot; the snapshot is what is validated. This function
+ * values past the nesting limit are `InvalidInput`. Signed zero is collapsed
+ * to `0` on purpose. A proxy is walked once (`ownKeys`, then one data
+ * descriptor per key) and that copy is what is validated. Array length comes
+ * from that descriptor or the copied indexes, never from `[[Get]]` of
+ * `length`. This function
  * forwards `context` and does not set `execute`. `run` calls it without
  * `execute`, then calls `canExecute` with `{ execute: true }` only after
  * observation is subscribed and immediately before `core.execute`. A throw
