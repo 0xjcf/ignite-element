@@ -976,11 +976,13 @@ describe("URL scheme guard", () => {
 				get id() {
 					return this.#id;
 				}
-				set id(value: unknown) {
+				set id(value: string) {
 					this.idLog.push(value);
 					// undefined is the drop signal. "" is the native reset.
 					this.#id =
-						value === undefined ? "from-undefined" : String(value ?? "");
+						(value as unknown) === undefined
+							? "from-undefined"
+							: String(value ?? "");
 				}
 			}
 			customElements.define(tag, IdOverride);
