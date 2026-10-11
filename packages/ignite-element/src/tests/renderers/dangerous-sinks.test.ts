@@ -452,6 +452,81 @@ describe("URL scheme guard", () => {
 		},
 	);
 
+	it("clears a custom property whose setter coerced the value", () => {
+		const tag = "x-count-coerced";
+		if (!customElements.get(tag)) {
+			class CountElement extends HTMLElement {
+				#count = 0;
+				get count() {
+					return this.#count;
+				}
+				set count(value: unknown) {
+					// undefined must not reach Number. Number(undefined) is NaN.
+					if (value == null || value === "") {
+						this.#count = 0;
+						return;
+					}
+					this.#count = Number(value);
+				}
+			}
+			customElements.define(tag, CountElement);
+		}
+
+		const { host, tree } = mount(jsx(tag, { count: "1" }));
+		const element = host.querySelector(tag) as HTMLElement & { count: number };
+		expect(element.count).toBe(1);
+
+		renderIgniteJsx(host, jsx(tag, {}), tree);
+
+		expect(element.count).toBe(0);
+	});
+
+	it("does not assign undefined when a custom element id is removed", () => {
+		const tag = "x-id-reflected";
+		if (!customElements.get(tag)) {
+			customElements.define(tag, class extends HTMLElement {});
+		}
+
+		const { host, tree } = mount(
+			jsx(tag, { id: "keep", title: "named", className: "on" }),
+		);
+		const element = host.querySelector(tag) as HTMLElement;
+		expect(element.id).toBe("keep");
+		expect(element.title).toBe("named");
+		expect(element.className).toBe("on");
+
+		renderIgniteJsx(host, jsx(tag, {}), tree);
+
+		expect(element.id).toBe("");
+		expect(element.title).toBe("");
+		expect(element.className).toBe("");
+		expect(element.getAttribute("id")).toBeNull();
+	});
+
+	it("clears a custom string setter that trimmed the value", () => {
+		const tag = "x-label-trimmed";
+		if (!customElements.get(tag)) {
+			class LabelElement extends HTMLElement {
+				#label = "";
+				get label() {
+					return this.#label;
+				}
+				set label(value: unknown) {
+					this.#label = value == null ? "" : String(value).trim();
+				}
+			}
+			customElements.define(tag, LabelElement);
+		}
+
+		const { host, tree } = mount(jsx(tag, { label: "  keep  " }));
+		const element = host.querySelector(tag) as HTMLElement & { label: string };
+		expect(element.label).toBe("keep");
+
+		renderIgniteJsx(host, jsx(tag, {}), tree);
+
+		expect(element.label).toBe("");
+	});
+
 	it("applies a safe URL after an executable one was rejected", () => {
 		const { host, tree } = mount(
 			jsx("a", { href: "javascript:alert(1)", children: "go" }),
@@ -978,6 +1053,26 @@ describe("URL scheme guard", () => {
 		expect(symbolAnimate?.getAttribute("from")).toBeNull();
 		expect(symbolAnimate?.getAttribute("by")).toBeNull();
 		expect(symbolAnimate?.getAttribute("values")).toBeNull();
+	});
+
+	it("still applies data-equiv on meta", () => {
+		const { host } = mount(
+			jsx("meta", { "data-equiv": "refresh", content: "0" }),
+		);
+		const meta = host.querySelector("meta");
+
+		expect(meta?.getAttribute("data-equiv")).toBe("refresh");
+		expect(meta?.getAttribute("content")).toBe("0");
+	});
+
+	it("still applies a content-type http-equiv", () => {
+		const { host } = mount(
+			jsx("meta", { httpEquiv: "content-type", content: "text/html" }),
+		);
+		const meta = host.querySelector("meta");
+
+		expect(meta?.getAttribute("http-equiv")).toBe("content-type");
+		expect(meta?.getAttribute("content")).toBe("text/html");
 	});
 
 	it("does not apply a meta http-equiv refresh", () => {

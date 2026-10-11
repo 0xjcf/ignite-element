@@ -396,17 +396,19 @@ function isBlockedUrlValue(
 	) {
 		return true;
 	}
+	const metaEquiv =
+		tag === "meta" && (name === "http-equiv" || name === "httpequiv");
 	const guarded =
 		name === "attributename" ||
 		name === "codebase" ||
-		(tag === "meta" && name.endsWith("equiv")) ||
+		metaEquiv ||
 		uriBearingKeyPattern.test(name) ||
 		(name === "data" && tag === "object");
 	if (!guarded) return false;
 	// Reject a non-string before any check. The string that is checked is
 	// the same string that is written.
 	if (typeof value !== "string") return true;
-	if (tag === "meta" && name.endsWith("equiv")) {
+	if (metaEquiv) {
 		return strippedUri(value) === "refresh";
 	}
 	if (name === "attributename") return false;
@@ -1261,7 +1263,11 @@ function removeProp(
 		Reflect.set(el, key, name === "value" ? "" : false);
 		return;
 	}
-	if (current === prev) Reflect.set(el, key, undefined);
+	// Reflected properties such as id become "" when the attribute is
+	// removed. undefined would stringify. A coerced custom value does not.
+	if (current === prev || (custom && current)) {
+		Reflect.set(el, key, undefined);
+	}
 }
 
 function applyProperty(
