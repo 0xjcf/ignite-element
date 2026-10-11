@@ -558,6 +558,15 @@ describe("URL scheme guard", () => {
 		],
 		[
 			"animate",
+			"to",
+			{
+				attributeName: "xlink:href",
+				to: "javascript:alert(1)",
+				begin: "0s",
+			},
+		],
+		[
+			"animate",
 			"values",
 			{
 				attributeName: "href",
@@ -577,7 +586,7 @@ describe("URL scheme guard", () => {
 			);
 			const animated = host.querySelector(tag);
 
-			expect(animated?.getAttribute("attributeName")).toBe("href");
+			expect(animated?.getAttribute("attributeName")).toBe(props.attributeName);
 			expect(animated?.getAttribute("attribute-name")).toBeNull();
 			expect(animated?.getAttribute(blockedKey) ?? "").not.toContain(
 				"javascript:",

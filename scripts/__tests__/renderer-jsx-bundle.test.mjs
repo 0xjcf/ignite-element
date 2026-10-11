@@ -62,7 +62,7 @@ const EVENT_ORIGIN_WARNING = "observed from both native and effect";
 // left for a consumer bundler to strip. Previous target was 4634.
 // renderer security guard: SVG animate/set + meta refresh
 // Ceiling is the measured consumer after that guard, with no extra slack.
-const TODAY_CONSUMER_GZIP = 4835;
+const TODAY_CONSUMER_GZIP = 4703;
 
 function consumerEntry() {
 	return `import { jsx, mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";
