@@ -9,7 +9,7 @@ Stop applying `innerHTML`, `outerHTML`, and `srcdoc`. This is the `innerHTML` ha
 
 String event-handler props are not applied in any case, including `ONCLICK`, `OnError`, and `xlink:onclick`. Function handlers still use `addEventListener` and do not create an attribute.
 
-These sinks are not checked, so the no-host renderer stays within its gzip ceiling: `srcset` candidate lists, `poster`, SVG `animate`/`set` `to`/`values` when `attributeName` targets `href`, and `meta` refresh `content` URLs.
+`animate` and `set` keep the real `attributeName` attribute. When that attribute targets `href` or `xlink:href`, an executable `to` value or any executable semicolon-separated `values` token is not applied. `meta` `http-equiv` and `httpEquiv` are not applied when the value trims to `refresh`, so a cross-origin refresh cannot navigate. `srcset` candidate lists and `poster` are not checked. The no-host consumer ceiling is 4,835 B gzip, the measured size after this guard, with no extra slack.
 
 A JSX strategy `detach()` drops a shadow root that was queued before the style injector loaded, and it drops a pending root so reconnecting that host does not style it. `flushPendingStyles()` does not write into a root while that root is disconnected. A root that was connected when it was queued, then disconnected during a move, stays pending and is styled when it reconnects. The same reconnect applies when the style injector itself loads during the move. Roots that have not been connected yet still flush.
 

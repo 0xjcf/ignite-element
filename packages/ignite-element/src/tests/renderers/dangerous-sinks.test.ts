@@ -520,7 +520,7 @@ describe("URL scheme guard", () => {
 		expect(host.querySelector("object")?.getAttribute("codebase")).toBeNull();
 	});
 
-	it("still applies a non-href SVG animate value", () => {
+	it("still applies a non-href SVG animate value on attributeName", () => {
 		const { host } = mount(
 			jsx("svg", {
 				children: jsx("animate", {
@@ -529,11 +529,78 @@ describe("URL scheme guard", () => {
 				}),
 			}),
 		);
+		const animate = host.querySelector("animate");
 
-		expect(host.querySelector("animate")?.getAttribute("to")).toBe("100%");
+		expect(animate?.getAttribute("attributeName")).toBe("width");
+		expect(animate?.getAttribute("attribute-name")).toBeNull();
+		expect(animate?.getAttribute("to")).toBe("100%");
 	});
 
-	it("still applies a safe meta refresh and a non-refresh content", () => {
+	it.each([
+		[
+			"set",
+			"to",
+			{ attributeName: "href", to: "javascript:alert(1)", begin: "0s" },
+		],
+		[
+			"animate",
+			"values",
+			{
+				attributeName: "href",
+				values: "javascript:alert(1)",
+				begin: "0s",
+			},
+		],
+		[
+			"animate",
+			"to",
+			{ attributeName: "href", to: "javascript:alert(1)", begin: "0s" },
+		],
+		[
+			"animate",
+			"values",
+			{
+				attributeName: "href",
+				values: "https://example.com/ok;javascript:alert(1)",
+			},
+		],
+	] as const)(
+		"does not apply an executable %s %s when attributeName targets href",
+		(tag, blockedKey, props) => {
+			const { host } = mount(
+				jsx("svg", {
+					children: jsx("a", {
+						href: "https://example.com/ok",
+						children: jsx(tag, props),
+					}),
+				}),
+			);
+			const animated = host.querySelector(tag);
+
+			expect(animated?.getAttribute("attributeName")).toBe("href");
+			expect(animated?.getAttribute("attribute-name")).toBeNull();
+			expect(animated?.getAttribute(blockedKey) ?? "").not.toContain(
+				"javascript:",
+			);
+		},
+	);
+
+	it("still applies a safe href animation value", () => {
+		const { host } = mount(
+			jsx("svg", {
+				children: jsx("animate", {
+					attributeName: "href",
+					to: "https://example.com/next",
+				}),
+			}),
+		);
+		const animate = host.querySelector("animate");
+
+		expect(animate?.getAttribute("attributeName")).toBe("href");
+		expect(animate?.getAttribute("to")).toBe("https://example.com/next");
+	});
+
+	it("does not apply a meta http-equiv refresh", () => {
 		const { host } = mount(
 			jsx("div", {
 				children: [
@@ -547,9 +614,8 @@ describe("URL scheme guard", () => {
 		);
 		const metas = host.querySelectorAll("meta");
 
-		expect(metas[0]?.getAttribute("content")).toContain(
-			"https://example.com/next",
-		);
+		expect(metas[0]?.getAttribute("http-equiv")).toBeNull();
+		expect(metas[0]?.httpEquiv ?? "").not.toMatch(/refresh/i);
 		expect(metas[1]?.getAttribute("content")).toBe("width=device-width");
 	});
 

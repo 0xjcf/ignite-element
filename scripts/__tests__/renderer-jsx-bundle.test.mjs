@@ -59,9 +59,10 @@ const WARNING_STRINGS = [
 const EVENT_ORIGIN_WARNING = "observed from both native and effect";
 
 // Gzip level 9 of this production consumer entry before dev warnings were
-// left for a consumer bundler to strip.
-const TODAY_CONSUMER_GZIP = 4634;
-const FEW_BYTES = 16;
+// left for a consumer bundler to strip. Previous target was 4634.
+// renderer security guard: SVG animate/set + meta refresh
+// Ceiling is the measured consumer after that guard, with no extra slack.
+const TODAY_CONSUMER_GZIP = 4835;
 
 function consumerEntry() {
 	return `import { jsx, mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";
@@ -298,8 +299,8 @@ describe("published renderer jsx bundle", { concurrency: false }, () => {
 		assertProductionBundle(code, "vite");
 		const gzipBytes = gzipSync(Buffer.from(code), { level: 9 }).byteLength;
 		assert.ok(
-			gzipBytes <= TODAY_CONSUMER_GZIP + FEW_BYTES,
-			`consumer gzip ${gzipBytes} is more than ${FEW_BYTES} bytes above ${TODAY_CONSUMER_GZIP}`,
+			gzipBytes <= TODAY_CONSUMER_GZIP,
+			`consumer gzip ${gzipBytes} is above ${TODAY_CONSUMER_GZIP}`,
 		);
 	});
 

@@ -1,5 +1,6 @@
 import {
 	executableUriPattern,
+	isExecutableUri,
 	uriBearingKeyPattern,
 	uriSpacePattern,
 } from "./executableUri";
@@ -42,6 +43,7 @@ const CAMEL_CASE_SVG_ATTRS = new Set([
 	"startOffset",
 	"textLength",
 	"lengthAdjust",
+	"attributeName",
 ]);
 
 type NormalizedNode =
@@ -368,9 +370,8 @@ function isBlockedUrlValue(
 	if (value == null || value === false) return false;
 	const name = key.toLowerCase();
 	const tag = element.localName;
-	// <base href> retargets relative URLs. srcset lists, poster, SVG
-	// animate/set href targets, and meta refresh URLs are documented in the
-	// changeset; they are not checked here.
+	// <base href> retargets relative URLs. srcset lists and poster are
+	// documented in the changeset; they are not checked here.
 	if (tag === "base" && name === "href") return true;
 	if (
 		!uriBearingKeyPattern.test(name) &&
@@ -384,6 +385,47 @@ function isBlockedUrlValue(
 	return (
 		executableUriPattern.test(normalized) ||
 		(normalized.startsWith("data:") && dataDocumentTagPattern.test(tag))
+	);
+}
+
+function animationTargetsHref(
+	element: Element,
+	props: IgniteJsxProps,
+): boolean {
+	const tag = element.localName;
+	if (tag !== "animate" && tag !== "set") return false;
+	let target: string | null = null;
+	for (const [key, value] of Object.entries(props)) {
+		if (key.toLowerCase() !== "attributename") continue;
+		target = typeof value === "string" ? value : "";
+	}
+	if (target == null) {
+		target = element.getAttribute("attributeName") ?? "";
+	}
+	const name = target.trim().toLowerCase();
+	return name === "href" || name === "xlink:href";
+}
+
+function hasExecutableAnimationValue(key: string, value: unknown): boolean {
+	if (typeof value !== "string") return false;
+	const name = key.toLowerCase();
+	if (name === "to") return isExecutableUri(value);
+	if (name !== "values") return false;
+	for (const token of value.split(";")) {
+		if (token && isExecutableUri(token)) return true;
+	}
+	return false;
+}
+
+function isBlockedRefresh(
+	element: Element,
+	key: string,
+	value: unknown,
+): boolean {
+	if (element.localName !== "meta" || typeof value !== "string") return false;
+	return (
+		key.toLowerCase().replace(/-/g, "") === "httpequiv" &&
+		value.trim().toLowerCase() === "refresh"
 	);
 }
 
@@ -1020,6 +1062,7 @@ function patchProps(
 	newProps: IgniteJsxProps,
 ) {
 	const isSvgElement = element instanceof SVGElement;
+	const blockHrefAnimation = animationTargetsHref(element, newProps);
 
 	for (const key of Object.keys(oldProps)) {
 		if (hostRuntimeEnabled && key === "use") continue;
@@ -1050,7 +1093,11 @@ function patchProps(
 			}
 			continue;
 		}
-		if (isBlockedUrlValue(element, key, next)) {
+		if (
+			isBlockedUrlValue(element, key, next) ||
+			isBlockedRefresh(element, key, next) ||
+			(blockHrefAnimation && hasExecutableAnimationValue(key, next))
+		) {
 			warnBlockedUrl(element, key);
 			// removeProp clears a non-reflected property and the attribute.
 			// Attribute removal alone leaves a stale custom-element URL.
