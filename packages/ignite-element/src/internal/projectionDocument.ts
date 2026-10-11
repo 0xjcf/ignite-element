@@ -1,3 +1,7 @@
+import {
+	containsExecutableUri,
+	isUriBearingKey,
+} from "@ignite-element/renderer";
 import { validateToolInputValue } from "../tools/core";
 import type {
 	ProjectionActionNode,
@@ -65,91 +69,6 @@ const allowedOnPrefixedDataKeys = new Set([
 	"online",
 	"only",
 ]);
-const uriBearingKeys = new Set([
-	"action",
-	"formaction",
-	"href",
-	"src",
-	"xlink:href",
-]);
-const executableDataMediaTypes = new Set([
-	"application/xhtml+xml",
-	"image/svg+xml",
-	"text/html",
-]);
-const uriArrayScalarBlocker = "#";
-
-function removeAsciiWhitespaceAndControl(value: string): string {
-	let normalized = "";
-	for (const character of value) {
-		const codePoint = character.charCodeAt(0);
-		if (codePoint <= 0x20 || codePoint === 0x7f) {
-			continue;
-		}
-		normalized += character;
-	}
-	return normalized;
-}
-
-function isExecutableUri(value: string): boolean {
-	const normalized = removeAsciiWhitespaceAndControl(value).toLowerCase();
-	if (
-		normalized.startsWith("javascript:") ||
-		normalized.startsWith("vbscript:")
-	) {
-		return true;
-	}
-	if (!normalized.startsWith("data:")) {
-		return false;
-	}
-
-	const commaIndex = normalized.indexOf(",");
-	const metadata = normalized.slice(
-		"data:".length,
-		commaIndex < 0 ? undefined : commaIndex,
-	);
-	const separatorIndex = metadata.indexOf(";");
-	const mediaType = metadata.slice(
-		0,
-		separatorIndex < 0 ? undefined : separatorIndex,
-	);
-	return executableDataMediaTypes.has(mediaType);
-}
-
-function createUriArrayCandidate(value: unknown[]): string {
-	let candidate = "";
-	for (let index = 0; index < value.length; index += 1) {
-		if (index > 0) {
-			candidate += ",";
-		}
-
-		const entry: unknown = value[index];
-		if (entry === null) {
-			continue;
-		}
-		if (typeof entry === "string") {
-			candidate += entry;
-			continue;
-		}
-		if (Array.isArray(entry)) {
-			candidate += createUriArrayCandidate(entry);
-			continue;
-		}
-
-		candidate += uriArrayScalarBlocker;
-	}
-	return candidate;
-}
-
-function containsExecutableUri(value: unknown): boolean {
-	if (typeof value === "string") {
-		return isExecutableUri(value);
-	}
-	return (
-		Array.isArray(value) && isExecutableUri(createUriArrayCandidate(value))
-	);
-}
-
 type MaterializedObject = {
 	[key: string]: MaterializedValue;
 };
@@ -1145,7 +1064,7 @@ function collectForbiddenContent(
 		) {
 			issues.push(`${path}.${key}: executable content is not allowed`);
 		}
-		if (uriBearingKeys.has(normalizedKey) && containsExecutableUri(entry)) {
+		if (isUriBearingKey(key) && containsExecutableUri(entry)) {
 			issues.push(`${path}.${key}: executable URI is not allowed`);
 		}
 		collectForbiddenContent(entry, `${path}.${key}`, issues);

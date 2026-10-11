@@ -45,7 +45,7 @@ const browserImportHelper = path.join(
 const DUPLICATE_KEY =
 	'[ignite-jsx] Duplicate key "dup" among siblings. Keys must be unique.';
 const INNER_HTML =
-	"[ignite-jsx] `innerHTML` is deprecated and will be removed in the next major release. Use JSX children for text, and hosts for trusted rich content.";
+	"[ignite-jsx] `innerHTML` is ignored and not applied. Use JSX children for text, and hosts for trusted rich content.";
 const TEXT_CONTENT =
 	"[ignite-jsx] `textContent` is deprecated and will be removed in the next major release. Use JSX children for text, and hosts for trusted rich content.";
 const WARNING_STRINGS = [
@@ -53,13 +53,16 @@ const WARNING_STRINGS = [
 	"Mixed keyed and unkeyed",
 	"requires a single element",
 	"is deprecated and will be removed",
+	"is ignored and not applied",
+	"URL scheme is not allowed",
 ];
 const EVENT_ORIGIN_WARNING = "observed from both native and effect";
 
 // Gzip level 9 of this production consumer entry before dev warnings were
-// left for a consumer bundler to strip.
-const TODAY_CONSUMER_GZIP = 4634;
-const FEW_BYTES = 16;
+// left for a consumer bundler to strip. Previous target was 4634.
+// renderer security guard: SVG animate/set + meta refresh
+// Ceiling is the measured consumer after that guard, with no extra slack.
+const TODAY_CONSUMER_GZIP = 4703;
 
 function consumerEntry() {
 	return `import { jsx, mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";
@@ -296,8 +299,8 @@ describe("published renderer jsx bundle", { concurrency: false }, () => {
 		assertProductionBundle(code, "vite");
 		const gzipBytes = gzipSync(Buffer.from(code), { level: 9 }).byteLength;
 		assert.ok(
-			gzipBytes <= TODAY_CONSUMER_GZIP + FEW_BYTES,
-			`consumer gzip ${gzipBytes} is more than ${FEW_BYTES} bytes above ${TODAY_CONSUMER_GZIP}`,
+			gzipBytes <= TODAY_CONSUMER_GZIP,
+			`consumer gzip ${gzipBytes} is above ${TODAY_CONSUMER_GZIP}`,
 		);
 	});
 

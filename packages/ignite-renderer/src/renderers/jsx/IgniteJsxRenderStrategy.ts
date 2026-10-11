@@ -1,5 +1,5 @@
 import { getIgniteConfig } from "../../config";
-import injectStyles from "../../injectStyles";
+import { forgetQueuedStyles, injectStyles } from "../../styleHook";
 import type { RenderStrategy } from "../RenderStrategy";
 import { readBoundHostRuntime, withIgniteHostRuntime } from "./hostBridge";
 import { isNoDiffDenylistedTag } from "./noDiffDenylist";
@@ -17,21 +17,45 @@ declare const __IGNITE_HOST_RUNTIME__: boolean | undefined;
 const hostRuntimeEnabled =
 	typeof __IGNITE_HOST_RUNTIME__ !== "undefined" && __IGNITE_HOST_RUNTIME__;
 
+type FallbackLogging = "off" | "warn" | "debug";
+
+function normalizeLogging(input: unknown): FallbackLogging {
+	if (input === "debug" || input === "warn" || input === "off") {
+		return input;
+	}
+	return "off";
+}
+
+function hostTag(contentRoot: HTMLElement | null): string | null {
+	const host = (contentRoot?.getRootNode() as ShadowRoot | null)?.host;
+	return host?.tagName?.toLowerCase() ?? null;
+}
+
+function logJsxFallback(
+	logging: FallbackLogging,
+	reason: string,
+	tag: string | null,
+): void {
+	if (!__IGNITE_DEV_WARNINGS__ || logging === "off") return;
+	const message = `[IgniteJsxRenderStrategy] Falling back to replace (${reason}${
+		tag ? `, tag=${tag}` : ""
+	})`;
+	if (logging === "debug") {
+		console.debug(message);
+	} else {
+		console.warn(message);
+	}
+}
+
+const strategyLogging = new WeakMap<object, FallbackLogging>();
+const strategyFallbackReason = new WeakMap<object, string>();
+
 class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 	private contentRoot: HTMLElement | null = null;
 	private previousTree: NormalizedNode[] | null = null;
 	private readonly mode: "diff" | "replace";
-	private readonly logging: "off" | "warn" | "debug";
 	private readonly diffEnabled: boolean;
 	private forceReplace = false;
-	private forceReplaceReason: string | null = null;
-
-	private normalizeLogging(input: unknown): "off" | "warn" | "debug" {
-		if (input === "debug" || input === "warn" || input === "off") {
-			return input;
-		}
-		return "off";
-	}
 
 	constructor() {
 		const { strategy, logging } = getIgniteConfig() ?? {};
@@ -46,7 +70,9 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 			: undefined;
 		this.diffEnabled = (envFlag ?? "true") !== "false";
 		this.mode = strategy === "replace" ? "replace" : "diff";
-		this.logging = this.normalizeLogging(logging);
+		if (__IGNITE_DEV_WARNINGS__) {
+			strategyLogging.set(this, normalizeLogging(logging));
+		}
 	}
 
 	attach(host: ShadowRoot): void {
@@ -73,11 +99,16 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 			isDenylistedHost
 		) {
 			this.forceReplace = true;
-			this.forceReplaceReason = isDenylistedHost
-				? `denylist:${tagName}`
-				: hostElement?.hasAttribute?.("data-ignite-hydrated")
-					? "hydrated"
-					: "nodiff-attr";
+			if (__IGNITE_DEV_WARNINGS__) {
+				strategyFallbackReason.set(
+					this,
+					isDenylistedHost
+						? `denylist:${tagName}`
+						: hostElement?.hasAttribute?.("data-ignite-hydrated")
+							? "hydrated"
+							: "nodiff-attr",
+				);
+			}
 		}
 	}
 
@@ -90,21 +121,19 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 		}
 
 		const mode = this.forceReplace || !this.diffEnabled ? "replace" : this.mode;
-		const forceReason =
-			this.forceReplaceReason ??
-			(mode === "replace" && this.mode === "replace"
-				? "config-replace"
-				: !this.diffEnabled
-					? "flag-disabled"
-					: null);
-
 		const render = () =>
 			this.previousTree === null
 				? mountIgniteJsx(contentRoot, view)
 				: renderIgniteJsx(contentRoot, view, this.previousTree ?? undefined, {
 						mode,
-						onFallbackReplace: (reason) =>
-							this.logFallback(reason, this.getHostTag()),
+						onFallbackReplace: __IGNITE_DEV_WARNINGS__
+							? (reason) =>
+									logJsxFallback(
+										strategyLogging.get(this) ?? "off",
+										reason,
+										hostTag(contentRoot),
+									)
+							: undefined,
 					});
 		if (hostRuntimeEnabled) {
 			const rootNode = contentRoot.getRootNode();
@@ -116,8 +145,21 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 			this.previousTree = render();
 		}
 
-		if (forceReason) {
-			this.logFallback(forceReason, this.getHostTag());
+		if (__IGNITE_DEV_WARNINGS__) {
+			const forceReason =
+				strategyFallbackReason.get(this) ??
+				(mode === "replace" && this.mode === "replace"
+					? "config-replace"
+					: !this.diffEnabled
+						? "flag-disabled"
+						: undefined);
+			if (forceReason) {
+				logJsxFallback(
+					strategyLogging.get(this) ?? "off",
+					forceReason,
+					hostTag(this.contentRoot),
+				);
+			}
 		}
 	}
 
@@ -129,29 +171,14 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 	}
 
 	detach(): void {
+		const rootNode = this.contentRoot?.getRootNode();
+		if (rootNode instanceof ShadowRoot) forgetQueuedStyles(rootNode);
 		if (this.contentRoot) {
 			unmountIgniteSubtree(this.contentRoot);
 			this.contentRoot.parentNode?.removeChild(this.contentRoot);
 		}
 		this.contentRoot = null;
 		this.previousTree = null;
-	}
-
-	private getHostTag(): string | null {
-		const host = (this.contentRoot?.getRootNode() as ShadowRoot | null)?.host;
-		return host?.tagName?.toLowerCase() ?? null;
-	}
-
-	private logFallback(reason: string, tag: string | null): void {
-		if (this.logging === "off") return;
-		const message = `[IgniteJsxRenderStrategy] Falling back to replace (${reason}${
-			tag ? `, tag=${tag}` : ""
-		})`;
-		if (this.logging === "debug") {
-			console.debug(message);
-		} else {
-			console.warn(message);
-		}
 	}
 }
 

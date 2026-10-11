@@ -28,7 +28,7 @@ JSX files use `.tsx` and `jsxImportSource: "ignite-element/jsx"`.
 
 A source-free layout can use `igniteCore()` from `ignite-element`; it returns only a registrar, without the source-backed runtime methods.
 
-`innerHTML` and `textContent` props are deprecated and will be removed in the next major release. Use JSX children for text. Trusted rich content belongs to a [host](/ignite-element/handbook/hosts/), which owns that element's subtree.
+`innerHTML`, `outerHTML`, and `srcdoc` are not applied. A host [`mount`](/ignite-element/handbook/hosts/) may still assign `innerHTML`. That imperative callback is the escape hatch for trusted markup. `href`, `src`, `action`, `formaction`, and `xlink:href` reject executable URL schemes. `textContent` is deprecated and will be removed in the next major release. Use JSX children for text. Trusted rich content belongs to a [host](/ignite-element/handbook/hosts/), which owns that element's subtree.
 
 ## React
 

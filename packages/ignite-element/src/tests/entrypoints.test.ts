@@ -55,6 +55,17 @@ describe("public adapter entrypoints", () => {
 		expect(rendererJsx.jsxDEV).toBe(rendererJsxIndex.jsxDEV);
 	});
 
+	it("exports the executable URI guard from the renderer entry", async () => {
+		const renderer = await import("@ignite-element/renderer");
+
+		expect(typeof renderer.containsExecutableUri).toBe("function");
+		expect(typeof renderer.isUriBearingKey).toBe("function");
+		expect(renderer.isUriBearingKey("href")).toBe(true);
+		expect(renderer.isUriBearingKey("data")).toBe(false);
+		expect(renderer.containsExecutableUri("javascript:alert(1)")).toBe(true);
+		expect(renderer.containsExecutableUri("https://example.com")).toBe(false);
+	});
+
 	it("keeps the xstate entrypoint stable", () => {
 		const machine = createMachine({
 			initial: "idle",

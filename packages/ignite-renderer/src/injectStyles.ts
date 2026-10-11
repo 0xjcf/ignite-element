@@ -1,4 +1,5 @@
 import { getGlobalStyles } from "./globalStyles";
+import { installStyleInject } from "./styleHook";
 
 type PendingRootRef = {
 	deref(): ShadowRoot | undefined;
@@ -6,6 +7,8 @@ type PendingRootRef = {
 
 type PendingRootEntry = {
 	ref: PendingRootRef;
+	/** True when the root was connected at queue time. */
+	live: boolean;
 };
 
 type WeakRefConstructor = new <T extends ShadowRoot>(
@@ -54,24 +57,86 @@ function createPendingRootRef(shadowRoot: ShadowRoot): PendingRootRef {
 	};
 }
 
-function enqueuePendingRoot(shadowRoot: ShadowRoot): void {
+function enqueuePendingRoot(
+	shadowRoot: ShadowRoot,
+	live = shadowRoot.isConnected,
+): void {
 	if (pendingRootIndex.has(shadowRoot)) {
 		return;
 	}
 
 	const entry = {
 		ref: createPendingRootRef(shadowRoot),
+		live,
 	};
 	pendingRoots.add(entry);
 	pendingRootIndex.set(shadowRoot, entry);
+	if (live && !shadowRoot.isConnected) {
+		parkedRoots.add(entry);
+		watchParkedRoots();
+	}
 }
 
 function deletePendingRootEntry(entry: PendingRootEntry): void {
 	pendingRoots.delete(entry);
+	parkedRoots.delete(entry);
 	const shadowRoot = entry.ref.deref();
 	if (shadowRoot) {
 		pendingRootIndex.delete(shadowRoot);
 	}
+	if (parkedRoots.size === 0) {
+		reconnectObserver?.disconnect();
+		reconnectObserver = undefined;
+	}
+}
+
+// detach() stamps this symbol on the shadow root. The style queue lives on
+// globalThis under the same symbol, so the two marks do not collide.
+const STYLE_DETACHED_SLOT = Symbol.for("ignite-element.style-inject");
+const parkedRoots = new Set<PendingRootEntry>();
+let reconnectObserver: MutationObserver | undefined;
+
+function isTerminalStyleDetach(root: ShadowRoot): boolean {
+	return (
+		(root as ShadowRoot & { [STYLE_DETACHED_SLOT]?: unknown })[
+			STYLE_DETACHED_SLOT
+		] === true
+	);
+}
+
+function clearStyleDetachMark(root: ShadowRoot): void {
+	const marked = root as ShadowRoot & { [STYLE_DETACHED_SLOT]?: unknown };
+	if (marked[STYLE_DETACHED_SLOT] === true) {
+		delete marked[STYLE_DETACHED_SLOT];
+	}
+}
+
+function watchParkedRoots(): void {
+	if (
+		reconnectObserver ||
+		parkedRoots.size === 0 ||
+		typeof MutationObserver === "undefined" ||
+		!document.documentElement
+	) {
+		return;
+	}
+
+	reconnectObserver = new MutationObserver(() => {
+		for (const entry of Array.from(parkedRoots)) {
+			const shadowRoot = entry.ref.deref();
+			if (!shadowRoot || isTerminalStyleDetach(shadowRoot)) {
+				deletePendingRootEntry(entry);
+				continue;
+			}
+			if (!shadowRoot.isConnected) continue;
+			deletePendingRootEntry(entry);
+			injectStyles(shadowRoot);
+		}
+	});
+	reconnectObserver.observe(document.documentElement, {
+		childList: true,
+		subtree: true,
+	});
 }
 
 function collectPendingRoots(): ShadowRoot[] {
@@ -79,14 +144,23 @@ function collectPendingRoots(): ShadowRoot[] {
 
 	for (const entry of Array.from(pendingRoots)) {
 		const shadowRoot = entry.ref.deref();
-		if (!shadowRoot) {
+		if (!shadowRoot || isTerminalStyleDetach(shadowRoot)) {
 			deletePendingRootEntry(entry);
 			continue;
 		}
+		// A connected root that is mid-move stays queued. Writing now would
+		// style a detached tree, and dropping the entry would leave the
+		// component unstyled after reconnect because attach does not run again.
+		if (!shadowRoot.isConnected && entry.live) {
+			parkedRoots.add(entry);
+			continue;
+		}
 
+		parkedRoots.delete(entry);
 		roots.push(shadowRoot);
 	}
 
+	watchParkedRoots();
 	return roots;
 }
 
@@ -125,7 +199,13 @@ function warnRejectedStyleOnce(
  * @internal Low-level shadow-root style injection. Used by the config loader and
  * the element's internal style wiring; not a supported standalone API.
  */
-export default function injectStyles(shadowRoot: ShadowRoot): void {
+export default function injectStyles(
+	shadowRoot: ShadowRoot,
+	connectedAtQueue?: boolean,
+): void {
+	// An explicit attach after detach is a new request. Reconnect watching
+	// checks the mark first and does not call back in here.
+	clearStyleDetachMark(shadowRoot);
 	// Skip if this shadow root was already processed
 	if (initializedRoots.has(shadowRoot)) {
 		debugLog(
@@ -138,13 +218,19 @@ export default function injectStyles(shadowRoot: ShadowRoot): void {
 	debugLog(DebugNamespace.COMPONENT, "Initializing new shadow root");
 
 	const globalStyles = getGlobalStyles();
-	if (!globalStyles) {
+	const deferUntilReconnect =
+		connectedAtQueue === true && !shadowRoot.isConnected;
+	if (!globalStyles || deferUntilReconnect) {
 		debugLog(
 			DebugNamespace.GLOBAL_STYLES,
 			"No globalStyles set when initializing shadow root. Pending for later flush.",
 		);
-		enqueuePendingRoot(shadowRoot);
-		// Do not mark initialized; we'll retry once styles are available.
+		enqueuePendingRoot(
+			shadowRoot,
+			deferUntilReconnect || shadowRoot.isConnected,
+		);
+		// Do not mark initialized; we'll retry once styles are available
+		// or the moved root is connected again.
 		return;
 	}
 
@@ -289,3 +375,5 @@ export function flushPendingStyles(): void {
 		injectStyles(root);
 	}
 }
+
+installStyleInject(injectStyles);

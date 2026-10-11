@@ -121,10 +121,9 @@ describe("ignite-jsx diffing behavior", () => {
 		expect(fallback).toHaveBeenCalled();
 	});
 
-	// Regression: issue #57 — toggling the same element between JSX children and
-	// an innerHTML branch must REPLACE, not append. Each round-trip previously
-	// accumulated duplicate children because innerHTML-injected nodes are not
-	// tracked by the normalized children model.
+	// Regression: issue #57 — an innerHTML prop must not inject untracked nodes.
+	// The prop is not applied, so toggling it removes JSX children and puts them
+	// back without accumulating duplicates.
 	const settingsView = () =>
 		jsx("div", {
 			children: jsx("main", {
@@ -148,10 +147,11 @@ describe("ignite-jsx diffing behavior", () => {
 		let tree = mountIgniteJsx(host, settingsView());
 		expect(host.querySelectorAll("main > section").length).toBe(2);
 
-		// JSX children -> innerHTML branch
+		// JSX children -> ignored innerHTML prop: sections are removed, markup is not injected
 		tree = renderIgniteJsx(host, innerHtmlView(), tree);
 		expect(host.querySelectorAll("main > section").length).toBe(0);
-		expect(host.querySelector("main")?.textContent).toBe("Other view");
+		expect(host.querySelector("main p")).toBeNull();
+		expect(host.querySelector("main")?.textContent).toBe("");
 
 		// innerHTML -> back to JSX children: must be exactly 2 sections, not 4
 		tree = renderIgniteJsx(host, settingsView(), tree);
@@ -161,7 +161,7 @@ describe("ignite-jsx diffing behavior", () => {
 		tree = renderIgniteJsx(host, innerHtmlView(), tree);
 		tree = renderIgniteJsx(host, settingsView(), tree);
 		expect(host.querySelectorAll("main > section").length).toBe(2);
-		// no leftover nodes from the innerHTML branch (issue #57 "extra content")
+		// no leftover nodes from the ignored innerHTML prop (issue #57 "extra content")
 		expect(host.querySelector("main")?.children.length).toBe(2);
 		expect(host.querySelector("main")?.textContent).toBe(
 			"AppearanceAuthentication",

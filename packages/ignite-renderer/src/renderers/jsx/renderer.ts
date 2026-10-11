@@ -1,10 +1,14 @@
 import {
+	executableUriPattern,
+	uriBearingKeyPattern,
+	uriSpacePattern,
+} from "./executableUri";
+import {
 	configureHostOwnership,
 	type IgniteHostRuntime,
 	syncHostElement,
 	withIgniteHostRuntime,
 } from "./hostBridge";
-
 import { isNoDiffDenylistedTag } from "./noDiffDenylist";
 import {
 	Fragment,
@@ -38,6 +42,7 @@ const CAMEL_CASE_SVG_ATTRS = new Set([
 	"startOffset",
 	"textLength",
 	"lengthAdjust",
+	"attributeName",
 ]);
 
 type NormalizedNode =
@@ -299,10 +304,7 @@ function applySlotKey(
 	return nodes;
 }
 
-function warnDeprecatedContentProp(
-	element: Element,
-	key: "innerHTML" | "textContent",
-): void {
+function warnIgnoredProp(element: Element, key: string, message: string): void {
 	if (!__IGNITE_DEV_WARNINGS__) return;
 	let seen = deprecatedContentWarnings.get(element);
 	if (!seen) {
@@ -311,9 +313,101 @@ function warnDeprecatedContentProp(
 	}
 	if (seen.has(key)) return;
 	seen.add(key);
-	console.warn(
+	console.warn(message);
+}
+
+function warnDeprecatedContentProp(element: Element, key: string): void {
+	warnIgnoredProp(
+		element,
+		key,
 		`[ignite-jsx] \`${key}\` is deprecated and will be removed in the next major release. Use JSX children for text, and hosts for trusted rich content.`,
 	);
+}
+
+function warnBlockedMarkupProp(element: Element, key: string): void {
+	warnIgnoredProp(
+		element,
+		key,
+		`[ignite-jsx] \`${key}\` is ignored and not applied. Use JSX children for text, and hosts for trusted rich content.`,
+	);
+}
+
+function warnBlockedUrl(element: Element, key: string): void {
+	warnIgnoredProp(
+		element,
+		`url:${key}`,
+		`[ignite-jsx] \`${key}\` was not applied because its URL scheme is not allowed.`,
+	);
+}
+
+function isBlockedMarkupProp(key: string): boolean {
+	const normalized = key.toLowerCase();
+	return (
+		normalized === "innerhtml" ||
+		normalized === "outerhtml" ||
+		normalized === "srcdoc"
+	);
+}
+
+const dataDocumentTagPattern = /^(?:script|iframe|frame|object|embed)$/;
+
+function isEventHandlerKey(key: string): boolean {
+	const name = key.toLowerCase();
+	return name.length > 2 && name.startsWith("on");
+}
+
+function isIgnoredHandlerAttribute(key: string): boolean {
+	const name = key.toLowerCase();
+	return isEventHandlerKey(name) || name.startsWith("xlink:on");
+}
+
+function strippedUri(value: string): string {
+	uriSpacePattern.lastIndex = 0;
+	return value.replace(uriSpacePattern, "").toLowerCase();
+}
+
+function isBlockedUrlValue(
+	element: Element,
+	key: string,
+	value: unknown,
+	props?: IgniteJsxProps,
+): boolean {
+	if (value == null || value === false) return false;
+	const name = key.toLowerCase();
+	const tag = element.localName;
+	// <base href> retargets relative URLs. srcset lists and poster are
+	// documented in the changeset; they are not checked here.
+	if (tag === "base" && name === "href") return true;
+	if (tag === "meta" && name.endsWith("equiv")) {
+		return (
+			typeof value === "string" && value.trim().toLowerCase() === "refresh"
+		);
+	}
+	// href and xlink:href share the existing URL-key check.
+	const animated =
+		(tag === "animate" || tag === "set") &&
+		(name === "to" || name === "values") &&
+		uriBearingKeyPattern.test(props?.attributeName as string);
+	if (
+		!animated &&
+		!uriBearingKeyPattern.test(name) &&
+		!(name === "data" && tag === "object")
+	) {
+		return false;
+	}
+	if (typeof value !== "string") return !animated;
+	for (const token of animated ? value.split(";") : [value]) {
+		const normalized = strippedUri(token);
+		if (
+			executableUriPattern.test(normalized) ||
+			(!animated &&
+				normalized.startsWith("data:") &&
+				dataDocumentTagPattern.test(tag))
+		) {
+			return true;
+		}
+	}
+	return false;
 }
 
 function ensureMount(node: Node): ElementMount {
@@ -755,20 +849,12 @@ function keyShapeIsInvalid(shape: KeyShape): boolean {
 	return shape === "duplicate" || shape === "mixed";
 }
 
-// Props whose value imperatively replaces the element's entire subtree as a DOM
-// property. Nodes they create are not tracked by the normalized children model,
-// so the child diff must defer to them rather than reconcile against them.
-// Hosts claim the same rule through `claimSubtree`.
-const SUBTREE_OWNING_PROPS = ["innerHTML", "textContent"] as const;
-
+// textContent replaces the element's subtree as a DOM property. Nodes it creates
+// are not tracked by the normalized children model, so the child diff must defer
+// to it. Hosts claim the same rule through `claimSubtree`. innerHTML is not applied.
 function ownsSubtreeViaProps(props: IgniteJsxProps): boolean {
-	for (const key of SUBTREE_OWNING_PROPS) {
-		const value = (props as Record<string, unknown>)[key];
-		if (value !== undefined && value !== null && value !== false) {
-			return true;
-		}
-	}
-	return false;
+	const value = (props as Record<string, unknown>).textContent;
+	return value !== undefined && value !== null && value !== false;
 }
 
 function subtreeIsOwned(element: Element, props: IgniteJsxProps): boolean {
@@ -816,7 +902,9 @@ function patchNode(
 	}
 
 	if (isNoDiffDenylistedTag(newNode.tag)) {
-		onFallbackReplace?.(`denylist:${newNode.tag.toLowerCase()}`);
+		if (__IGNITE_DEV_WARNINGS__) {
+			onFallbackReplace?.(`denylist:${newNode.tag.toLowerCase()}`);
+		}
 		return replaceMounted(domNode, newNode);
 	}
 
@@ -846,9 +934,9 @@ function patchNode(
 	if (hostRuntimeEnabled && !droppingHost) {
 		syncHostElement(elementNode, nextUse);
 	}
-	// A subtree owner (innerHTML, textContent, or a host claim) is opaque.
-	// patchProps already applied the owning prop — skip child diffing so the
-	// positional patch does not desync against untracked DOM nodes (issue #57).
+	// A subtree owner (textContent or a host claim) is opaque. patchProps already
+	// applied the owning prop — skip child diffing so the positional patch does
+	// not desync against untracked DOM nodes (issue #57).
 	if (subtreeIsOwned(elementNode, newNode.props)) {
 		assignRef(elementNode, newNode.props.ref);
 		return domNode;
@@ -936,19 +1024,6 @@ function isAppendOnlyCompatible(
 		}
 	}
 
-	// Detect reorder (same multiset, different order)
-	if (oldChildren.length > 1 && newChildren.length === oldChildren.length) {
-		const oldFingerprints = oldChildren.map(fingerprintNode).join("|");
-		const newFingerprints = newChildren.map(fingerprintNode).join("|");
-		if (oldFingerprints !== newFingerprints) {
-			const oldSorted = [...oldChildren].map(fingerprintNode).sort().join("|");
-			const newSorted = [...newChildren].map(fingerprintNode).sort().join("|");
-			if (oldSorted === newSorted) {
-				return false;
-			}
-		}
-	}
-
 	return true;
 }
 
@@ -962,19 +1037,6 @@ function isSameKind(a: NormalizedNode, b: NormalizedNode): boolean {
 	return true;
 }
 
-function fingerprintNode(node: NormalizedNode): string {
-	switch (node.kind) {
-		case "text":
-			return `t:${node.value}`;
-		case "comment":
-			return `c:${node.comment ?? ""}`;
-		case "element":
-			return `e:${node.namespace ?? ""}:${node.tag}:${node.children
-				.map((child) => fingerprintNode(child))
-				.join(",")}`;
-	}
-}
-
 function patchProps(
 	element: Element,
 	oldProps: IgniteJsxProps,
@@ -983,11 +1045,8 @@ function patchProps(
 	const isSvgElement = element instanceof SVGElement;
 
 	for (const key of Object.keys(oldProps)) {
-		if (
-			key === "children" ||
-			key === "ref" ||
-			(hostRuntimeEnabled && key === "use")
-		)
+		if (hostRuntimeEnabled && key === "use") continue;
+		if (key === "children" || key === "ref" || isBlockedMarkupProp(key))
 			continue;
 		if (!(key in newProps)) {
 			removeProp(element, key, oldProps[key], isSvgElement);
@@ -995,15 +1054,35 @@ function patchProps(
 	}
 
 	for (const [key, next] of Object.entries(newProps)) {
-		if (
-			key === "children" ||
-			key === "ref" ||
-			(hostRuntimeEnabled && key === "use")
-		)
+		if (hostRuntimeEnabled && key === "use") continue;
+		if (key === "children" || key === "ref") continue;
+		if (isBlockedMarkupProp(key)) {
+			if (next !== undefined && next !== null && next !== false) {
+				warnBlockedMarkupProp(element, key);
+			}
 			continue;
+		}
+		if (isIgnoredHandlerAttribute(key)) {
+			// A string `ONCLICK` or `xlink:onclick` would become an executable
+			// attribute. Functions still bind through addEventListener.
+			if (
+				isEventHandlerKey(key) &&
+				(typeof next === "function" || typeof oldProps[key] === "function")
+			) {
+				patchEventListener(element, key, oldProps[key], next);
+			}
+			continue;
+		}
+		if (isBlockedUrlValue(element, key, next, newProps)) {
+			warnBlockedUrl(element, key);
+			// removeProp clears a non-reflected property and the attribute.
+			// Attribute removal alone leaves a stale custom-element URL.
+			removeProp(element, key, oldProps[key], isSvgElement);
+			continue;
+		}
 		const prev = oldProps[key];
 		if (
-			(key === "innerHTML" || key === "textContent") &&
+			key === "textContent" &&
 			next !== undefined &&
 			next !== null &&
 			next !== false
@@ -1030,11 +1109,6 @@ function patchProps(
 
 		if (key === "style") {
 			patchStyle(element as HTMLElement, prev, next);
-			continue;
-		}
-
-		if (key.startsWith("on") && key.length > 2) {
-			patchEventListener(element, key, prev, next);
 			continue;
 		}
 
@@ -1145,20 +1219,27 @@ function removeProp(
 		return;
 	}
 
-	if (key.startsWith("on") && key.length > 2 && typeof prev === "function") {
+	if (isEventHandlerKey(key) && typeof prev === "function") {
 		const eventName = normalizeEventName(key.slice(2));
 		element.removeEventListener(eventName, prev as EventListener);
 		return;
 	}
 
-	if (!isSvg && key in element && key !== "list") {
-		// Reset property to undefined to avoid stale values.
-		Reflect.set(element as HTMLElement, key, undefined);
-	}
-
 	const attrName = isSvg ? normalizeSvgAttributeName(key) : key;
 	if (element.hasAttribute(attrName)) {
 		element.removeAttribute(attrName);
+	}
+
+	// Reflected URL setters turn undefined into the relative URL "undefined".
+	// Attribute removal clears those. A non-reflected custom property stays
+	// equal to the previous value, and only that property is cleared.
+	if (
+		!isSvg &&
+		key in element &&
+		key !== "list" &&
+		(element as HTMLElement)[key as keyof HTMLElement] === prev
+	) {
+		Reflect.set(element as HTMLElement, key, undefined);
 	}
 }
 
