@@ -278,30 +278,48 @@ describe("injectStyles", () => {
 		}
 	});
 
-	it("disconnects the reconnect observer when a parked root is flushed after reinsert", () => {
+	it("applies moved.css once and disconnects the reconnect observer", async () => {
 		const element = document.createElement("div");
 		document.body.append(element);
 		const moved = element.attachShadow({ mode: "open" });
-		const disconnect = vi.spyOn(MutationObserver.prototype, "disconnect");
+		const RealObserver = globalThis.MutationObserver;
+		let callbacks = 0;
+		function CountingObserver(
+			this: MutationObserver,
+			callback: MutationCallback,
+		) {
+			return new RealObserver((records, observer) => {
+				callbacks += 1;
+				callback(records, observer);
+			});
+		}
+		CountingObserver.prototype = RealObserver.prototype;
+		vi.stubGlobal("MutationObserver", CountingObserver);
 
 		try {
 			setGlobalStyles(undefined);
 			createIgniteJsxRenderStrategy().attach(moved);
 			element.remove();
-			setGlobalStyles("./back.css");
+			setGlobalStyles("/moved.css");
 			flushPendingStyles();
 			expect(moved.querySelector("link")).toBeNull();
 
-			disconnect.mockClear();
 			document.body.append(element);
 			flushPendingStyles();
 
-			expect(moved.querySelector("link")?.href).toContain("back.css");
-			expect(disconnect).toHaveBeenCalled();
+			const links = moved.querySelectorAll("link");
+			expect(links).toHaveLength(1);
+			expect(links[0]?.href).toContain("/moved.css");
+
+			document.body.append(document.createElement("span"));
+			await settleMutations();
+
+			expect(moved.querySelectorAll("link")).toHaveLength(1);
+			expect(callbacks).toBe(0);
 		} finally {
+			vi.unstubAllGlobals();
 			element.remove();
 			setGlobalStyles(undefined);
-			disconnect.mockRestore();
 		}
 	});
 

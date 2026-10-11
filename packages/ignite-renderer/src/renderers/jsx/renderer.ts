@@ -366,6 +366,13 @@ function strippedUri(value: string): string {
 	return value.replace(uriSpacePattern, "").toLowerCase();
 }
 
+function smilHrefTarget(value: unknown): boolean {
+	if (typeof value !== "string") return false;
+	const lower = value.toLowerCase();
+	const splitAt = lower.lastIndexOf(":");
+	return (splitAt < 0 ? lower : lower.slice(splitAt + 1)) === "href";
+}
+
 function isBlockedUrlValue(
 	element: Element,
 	key: string,
@@ -374,39 +381,37 @@ function isBlockedUrlValue(
 ): boolean {
 	if (value == null || value === false) return false;
 	const name = key.toLowerCase();
-	const tag = element.localName;
+	const tag = element.localName.toLowerCase();
 	// <base href> retargets relative URLs. srcset lists and poster are
 	// documented in the changeset; they are not checked here.
 	if (tag === "base" && name === "href") return true;
-	if (tag === "meta" && name.endsWith("equiv")) {
-		// Match the string the DOM would store. ["refresh"] becomes "refresh".
-		return String(value).trim().toLowerCase() === "refresh";
-	}
-	// href and xlink:href share the existing URL-key check.
-	const animated =
-		(tag === "animate" || tag === "set") &&
-		(name === "from" || name === "to" || name === "by" || name === "values") &&
-		uriBearingKeyPattern.test(props?.attributeName as string);
+	// A string attributeName is lowercased and any namespace prefix is
+	// removed. href on these tags drops from, to, by, and values entirely.
 	if (
-		!animated &&
-		!uriBearingKeyPattern.test(name) &&
-		!(name === "data" && tag === "object")
+		(tag === "animate" || tag === "set" || tag === "animatemotion") &&
+		(name === "from" || name === "to" || name === "by" || name === "values") &&
+		smilHrefTarget(props?.attributeName)
 	) {
-		return false;
+		return true;
 	}
-	if (typeof value !== "string") return !animated;
-	for (const token of animated ? value.split(";") : [value]) {
-		const normalized = strippedUri(token);
-		if (
-			executableUriPattern.test(normalized) ||
-			(!animated &&
-				normalized.startsWith("data:") &&
-				dataDocumentTagPattern.test(tag))
-		) {
-			return true;
-		}
+	const guarded =
+		name === "attributename" ||
+		(tag === "meta" && name.endsWith("equiv")) ||
+		uriBearingKeyPattern.test(name) ||
+		(name === "data" && tag === "object");
+	if (!guarded) return false;
+	// Reject a non-string before any check. The string that is checked is
+	// the same string that is written.
+	if (typeof value !== "string") return true;
+	if (tag === "meta" && name.endsWith("equiv")) {
+		return value.trim().toLowerCase() === "refresh";
 	}
-	return false;
+	if (name === "attributename") return false;
+	const normalized = strippedUri(value);
+	return (
+		executableUriPattern.test(normalized) ||
+		(normalized.startsWith("data:") && dataDocumentTagPattern.test(tag))
+	);
 }
 
 function ensureMount(node: Node): ElementMount {

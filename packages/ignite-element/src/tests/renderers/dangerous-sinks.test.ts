@@ -596,7 +596,7 @@ describe("URL scheme guard", () => {
 		},
 	);
 
-	it("does not apply an executable animate from when attributeName targets href", () => {
+	it("does not apply animate from or to when attributeName targets href", () => {
 		const { host } = mount(
 			jsx("svg", {
 				children: jsx("animate", {
@@ -610,22 +610,174 @@ describe("URL scheme guard", () => {
 
 		expect(animate?.getAttribute("attributeName")).toBe("href");
 		expect(animate?.getAttribute("from")).toBeNull();
-		expect(animate?.getAttribute("to")).toBe("https://example.com/next");
+		expect(animate?.getAttribute("to")).toBeNull();
 	});
 
-	it("still applies a safe href animation value", () => {
+	it("does not apply an array animate from when attributeName targets href", () => {
 		const { host } = mount(
 			jsx("svg", {
 				children: jsx("animate", {
 					attributeName: "href",
+					from: ["javascript:alert(1)"],
 					to: "https://example.com/next",
 				}),
 			}),
 		);
 		const animate = host.querySelector("animate");
 
-		expect(animate?.getAttribute("attributeName")).toBe("href");
-		expect(animate?.getAttribute("to")).toBe("https://example.com/next");
+		expect(animate?.getAttribute("from")).toBeNull();
+		expect(animate?.getAttribute("to")).toBeNull();
+	});
+
+	it("does not apply a non-string set to when attributeName targets href", () => {
+		const { host } = mount(
+			jsx("svg", {
+				children: jsx("set", {
+					attributeName: "href",
+					to: ["javascript:alert(1)"],
+				}),
+			}),
+		);
+
+		expect(host.querySelector("set")?.getAttribute("to")).toBeNull();
+	});
+
+	it("does not apply a non-string animate values when attributeName targets href", () => {
+		const toValues = {
+			toString() {
+				return "javascript:alert(1)";
+			},
+		};
+		const { host } = mount(
+			jsx("svg", {
+				children: jsx("animate", {
+					attributeName: "href",
+					values: toValues,
+				}),
+			}),
+		);
+
+		expect(host.querySelector("animate")?.getAttribute("values")).toBeNull();
+	});
+
+	it("does not apply animate values when a javascript token is in the middle", () => {
+		const { host } = mount(
+			jsx("svg", {
+				children: jsx("animate", {
+					attributeName: "href",
+					values:
+						"https://example.com/a;javascript:alert(1);https://example.com/b",
+				}),
+			}),
+		);
+
+		expect(host.querySelector("animate")?.getAttribute("values")).toBeNull();
+	});
+
+	it("does not apply animate by when attributeName targets href", () => {
+		const { host } = mount(
+			jsx("svg", {
+				children: jsx("animate", {
+					attributeName: "href",
+					by: "javascript:alert(1)",
+				}),
+			}),
+		);
+
+		expect(host.querySelector("animate")?.getAttribute("by")).toBeNull();
+	});
+
+	it("does not apply animateMotion from or to when attributeName targets href", () => {
+		const { host } = mount(
+			jsx("svg", {
+				children: jsx("animateMotion", {
+					attributeName: "href",
+					from: "javascript:alert(1)",
+					to: "javascript:alert(1)",
+				}),
+			}),
+		);
+		const motion = host.querySelector("animateMotion");
+
+		expect(motion?.getAttribute("attributeName")).toBe("href");
+		expect(motion?.getAttribute("from")).toBeNull();
+		expect(motion?.getAttribute("to")).toBeNull();
+	});
+
+	it("does not apply animate to when attributeName is xlink:href", () => {
+		const { host } = mount(
+			jsx("svg", {
+				children: jsx("animate", {
+					attributeName: "xlink:href",
+					to: "javascript:alert(1)",
+				}),
+			}),
+		);
+		const animate = host.querySelector("animate");
+
+		expect(animate?.getAttribute("attributeName")).toBe("xlink:href");
+		expect(animate?.getAttribute("to")).toBeNull();
+	});
+
+	it("does not apply animate to when attributeName is HREF", () => {
+		const { host } = mount(
+			jsx("svg", {
+				children: jsx("animate", {
+					attributeName: "HREF",
+					to: "javascript:alert(1)",
+				}),
+			}),
+		);
+		const animate = host.querySelector("animate");
+
+		expect(animate?.getAttribute("attributeName")).toBe("HREF");
+		expect(animate?.getAttribute("to")).toBeNull();
+	});
+
+	it("does not apply an object attributeName before an executable set to", () => {
+		let calls = 0;
+		const attributeName = {
+			[Symbol.toPrimitive]() {
+				calls += 1;
+				return calls === 1 ? "width" : "href";
+			},
+		};
+		const { host } = mount(
+			jsx("svg", {
+				children: jsx("set", {
+					attributeName,
+					to: "javascript:alert(1)",
+				}),
+			}),
+		);
+		const setNode = host.querySelector("set");
+
+		expect(calls).toBe(0);
+		expect(setNode?.getAttribute("attributeName")).toBeNull();
+		expect(setNode?.getAttribute("attribute-name")).toBeNull();
+	});
+
+	it("does not apply an object attributeName after an executable set to", () => {
+		let calls = 0;
+		const attributeName = {
+			[Symbol.toPrimitive]() {
+				calls += 1;
+				return calls === 1 ? "width" : "href";
+			},
+		};
+		const { host } = mount(
+			jsx("svg", {
+				children: jsx("set", {
+					to: "javascript:alert(1)",
+					attributeName,
+				}),
+			}),
+		);
+		const setNode = host.querySelector("set");
+
+		expect(calls).toBe(0);
+		expect(setNode?.getAttribute("attributeName")).toBeNull();
+		expect(setNode?.getAttribute("attribute-name")).toBeNull();
 	});
 
 	it("does not apply a meta http-equiv refresh", () => {
@@ -660,13 +812,87 @@ describe("URL scheme guard", () => {
 		expect(String(meta?.httpEquiv ?? "")).not.toMatch(/refresh/i);
 	});
 
-	it("still applies a non-string meta http-equiv that is not refresh", () => {
+	it("does not apply a boxed-string meta http-equiv refresh", () => {
+		const { host } = mount(
+			jsx("meta", {
+				httpEquiv: new String("refresh"),
+				content: "0;url=https://example.com/next",
+			}),
+		);
+		const meta = host.querySelector("meta");
+
+		expect(meta?.getAttribute("http-equiv")).toBeNull();
+		expect(String(meta?.httpEquiv ?? "")).not.toMatch(/refresh/i);
+	});
+
+	it("does not apply a toString meta http-equiv refresh", () => {
+		let calls = 0;
+		const { host } = mount(
+			jsx("meta", {
+				httpEquiv: {
+					toString() {
+						calls += 1;
+						return "refresh";
+					},
+					valueOf() {
+						calls += 1;
+						return "refresh";
+					},
+					[Symbol.toPrimitive]() {
+						calls += 1;
+						return "refresh";
+					},
+				},
+				content: "0;url=https://example.com/next",
+			}),
+		);
+
+		expect(calls).toBe(0);
+		expect(host.querySelector("meta")?.getAttribute("http-equiv")).toBeNull();
+	});
+
+	it("does not apply an HTTP-EQUIV array refresh", () => {
+		const { host } = mount(
+			jsx("meta", {
+				"HTTP-EQUIV": ["Refresh"],
+				content: "0;url=https://example.com/next",
+			}),
+		);
+
+		expect(host.querySelector("meta")?.getAttribute("http-equiv")).toBeNull();
+	});
+
+	it("does not apply a padded meta http-equiv refresh", () => {
+		const { host } = mount(
+			jsx("meta", {
+				httpEquiv: " refresh ",
+				content: "0;url=https://example.com/next",
+			}),
+		);
+
+		expect(host.querySelector("meta")?.getAttribute("http-equiv")).toBeNull();
+	});
+
+	it("writes a NUL-terminated meta http-equiv string unchanged", () => {
+		const { host } = mount(
+			jsx("meta", {
+				httpEquiv: "refresh\0",
+				content: "0;url=https://example.com/next",
+			}),
+		);
+
+		expect(host.querySelector("meta")?.getAttribute("http-equiv")).toBe(
+			"refresh\0",
+		);
+	});
+
+	it("does not apply a non-string meta http-equiv that is not refresh", () => {
 		const { host } = mount(
 			jsx("meta", { httpEquiv: ["content-type"], content: "text/html" }),
 		);
 		const meta = host.querySelector("meta");
 
-		expect(meta?.getAttribute("http-equiv")).toBe("content-type");
+		expect(meta?.getAttribute("http-equiv")).toBeNull();
 		expect(meta?.getAttribute("content")).toBe("text/html");
 	});
 
