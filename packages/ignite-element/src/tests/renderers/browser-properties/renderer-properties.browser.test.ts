@@ -280,28 +280,150 @@ const explicitFalseArb: fc.Arbitrary<ResetScenario> = fc.oneof(
 		})),
 );
 
+function reflectedAttr(key: string): string | null {
+	const lower = key.toLowerCase();
+	if (lower === "htmlfor") return "for";
+	if (lower === "acceptcharset") return "accept-charset";
+	if (lower === "httpequiv" || lower === "http-equiv") return "http-equiv";
+	if (lower === "maxlength") return "maxlength";
+	if (lower === "colspan") return "colspan";
+	if (
+		lower.startsWith("aria") &&
+		key.charCodeAt(4) >= 65 &&
+		key.charCodeAt(4) <= 90
+	) {
+		return `aria-${lower.slice(4)}`;
+	}
+	if (lower.startsWith("aria-")) return lower;
+	return null;
+}
+
+const duplicateOptionArb: fc.Arbitrary<ResetScenario> = fc
+	.record({
+		before: fc.integer({ min: 1, max: 3 }),
+		after: fc.integer({ min: 0, max: 2 }),
+		text: token,
+	})
+	.map(({ before, after, text }) => {
+		const options: OptionSpec[] = [];
+		for (let index = 0; index < before; index++) {
+			options.push({
+				value: "a",
+				text,
+				defaultSelected: false,
+				selected: null,
+			});
+		}
+		options.push({
+			value: "a",
+			text,
+			defaultSelected: true,
+			selected: null,
+		});
+		for (let index = 0; index < after; index++) {
+			options.push({
+				value: "a",
+				text,
+				defaultSelected: false,
+				selected: null,
+			});
+		}
+		options.push({
+			value: "b",
+			text,
+			defaultSelected: false,
+			selected: null,
+		});
+		return {
+			tag: { kind: "select" as const, multiple: false },
+			props: { value: "b" },
+			drop: ["value"],
+			falses: [],
+			options,
+			control: true,
+		};
+	});
+
 const reflectedNameArb: fc.Arbitrary<ResetScenario> = fc.oneof(
 	fc
 		.record({
-			key: fc.constantFrom("htmlFor", "HtmlFor", "HTMLFOR"),
+			key: fc.constantFrom("htmlFor", "HtmlFor"),
 			value: token,
+			drop: fc.boolean(),
 		})
-		.map(({ key, value }) => ({
+		.map(({ key, value, drop }) => ({
 			tag: { kind: "label" as const },
 			props: { [key]: value },
-			drop: [key],
+			drop: drop ? [key] : [],
 			falses: [],
 			options: [],
 		})),
 	fc
 		.record({
-			key: fc.constantFrom("acceptCharset", "AcceptCharset", "acceptcharset"),
+			key: fc.constantFrom("acceptCharset", "AcceptCharset"),
 			value: token,
+			drop: fc.boolean(),
 		})
-		.map(({ key, value }) => ({
+		.map(({ key, value, drop }) => ({
 			tag: { kind: "form" as const },
 			props: { [key]: value },
-			drop: [key],
+			drop: drop ? [key] : [],
+			falses: [],
+			options: [],
+		})),
+	fc
+		.record({
+			key: fc.constantFrom("httpEquiv", "HttpEquiv", "http-equiv"),
+			value: token,
+			drop: fc.boolean(),
+			meta: fc.boolean(),
+		})
+		.map(({ key, value, drop, meta }) => ({
+			tag: { kind: meta ? ("meta" as const) : ("div" as const) },
+			props: { [key]: value },
+			drop: drop ? [key] : [],
+			falses: [],
+			options: [],
+		})),
+	fc
+		.record({
+			value: fc.integer({ min: 2, max: 8 }),
+			drop: fc.boolean(),
+		})
+		.map(({ value, drop }) => ({
+			tag: { kind: "input" as const, type: "text" },
+			props: { maxLength: value },
+			drop: drop ? ["maxLength"] : [],
+			falses: [],
+			options: [],
+		})),
+	fc
+		.record({
+			value: fc.integer({ min: 2, max: 4 }),
+			drop: fc.boolean(),
+		})
+		.map(({ value, drop }) => ({
+			tag: { kind: "td" as const },
+			props: { colSpan: value },
+			drop: drop ? ["colSpan"] : [],
+			falses: [],
+			options: [],
+		})),
+	fc
+		.record({
+			key: fc.constantFrom(
+				"ariaLabel",
+				"aria-label",
+				"ariaLabelledBy",
+				"aria-labelledby",
+			),
+			value: token,
+			drop: fc.boolean(),
+		})
+		.map(({ key, value, drop }) => ({
+			tag: { kind: "div" as const },
+			props: { [key]: value },
+			drop: drop ? [key] : [],
 			falses: [],
 			options: [],
 		})),
@@ -355,6 +477,61 @@ const aliasArb: fc.Arbitrary<AliasScenario> = fc.oneof(
 			next: same ? value : `${value}x`,
 		})),
 );
+
+const eventBothArb: fc.Arbitrary<AliasScenario> = fc
+	.record({
+		pair: fc.constantFrom(
+			["onClick", "onclick"],
+			["onclick", "onClick"],
+			["onChange", "onchange"],
+		),
+		same: fc.boolean(),
+		value: token,
+		tag: fc.constantFrom("div", "button", "span"),
+	})
+	.map(({ pair, same, value, tag }) => ({
+		kind: "event-both" as const,
+		tag,
+		fromKey: pair[0],
+		toKey: pair[1],
+		value,
+		next: same ? value : `${value}x`,
+	}));
+
+const customCaseArb: fc.Arbitrary<AliasScenario> = fc
+	.record({
+		fromKey: fc.constantFrom("foo", "FOO"),
+		value: fc.integer({ min: 1, max: 4 }),
+		next: fc.integer({ min: 1, max: 4 }),
+	})
+	.map(({ fromKey, value, next }) => ({
+		kind: "custom" as const,
+		tag: "x-reset-probe",
+		fromKey,
+		toKey: fromKey === "foo" ? "FOO" : "foo",
+		value: String(value),
+		next: String(next),
+	}));
+
+const ariaAliasArb: fc.Arbitrary<AliasScenario> = fc
+	.record({
+		pair: fc.constantFrom(
+			["aria-label", "ariaLabel"],
+			["ariaLabel", "aria-label"],
+			["aria-labelledby", "ariaLabelledBy"],
+			["ariaLabelledBy", "aria-labelledby"],
+		),
+		value: token,
+		next: token,
+	})
+	.map(({ pair, value, next }) => ({
+		kind: "attr" as const,
+		tag: "div",
+		fromKey: pair[0],
+		toKey: pair[1],
+		value,
+		next,
+	}));
 
 const noise = fc.string({
 	unit: fc.constantFrom(
@@ -489,12 +666,16 @@ function explainAlias(
 	scenario: AliasScenario,
 	report: AliasReport,
 ): string | null {
+	if (scenario.kind === "custom") {
+		if (report.foo === report.freshFoo && report.FOO === report.freshFOO) {
+			return null;
+		}
+		return `custom foo ${report.foo}/${report.FOO} fresh ${report.freshFoo}/${report.freshFOO}`;
+	}
 	if (scenario.kind === "attr") {
 		const updated = JSON.stringify(report.updatedAttrs);
 		const fresh = JSON.stringify(report.freshAttrs);
-		return updated === fresh
-			? null
-			: `alias attrs ${updated} fresh ${fresh}`;
+		return updated === fresh ? null : `alias attrs ${updated} fresh ${fresh}`;
 	}
 	const same = scenario.value === scenario.next;
 	const wantFirst = same ? 1 : 0;
@@ -503,6 +684,30 @@ function explainAlias(
 		return null;
 	}
 	return `listeners ${report.firstCalls},${report.secondCalls} wanted ${wantFirst},${wantSecond}`;
+}
+
+function explainReflected(
+	scenario: ResetScenario,
+	report: ResetReport,
+): string | null {
+	const problems: string[] = [];
+	const allowlist = explainReset(scenario, report);
+	if (allowlist) problems.push(allowlist);
+	for (const [key, value] of Object.entries(scenario.props)) {
+		const attr = reflectedAttr(key);
+		if (!attr) continue;
+		const found = report.updated.attrs.find(([name]) => name === attr);
+		if (scenario.drop.includes(key)) {
+			if (found) problems.push(`${key} left ${attr}=${found[1]}`);
+			continue;
+		}
+		if (!found || found[1] !== String(value)) {
+			problems.push(
+				`${key} attrs ${JSON.stringify(report.updated.attrs)} wanted ${attr}=${String(value)}`,
+			);
+		}
+	}
+	return problems.length === 0 ? null : problems.join("; ");
 }
 
 async function bundleHarness(): Promise<string> {
@@ -580,14 +785,9 @@ describe("renderer properties in Chromium", () => {
 		);
 	}
 
-	it("allowlisted drops match a fresh mount and other props stay", async () => {
-		expect(SEED).toBeGreaterThan(0);
-		await assertReset(resetArb);
-	}, 120_000);
-
-	it("keeps a renamed attribute or listener on the same normalized key", async () => {
+	async function assertAlias(arb: fc.Arbitrary<AliasScenario>) {
 		await fc.assert(
-			fc.asyncProperty(aliasArb, async (scenario) => {
+			fc.asyncProperty(arb, async (scenario) => {
 				const report = await page.evaluate((input) => {
 					const properties = (
 						window as unknown as {
@@ -605,6 +805,27 @@ describe("renderer properties in Chromium", () => {
 			}),
 			{ seed: SEED, numRuns: NUM_RUNS },
 		);
+	}
+
+	it("allowlisted drops match a fresh mount and other props stay", async () => {
+		expect(SEED).toBeGreaterThan(0);
+		await assertReset(resetArb);
+	}, 120_000);
+
+	it("keeps a renamed attribute or listener on the same normalized key", async () => {
+		await assertAlias(aliasArb);
+	}, 120_000);
+
+	it("unbinds the spelling that was dropped when both event casings were set", async () => {
+		await assertAlias(eventBothArb);
+	}, 120_000);
+
+	it("keeps custom setter names case-sensitive", async () => {
+		await assertAlias(customCaseArb);
+	}, 120_000);
+
+	it("keeps an aria attribute when its IDL spelling changes", async () => {
+		await assertAlias(ariaAliasArb);
 	}, 120_000);
 
 	it("assigns undefined when a custom default setter is dropped", async () => {
@@ -616,7 +837,19 @@ describe("renderer properties in Chromium", () => {
 	}, 120_000);
 
 	it("removes for and accept-charset when htmlFor or acceptCharset is dropped", async () => {
-		await assertReset(reflectedNameArb);
+		await fc.assert(
+			fc.asyncProperty(reflectedNameArb, async (scenario) => {
+				const problem = explainReflected(scenario, await resetOf(scenario));
+				if (problem) {
+					throw new Error(`${problem}\n${JSON.stringify(scenario)}`);
+				}
+			}),
+			{ seed: SEED, numRuns: NUM_RUNS },
+		);
+	}, 120_000);
+
+	it("restores a single select default option by identity", async () => {
+		await assertReset(duplicateOptionArb);
 	}, 120_000);
 
 	it("never lets an executable URL or handler reach the DOM", async () => {

@@ -25,6 +25,8 @@ class ResetProbe extends HTMLElement {
 	#defaultValue = "";
 	#defaultChecked = false;
 	#defaultSelected = false;
+	#foo = 0;
+	#fooUpper = 0;
 
 	get label(): string {
 		return this.#label;
@@ -65,6 +67,22 @@ class ResetProbe extends HTMLElement {
 	set defaultSelected(value: unknown) {
 		this.#defaultSelected = !(value == null || value === false);
 	}
+
+	get foo(): number {
+		return this.#foo;
+	}
+
+	set foo(value: unknown) {
+		this.#foo = value == null || value === false ? 0 : Number(value);
+	}
+
+	get FOO(): number {
+		return this.#fooUpper;
+	}
+
+	set FOO(value: unknown) {
+		this.#fooUpper = value == null || value === false ? 0 : Number(value);
+	}
 }
 
 if (!customElements.get(PROBE)) {
@@ -89,6 +107,8 @@ function tagName(tag: ResetScenario["tag"]): string {
 	if (tag.kind === "audio") return "audio";
 	if (tag.kind === "label") return "label";
 	if (tag.kind === "form") return "form";
+	if (tag.kind === "meta") return "meta";
+	if (tag.kind === "td") return "td";
 	return "div";
 }
 
@@ -107,7 +127,9 @@ function childNodes(
 	const dropDefault =
 		dropped && scenario.drop.includes("defaultSelected") && !reference;
 	if (scenario.tag.kind === "select") {
-		return scenario.options.map((option) => {
+		const values = scenario.options.map((option) => option.value);
+		const duplicate = values.length !== new Set(values).size;
+		return scenario.options.map((option, index) => {
 			const props: Record<string, unknown> = {
 				ref: childRef,
 				value: option.value,
@@ -121,7 +143,7 @@ function childNodes(
 			if (!dropSelected && option.selected != null) {
 				props.selected = option.selected;
 			}
-			return jsx("option", props, option.value);
+			return jsx("option", props, duplicate ? index : option.value);
 		});
 	}
 	if (
@@ -279,7 +301,10 @@ function runReset(scenario: ResetScenario): ResetReport {
 	const freshHost = document.createElement("div");
 	document.body.append(host, freshHost);
 	try {
-		const tree = mountIgniteJsx(host, view(scenario, false));
+		let tree = mountIgniteJsx(host, view(scenario, scenario.control === true));
+		if (scenario.control) {
+			tree = renderIgniteJsx(host, view(scenario, false), tree);
+		}
 		const element = host.firstElementChild;
 		if (!element) throw new Error("mount produced no element");
 		const offList = readOffList(element, scenario);
@@ -441,6 +466,15 @@ function collectArmed(host: ParentNode): string[] {
 	return armed;
 }
 
+function probeCounts(element: Element): {
+	foo: number | null;
+	FOO: number | null;
+} {
+	if (element.localName !== PROBE) return { foo: null, FOO: null };
+	const probe = element as ResetProbe;
+	return { foo: probe.foo, FOO: probe.FOO };
+}
+
 function runAlias(scenario: AliasScenario): AliasReport {
 	const host = document.createElement("div");
 	const freshHost = document.createElement("div");
@@ -454,34 +488,50 @@ function runAlias(scenario: AliasScenario): AliasReport {
 		secondCalls += 1;
 	};
 	const same = scenario.value === scenario.next;
+	const event = scenario.kind === "event" || scenario.kind === "event-both";
 	try {
-		const fromValue = scenario.kind === "event" ? first : scenario.value;
-		const toValue =
-			scenario.kind === "event" ? (same ? first : second) : scenario.next;
-		const tree = mountIgniteJsx(
-			host,
-			jsx(scenario.tag, { [scenario.fromKey]: fromValue }),
-		);
+		const fromValue = event
+			? first
+			: scenario.kind === "custom"
+				? Number(scenario.value)
+				: scenario.value;
+		const toValue = event
+			? same
+				? first
+				: second
+			: scenario.kind === "custom"
+				? Number(scenario.next)
+				: scenario.next;
+		// The kept spelling is listed first so sink matching sees it before the
+		// extra listener. The extra spelling has to be removed on its own.
+		const initial =
+			scenario.kind === "event-both"
+				? { [scenario.toKey]: toValue, [scenario.fromKey]: first }
+				: { [scenario.fromKey]: fromValue };
+		const tree = mountIgniteJsx(host, jsx(scenario.tag, initial));
 		renderIgniteJsx(
 			host,
 			jsx(scenario.tag, { [scenario.toKey]: toValue }),
 			tree,
 		);
-		mountIgniteJsx(
-			freshHost,
-			jsx(scenario.tag, { [scenario.toKey]: toValue }),
-		);
+		mountIgniteJsx(freshHost, jsx(scenario.tag, { [scenario.toKey]: toValue }));
 		const updated = host.firstElementChild;
 		const fresh = freshHost.firstElementChild;
 		if (!updated || !fresh) throw new Error("alias mount produced no element");
-		if (scenario.kind === "event") {
+		if (event) {
 			updated.dispatchEvent(new Event(scenario.toKey.slice(2).toLowerCase()));
 		}
+		const updatedProbe = probeCounts(updated);
+		const freshProbe = probeCounts(fresh);
 		return {
 			updatedAttrs: attrsOf(updated),
 			freshAttrs: attrsOf(fresh),
 			firstCalls,
 			secondCalls,
+			foo: updatedProbe.foo,
+			FOO: updatedProbe.FOO,
+			freshFoo: freshProbe.foo,
+			freshFOO: freshProbe.FOO,
 		};
 	} finally {
 		host.remove();

@@ -6,7 +6,9 @@ export type TagSpec =
 	| { kind: "custom" }
 	| { kind: "audio" }
 	| { kind: "label" }
-	| { kind: "form" };
+	| { kind: "form" }
+	| { kind: "meta" }
+	| { kind: "td" };
 
 // Native props the allowlist leaves alone. A drop must not change the
 // property and must not write or remove an attribute.
@@ -43,10 +45,13 @@ export type ResetScenario = {
 	// Keys present on the next render with an explicit false, not omitted.
 	falses: string[];
 	options: OptionSpec[];
+	// Mount without the dropped keys, apply them once options exist, then drop.
+	control?: boolean;
 };
 
 export type AliasScenario = {
-	kind: "attr" | "event";
+	// event-both starts with both spellings bound. custom renames an own setter.
+	kind: "attr" | "event" | "event-both" | "custom";
 	tag: string;
 	fromKey: string;
 	toKey: string;
@@ -59,6 +64,10 @@ export type AliasReport = {
 	freshAttrs: [string, string][];
 	firstCalls: number;
 	secondCalls: number;
+	foo: number | null;
+	FOO: number | null;
+	freshFoo: number | null;
+	freshFOO: number | null;
 };
 
 export type ValueSpec =

@@ -1118,11 +1118,7 @@ function patchProps(
 			continue;
 		}
 
-		const attrName = metaRefreshKey(element, key)
-			? "http-equiv"
-			: isSvgElement
-				? normalizeSvgAttributeName(key)
-				: key;
+		const attrName = propAttributeName(element, key, isSvgElement);
 		const nextString = String(next);
 		if (element.getAttribute(attrName) !== nextString) {
 			element.setAttribute(attrName, nextString);
@@ -1136,10 +1132,24 @@ function patchProps(
 		if (key === "children" || key === "ref" || isBlockedMarkupProp(key))
 			continue;
 		// onClick and onclick, or data-id and DATA-ID, are one key. A spelling
-		// that is still present is not a drop.
-		if (!sinkMatch(newProps, element, key, isSvgElement)) {
-			removeProp(element, key, oldProps[key], isSvgElement);
+		// that is still present is not a drop. A second listener under the
+		// other spelling is unbound when only one remains.
+		const matched = sinkMatch(newProps, element, key, isSvgElement);
+		if (matched) {
+			const prev = oldProps[key];
+			if (
+				isEventHandlerKey(key) &&
+				typeof prev === "function" &&
+				prev !== newProps[matched]
+			) {
+				element.removeEventListener(
+					normalizeEventName(key.slice(2)),
+					prev as EventListener,
+				);
+			}
+			continue;
 		}
+		removeProp(element, key, oldProps[key], isSvgElement);
 	}
 }
 
@@ -1212,18 +1222,6 @@ function patchEventListener(
 	}
 }
 
-function restoredControlValue(element: HTMLElement): string {
-	if (element.localName === "select") {
-		const options = (element as HTMLSelectElement).options;
-		for (let index = 0; index < options.length; index++) {
-			const option = options.item(index);
-			if (option?.defaultSelected) return option.value;
-		}
-		return options.item(0)?.value ?? "";
-	}
-	return (element as HTMLInputElement).defaultValue;
-}
-
 // Own means a writable field or setter on the instance or a prototype before
 // HTMLElement. Inherited IDL, including a media element's volume, is not own.
 // The walk stops at HTMLElement so an override of an inherited name such as
@@ -1248,19 +1246,31 @@ function propAttributeName(
 	isSvg: boolean,
 ): string {
 	if (key === "class" || key === "className") return "class";
-	if (key === "htmlFor") return "for";
-	if (key === "acceptCharset") return "accept-charset";
-	if (key === "httpEquiv" || metaRefreshKey(element, key)) return "http-equiv";
-	return isSvg ? normalizeSvgAttributeName(key) : key.toLowerCase();
+	const lower = key.toLowerCase();
+	if (lower === "htmlfor") return "for";
+	if (lower === "acceptcharset") return "accept-charset";
+	if (lower === "httpequiv" || metaRefreshKey(element, key)) {
+		return "http-equiv";
+	}
+	// ariaLabel reflects to aria-label, not arialabel. aria-label stays.
+	if (
+		lower.startsWith("aria") &&
+		key.charCodeAt(4) >= 65 &&
+		key.charCodeAt(4) <= 90
+	) {
+		return `aria-${lower.slice(4)}`;
+	}
+	return isSvg ? normalizeSvgAttributeName(key) : lower;
 }
 
-// Events and HTML attributes compare case-insensitively. htmlFor, className,
-// and httpEquiv use the reflected attribute name so a renamed prop is not a
-// second key.
+// Events and HTML attributes compare case-insensitively. An own custom
+// setter keeps its spelling, so foo and FOO are different keys.
 function sinkKey(element: Element, key: string, isSvg: boolean): string {
-	return isEventHandlerKey(key)
-		? `*${normalizeEventName(key.slice(2))}`
-		: propAttributeName(element, key, isSvg);
+	if (isEventHandlerKey(key)) {
+		return `*${normalizeEventName(key.slice(2))}`;
+	}
+	if (hasOwnCustomSetter(element as HTMLElement, key)) return `\0${key}`;
+	return propAttributeName(element, key, isSvg);
 }
 
 function sinkMatch(
@@ -1319,7 +1329,22 @@ function removeProp(
 				}
 				return;
 			}
-			const next = restoredControlValue(control);
+			// select.value picks the first option with that string. A single
+			// select restores the defaultSelected option itself.
+			if (control.localName === "select") {
+				const options = select.options;
+				let chosen = options.item(0);
+				for (let index = 0; index < options.length; index++) {
+					const option = options.item(index);
+					if (option?.defaultSelected) {
+						chosen = option;
+						break;
+					}
+				}
+				if (chosen) chosen.selected = true;
+				return;
+			}
+			const next = control.defaultValue;
 			if (control.value !== next) control.value = next;
 		} catch {
 			// A throwing value setter stops here. File values never reach it.
