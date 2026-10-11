@@ -1225,29 +1225,6 @@ function patchEventListener(
 	}
 }
 
-// 0 skip, 1 assign undefined to a custom element's own setter, 2 native reset.
-// Own means the descriptor sits on the instance or a prototype before
-// HTMLElement. Inherited IDL properties stay on the native reset.
-function droppedPropKind(
-	element: HTMLElement,
-	key: string,
-	custom: boolean,
-): number {
-	let passedHtml = false;
-	for (
-		let proto: object | null = element;
-		proto;
-		proto = Object.getPrototypeOf(proto)
-	) {
-		if (proto === HTMLElement.prototype) passedHtml = true;
-		const desc = Object.getOwnPropertyDescriptor(proto, key);
-		if (!desc) continue;
-		if (!(desc.set || desc.writable)) return 0;
-		return custom && !passedHtml ? 1 : 2;
-	}
-	return 0;
-}
-
 function removeProp(
 	element: Element,
 	key: string,
@@ -1299,37 +1276,17 @@ function removeProp(
 		}
 		return;
 	}
-	// The prop was set last render and is absent now. Do not compare the
-	// stored value with the previous prop. Own custom setters get undefined.
-	// Inherited properties use the native reset for their IDL type.
-	const kind = droppedPropKind(el, key, custom);
-	if (kind === 1) {
-		try {
-			Reflect.set(el, key, undefined);
-		} catch {
-			// One setter must not abort the remaining drops.
-		}
-		return;
-	}
-	if (kind !== 2) return;
-	// A file input rejects every value except "". Skip it. Never assign
-	// undefined, which throws InvalidStateError.
-	if (
-		key === "value" &&
-		el.localName === "input" &&
-		(el as HTMLInputElement).type === "file"
-	) {
-		return;
-	}
-	// The default is whatever a new element of this tag already has:
-	// false, "", 0, tabIndex -1, volume 1, playbackRate 1. Writing a
-	// reflected string default back recreates the attribute, so skip that.
-	// Booleans still receive false. A throwing setter must not abort the rest.
+	// A custom name that HTMLElement does not already have gets undefined.
+	// Inherited IDL names, including id, title, and tabIndex, take a fresh
+	// element's default: "", false, 0, tabIndex -1, volume 1, playbackRate
+	// 1. File value stays "" and is never undefined. A throwing setter
+	// must not abort the rest.
 	try {
-		const fallback = document.createElement(el.localName)[
-			key as keyof HTMLElement
-		];
-		if (current !== fallback || typeof fallback === "boolean") {
+		const own = custom && !(key in HTMLElement.prototype);
+		const fallback = own
+			? undefined
+			: document.createElement(el.localName)[key as keyof HTMLElement];
+		if (own || current !== fallback || fallback === false) {
 			Reflect.set(el, key, fallback);
 		}
 	} catch {

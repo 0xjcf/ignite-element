@@ -64,7 +64,7 @@ const EVENT_ORIGIN_WARNING = "observed from both native and effect";
 // This follow-up is the correctness split and is over the sink ceiling
 // of 4864 on purpose. Ceiling is this branch's measured consumer, with
 // no extra slack.
-const TODAY_CONSUMER_GZIP = 4998;
+const TODAY_CONSUMER_GZIP = 4885;
 
 function consumerEntry() {
 	return `import { jsx, mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";
