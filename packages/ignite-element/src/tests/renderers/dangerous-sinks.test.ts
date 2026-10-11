@@ -967,6 +967,39 @@ describe("URL scheme guard", () => {
 		}
 	});
 
+	it("assigns undefined when a custom setter overrides an inherited name", () => {
+		const tag = "x-id-override";
+		if (!customElements.get(tag)) {
+			class IdOverride extends HTMLElement {
+				idLog: unknown[] = [];
+				#id = "";
+				get id() {
+					return this.#id;
+				}
+				set id(value: unknown) {
+					this.idLog.push(value);
+					// undefined is the drop signal. "" is the native reset.
+					this.#id =
+						value === undefined ? "from-undefined" : String(value ?? "");
+				}
+			}
+			customElements.define(tag, IdOverride);
+		}
+
+		const { host, tree } = mount(jsx(tag, { id: "keep" }));
+		const element = host.querySelector(tag) as HTMLElement & {
+			idLog: unknown[];
+		};
+		expect(element.id).toBe("keep");
+		element.idLog.length = 0;
+
+		renderIgniteJsx(host, jsx(tag, {}), tree);
+
+		expect(element.idLog).toContain(undefined);
+		expect(element.id).toBe("from-undefined");
+		expect(element.id).not.toBe("");
+	});
+
 	it("resets inherited custom id and title by attribute removal", () => {
 		const tag = "x-id-reflected";
 		if (!customElements.get(tag)) {

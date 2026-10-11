@@ -61,10 +61,10 @@ const EVENT_ORIGIN_WARNING = "observed from both native and effect";
 // Gzip level 9 of this production consumer entry before dev warnings were
 // left for a consumer bundler to strip. Previous target was 4634.
 // renderer security guard: SVG animate/set + meta refresh
-// This follow-up is the correctness split and is over the sink ceiling
-// of 4864 on purpose. Ceiling is this branch's measured consumer, with
-// no extra slack.
-const TODAY_CONSUMER_GZIP = 4885;
+// The no-host ceiling is 4,998 B because the dropped-prop reset uses a
+// prototype check so a custom setter overriding an inherited name gets
+// undefined. Ceiling is this measurement, with no extra slack.
+const TODAY_CONSUMER_GZIP = 4998;
 
 function consumerEntry() {
 	return `import { jsx, mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";
