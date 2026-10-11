@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
 	canonicalCall,
 	createCommandApprovalAuthority,
+	MAX_GRANT_LIFETIME_MS,
 } from "./commandApproval";
 import { createHome, homeToolSchema } from "./home";
 
@@ -215,6 +216,53 @@ describe("app-owned command approvals", () => {
 		expect((await run({ name: "setThermostat", input: livingAt70 })).ok).toBe(
 			true,
 		);
+	});
+
+	it("forgets a spent id after the maximum grant lifetime and refuses the expired grant", async () => {
+		let clock = 1_000;
+		const home = createHome();
+		const authority = createCommandApprovalAuthority("ada", () => clock);
+		authority.grant({
+			actor: "ada",
+			name: "setThermostat",
+			input: livingAt70,
+			target: home,
+			id: "short",
+			expiresAt: 1_500,
+		});
+		const { run } = igniteTools({
+			core: home,
+			schema: homeToolSchema,
+			canExecute: authority.canExecute,
+		});
+		expect((await run({ name: "setThermostat", input: livingAt70 })).ok).toBe(
+			true,
+		);
+		clock = 1_500 + MAX_GRANT_LIFETIME_MS;
+		expect(authority.ledger()).toEqual({ targets: 0, pending: 0, spent: 0 });
+		authority.grant({
+			actor: "ada",
+			name: "setThermostat",
+			input: livingAt70,
+			target: home,
+			id: "short",
+			expiresAt: 1_500,
+		});
+		expect((await run({ name: "setThermostat", input: livingAt70 })).ok).toBe(
+			false,
+		);
+		authority.grant({
+			actor: "ada",
+			name: "setThermostat",
+			input: livingAt70,
+			target: home,
+			id: "short",
+			expiresAt: clock + MAX_GRANT_LIFETIME_MS + 1,
+		});
+		expect((await run({ name: "setThermostat", input: livingAt70 })).ok).toBe(
+			false,
+		);
+		expect(authority.ledger()).toEqual({ targets: 0, pending: 0, spent: 0 });
 	});
 
 	it("drops an expired pending approval and its empty target bucket", () => {

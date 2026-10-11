@@ -198,11 +198,12 @@ The mark is not a side-effect-free read. The command stays denied unless `canExe
 
 Ignite does not validate or consume the approval. `canExecute` is application preflight, not authentication. A caller can fabricate a structurally valid record, so the library cannot prove a person approved the call.
 
-Keep the single-use record in the application. Compare the canonical call, the command name plus the validated snapshot, with the granted call. The library reads the call once into a plain-JSON snapshot and validates that copy. Finite numbers (`-0` is `0`), strings, booleans, null, arrays, and plain objects are copied. A proxy is not forwarded live, and the library does not detect proxies with a Node-only check. `Date`, `Map`, `Set`, bigint, symbols, functions, and accessors are not that snapshot. Compare `granted.actor` with the live session actor. Track consumption by approval id and keep a spent id tombstoned so pruning cannot grant it again. `run` calls `canExecute` once and sets `context.execute` only on that call, after observation setup succeeds and immediately before `execute`. `resolveCall` does not set it. Listing calls `canExecute(name)` with no context. A schema default is checked before it is routed. A plain object from another JavaScript realm is accepted. Deny every command that is not explicitly allowed.
+Keep the single-use record in the application. Compare the canonical call, the command name plus the validated snapshot, with the granted call. The library reads the call once into a plain-JSON snapshot and validates that copy. Finite numbers are copied, and signed zero is collapsed to `0` on purpose, so a grant of `0` and a call of `-0` are the same snapshot. Strings, booleans, null, arrays, and plain objects are copied. The walk is `ownKeys` and one data descriptor per key. Array length comes from that descriptor or the copied indexes. A proxy is not forwarded live, and the library does not detect proxies with a Node-only check. `Date`, `Map`, `Set`, bigint, symbols, functions, and accessors are not that snapshot. Compare `granted.actor` with the live session actor. Track consumption by approval id. Keep a spent id tombstoned until the grant's maximum lifetime has passed, and refuse a grant older than that window, so an expired id cannot come back. `run` calls `canExecute` once and sets `context.execute` only on that call, after observation setup succeeds and immediately before `execute`. `resolveCall` does not set it. Listing calls `canExecute(name)` with no context. A schema default is checked before it is routed. A plain object from another JavaScript realm is accepted. Deny every command that is not explicitly allowed.
 
 ```ts
 const session = { actor: 'ada' };
-const spent = new Set<string>();
+const maxGrantLifetimeMs = 24 * 60 * 60 * 1000;
+const spent = new Map<string, number>();
 function plainSnapshotShape(value: object): boolean {
   try {
     const brand = Object.prototype.toString.call(value);
@@ -243,30 +244,46 @@ function canonicalValue(value: unknown, depth = 0, seen?: WeakSet<object>): stri
     active.add(value);
     try {
       if (Array.isArray(value)) {
-        const items: string[] = [];
-        for (let index = 0; index < value.length; index += 1) {
-          const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+        const indexed = new Map<number, unknown>();
+        let length: number | undefined;
+        for (const key of Reflect.ownKeys(value)) {
+          if (typeof key === 'symbol') return 'invalid:symbol';
+          const descriptor = Object.getOwnPropertyDescriptor(value, key);
           if (!descriptor || !('value' in descriptor)) return 'invalid:array';
-          items.push(canonicalValue(descriptor.value, depth + 1, active));
+          if (key === 'length') {
+            const reported = descriptor.value;
+            if (typeof reported !== 'number' || !Number.isSafeInteger(reported) || reported < 0) {
+              return 'invalid:array';
+            }
+            length = reported;
+            continue;
+          }
+          if (!/^(?:0|[1-9]\d*)$/.test(key)) return 'invalid:array';
+          indexed.set(Number(key), descriptor.value);
+        }
+        if (length === undefined) {
+          length = 0;
+          for (const index of indexed.keys()) length = Math.max(length, index + 1);
+        }
+        if (indexed.size !== length) return 'invalid:array';
+        const items: string[] = [];
+        for (let index = 0; index < length; index += 1) {
+          items.push(canonicalValue(indexed.get(index), depth + 1, active));
         }
         return `array:[${items.join(',')}]`;
       }
       const record = value as Record<string, unknown>;
-      const keys: string[] = [];
+      const props: Array<[string, unknown]> = [];
       for (const key of Reflect.ownKeys(record)) {
         if (typeof key === 'symbol') return 'invalid:symbol';
         const descriptor = Object.getOwnPropertyDescriptor(record, key);
         if (!descriptor || descriptor.enumerable !== true) continue;
         if (!('value' in descriptor)) return 'invalid:accessor';
-        keys.push(key);
+        props.push([key, descriptor.value]);
       }
-      keys.sort();
-      const body = keys
-        .map((key) => {
-          const descriptor = Object.getOwnPropertyDescriptor(record, key);
-          const property = descriptor && 'value' in descriptor ? descriptor.value : undefined;
-          return `${JSON.stringify(key)}:${canonicalValue(property, depth + 1, active)}`;
-        })
+      props.sort((left, right) => (left[0] < right[0] ? -1 : 1));
+      const body = props
+        .map(([key, property]) => `${JSON.stringify(key)}:${canonicalValue(property, depth + 1, active)}`)
         .join(',');
       return `object:{${body}}`;
     } finally {
@@ -296,9 +313,17 @@ function canExecute(
   if (name !== 'setLimit') return false;
   if (!context) return true;
   if (context.core !== granted.target || granted.actor !== session.actor) return false;
-  if (granted.expiresAt <= Date.now() || spent.has(granted.id)) return false;
+  const lifetime = granted.expiresAt - Date.now();
+  if (lifetime <= 0 || lifetime > maxGrantLifetimeMs) return false;
+  const retainUntil = spent.get(granted.id);
+  if (retainUntil !== undefined && retainUntil > Date.now()) return false;
   if (canonicalCall(name, input) !== grantedCall) return false;
-  if (context.execute) spent.add(granted.id);
+  if (context.execute) {
+    spent.set(granted.id, granted.expiresAt + maxGrantLifetimeMs);
+    for (const [id, until] of spent) {
+      if (until <= Date.now()) spent.delete(id);
+    }
+  }
   return true;
 }
 const { resolveCall, run } = igniteTools({

@@ -545,6 +545,145 @@ describe("plain JSON snapshot pairs", () => {
 			});
 			expect(denied).toEqual([]);
 			expect(reads).toBe(1);
+
+			const exact = buildManifest(
+				defineToolSchema({
+					payload: {
+						description: "One bounded field.",
+						input: {
+							type: "object",
+							properties: {
+								a: { type: "number", maximum: 10 },
+							},
+						},
+						consequential: true,
+					},
+					series: {
+						description: "Bounded numbers.",
+						input: {
+							type: "array",
+							items: { type: "number", maximum: 10 },
+						},
+						consequential: true,
+					},
+				}),
+				() => true,
+			);
+			reads = 0;
+			const flippingObject = new Proxy(
+				{ a: 0 },
+				{
+					getOwnPropertyDescriptor(_target, key) {
+						if (key !== "a") {
+							return Reflect.getOwnPropertyDescriptor(_target, key);
+						}
+						reads += 1;
+						return {
+							value: reads === 1 ? 1 : 99,
+							writable: true,
+							enumerable: true,
+							configurable: true,
+						};
+					},
+				},
+			);
+			const objectSeen: unknown[] = [];
+			const objectResult = resolveCall(
+				exact,
+				"payload",
+				flippingObject,
+				(_name, value) => {
+					objectSeen.push(value);
+					return true;
+				},
+			);
+			expect(objectResult.ok).toBe(true);
+			expect(objectSeen).toEqual([{ a: 1 }]);
+			expect(reads).toBe(1);
+
+			let indexReads = 0;
+			let lengthReads = 0;
+			const flippingArray = new Proxy([0], {
+				get(target, key, receiver) {
+					if (key === "length") {
+						lengthReads += 1;
+						return 99;
+					}
+					return Reflect.get(target, key, receiver);
+				},
+				getOwnPropertyDescriptor(target, key) {
+					if (key === "0") {
+						indexReads += 1;
+						return {
+							value: indexReads === 1 ? 1 : 99,
+							writable: true,
+							enumerable: true,
+							configurable: true,
+						};
+					}
+					return Reflect.getOwnPropertyDescriptor(target, key);
+				},
+			});
+			const arraySeen: unknown[] = [];
+			const arrayResult = resolveCall(
+				exact,
+				"series",
+				flippingArray,
+				(_name, value) => {
+					arraySeen.push(value);
+					return true;
+				},
+			);
+			expect(arrayResult.ok).toBe(true);
+			expect(arraySeen).toEqual([[1]]);
+			expect(indexReads).toBe(1);
+			expect(lengthReads).toBe(0);
+			if (arrayResult.ok) {
+				expect(Object.isFrozen(arrayResult.value.input)).toBe(true);
+			}
+
+			lengthReads = 0;
+			const lengthTrap = new Proxy([1], {
+				get(target, key, receiver) {
+					if (key === "length") {
+						lengthReads += 1;
+						throw new Error("length trap");
+					}
+					return Reflect.get(target, key, receiver);
+				},
+			});
+			const trapped: unknown[] = [];
+			expect(() =>
+				resolveCall(exact, "series", lengthTrap, (_name, value) => {
+					trapped.push(value);
+					return true;
+				}),
+			).not.toThrow();
+			expect(
+				resolveCall(exact, "series", lengthTrap, (_name, value) => {
+					trapped.push(value);
+					return true;
+				}),
+			).toMatchObject({
+				ok: true,
+				value: { command: "series", input: [1] },
+			});
+			expect(lengthReads).toBe(0);
+
+			const throwingKeys = new Proxy([1], {
+				ownKeys() {
+					throw new Error("own keys");
+				},
+			});
+			expect(() =>
+				resolveCall(exact, "series", throwingKeys, () => true),
+			).not.toThrow();
+			expect(
+				resolveCall(exact, "series", throwingKeys, () => true),
+			).toMatchObject({
+				ok: false,
+				error: { kind: "InvalidInput", name: "series" },
+			});
 		} finally {
 			if (host.process && saved) host.process.getBuiltinModule = saved;
 		}

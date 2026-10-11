@@ -16,6 +16,9 @@ export type AppCommandApproval = {
 
 const MAX_CANONICAL_DEPTH = 32;
 
+/** Longest approval window. Spent ids are forgotten only after this passes. */
+export const MAX_GRANT_LIFETIME_MS = 24 * 60 * 60 * 1000;
+
 function plainShape(value: object): boolean {
 	try {
 		const brand = Object.prototype.toString.call(value);
@@ -65,34 +68,23 @@ function stable(value: unknown, depth = 0, seen?: WeakSet<object>): string {
 		active.add(value);
 		try {
 			if (Array.isArray(value)) {
-				const items: string[] = [];
-				for (let index = 0; index < value.length; index += 1) {
-					const descriptor = Object.getOwnPropertyDescriptor(
-						value,
-						String(index),
-					);
-					if (!descriptor || !("value" in descriptor)) return "invalid:array";
-					items.push(stable(descriptor.value, depth + 1, active));
-				}
-				return `array:[${items.join(",")}]`;
+				return stableArray(value, depth, active);
 			}
 			const record = value as Record<string, unknown>;
-			const keys: string[] = [];
+			const props: Array<[string, unknown]> = [];
 			for (const key of Reflect.ownKeys(record)) {
 				if (typeof key === "symbol") return "invalid:symbol";
 				const descriptor = Object.getOwnPropertyDescriptor(record, key);
 				if (!descriptor || descriptor.enumerable !== true) continue;
 				if (!("value" in descriptor)) return "invalid:accessor";
-				keys.push(key);
+				props.push([key, descriptor.value]);
 			}
-			keys.sort();
-			const body = keys
-				.map((key) => {
-					const descriptor = Object.getOwnPropertyDescriptor(record, key);
-					const property =
-						descriptor && "value" in descriptor ? descriptor.value : undefined;
-					return `${JSON.stringify(key)}:${stable(property, depth + 1, active)}`;
-				})
+			props.sort((left, right) => (left[0] < right[0] ? -1 : 1));
+			const body = props
+				.map(
+					([key, property]) =>
+						`${JSON.stringify(key)}:${stable(property, depth + 1, active)}`,
+				)
 				.join(",");
 			return `object:{${body}}`;
 		} finally {
@@ -101,6 +93,46 @@ function stable(value: unknown, depth = 0, seen?: WeakSet<object>): string {
 	} catch {
 		return "invalid:unreadable";
 	}
+}
+
+function stableArray(
+	value: unknown[],
+	depth: number,
+	active: WeakSet<object>,
+): string {
+	const indexed = new Map<number, unknown>();
+	let length: number | undefined;
+	for (const key of Reflect.ownKeys(value)) {
+		if (typeof key === "symbol") return "invalid:symbol";
+		const descriptor = Object.getOwnPropertyDescriptor(value, key);
+		if (!descriptor || !("value" in descriptor)) return "invalid:array";
+		if (key === "length") {
+			const reported = descriptor.value;
+			if (
+				typeof reported !== "number" ||
+				!Number.isSafeInteger(reported) ||
+				reported < 0
+			) {
+				return "invalid:array";
+			}
+			length = reported;
+			continue;
+		}
+		if (!/^(?:0|[1-9]\d*)$/.test(key)) return "invalid:array";
+		indexed.set(Number(key), descriptor.value);
+	}
+	if (length === undefined) {
+		length = 0;
+		for (const index of indexed.keys()) {
+			if (index + 1 > length) length = index + 1;
+		}
+	}
+	if (indexed.size !== length) return "invalid:array";
+	const items: string[] = [];
+	for (let index = 0; index < length; index += 1) {
+		items.push(stable(indexed.get(index), depth + 1, active));
+	}
+	return `array:[${items.join(",")}]`;
 }
 
 /** Canonical command name plus validated input. Compared in full, not hashed. */
@@ -121,13 +153,21 @@ export function createCommandApprovalAuthority(
 	now: () => number = Date.now,
 ) {
 	const pending = new Map<object, PendingApproval[]>();
-	const spent = new Set<string>();
+	const spent = new Map<string, number>();
+
+	function spentId(id: string, time: number): boolean {
+		const retainUntil = spent.get(id);
+		return retainUntil !== undefined && retainUntil > time;
+	}
 
 	function prune(): void {
 		const time = now();
+		for (const [id, retainUntil] of spent) {
+			if (retainUntil <= time) spent.delete(id);
+		}
 		for (const [target, bucket] of pending) {
 			const liveRecords = bucket.filter(
-				(record) => record.expiresAt > time && !spent.has(record.id),
+				(record) => record.expiresAt > time && !spentId(record.id, time),
 			);
 			if (liveRecords.length === 0) pending.delete(target);
 			else if (liveRecords.length !== bucket.length) {
@@ -137,14 +177,20 @@ export function createCommandApprovalAuthority(
 	}
 
 	function live(record: PendingApproval): boolean {
-		return record.expiresAt > now() && !spent.has(record.id);
+		return record.expiresAt > now() && !spentId(record.id, now());
+	}
+
+	function withinGrantWindow(expiresAt: number, time: number): boolean {
+		return expiresAt > time && expiresAt <= time + MAX_GRANT_LIFETIME_MS;
 	}
 
 	return {
 		grant(approval: AppCommandApproval): void {
 			prune();
-			if (approval.actor !== actor || approval.expiresAt <= now()) return;
-			if (spent.has(approval.id)) return;
+			const time = now();
+			if (approval.actor !== actor) return;
+			if (!withinGrantWindow(approval.expiresAt, time)) return;
+			if (spentId(approval.id, time)) return;
 			const bucket = (pending.get(approval.target) ?? []).filter(
 				(record) => record.id !== approval.id,
 			);
@@ -182,7 +228,7 @@ export function createCommandApprovalAuthority(
 			);
 			if (!match) return false;
 			if (context.execute !== true) return true;
-			spent.add(match.id);
+			spent.set(match.id, match.expiresAt + MAX_GRANT_LIFETIME_MS);
 			const rest = bucket.filter((record) => record.id !== match.id);
 			if (rest.length === 0) pending.delete(context.core);
 			else pending.set(context.core, rest);
