@@ -150,6 +150,72 @@ describe("injectStyles", () => {
 		}
 	});
 
+	it("collects a detached host when WeakRef was missing at injector load", async () => {
+		const globals = globalThis as typeof globalThis & {
+			gc?: () => void;
+			WeakRef?: typeof WeakRef;
+		};
+		const collect = globals.gc;
+		expect(typeof collect).toBe("function");
+		const slotHost = globalThis as typeof globalThis & {
+			[STYLE_INJECT_SLOT]?: unknown;
+		};
+		const previousInject = slotHost[STYLE_INJECT_SLOT];
+		const PreviousWeakRef = globals.WeakRef;
+		delete globals.WeakRef;
+		vi.resetModules();
+
+		let freshForget: ((shadowRoot: ShadowRoot) => void) | undefined;
+		let leakedProbe: WeakRef<HTMLElement> | undefined;
+		let probe: WeakRef<HTMLElement> | undefined;
+
+		try {
+			const fresh = await import("../../../ignite-renderer/src/injectStyles");
+			const styleHook = await import("../../../ignite-renderer/src/styleHook");
+			freshForget = styleHook.forgetQueuedStyles;
+			globals.WeakRef = PreviousWeakRef;
+
+			// Locals die with these functions so gc() can see the module ref.
+			leakedProbe = (() => {
+				const leakedHost = document.createElement("div");
+				document.body.append(leakedHost);
+				const leakedRoot = leakedHost.attachShadow({ mode: "open" });
+				fresh.default(leakedRoot);
+				leakedHost.remove();
+				return new WeakRef(leakedHost);
+			})();
+			probe = (() => {
+				const host = document.createElement("div");
+				document.body.append(host);
+				const root = host.attachShadow({ mode: "open" });
+				fresh.default(root);
+				freshForget?.(root);
+				host.remove();
+				return new WeakRef(host);
+			})();
+			const parkedProbe = (() => {
+				const host = document.createElement("div");
+				const root = host.attachShadow({ mode: "open" });
+				fresh.default(root, true);
+				freshForget?.(root);
+				return new WeakRef(host);
+			})();
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			collect?.();
+			collect?.();
+			expect(leakedProbe.deref()).toBeDefined();
+			expect(probe.deref()).toBeUndefined();
+			expect(parkedProbe.deref()).toBeUndefined();
+		} finally {
+			const retained = leakedProbe?.deref();
+			if (retained?.shadowRoot && freshForget) {
+				freshForget(retained.shadowRoot);
+			}
+			if (PreviousWeakRef) globals.WeakRef = PreviousWeakRef;
+			if (isStyleInject(previousInject)) installStyleInject(previousInject);
+		}
+	});
+
 	it("removes a detached root from the installed injector queue", () => {
 		const element = document.createElement("div");
 		document.body.append(element);

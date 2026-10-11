@@ -328,6 +328,65 @@ describe("URL scheme guard", () => {
 		expect(input?.checked).toBe(false);
 	});
 
+	it("resets checked to false instead of undefined", () => {
+		const descriptor = Object.getOwnPropertyDescriptor(
+			HTMLInputElement.prototype,
+			"checked",
+		);
+		const set = descriptor?.set;
+		const get = descriptor?.get;
+		if (!descriptor || !set || !get) {
+			throw new Error("missing checked setter");
+		}
+		const assigned: unknown[] = [];
+		Object.defineProperty(HTMLInputElement.prototype, "checked", {
+			configurable: true,
+			enumerable: descriptor.enumerable,
+			get,
+			set(value: unknown) {
+				assigned.push(value);
+				set.call(this, value);
+			},
+		});
+
+		try {
+			const host = document.createElement("div");
+			document.body.append(host);
+			const tree = mountIgniteJsx(
+				host,
+				jsx("input", { type: "checkbox", checked: 1 }),
+			);
+			assigned.length = 0;
+			renderIgniteJsx(host, jsx("input", { type: "checkbox" }), tree);
+
+			expect(assigned).toContain(false);
+			expect(assigned).not.toContain(undefined);
+			expect(host.querySelector("input")?.checked).toBe(false);
+		} finally {
+			Object.defineProperty(HTMLInputElement.prototype, "checked", descriptor);
+		}
+	});
+
+	it("resets a coerced value to an empty string", () => {
+		const { host, tree } = mount(jsx("input", { value: 1 }));
+		const input = host.querySelector("input");
+		expect(input?.value).toBe("1");
+
+		renderIgniteJsx(host, jsx("input", {}), tree);
+
+		expect(input?.value).toBe("");
+	});
+
+	it("resets a string value to an empty string", () => {
+		const { host, tree } = mount(jsx("input", { value: "hello" }));
+		const input = host.querySelector("input");
+		expect(input?.value).toBe("hello");
+
+		renderIgniteJsx(host, jsx("input", {}), tree);
+
+		expect(input?.value).toBe("");
+	});
+
 	it.each(["href", "src", "action", "formAction"] as const)(
 		"clears a non-reflected %s property when a later value is executable",
 		(key) => {
@@ -531,6 +590,41 @@ describe("URL scheme guard", () => {
 
 		expect(host.querySelector("object")?.getAttribute("codebase")).toBeNull();
 	});
+
+	it.each([
+		"javascript:alert(1)",
+		"vbscript:msgbox(1)",
+		"data:text/javascript,alert(1)",
+		"data:",
+		"data:image/png;base64,aaaa",
+	])("does not apply object codebase %s", (codebase) => {
+		const { host } = mount(jsx("object", { codebase }));
+
+		expect(host.querySelector("object")?.getAttribute("codebase")).toBeNull();
+	});
+
+	it.each([
+		"javascript:alert(1)",
+		"vbscript:msgbox(1)",
+		"data:text/javascript,alert(1)",
+		"data:",
+		"data:image/png;base64,aaaa",
+	])("does not apply applet codebase %s", (codebase) => {
+		const { host } = mount(jsx("applet", { codebase }));
+
+		expect(host.querySelector("applet")?.getAttribute("codebase")).toBeNull();
+	});
+
+	it.each(["https://example.com/lib", "packages/app"])(
+		"still applies applet codebase %s",
+		(codebase) => {
+			const { host } = mount(jsx("applet", { codebase }));
+
+			expect(host.querySelector("applet")?.getAttribute("codebase")).toBe(
+				codebase,
+			);
+		},
+	);
 
 	it("still applies a non-href SVG animate value on attributeName", () => {
 		const { host } = mount(
@@ -746,6 +840,25 @@ describe("URL scheme guard", () => {
 		expect(animate?.getAttribute("to")).toBeNull();
 	});
 
+	it.each([" href", "href ", "{http://www.w3.org/1999/xlink}href", "href\0"])(
+		"does not apply animate from or to when attributeName is %j",
+		(attributeName) => {
+			const { host } = mount(
+				jsx("svg", {
+					children: jsx("animate", {
+						attributeName,
+						from: "javascript:alert(1)",
+						to: "https://example.com/next",
+					}),
+				}),
+			);
+			const animate = host.querySelector("animate");
+
+			expect(animate?.getAttribute("from")).toBeNull();
+			expect(animate?.getAttribute("to")).toBeNull();
+		},
+	);
+
 	it("does not apply an object attributeName before an executable set to", () => {
 		let calls = 0;
 		const attributeName = {
@@ -885,7 +998,7 @@ describe("URL scheme guard", () => {
 		expect(host.querySelector("meta")?.getAttribute("http-equiv")).toBeNull();
 	});
 
-	it("writes a NUL-terminated meta http-equiv string unchanged", () => {
+	it("does not apply a NUL-terminated meta http-equiv refresh", () => {
 		const { host } = mount(
 			jsx("meta", {
 				httpEquiv: "refresh\0",
@@ -893,9 +1006,7 @@ describe("URL scheme guard", () => {
 			}),
 		);
 
-		expect(host.querySelector("meta")?.getAttribute("http-equiv")).toBe(
-			"refresh\0",
-		);
+		expect(host.querySelector("meta")?.getAttribute("http-equiv")).toBeNull();
 	});
 
 	it("does not apply a non-string meta http-equiv that is not refresh", () => {

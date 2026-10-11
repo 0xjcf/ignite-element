@@ -349,7 +349,7 @@ function isBlockedMarkupProp(key: string): boolean {
 	);
 }
 
-const dataDocumentTagPattern = /^(?:script|iframe|frame|object|embed)$/;
+const dataDocumentTagPattern = /^(?:script|iframe|frame|object|embed|applet)$/;
 
 function isEventHandlerKey(key: string): boolean {
 	const name = key.toLowerCase();
@@ -367,10 +367,10 @@ function strippedUri(value: string): string {
 }
 
 function smilHrefTarget(value: unknown): boolean {
-	if (typeof value !== "string") return false;
-	const lower = value.toLowerCase();
-	const splitAt = lower.lastIndexOf(":");
-	return (splitAt < 0 ? lower : lower.slice(splitAt + 1)) === "href";
+	return (
+		typeof value === "string" &&
+		strippedUri(value).split(/[:}]/).pop() === "href"
+	);
 }
 
 function isBlockedUrlValue(
@@ -385,8 +385,9 @@ function isBlockedUrlValue(
 	// <base href> retargets relative URLs. srcset lists and poster are
 	// documented in the changeset; they are not checked here.
 	if (tag === "base" && name === "href") return true;
-	// A string attributeName is lowercased and any namespace prefix is
-	// removed. href on these tags drops from, to, by, and values entirely.
+	// A string attributeName is lowercased, whitespace and ASCII controls
+	// are removed, then any Clark or namespace prefix is removed. href on
+	// these tags drops from, to, by, and values entirely.
 	if (
 		(tag === "animate" || tag === "set" || tag === "animatemotion") &&
 		(name === "from" || name === "to" || name === "by" || name === "values") &&
@@ -405,7 +406,7 @@ function isBlockedUrlValue(
 	// the same string that is written.
 	if (typeof value !== "string") return true;
 	if (tag === "meta" && name.endsWith("equiv")) {
-		return value.trim().toLowerCase() === "refresh";
+		return strippedUri(value) === "refresh";
 	}
 	if (name === "attributename") return false;
 	const normalized = strippedUri(value);
@@ -1236,20 +1237,23 @@ function removeProp(
 	}
 
 	if (isSvg || !(key in element) || key === "list") return;
-	const current = (element as HTMLElement)[key as keyof HTMLElement];
+	const el = element as HTMLElement;
+	const current = el[key as keyof HTMLElement];
 	const name = key.toLowerCase();
-	const reflectedUrl =
-		name === "data" || name === "codebase" || uriBearingKeyPattern.test(name);
-	// URL setters turn undefined into the URL "undefined". A boolean the DOM
-	// normalized, such as checked={1} becoming true, still has to be cleared.
+	// Reflected URL setters turn undefined into the URL "undefined".
+	// value={1} becomes the string "1", and checked={1} becomes true.
 	if (
-		(reflectedUrl && current === prev) ||
-		(!reflectedUrl &&
-			(current === prev ||
-				(typeof current === "boolean" && current === Boolean(prev))))
+		uriBearingKeyPattern.test(name) ||
+		(name === "data" && el.localName === "object")
 	) {
-		Reflect.set(element as HTMLElement, key, undefined);
+		if (current === prev) Reflect.set(el, key, undefined);
+		return;
 	}
+	if (name === "value" || typeof current === "boolean") {
+		Reflect.set(el, key, name === "value" ? "" : false);
+		return;
+	}
+	if (current === prev) Reflect.set(el, key, undefined);
 }
 
 function applyProperty(

@@ -91,6 +91,8 @@ export default defineConfig((configEnv) =>
 			},
 			test: {
 				environment: "jsdom",
+				// The detached-style-root test collects with global.gc().
+				execArgv: ["--expose-gc"],
 				include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
 				setupFiles: "./vitest.setup.ts",
 				coverage: {
