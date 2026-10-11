@@ -2433,6 +2433,46 @@ describe("projection targets", () => {
 		expect(unhandled).toEqual([]);
 	});
 
+	it("keeps codebase out of projection URI keys", () => {
+		const context = {
+			schema: { commands: {} },
+			canExecute: () => true,
+		};
+		const codebase = validateProjectionDocument(
+			{
+				id: "guide",
+				revision: "1",
+				nodes: [
+					{
+						kind: "text",
+						id: "body",
+						text: "guide",
+						codebase: "javascript:guide",
+					} as never,
+				],
+			},
+			context,
+		);
+		expect(codebase).toEqual([]);
+
+		const href = validateProjectionDocument(
+			{
+				id: "link",
+				revision: "1",
+				nodes: [
+					{
+						kind: "text",
+						id: "body",
+						text: "guide",
+						href: "javascript:guide",
+					} as never,
+				],
+			},
+			context,
+		);
+		expect(href.some((issue) => issue.includes("executable URI"))).toBe(true);
+	});
+
 	it("preserves safe business data and URLs in every JSON island", async () => {
 		const safeBusinessData: IgniteSchemaValue = {
 			customer: {

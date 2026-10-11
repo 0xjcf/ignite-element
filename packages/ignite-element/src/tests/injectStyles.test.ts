@@ -1,7 +1,21 @@
 import type { MockInstance } from "vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+	forgetQueuedStyles,
+	installStyleInject,
+	injectStyles as queueStylesBeforeInjector,
+} from "../../../ignite-renderer/src/styleHook";
 import { setGlobalStyles } from "../globalStyles";
 import injectStyles, { flushPendingStyles } from "../injectStyles";
+import { createIgniteJsxRenderStrategy } from "../renderers/jsx/IgniteJsxRenderStrategy";
+
+const STYLE_INJECT_SLOT = Symbol.for("ignite-element.style-inject");
+
+type StyleInject = (root: ShadowRoot) => void;
+
+function isStyleInject(value: unknown): value is StyleInject {
+	return typeof value === "function";
+}
 
 describe("injectStyles", () => {
 	let shadowRoot: ShadowRoot;
@@ -112,6 +126,413 @@ describe("injectStyles", () => {
 		expect(secondLinks).toHaveLength(1);
 		expect(links[0]?.href).toContain("theme.css");
 		expect(secondLinks[0]?.href).toContain("theme.css");
+	});
+
+	it("queues a root attached before the style injector loads", () => {
+		const host = globalThis as typeof globalThis & {
+			[STYLE_INJECT_SLOT]?: (root: ShadowRoot) => void;
+		};
+		const previous = host[STYLE_INJECT_SLOT];
+		delete host[STYLE_INJECT_SLOT];
+		const earlyRoot = createShadowRoot();
+
+		try {
+			queueStylesBeforeInjector(earlyRoot);
+			setGlobalStyles(undefined);
+			if (previous) installStyleInject(previous);
+
+			setGlobalStyles("./late.css");
+			flushPendingStyles();
+
+			expect(earlyRoot.querySelector("link")?.href).toContain("late.css");
+		} finally {
+			if (previous) installStyleInject(previous);
+		}
+	});
+
+	it("collects a detached host when WeakRef was missing at injector load", async () => {
+		// ES2020 has no WeakRef lib name. The probe is the runtime constructor.
+		type HostProbe = { deref(): HTMLElement | undefined };
+		type HostProbeConstructor = new <T extends object>(
+			value: T,
+		) => { deref(): T | undefined };
+		const globals = globalThis as typeof globalThis & {
+			gc?: () => void;
+			WeakRef?: HostProbeConstructor;
+		};
+		const collect = globals.gc;
+		expect(typeof collect).toBe("function");
+		const slotHost = globalThis as typeof globalThis & {
+			[STYLE_INJECT_SLOT]?: unknown;
+		};
+		const previousInject = slotHost[STYLE_INJECT_SLOT];
+		const PreviousWeakRef = globals.WeakRef;
+		delete globals.WeakRef;
+		vi.resetModules();
+
+		let freshForget: ((shadowRoot: ShadowRoot) => void) | undefined;
+		let leakedProbe: HostProbe | undefined;
+		let probe: HostProbe | undefined;
+
+		try {
+			const fresh = await import("../../../ignite-renderer/src/injectStyles");
+			const styleHook = await import("../../../ignite-renderer/src/styleHook");
+			freshForget = styleHook.forgetQueuedStyles;
+			globals.WeakRef = PreviousWeakRef;
+			const Probe = globals.WeakRef;
+			if (!Probe) throw new Error("WeakRef missing");
+
+			// Locals die with these functions so gc() can see the module ref.
+			leakedProbe = (() => {
+				const leakedHost = document.createElement("div");
+				document.body.append(leakedHost);
+				const leakedRoot = leakedHost.attachShadow({ mode: "open" });
+				fresh.default(leakedRoot);
+				leakedHost.remove();
+				return new Probe(leakedHost);
+			})();
+			probe = (() => {
+				const host = document.createElement("div");
+				document.body.append(host);
+				const root = host.attachShadow({ mode: "open" });
+				fresh.default(root);
+				freshForget?.(root);
+				host.remove();
+				return new Probe(host);
+			})();
+			const parkedProbe = (() => {
+				const host = document.createElement("div");
+				const root = host.attachShadow({ mode: "open" });
+				fresh.default(root, true);
+				freshForget?.(root);
+				return new Probe(host);
+			})();
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			collect?.();
+			collect?.();
+			expect(leakedProbe.deref()).toBeDefined();
+			expect(probe.deref()).toBeUndefined();
+			expect(parkedProbe.deref()).toBeUndefined();
+		} finally {
+			const retained = leakedProbe?.deref();
+			if (retained?.shadowRoot && freshForget) {
+				freshForget(retained.shadowRoot);
+			}
+			if (PreviousWeakRef) globals.WeakRef = PreviousWeakRef;
+			if (isStyleInject(previousInject)) installStyleInject(previousInject);
+		}
+	});
+
+	it("removes a detached root from the installed injector queue", () => {
+		const element = document.createElement("div");
+		document.body.append(element);
+		const root = element.attachShadow({ mode: "open" });
+
+		try {
+			setGlobalStyles(undefined);
+			const strategy = createIgniteJsxRenderStrategy();
+			strategy.attach(root);
+			strategy.detach();
+			delete (root as unknown as { [STYLE_INJECT_SLOT]?: unknown })[
+				STYLE_INJECT_SLOT
+			];
+
+			setGlobalStyles("./queued.css");
+			flushPendingStyles();
+
+			expect(root.querySelector("link")).toBeNull();
+		} finally {
+			element.remove();
+			setGlobalStyles(undefined);
+		}
+	});
+
+	it("drops a shadow root when the JSX strategy detaches before the injector loads", () => {
+		const slotHost = globalThis as typeof globalThis & {
+			[STYLE_INJECT_SLOT]?: unknown;
+		};
+		const previous = slotHost[STYLE_INJECT_SLOT];
+		delete slotHost[STYLE_INJECT_SLOT];
+		const droppedElement = document.createElement("div");
+		const keptElement = document.createElement("div");
+		document.body.append(droppedElement, keptElement);
+		const dropped = droppedElement.attachShadow({ mode: "open" });
+		const kept = keptElement.attachShadow({ mode: "open" });
+
+		try {
+			const droppedStrategy = createIgniteJsxRenderStrategy();
+			const keptStrategy = createIgniteJsxRenderStrategy();
+			droppedStrategy.attach(dropped);
+			keptStrategy.attach(kept);
+			droppedStrategy.detach();
+
+			const seen: ShadowRoot[] = [];
+			installStyleInject((root) => {
+				seen.push(root);
+			});
+
+			expect(seen).not.toContain(dropped);
+			expect(seen).toContain(kept);
+		} finally {
+			droppedElement.remove();
+			keptElement.remove();
+			if (isStyleInject(previous)) installStyleInject(previous);
+		}
+	});
+
+	it("does not inject styles into a shadow root removed before flush", () => {
+		const slotHost = globalThis as typeof globalThis & {
+			[STYLE_INJECT_SLOT]?: unknown;
+		};
+		const previous = slotHost[STYLE_INJECT_SLOT];
+		delete slotHost[STYLE_INJECT_SLOT];
+		const removedElement = document.createElement("div");
+		const keptElement = document.createElement("div");
+		document.body.append(removedElement, keptElement);
+		const removed = removedElement.attachShadow({ mode: "open" });
+		const kept = keptElement.attachShadow({ mode: "open" });
+
+		try {
+			queueStylesBeforeInjector(removed);
+			queueStylesBeforeInjector(kept);
+			removedElement.remove();
+			expect(removed.isConnected).toBe(false);
+
+			setGlobalStyles(undefined);
+			installStyleInject(isStyleInject(previous) ? previous : injectStyles);
+			setGlobalStyles("./detached.css");
+			flushPendingStyles();
+
+			expect(removed.querySelector("link")).toBeNull();
+			expect(kept.querySelector("link")?.href).toContain("detached.css");
+		} finally {
+			forgetQueuedStyles(removed);
+			flushPendingStyles();
+			keptElement.remove();
+			setGlobalStyles(undefined);
+			if (isStyleInject(previous)) installStyleInject(previous);
+		}
+	});
+
+	async function settleMutations(): Promise<void> {
+		await new Promise((resolve) => setTimeout(resolve, 0));
+	}
+
+	it("restyles a root flushed while it was moving between parents", async () => {
+		const element = document.createElement("div");
+		document.body.append(element);
+		const moved = element.attachShadow({ mode: "open" });
+		const nextParent = document.createElement("section");
+		document.body.append(nextParent);
+
+		try {
+			setGlobalStyles(undefined);
+			createIgniteJsxRenderStrategy().attach(moved);
+			element.remove();
+			expect(moved.isConnected).toBe(false);
+
+			setGlobalStyles("./moved.css");
+			flushPendingStyles();
+			expect(moved.querySelector("link")).toBeNull();
+
+			nextParent.append(element);
+			await settleMutations();
+
+			expect(moved.querySelector("link")?.href).toContain("moved.css");
+		} finally {
+			element.remove();
+			nextParent.remove();
+			setGlobalStyles(undefined);
+		}
+	});
+
+	it("restyles a host appended into an already-connected parent shadow root", async () => {
+		const parent = document.createElement("section");
+		document.body.append(parent);
+		const parentRoot = parent.attachShadow({ mode: "open" });
+		const tag = "x-style-reconnect";
+		if (!customElements.get(tag)) {
+			class Host extends HTMLElement {
+				root: ShadowRoot;
+				strategy = createIgniteJsxRenderStrategy();
+				constructor() {
+					super();
+					this.root = this.attachShadow({ mode: "open" });
+				}
+				connectedCallback(): void {
+					// The shadow root is not an element. Replay goes through the
+					// JSX strategy, not a MutationObserver on this shadow tree.
+					this.strategy.attach(this.root);
+				}
+			}
+			customElements.define(tag, Host);
+		}
+		const element = document.createElement(tag) as HTMLElement & {
+			root: ShadowRoot;
+		};
+		const RealObserver = globalThis.MutationObserver;
+		let callbacks = 0;
+		function CountingObserver(
+			this: MutationObserver,
+			callback: MutationCallback,
+		) {
+			return new RealObserver((records, observer) => {
+				callbacks += 1;
+				callback(records, observer);
+			});
+		}
+		CountingObserver.prototype = RealObserver.prototype;
+		vi.stubGlobal("MutationObserver", CountingObserver);
+
+		try {
+			setGlobalStyles(undefined);
+			document.body.append(element);
+			const moved = element.root;
+			element.remove();
+			setGlobalStyles("./nested.css");
+			flushPendingStyles();
+			expect(moved.querySelector("link")).toBeNull();
+			expect(moved.isConnected).toBe(false);
+
+			parentRoot.append(element);
+
+			expect(moved.isConnected).toBe(true);
+			expect(moved.querySelector("link")?.href).toContain("nested.css");
+			callbacks = 0;
+			document.body.append(document.createElement("span"));
+			await settleMutations();
+			expect(callbacks).toBe(0);
+		} finally {
+			forgetQueuedStyles(element.root);
+			vi.unstubAllGlobals();
+			element.remove();
+			parent.remove();
+			setGlobalStyles(undefined);
+		}
+	});
+
+	it("restyles a root when the injector loads during a move", async () => {
+		const slotHost = globalThis as typeof globalThis & {
+			[STYLE_INJECT_SLOT]?: unknown;
+		};
+		const previous = slotHost[STYLE_INJECT_SLOT];
+		delete slotHost[STYLE_INJECT_SLOT];
+		const element = document.createElement("div");
+		document.body.append(element);
+		const moved = element.attachShadow({ mode: "open" });
+
+		try {
+			setGlobalStyles(undefined);
+			createIgniteJsxRenderStrategy().attach(moved);
+			element.remove();
+			setGlobalStyles("./moved.css");
+			installStyleInject(isStyleInject(previous) ? previous : injectStyles);
+			expect(moved.querySelector("link")).toBeNull();
+
+			document.body.append(element);
+			await settleMutations();
+
+			expect(moved.querySelector("link")?.href).toContain("moved.css");
+		} finally {
+			element.remove();
+			setGlobalStyles(undefined);
+			if (isStyleInject(previous)) installStyleInject(previous);
+		}
+	});
+
+	it("applies moved.css once and disconnects the reconnect observer", async () => {
+		const element = document.createElement("div");
+		document.body.append(element);
+		const moved = element.attachShadow({ mode: "open" });
+		const RealObserver = globalThis.MutationObserver;
+		let callbacks = 0;
+		function CountingObserver(
+			this: MutationObserver,
+			callback: MutationCallback,
+		) {
+			return new RealObserver((records, observer) => {
+				callbacks += 1;
+				callback(records, observer);
+			});
+		}
+		CountingObserver.prototype = RealObserver.prototype;
+		vi.stubGlobal("MutationObserver", CountingObserver);
+
+		try {
+			setGlobalStyles(undefined);
+			createIgniteJsxRenderStrategy().attach(moved);
+			element.remove();
+			setGlobalStyles("/moved.css");
+			flushPendingStyles();
+			expect(moved.querySelector("link")).toBeNull();
+
+			document.body.append(element);
+			flushPendingStyles();
+
+			const links = moved.querySelectorAll("link");
+			expect(links).toHaveLength(1);
+			expect(links[0]?.href).toContain("/moved.css");
+
+			document.body.append(document.createElement("span"));
+			await settleMutations();
+
+			expect(moved.querySelectorAll("link")).toHaveLength(1);
+			expect(callbacks).toBe(0);
+		} finally {
+			vi.unstubAllGlobals();
+			element.remove();
+			setGlobalStyles(undefined);
+		}
+	});
+
+	it("does not restyle a root after the JSX strategy detaches", async () => {
+		const element = document.createElement("div");
+		document.body.append(element);
+		const dropped = element.attachShadow({ mode: "open" });
+
+		try {
+			setGlobalStyles(undefined);
+			const strategy = createIgniteJsxRenderStrategy();
+			strategy.attach(dropped);
+			element.remove();
+			setGlobalStyles("./detached.css");
+			flushPendingStyles();
+			strategy.detach();
+
+			document.body.append(element);
+			await settleMutations();
+
+			expect(dropped.querySelector("link")).toBeNull();
+		} finally {
+			element.remove();
+			setGlobalStyles(undefined);
+		}
+	});
+
+	it("does not flush styles into a connected root that was removed later", () => {
+		const removedElement = document.createElement("div");
+		const keptElement = document.createElement("div");
+		document.body.append(removedElement, keptElement);
+		const removed = removedElement.attachShadow({ mode: "open" });
+		const kept = keptElement.attachShadow({ mode: "open" });
+
+		try {
+			setGlobalStyles(undefined);
+			injectStyles(removed);
+			injectStyles(kept);
+			removedElement.remove();
+
+			setGlobalStyles("./detached.css");
+			flushPendingStyles();
+
+			expect(removed.querySelector("link")).toBeNull();
+			expect(kept.querySelector("link")?.href).toContain("detached.css");
+		} finally {
+			forgetQueuedStyles(removed);
+			flushPendingStyles();
+			keptElement.remove();
+			setGlobalStyles(undefined);
+		}
 	});
 
 	it("should ignore redundant calls for the same shadow root", () => {

@@ -480,10 +480,12 @@
 - 6e4fa40: Fix #57: toggling an element between JSX children and an `innerHTML` /
   `dangerouslySetInnerHTML` / `textContent` branch across re-renders now
   **replaces** the previous subtree instead of appending duplicate children.
-  innerHTML-owned subtrees are treated as opaque (child diffing is skipped), and
-  when an element switches back to JSX children the renderer hard-clears the
-  subtree with `replaceChildren()` before diffing, so child count no longer
-  accumulates on each round-trip.
+  As of this beta, an `innerHTML` branch owned the subtree (child diffing was
+  skipped), and when an element switched back to JSX children the renderer
+  hard-cleared the subtree with `replaceChildren()` before diffing, so child
+  count no longer accumulated on each round-trip. Later betas do not apply
+  `innerHTML`, `outerHTML`, or `srcdoc`, and those props do not own the subtree.
+  `textContent` still renders and stays deprecated.
   - @ignite-element/core@3.0.0-beta.3
   - @ignite-element/adapters@3.0.0-beta.3
   - @ignite-element/renderer@3.0.0-beta.3

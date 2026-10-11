@@ -853,7 +853,8 @@ describe("host binding", () => {
 			hosts: runtime(rich, 1),
 		});
 		expect(rich.disposed).toHaveLength(1);
-		expect(root.querySelector("p")?.textContent).toBe("kept");
+		expect(root.querySelector("p")).toBeNull();
+		expect(root.querySelector("section")?.textContent).toBe("");
 
 		const plain = clearOnDispose();
 		const textRoot = document.createElement("div");
