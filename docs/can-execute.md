@@ -56,11 +56,13 @@ const tools = igniteTools({
 ```
 
 The provider list omits commands the predicate does not allow. Invocation
-rechecks it with one detached plain-JSON snapshot of the validated input and
-`{ core }`. Finite numbers are copied (`-0` is `0`). Accessors, proxies,
-bigint, symbols, functions, `Date`, `Map`, `Set`, cycles, over-depth values,
-and non-finite defaults are `InvalidInput`. A plain object from another
-JavaScript realm is accepted. `run` passes that same snapshot to `execute`.
+rechecks it with one detached plain-JSON snapshot and `{ core }`. The library
+reads the call once, then validates that copy. Finite numbers are copied
+(`-0` is `0`). A proxy is not forwarded live, and the check does not use a
+Node-only proxy detector. Accessors, bigint, symbols, functions, `Date`,
+`Map`, `Set`, cycles, over-depth values, and non-finite defaults are
+`InvalidInput`. A plain object from another JavaScript realm is accepted.
+`run` passes that same snapshot to `execute`.
 Omit `canExecute` and commands are denied. Return `true` only for an explicit
 allow. A throw, a thenable, or any other result denies the call.
 `canExecute` is application preflight, never authentication.

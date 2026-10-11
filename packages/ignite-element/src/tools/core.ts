@@ -199,12 +199,13 @@ export function buildManifest(
  * Advanced/testing helper. Everyday apps should call `run` on a named
  * `igniteTools({ core, schema })` bind instead of importing this.
  *
- * Pure: apply a schema default, validate that value, then build one detached
- * plain-JSON snapshot. `canExecute(name, input, context)` and the returned
+ * Pure: apply a schema default, copy one detached plain-JSON snapshot, then
+ * validate that copy. `canExecute(name, input, context)` and the returned
  * route share that frozen snapshot. Only finite numbers (with `-0` normalized
  * to `0`), strings, booleans, null, arrays, and plain objects are copied.
- * Accessors, proxies, bigint, symbols, functions, `Date` / `Map` / `Set`,
- * cycles, and values past the nesting limit are `InvalidInput`. This function
+ * Accessors, bigint, symbols, functions, `Date` / `Map` / `Set`, cycles, and
+ * values past the nesting limit are `InvalidInput`. A proxy is read once into
+ * that snapshot; the snapshot is what is validated. This function
  * forwards `context` and does not set `execute`. `run` calls it without
  * `execute`, then calls `canExecute` with `{ execute: true }` only after
  * observation is subscribed and immediately before `core.execute`. A throw
@@ -230,26 +231,40 @@ export function resolveCall(
 		if (!source.ok) {
 			return err({ kind: "InvalidInput", name, issues: source.issues });
 		}
-		const issues = validateToolInputValue(
-			tool.inputSchema,
-			source.value,
-			"input",
-		);
-		if (issues.length > 0) {
-			return err({ kind: "InvalidInput", name, issues });
-		}
-		if (isNoArgSchema(tool.inputSchema)) {
-			route = { command: name };
-		} else if (source.value === undefined) {
-			// An omitted optional object stays omitted. It is not a no-arg command,
-			// which drops the input field, and it is not a JSON value to snapshot.
-			route = { command: name, input: undefined };
+		if (source.value === undefined) {
+			const issues = validateToolInputValue(
+				tool.inputSchema,
+				undefined,
+				"input",
+			);
+			if (issues.length > 0) {
+				return err({ kind: "InvalidInput", name, issues });
+			}
+			// An omitted optional object stays omitted. A no-arg command drops the
+			// input field. Neither one is a JSON value to snapshot.
+			route = isNoArgSchema(tool.inputSchema)
+				? { command: name }
+				: { command: name, input: undefined };
 		} else {
-			const snapshot = snapshotPlainJson(source.value, "input");
+			const snapshot = snapshotPlainJson(
+				source.value,
+				"input",
+				tool.inputSchema,
+			);
 			if (!snapshot.ok) {
 				return err({ kind: "InvalidInput", name, issues: snapshot.issues });
 			}
-			route = { command: name, input: snapshot.value };
+			const issues = validateToolInputValue(
+				tool.inputSchema,
+				snapshot.value,
+				"input",
+			);
+			if (issues.length > 0) {
+				return err({ kind: "InvalidInput", name, issues });
+			}
+			route = isNoArgSchema(tool.inputSchema)
+				? { command: name }
+				: { command: name, input: snapshot.value };
 		}
 	} catch {
 		return err({

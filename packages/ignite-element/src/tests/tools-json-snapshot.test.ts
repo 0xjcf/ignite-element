@@ -130,7 +130,7 @@ describe("plain JSON snapshot pairs", () => {
 		invalid("loose", { v: 1n });
 	});
 
-	it("rejects symbol keys, accessors, proxies, functions, and class instances", () => {
+	it("rejects symbol keys, accessors, functions, and class instances", () => {
 		const symbolKey: { a: number; [key: symbol]: string } = { a: 1 };
 		symbolKey[Symbol("id")] = "x";
 		invalid("payload", symbolKey);
@@ -154,13 +154,24 @@ describe("plain JSON snapshot pairs", () => {
 				get(target, key, receiver) {
 					if (key === "a") {
 						reads += 1;
-						return reads >= 3 ? 99 : 1;
+						return 99;
 					}
 					return Reflect.get(target, key, receiver);
 				},
 			},
 		);
-		invalid("payload", proxy);
+		const seen: unknown[] = [];
+		const result = resolveCall(manifest, "payload", proxy, (_n, value) => {
+			seen.push(value);
+			return true;
+		});
+		expect(result.ok).toBe(true);
+		expect(seen).toEqual([{ a: 1 }]);
+		expect(reads).toBe(0);
+		if (result.ok) {
+			expect(Object.isFrozen(result.value.input)).toBe(true);
+			expect(result.value.input).not.toBe(proxy);
+		}
 
 		invalid("loose", { v: () => 1 });
 		class Box {
@@ -300,7 +311,28 @@ describe("plain JSON snapshot pairs", () => {
 	it("rejects exotic values nested in an untyped field", () => {
 		invalid("box", { a: Number.POSITIVE_INFINITY });
 		invalid("box", { a: new Date(0) });
-		invalid("box", { a: new Proxy({ n: 1 }, {}) });
+		const nestedProxy = new Proxy({ n: 1 }, {});
+		const seenProxy: unknown[] = [];
+		const copied = resolveCall(
+			manifest,
+			"box",
+			{ a: nestedProxy },
+			(_n, value) => {
+				seenProxy.push(value);
+				return true;
+			},
+		);
+		expect(copied.ok).toBe(true);
+		expect(seenProxy).toEqual([{ a: { n: 1 } }]);
+		if (
+			copied.ok &&
+			copied.value.input &&
+			typeof copied.value.input === "object"
+		) {
+			const field = (copied.value.input as { a: object }).a;
+			expect(Object.isFrozen(field)).toBe(true);
+			expect(field).not.toBe(nestedProxy);
+		}
 		class SubArray extends Array<number> {}
 		invalid("box", { a: new SubArray(1) });
 		const hole = [1, 2];
@@ -423,5 +455,98 @@ describe("plain JSON snapshot pairs", () => {
 			},
 		});
 		invalid("payload", proxy);
+	});
+
+	it("validates the detached snapshot when a browser proxy changes between reads", () => {
+		const host = globalThis as {
+			process?: { getBuiltinModule?: (name: string) => unknown };
+		};
+		const saved = host.process?.getBuiltinModule;
+		if (host.process) host.process.getBuiltinModule = undefined;
+		try {
+			const bounded = buildManifest(
+				defineToolSchema({
+					setTemp: {
+						description: "Bounded temperature.",
+						input: {
+							type: "object",
+							properties: {
+								temp: { type: "number", minimum: 0, maximum: 100 },
+							},
+						},
+						consequential: true,
+					},
+				}),
+				() => true,
+			);
+			let reads = 0;
+			const changing = new Proxy(
+				{ temp: 0 },
+				{
+					getOwnPropertyDescriptor(_target, key) {
+						if (key !== "temp") {
+							return Reflect.getOwnPropertyDescriptor(_target, key);
+						}
+						reads += 1;
+						return {
+							value: reads === 1 ? 72 : 999,
+							writable: true,
+							enumerable: true,
+							configurable: true,
+						};
+					},
+				},
+			);
+			const seen: unknown[] = [];
+			const result = resolveCall(
+				bounded,
+				"setTemp",
+				changing,
+				(_name, value) => {
+					seen.push(value);
+					return true;
+				},
+			);
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				expect(result.value.input).toEqual({ temp: 72 });
+				expect(Object.isFrozen(result.value.input)).toBe(true);
+			}
+			expect(seen).toEqual([{ temp: 72 }]);
+			expect(reads).toBe(1);
+
+			reads = 0;
+			const outOfRange = new Proxy(
+				{ temp: 0 },
+				{
+					getOwnPropertyDescriptor(_target, key) {
+						if (key !== "temp") {
+							return Reflect.getOwnPropertyDescriptor(_target, key);
+						}
+						reads += 1;
+						return {
+							value: 999,
+							writable: true,
+							enumerable: true,
+							configurable: true,
+						};
+					},
+				},
+			);
+			const denied: unknown[] = [];
+			expect(
+				resolveCall(bounded, "setTemp", outOfRange, (_name, value) => {
+					denied.push(value);
+					return true;
+				}),
+			).toMatchObject({
+				ok: false,
+				error: { kind: "InvalidInput", name: "setTemp" },
+			});
+			expect(denied).toEqual([]);
+			expect(reads).toBe(1);
+		} finally {
+			if (host.process && saved) host.process.getBuiltinModule = saved;
+		}
 	});
 });

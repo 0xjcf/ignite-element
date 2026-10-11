@@ -12,23 +12,6 @@ function snapshotIssue(path: string, detail: string): JsonSnapshot {
 	return { ok: false, issues: [`${path}: ${detail}`] };
 }
 
-function isNodeProxy(value: object): boolean {
-	try {
-		const builtin = (
-			globalThis as {
-				process?: {
-					getBuiltinModule?: (name: string) => {
-						types?: { isProxy?: (candidate: object) => boolean };
-					};
-				};
-			}
-		).process?.getBuiltinModule?.("node:util");
-		return builtin?.types?.isProxy?.(value) === true;
-	} catch {
-		return false;
-	}
-}
-
 function isPlainArray(value: object): boolean {
 	if (!Array.isArray(value)) return false;
 	const prototype = Object.getPrototypeOf(value);
@@ -57,13 +40,41 @@ export function applySchemaDefaults(
 	}
 }
 
+function propertySchema(
+	schema: ToolInputSchema | undefined,
+	key: string,
+): ToolInputSchema | undefined {
+	if (!schema || !isPlainObject(schema.properties)) return undefined;
+	const child = schema.properties[key];
+	return isPlainObject(child) ? (child as ToolInputSchema) : undefined;
+}
+
+function itemSchema(
+	schema: ToolInputSchema | undefined,
+): ToolInputSchema | undefined {
+	if (!schema || !isPlainObject(schema.items)) return undefined;
+	return schema.items as ToolInputSchema;
+}
+
 function snapshotJsonValue(
 	value: unknown,
 	path: string,
 	depth: number,
 	active: WeakSet<object>,
+	schema?: ToolInputSchema,
 ): JsonSnapshot {
 	try {
+		if (value === undefined && schema && "default" in schema) {
+			let fallback: unknown;
+			try {
+				fallback = schema.default;
+			} catch {
+				return snapshotIssue(path, "unable to read value");
+			}
+			if (fallback !== undefined) {
+				return snapshotJsonValue(fallback, path, depth, active, schema);
+			}
+		}
 		if (value === null) return { ok: true, value: null };
 		if (typeof value === "string" || typeof value === "boolean") {
 			return { ok: true, value };
@@ -77,9 +88,6 @@ function snapshotJsonValue(
 		if (typeof value !== "object") {
 			return snapshotIssue(path, "expected a JSON value");
 		}
-		if (isNodeProxy(value)) {
-			return snapshotIssue(path, "expected a JSON value");
-		}
 		if (depth > MAX_TOOL_INPUT_DEPTH) {
 			return snapshotIssue(path, "exceeds the maximum nesting depth");
 		}
@@ -87,10 +95,10 @@ function snapshotJsonValue(
 			return snapshotIssue(path, "cyclic data is not allowed");
 		}
 		if (Array.isArray(value)) {
-			return snapshotJsonArray(value, path, depth, active);
+			return snapshotJsonArray(value, path, depth, active, schema);
 		}
 		if (isPlainObject(value)) {
-			return snapshotJsonObject(value, path, depth, active);
+			return snapshotJsonObject(value, path, depth, active, schema);
 		}
 		return snapshotIssue(path, "expected a JSON value");
 	} catch {
@@ -103,6 +111,7 @@ function snapshotJsonArray(
 	path: string,
 	depth: number,
 	active: WeakSet<object>,
+	schema?: ToolInputSchema,
 ): JsonSnapshot {
 	if (!isPlainArray(value)) {
 		return snapshotIssue(path, "expected array");
@@ -137,6 +146,7 @@ function snapshotJsonArray(
 				itemPath,
 				depth + 1,
 				active,
+				itemSchema(schema),
 			);
 			if (!item.ok) return item;
 			output.push(item.value);
@@ -154,6 +164,7 @@ function snapshotJsonObject(
 	path: string,
 	depth: number,
 	active: WeakSet<object>,
+	schema?: ToolInputSchema,
 ): JsonSnapshot {
 	active.add(value);
 	try {
@@ -175,6 +186,7 @@ function snapshotJsonObject(
 				`${path}.${key}`,
 				depth + 1,
 				active,
+				propertySchema(schema, key),
 			);
 			if (!property.ok) return property;
 			Object.defineProperty(output, key, {
@@ -192,6 +204,10 @@ function snapshotJsonObject(
 	}
 }
 
-export function snapshotPlainJson(value: unknown, path: string): JsonSnapshot {
-	return snapshotJsonValue(value, path, 0, new WeakSet());
+export function snapshotPlainJson(
+	value: unknown,
+	path: string,
+	schema?: ToolInputSchema,
+): JsonSnapshot {
+	return snapshotJsonValue(value, path, 0, new WeakSet(), schema);
 }

@@ -49,9 +49,11 @@ application owns the single-use approval
 the name plus the validated input. Consume the approval id only when
 `context.execute` is true. `run` sets that flag after observation setup
 succeeds and immediately before `execute`. The predicate and `execute` share
-one detached plain-JSON snapshot of the validated input (`-0` is `0`).
-Accessors, proxies, bigint, symbols, functions, `Date`, `Map`, `Set`, cycles,
-and non-finite defaults are `InvalidInput`. `resolveCall` does not set the
+one detached plain-JSON snapshot (`-0` is `0`). The library reads the call
+once and validates that copy. A proxy is not forwarded live, and the check
+does not use a Node-only proxy detector. Accessors, bigint, symbols,
+functions, `Date`, `Map`, `Set`, cycles, and non-finite defaults are
+`InvalidInput`. `resolveCall` does not set the
 flag. A new id can approve the same call again. A spent id stays tombstoned
 so pruning cannot grant it again.
 Deny every command that is not explicitly allowed. Ignite does not validate,
