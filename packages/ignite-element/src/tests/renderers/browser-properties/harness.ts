@@ -5,6 +5,8 @@ import {
 	renderIgniteJsx,
 } from "../../../../../ignite-renderer/src/renderers/jsx/renderer";
 import {
+	type AliasReport,
+	type AliasScenario,
 	type ControlSnapshot,
 	OFF_LIST_PROPS,
 	type OffListReading,
@@ -20,6 +22,9 @@ const PROBE = "x-reset-probe";
 class ResetProbe extends HTMLElement {
 	#label = "";
 	#count = 0;
+	#defaultValue = "";
+	#defaultChecked = false;
+	#defaultSelected = false;
 
 	get label(): string {
 		return this.#label;
@@ -35,6 +40,30 @@ class ResetProbe extends HTMLElement {
 
 	set count(value: unknown) {
 		this.#count = value == null || value === false ? 0 : Number(value);
+	}
+
+	get defaultValue(): string {
+		return this.#defaultValue;
+	}
+
+	set defaultValue(value: unknown) {
+		this.#defaultValue = value == null ? "" : String(value);
+	}
+
+	get defaultChecked(): boolean {
+		return this.#defaultChecked;
+	}
+
+	set defaultChecked(value: unknown) {
+		this.#defaultChecked = !(value == null || value === false);
+	}
+
+	get defaultSelected(): boolean {
+		return this.#defaultSelected;
+	}
+
+	set defaultSelected(value: unknown) {
+		this.#defaultSelected = !(value == null || value === false);
 	}
 }
 
@@ -58,6 +87,8 @@ function tagName(tag: ResetScenario["tag"]): string {
 	if (tag.kind === "select") return "select";
 	if (tag.kind === "custom") return PROBE;
 	if (tag.kind === "audio") return "audio";
+	if (tag.kind === "label") return "label";
+	if (tag.kind === "form") return "form";
 	return "div";
 }
 
@@ -71,6 +102,8 @@ function childNodes(
 	reference: boolean,
 ) {
 	const dropSelected = dropped && scenario.drop.includes("selected");
+	const falseDefault =
+		dropped && scenario.falses.includes("defaultSelected");
 	const dropDefault =
 		dropped && scenario.drop.includes("defaultSelected") && !reference;
 	if (scenario.tag.kind === "select") {
@@ -80,7 +113,11 @@ function childNodes(
 				value: option.value,
 				children: option.text,
 			};
-			if (!dropDefault && option.defaultSelected) props.defaultSelected = true;
+			if (falseDefault && option.defaultSelected) {
+				props.defaultSelected = false;
+			} else if (!dropDefault && option.defaultSelected) {
+				props.defaultSelected = true;
+			}
 			if (!dropSelected && option.selected != null) {
 				props.selected = option.selected;
 			}
@@ -121,10 +158,14 @@ function view(scenario: ResetScenario, dropped: boolean, reference = false) {
 		props.multiple = true;
 	}
 	for (const [key, value] of Object.entries(scenario.props)) {
+		if (dropped && scenario.falses.includes(key)) {
+			props[key] = false;
+			continue;
+		}
 		if (
 			dropped &&
 			scenario.drop.includes(key) &&
-			!(reference && isOffList(key))
+			!(reference && isOffList(key) && scenario.tag.kind !== "custom")
 		) {
 			continue;
 		}
@@ -150,9 +191,18 @@ function snapshot(element: Element): ControlSnapshot {
 	return {
 		value: isControl ? control.value : null,
 		defaultValue:
-			tag === "input" || tag === "textarea" ? control.defaultValue : null,
+			tag === PROBE
+				? probe.defaultValue
+				: tag === "input" || tag === "textarea"
+					? control.defaultValue
+					: null,
 		checked: tag === "input" ? control.checked : null,
-		defaultChecked: tag === "input" ? control.defaultChecked : null,
+		defaultChecked:
+			tag === PROBE
+				? probe.defaultChecked
+				: tag === "input"
+					? control.defaultChecked
+					: null,
 		scrollTop: (element as HTMLElement).scrollTop,
 		scrollLeft: (element as HTMLElement).scrollLeft,
 		attrs: attrsOf(element),
@@ -167,6 +217,7 @@ function snapshot(element: Element): ControlSnapshot {
 				: [],
 		label: tag === PROBE ? probe.label : null,
 		count: tag === PROBE ? probe.count : null,
+		probeDefaultSelected: tag === PROBE ? probe.defaultSelected : null,
 		text: element.textContent ?? "",
 	};
 }
@@ -193,7 +244,10 @@ function readOffList(
 ): OffListReading[] {
 	const record = element as unknown as Record<string, unknown>;
 	const readings: OffListReading[] = OFF_LIST_PROPS.filter(
-		(key) => key in scenario.props,
+		(key) =>
+			key in scenario.props &&
+			!scenario.falses.includes(key) &&
+			scenario.tag.kind !== "custom",
 	).map((key) => ({
 		key,
 		before: readValue(record[key]),
@@ -387,6 +441,54 @@ function collectArmed(host: ParentNode): string[] {
 	return armed;
 }
 
+function runAlias(scenario: AliasScenario): AliasReport {
+	const host = document.createElement("div");
+	const freshHost = document.createElement("div");
+	document.body.append(host, freshHost);
+	let firstCalls = 0;
+	let secondCalls = 0;
+	const first = () => {
+		firstCalls += 1;
+	};
+	const second = () => {
+		secondCalls += 1;
+	};
+	const same = scenario.value === scenario.next;
+	try {
+		const fromValue = scenario.kind === "event" ? first : scenario.value;
+		const toValue =
+			scenario.kind === "event" ? (same ? first : second) : scenario.next;
+		const tree = mountIgniteJsx(
+			host,
+			jsx(scenario.tag, { [scenario.fromKey]: fromValue }),
+		);
+		renderIgniteJsx(
+			host,
+			jsx(scenario.tag, { [scenario.toKey]: toValue }),
+			tree,
+		);
+		mountIgniteJsx(
+			freshHost,
+			jsx(scenario.tag, { [scenario.toKey]: toValue }),
+		);
+		const updated = host.firstElementChild;
+		const fresh = freshHost.firstElementChild;
+		if (!updated || !fresh) throw new Error("alias mount produced no element");
+		if (scenario.kind === "event") {
+			updated.dispatchEvent(new Event(scenario.toKey.slice(2).toLowerCase()));
+		}
+		return {
+			updatedAttrs: attrsOf(updated),
+			freshAttrs: attrsOf(fresh),
+			firstCalls,
+			secondCalls,
+		};
+	} finally {
+		host.remove();
+		freshHost.remove();
+	}
+}
+
 function runSink(scenario: SinkScenario): { armed: string[] } {
 	const host = document.createElement("div");
 	document.body.append(host);
@@ -399,13 +501,14 @@ function runSink(scenario: SinkScenario): { armed: string[] } {
 	}
 }
 
-window.__igniteProperties = { runReset, runSink };
+window.__igniteProperties = { runReset, runSink, runAlias };
 
 declare global {
 	interface Window {
 		__igniteProperties: {
 			runReset: typeof runReset;
 			runSink: typeof runSink;
+			runAlias: typeof runAlias;
 		};
 	}
 }

@@ -5,6 +5,8 @@ import * as fc from "fast-check";
 import { build } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type {
+	AliasReport,
+	AliasScenario,
 	OptionSpec,
 	ResetReport,
 	ResetScenario,
@@ -41,6 +43,8 @@ const tagArb: fc.Arbitrary<TagSpec> = fc.oneof(
 	fc.constant({ kind: "div" as const }),
 	fc.constant({ kind: "custom" as const }),
 	fc.constant({ kind: "audio" as const }),
+	fc.constant({ kind: "label" as const }),
+	fc.constant({ kind: "form" as const }),
 );
 
 function propKeys(tag: TagSpec): string[] {
@@ -89,7 +93,16 @@ function propKeys(tag: TagSpec): string[] {
 			"hidden",
 			"scrollTop",
 			"textContent",
+			"defaultValue",
+			"defaultChecked",
+			"defaultSelected",
 		];
+	}
+	if (tag.kind === "label") {
+		return [...common, "htmlFor", "HtmlFor", "HTMLFOR"];
+	}
+	if (tag.kind === "form") {
+		return [...common, "acceptCharset", "AcceptCharset", "acceptcharset"];
 	}
 	if (tag.kind === "audio") {
 		return [...common, "volume", "playbackRate", "currentTime"];
@@ -111,6 +124,7 @@ function propValue(
 	if (
 		key === "checked" ||
 		key === "defaultChecked" ||
+		key === "defaultSelected" ||
 		key === "hidden" ||
 		key === "disabled" ||
 		key === "readOnly" ||
@@ -177,16 +191,170 @@ const resetArb: fc.Arbitrary<ResetScenario> = tagArb.chain((tag) => {
 				if (options.some((option) => option.defaultSelected)) {
 					droppable.push("defaultSelected");
 				}
-				return fc.subarray(droppable).map((drop) => ({
-					tag,
-					props: Object.fromEntries(pairs),
-					drop,
-					options: tag.kind === "select" ? options : [],
-				}));
+				const falseable: string[] = [];
+				for (const [key, value] of pairs) {
+					if (
+						(key === "defaultChecked" || key === "defaultSelected") &&
+						value === true
+					) {
+						falseable.push(key);
+					}
+				}
+				if (options.some((option) => option.defaultSelected)) {
+					falseable.push("defaultSelected");
+				}
+				return fc.subarray(falseable).chain((falses) =>
+					fc
+						.subarray(droppable.filter((key) => !falses.includes(key)))
+						.map((drop) => ({
+							tag,
+							props: Object.fromEntries(pairs),
+							drop,
+							falses,
+							options: tag.kind === "select" ? options : [],
+						})),
+				);
 			}),
 		);
 	});
 });
+
+const customDefaultArb: fc.Arbitrary<ResetScenario> = fc
+	.constantFrom("defaultValue", "defaultChecked", "defaultSelected")
+	.chain((key) =>
+		(key === "defaultValue" ? token : fc.constant(true)).map((value) => ({
+			tag: { kind: "custom" as const },
+			props: { [key]: value },
+			drop: [key],
+			falses: [],
+			options: [],
+		})),
+	);
+
+const explicitFalseArb: fc.Arbitrary<ResetScenario> = fc.oneof(
+	fc.constantFrom("checkbox", "radio").chain((type) =>
+		fc
+			.record({
+				defaultValue: fc.option(token, { nil: null }),
+				dropDefault: fc.boolean(),
+				checked: fc.option(fc.boolean(), { nil: null }),
+			})
+			.map(({ defaultValue, dropDefault, checked }) => {
+				const props: Record<string, string | boolean> = {
+					defaultChecked: true,
+				};
+				const drop: string[] = [];
+				if (defaultValue != null) {
+					props.defaultValue = defaultValue;
+					if (dropDefault) drop.push("defaultValue");
+				}
+				if (checked != null) props.checked = checked;
+				return {
+					tag: { kind: "input" as const, type },
+					props,
+					drop,
+					falses: ["defaultChecked"],
+					options: [],
+				};
+			}),
+	),
+	fc
+		.record({
+			value: fc.constantFrom("a", "b", "c"),
+			text: token,
+			selected: fc.option(fc.boolean(), { nil: null }),
+		})
+		.map(({ value, text, selected }) => ({
+			tag: { kind: "select" as const, multiple: false },
+			props: {},
+			drop: [],
+			falses: ["defaultSelected"],
+			options: [
+				{
+					value,
+					text,
+					defaultSelected: true,
+					selected,
+				},
+			],
+		})),
+);
+
+const reflectedNameArb: fc.Arbitrary<ResetScenario> = fc.oneof(
+	fc
+		.record({
+			key: fc.constantFrom("htmlFor", "HtmlFor", "HTMLFOR"),
+			value: token,
+		})
+		.map(({ key, value }) => ({
+			tag: { kind: "label" as const },
+			props: { [key]: value },
+			drop: [key],
+			falses: [],
+			options: [],
+		})),
+	fc
+		.record({
+			key: fc.constantFrom("acceptCharset", "AcceptCharset", "acceptcharset"),
+			value: token,
+		})
+		.map(({ key, value }) => ({
+			tag: { kind: "form" as const },
+			props: { [key]: value },
+			drop: [key],
+			falses: [],
+			options: [],
+		})),
+);
+
+const aliasArb: fc.Arbitrary<AliasScenario> = fc.oneof(
+	fc
+		.record({
+			pair: fc.constantFrom(
+				["data-id", "DATA-ID"],
+				["DATA-ID", "data-id"],
+				["data-id", "Data-Id"],
+				["id", "ID"],
+				["ID", "id"],
+				["title", "TITLE"],
+				["TITLE", "title"],
+				["lang", "LANG"],
+			),
+			value: token,
+			next: token,
+			tag: fc.constantFrom("div", "span", "button"),
+		})
+		.map(({ pair, value, next, tag }) => ({
+			kind: "attr" as const,
+			tag,
+			fromKey: pair[0],
+			toKey: pair[1],
+			value,
+			next,
+		})),
+	fc
+		.record({
+			pair: fc.constantFrom(
+				["onClick", "onclick"],
+				["onclick", "onClick"],
+				["onClick", "ONCLICK"],
+				["ONCLICK", "onClick"],
+				["onChange", "onchange"],
+				["onchange", "onChange"],
+			),
+			same: fc.boolean(),
+			value: token,
+			tag: fc.constantFrom("div", "button", "span"),
+		})
+		.map(({ pair, same, value, tag }) => ({
+			kind: "event" as const,
+			tag,
+			fromKey: pair[0],
+			toKey: pair[1],
+			value,
+			next: same ? value : `${value}x`,
+		})),
+);
 
 const noise = fc.string({
 	unit: fc.constantFrom(
@@ -317,6 +485,26 @@ function explainReset(
 	return problems.length === 0 ? null : problems.join("; ");
 }
 
+function explainAlias(
+	scenario: AliasScenario,
+	report: AliasReport,
+): string | null {
+	if (scenario.kind === "attr") {
+		const updated = JSON.stringify(report.updatedAttrs);
+		const fresh = JSON.stringify(report.freshAttrs);
+		return updated === fresh
+			? null
+			: `alias attrs ${updated} fresh ${fresh}`;
+	}
+	const same = scenario.value === scenario.next;
+	const wantFirst = same ? 1 : 0;
+	const wantSecond = same ? 0 : 1;
+	if (report.firstCalls === wantFirst && report.secondCalls === wantSecond) {
+		return null;
+	}
+	return `listeners ${report.firstCalls},${report.secondCalls} wanted ${wantFirst},${wantSecond}`;
+}
+
 async function bundleHarness(): Promise<string> {
 	const entry = fileURLToPath(new URL("./harness.ts", import.meta.url));
 	const result = await build({
@@ -367,27 +555,68 @@ describe("renderer properties in Chromium", () => {
 		await browser?.close();
 	});
 
-	it("allowlisted drops match a fresh mount and other props stay", async () => {
-		expect(SEED).toBeGreaterThan(0);
+	async function resetOf(scenario: ResetScenario): Promise<ResetReport> {
+		return page.evaluate((input) => {
+			const properties = (
+				window as unknown as {
+					__igniteProperties: {
+						runReset: (value: typeof input) => ResetReport;
+					};
+				}
+			).__igniteProperties;
+			return properties.runReset(input);
+		}, scenario);
+	}
+
+	async function assertReset(arb: fc.Arbitrary<ResetScenario>) {
 		await fc.assert(
-			fc.asyncProperty(resetArb, async (scenario) => {
-				const report = await page.evaluate((input) => {
-					const properties = (
-						window as unknown as {
-							__igniteProperties: {
-								runReset: (value: typeof input) => ResetReport;
-							};
-						}
-					).__igniteProperties;
-					return properties.runReset(input);
-				}, scenario);
-				const problem = explainReset(scenario, report);
+			fc.asyncProperty(arb, async (scenario) => {
+				const problem = explainReset(scenario, await resetOf(scenario));
 				if (problem) {
 					throw new Error(`${problem}\n${JSON.stringify(scenario)}`);
 				}
 			}),
 			{ seed: SEED, numRuns: NUM_RUNS },
 		);
+	}
+
+	it("allowlisted drops match a fresh mount and other props stay", async () => {
+		expect(SEED).toBeGreaterThan(0);
+		await assertReset(resetArb);
+	}, 120_000);
+
+	it("keeps a renamed attribute or listener on the same normalized key", async () => {
+		await fc.assert(
+			fc.asyncProperty(aliasArb, async (scenario) => {
+				const report = await page.evaluate((input) => {
+					const properties = (
+						window as unknown as {
+							__igniteProperties: {
+								runAlias: (value: typeof input) => AliasReport;
+							};
+						}
+					).__igniteProperties;
+					return properties.runAlias(input);
+				}, scenario);
+				const problem = explainAlias(scenario, report);
+				if (problem) {
+					throw new Error(`${problem}\n${JSON.stringify(scenario)}`);
+				}
+			}),
+			{ seed: SEED, numRuns: NUM_RUNS },
+		);
+	}, 120_000);
+
+	it("assigns undefined when a custom default setter is dropped", async () => {
+		await assertReset(customDefaultArb);
+	}, 120_000);
+
+	it("clears an explicit false defaultChecked or defaultSelected", async () => {
+		await assertReset(explicitFalseArb);
+	}, 120_000);
+
+	it("removes for and accept-charset when htmlFor or acceptCharset is dropped", async () => {
+		await assertReset(reflectedNameArb);
 	}, 120_000);
 
 	it("never lets an executable URL or handler reach the DOM", async () => {

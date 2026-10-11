@@ -1052,11 +1052,13 @@ function patchProps(
 		if (isIgnoredHandlerAttribute(key)) {
 			// A string `ONCLICK` or `xlink:onclick` would become an executable
 			// attribute. Functions still bind through addEventListener.
-			if (
-				isEventHandlerKey(key) &&
-				(typeof next === "function" || typeof oldProps[key] === "function")
-			) {
-				patchEventListener(element, key, oldProps[key], next);
+			// The previous listener may be stored under a different casing.
+			if (isEventHandlerKey(key)) {
+				const matched = sinkMatch(oldProps, element, key, isSvgElement);
+				const prev = matched === undefined ? undefined : oldProps[matched];
+				if (typeof next === "function" || typeof prev === "function") {
+					patchEventListener(element, key, prev, next);
+				}
 			}
 			continue;
 		}
@@ -1064,7 +1066,7 @@ function patchProps(
 			warnBlockedUrl(element, key);
 			// removeProp clears a non-reflected property and the attribute.
 			// Attribute removal alone leaves a stale custom-element URL.
-			removeProp(element, key, oldProps[key], isSvgElement, newProps);
+			removeProp(element, key, oldProps[key], isSvgElement);
 			continue;
 		}
 		const prev = oldProps[key];
@@ -1089,8 +1091,25 @@ function patchProps(
 			continue;
 		}
 
+		// Explicit false is a set for these defaults, not a drop. Applying it
+		// can clear a still-controlled checked or selected value, so write
+		// that listed prop again in this pass.
+		if (
+			next === false &&
+			!isSvgElement &&
+			(key === "defaultChecked" || key === "defaultSelected")
+		) {
+			const host = element as HTMLElement;
+			applyProperty(host, key, false);
+			const live = key === "defaultChecked" ? "checked" : "selected";
+			if (typeof newProps[live] === "boolean") {
+				applyProperty(host, live, newProps[live]);
+			}
+			continue;
+		}
+
 		if (next === false || next === null || next === undefined) {
-			removeProp(element, key, prev, isSvgElement, newProps);
+			removeProp(element, key, prev, isSvgElement);
 			continue;
 		}
 
@@ -1116,8 +1135,10 @@ function patchProps(
 		if (hostRuntimeEnabled && key === "use") continue;
 		if (key === "children" || key === "ref" || isBlockedMarkupProp(key))
 			continue;
-		if (!(key in newProps)) {
-			removeProp(element, key, oldProps[key], isSvgElement, newProps);
+		// onClick and onclick, or data-id and DATA-ID, are one key. A spelling
+		// that is still present is not a drop.
+		if (!sinkMatch(newProps, element, key, isSvgElement)) {
+			removeProp(element, key, oldProps[key], isSvgElement);
 		}
 	}
 }
@@ -1227,30 +1248,32 @@ function propAttributeName(
 	isSvg: boolean,
 ): string {
 	if (key === "class" || key === "className") return "class";
-	return metaRefreshKey(element, key)
-		? "http-equiv"
-		: isSvg
-			? normalizeSvgAttributeName(key)
-			: key;
+	if (key === "htmlFor") return "for";
+	if (key === "acceptCharset") return "accept-charset";
+	if (key === "httpEquiv" || metaRefreshKey(element, key)) return "http-equiv";
+	return isSvg ? normalizeSvgAttributeName(key) : key.toLowerCase();
 }
 
-function attributeKeptBySibling(
+// Events and HTML attributes compare case-insensitively. htmlFor, className,
+// and httpEquiv use the reflected attribute name so a renamed prop is not a
+// second key.
+function sinkKey(element: Element, key: string, isSvg: boolean): string {
+	return isEventHandlerKey(key)
+		? `*${normalizeEventName(key.slice(2))}`
+		: propAttributeName(element, key, isSvg);
+}
+
+function sinkMatch(
+	props: IgniteJsxProps,
 	element: Element,
-	newProps: IgniteJsxProps,
 	key: string,
 	isSvg: boolean,
-): boolean {
-	const attrName = propAttributeName(element, key, isSvg);
-	for (const nextKey of Object.keys(newProps)) {
-		if (nextKey === key || nextKey === "children" || nextKey === "ref") {
-			continue;
-		}
-		if (isBlockedMarkupProp(nextKey)) continue;
-		const next = newProps[nextKey];
-		if (next === false || next == null) continue;
-		if (propAttributeName(element, nextKey, isSvg) === attrName) return true;
+): string | undefined {
+	const id = sinkKey(element, key, isSvg);
+	for (const other of Object.keys(props)) {
+		if (sinkKey(element, other, isSvg) === id) return other;
 	}
-	return false;
+	return undefined;
 }
 
 function removeProp(
@@ -1258,12 +1281,9 @@ function removeProp(
 	key: string,
 	prev: unknown,
 	isSvg: boolean,
-	newProps: IgniteJsxProps,
 ): void {
 	if (key === "class" || key === "className") {
-		if (!attributeKeptBySibling(element, newProps, key, isSvg)) {
-			element.removeAttribute("class");
-		}
+		element.removeAttribute("class");
 		return;
 	}
 
@@ -1347,20 +1367,20 @@ function removeProp(
 		return;
 	}
 
-	// These defaults stay so a later value, checked, or selected drop can
-	// still read them. They are not booleans to clear and not attributes to
-	// remove.
+	// Absent native defaults stay so a later value, checked, or selected drop
+	// can still read them. Own custom setters, including these names, are
+	// cleared below. Explicit false is applied in the set path.
 	if (
-		key === "defaultValue" ||
-		key === "defaultChecked" ||
-		key === "defaultSelected"
+		(key === "defaultValue" ||
+			key === "defaultChecked" ||
+			key === "defaultSelected") &&
+		!hasOwnCustomSetter(element as HTMLElement, key)
 	) {
 		return;
 	}
 
 	const attrName = propAttributeName(element, key, isSvg);
 	const hadAttribute = element.hasAttribute(attrName);
-	const keepAttribute = attributeKeptBySibling(element, newProps, key, isSvg);
 	if (!isSvg && key in element && key !== "list") {
 		const el = element as HTMLElement;
 		if (hasOwnCustomSetter(el, key)) {
@@ -1378,14 +1398,12 @@ function removeProp(
 			} catch {
 				// A throwing boolean setter stops here.
 			}
-			if (!keepAttribute) element.removeAttribute(attrName);
+			element.removeAttribute(attrName);
 			return;
 		}
 	}
 
-	if (hadAttribute && !keepAttribute) {
-		element.removeAttribute(attrName);
-	}
+	if (hadAttribute) element.removeAttribute(attrName);
 }
 
 function applyProperty(

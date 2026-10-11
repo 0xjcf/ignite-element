@@ -4,7 +4,9 @@ export type TagSpec =
 	| { kind: "select"; multiple: boolean }
 	| { kind: "div" }
 	| { kind: "custom" }
-	| { kind: "audio" };
+	| { kind: "audio" }
+	| { kind: "label" }
+	| { kind: "form" };
 
 // Native props the allowlist leaves alone. A drop must not change the
 // property and must not write or remove an attribute.
@@ -38,7 +40,25 @@ export type ResetScenario = {
 	tag: TagSpec;
 	props: Record<string, string | number | boolean>;
 	drop: string[];
+	// Keys present on the next render with an explicit false, not omitted.
+	falses: string[];
 	options: OptionSpec[];
+};
+
+export type AliasScenario = {
+	kind: "attr" | "event";
+	tag: string;
+	fromKey: string;
+	toKey: string;
+	value: string;
+	next: string;
+};
+
+export type AliasReport = {
+	updatedAttrs: [string, string][];
+	freshAttrs: [string, string][];
+	firstCalls: number;
+	secondCalls: number;
 };
 
 export type ValueSpec =
@@ -84,6 +104,7 @@ export type ControlSnapshot = {
 	}[];
 	label: string | null;
 	count: number | null;
+	probeDefaultSelected: boolean | null;
 	text: string;
 };
 
