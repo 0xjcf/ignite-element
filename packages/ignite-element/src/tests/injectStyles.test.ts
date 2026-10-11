@@ -346,6 +346,52 @@ describe("injectStyles", () => {
 		}
 	});
 
+	it("restyles a root reinserted inside a parent shadow root", async () => {
+		const parent = document.createElement("section");
+		document.body.append(parent);
+		const parentRoot = parent.attachShadow({ mode: "open" });
+		const element = document.createElement("div");
+		document.body.append(element);
+		const moved = element.attachShadow({ mode: "open" });
+		const RealObserver = globalThis.MutationObserver;
+		let callbacks = 0;
+		function CountingObserver(
+			this: MutationObserver,
+			callback: MutationCallback,
+		) {
+			return new RealObserver((records, observer) => {
+				callbacks += 1;
+				callback(records, observer);
+			});
+		}
+		CountingObserver.prototype = RealObserver.prototype;
+		vi.stubGlobal("MutationObserver", CountingObserver);
+
+		try {
+			setGlobalStyles(undefined);
+			createIgniteJsxRenderStrategy().attach(moved);
+			element.remove();
+			setGlobalStyles("./nested.css");
+			flushPendingStyles();
+			expect(moved.querySelector("link")).toBeNull();
+
+			parentRoot.append(element);
+			await settleMutations();
+
+			expect(moved.querySelector("link")?.href).toContain("nested.css");
+			callbacks = 0;
+			document.body.append(document.createElement("span"));
+			await settleMutations();
+			expect(callbacks).toBe(0);
+		} finally {
+			forgetQueuedStyles(moved);
+			vi.unstubAllGlobals();
+			element.remove();
+			parent.remove();
+			setGlobalStyles(undefined);
+		}
+	});
+
 	it("restyles a root when the injector loads during a move", async () => {
 		const slotHost = globalThis as typeof globalThis & {
 			[STYLE_INJECT_SLOT]?: unknown;

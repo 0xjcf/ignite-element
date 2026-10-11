@@ -415,6 +415,34 @@ describe("URL scheme guard", () => {
 		},
 	);
 
+	it("clears a custom href that normalized a relative URL", () => {
+		const tag = "x-url-normalized";
+		if (!customElements.get(tag)) {
+			class UrlElement extends HTMLElement {
+				#href = "";
+				get href() {
+					return this.#href;
+				}
+				set href(value: string) {
+					this.#href =
+						typeof value === "string" && value
+							? new URL(value, "https://safe.example").href
+							: "";
+				}
+			}
+			customElements.define(tag, UrlElement);
+		}
+
+		const { host, tree } = mount(jsx(tag, { href: "/keep" }));
+		const element = host.querySelector(tag) as HTMLElement & { href: string };
+		expect(element.href).toBe("https://safe.example/keep");
+
+		renderIgniteJsx(host, jsx(tag, { href: "javascript:alert(1)" }), tree);
+
+		expect(element.href).not.toContain("/keep");
+		expect(element.href).not.toContain("javascript:");
+	});
+
 	it("applies a safe URL after an executable one was rejected", () => {
 		const { host, tree } = mount(
 			jsx("a", { href: "javascript:alert(1)", children: "go" }),

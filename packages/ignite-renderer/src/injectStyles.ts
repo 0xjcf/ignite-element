@@ -97,6 +97,7 @@ function releaseParkedRoot(entry: PendingRootEntry): void {
 	if (parkedRoots.size > 0) return;
 	reconnectObserver?.disconnect();
 	reconnectObserver = undefined;
+	restoreShadowPatch();
 }
 
 function isTerminalStyleDetach(root: ShadowRoot): boolean {
@@ -114,9 +115,57 @@ function clearStyleDetachMark(root: ShadowRoot): void {
 	}
 }
 
+let savedAttachShadow: typeof Element.prototype.attachShadow | undefined;
+
+function observeReconnectTarget(target: Node): void {
+	reconnectObserver?.observe(target, { childList: true, subtree: true });
+}
+
+function observeOpenShadowRoots(root: ParentNode): void {
+	for (const element of root.querySelectorAll("*")) {
+		const shadow = element.shadowRoot;
+		if (!shadow) continue;
+		observeReconnectTarget(shadow);
+		observeOpenShadowRoots(shadow);
+	}
+}
+
+function installShadowPatch(): void {
+	if (savedAttachShadow) return;
+	const current = Element.prototype.attachShadow;
+	savedAttachShadow = current;
+	Element.prototype.attachShadow = function (
+		this: Element,
+		init: ShadowRootInit,
+	) {
+		const root = current.call(this, init);
+		if (parkedRoots.size > 0) observeReconnectTarget(root);
+		return root;
+	};
+}
+
+function restoreShadowPatch(): void {
+	const saved = savedAttachShadow;
+	if (!saved) return;
+	savedAttachShadow = undefined;
+	Element.prototype.attachShadow = saved;
+}
+
+function flushReconnectedRoots(): void {
+	for (const entry of Array.from(parkedRoots)) {
+		const shadowRoot = entry.ref.deref();
+		if (!shadowRoot || isTerminalStyleDetach(shadowRoot)) {
+			deletePendingRootEntry(entry);
+			continue;
+		}
+		if (!shadowRoot.isConnected) continue;
+		deletePendingRootEntry(entry);
+		injectStyles(shadowRoot);
+	}
+}
+
 function watchParkedRoots(): void {
 	if (
-		reconnectObserver ||
 		parkedRoots.size === 0 ||
 		typeof MutationObserver === "undefined" ||
 		!document.documentElement
@@ -124,22 +173,17 @@ function watchParkedRoots(): void {
 		return;
 	}
 
-	reconnectObserver = new MutationObserver(() => {
-		for (const entry of Array.from(parkedRoots)) {
-			const shadowRoot = entry.ref.deref();
-			if (!shadowRoot || isTerminalStyleDetach(shadowRoot)) {
-				deletePendingRootEntry(entry);
-				continue;
+	installShadowPatch();
+	if (!reconnectObserver) {
+		reconnectObserver = new MutationObserver(() => {
+			flushReconnectedRoots();
+			if (parkedRoots.size > 0 && document.documentElement) {
+				observeOpenShadowRoots(document.documentElement);
 			}
-			if (!shadowRoot.isConnected) continue;
-			deletePendingRootEntry(entry);
-			injectStyles(shadowRoot);
-		}
-	});
-	reconnectObserver.observe(document.documentElement, {
-		childList: true,
-		subtree: true,
-	});
+		});
+	}
+	observeReconnectTarget(document.documentElement);
+	observeOpenShadowRoots(document.documentElement);
 }
 
 function collectPendingRoots(): ShadowRoot[] {

@@ -1246,7 +1246,12 @@ function removeProp(
 		uriBearingKeyPattern.test(name) ||
 		(name === "data" && el.localName === "object")
 	) {
-		if (current === prev) Reflect.set(el, key, undefined);
+		// Custom-element setters can store an absolute URL, so the getter
+		// no longer equals the relative prop. Native reflected setters must
+		// not be assigned undefined.
+		if (current === prev || el.localName.includes("-")) {
+			Reflect.set(el, key, undefined);
+		}
 		return;
 	}
 	if (name === "value" || typeof current === "boolean") {
