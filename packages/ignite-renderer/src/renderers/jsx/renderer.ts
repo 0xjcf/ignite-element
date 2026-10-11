@@ -379,14 +379,13 @@ function isBlockedUrlValue(
 	// documented in the changeset; they are not checked here.
 	if (tag === "base" && name === "href") return true;
 	if (tag === "meta" && name.endsWith("equiv")) {
-		return (
-			typeof value === "string" && value.trim().toLowerCase() === "refresh"
-		);
+		// Match the string the DOM would store. ["refresh"] becomes "refresh".
+		return String(value).trim().toLowerCase() === "refresh";
 	}
 	// href and xlink:href share the existing URL-key check.
 	const animated =
 		(tag === "animate" || tag === "set") &&
-		(name === "to" || name === "values") &&
+		(name === "from" || name === "to" || name === "by" || name === "values") &&
 		uriBearingKeyPattern.test(props?.attributeName as string);
 	if (
 		!animated &&

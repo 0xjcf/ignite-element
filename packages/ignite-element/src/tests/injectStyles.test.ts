@@ -1,6 +1,7 @@
 import type { MockInstance } from "vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+	forgetQueuedStyles,
 	installStyleInject,
 	injectStyles as queueStylesBeforeInjector,
 } from "../../../ignite-renderer/src/styleHook";
@@ -208,6 +209,8 @@ describe("injectStyles", () => {
 			expect(removed.querySelector("link")).toBeNull();
 			expect(kept.querySelector("link")?.href).toContain("detached.css");
 		} finally {
+			forgetQueuedStyles(removed);
+			flushPendingStyles();
 			keptElement.remove();
 			setGlobalStyles(undefined);
 			if (isStyleInject(previous)) installStyleInject(previous);
@@ -275,6 +278,33 @@ describe("injectStyles", () => {
 		}
 	});
 
+	it("disconnects the reconnect observer when a parked root is flushed after reinsert", () => {
+		const element = document.createElement("div");
+		document.body.append(element);
+		const moved = element.attachShadow({ mode: "open" });
+		const disconnect = vi.spyOn(MutationObserver.prototype, "disconnect");
+
+		try {
+			setGlobalStyles(undefined);
+			createIgniteJsxRenderStrategy().attach(moved);
+			element.remove();
+			setGlobalStyles("./back.css");
+			flushPendingStyles();
+			expect(moved.querySelector("link")).toBeNull();
+
+			disconnect.mockClear();
+			document.body.append(element);
+			flushPendingStyles();
+
+			expect(moved.querySelector("link")?.href).toContain("back.css");
+			expect(disconnect).toHaveBeenCalled();
+		} finally {
+			element.remove();
+			setGlobalStyles(undefined);
+			disconnect.mockRestore();
+		}
+	});
+
 	it("does not restyle a root after the JSX strategy detaches", async () => {
 		const element = document.createElement("div");
 		document.body.append(element);
@@ -318,6 +348,8 @@ describe("injectStyles", () => {
 			expect(removed.querySelector("link")).toBeNull();
 			expect(kept.querySelector("link")?.href).toContain("detached.css");
 		} finally {
+			forgetQueuedStyles(removed);
+			flushPendingStyles();
 			keptElement.remove();
 			setGlobalStyles(undefined);
 		}

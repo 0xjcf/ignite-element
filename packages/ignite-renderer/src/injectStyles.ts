@@ -79,14 +79,10 @@ function enqueuePendingRoot(
 
 function deletePendingRootEntry(entry: PendingRootEntry): void {
 	pendingRoots.delete(entry);
-	parkedRoots.delete(entry);
+	releaseParkedRoot(entry);
 	const shadowRoot = entry.ref.deref();
 	if (shadowRoot) {
 		pendingRootIndex.delete(shadowRoot);
-	}
-	if (parkedRoots.size === 0) {
-		reconnectObserver?.disconnect();
-		reconnectObserver = undefined;
 	}
 }
 
@@ -95,6 +91,13 @@ function deletePendingRootEntry(entry: PendingRootEntry): void {
 const STYLE_DETACHED_SLOT = Symbol.for("ignite-element.style-inject");
 const parkedRoots = new Set<PendingRootEntry>();
 let reconnectObserver: MutationObserver | undefined;
+
+function releaseParkedRoot(entry: PendingRootEntry): void {
+	parkedRoots.delete(entry);
+	if (parkedRoots.size > 0) return;
+	reconnectObserver?.disconnect();
+	reconnectObserver = undefined;
+}
 
 function isTerminalStyleDetach(root: ShadowRoot): boolean {
 	return (
@@ -156,7 +159,7 @@ function collectPendingRoots(): ShadowRoot[] {
 			continue;
 		}
 
-		parkedRoots.delete(entry);
+		releaseParkedRoot(entry);
 		roots.push(shadowRoot);
 	}
 

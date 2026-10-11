@@ -565,6 +565,8 @@ describe("URL scheme guard", () => {
 				begin: "0s",
 			},
 		],
+		["animate", "by", { attributeName: "href", by: "javascript:alert(1)" }],
+		["set", "from", { attributeName: "href", from: "javascript:alert(1)" }],
 		[
 			"animate",
 			"values",
@@ -593,6 +595,23 @@ describe("URL scheme guard", () => {
 			);
 		},
 	);
+
+	it("does not apply an executable animate from when attributeName targets href", () => {
+		const { host } = mount(
+			jsx("svg", {
+				children: jsx("animate", {
+					attributeName: "href",
+					from: "javascript:alert(1)",
+					to: "https://example.com/next",
+				}),
+			}),
+		);
+		const animate = host.querySelector("animate");
+
+		expect(animate?.getAttribute("attributeName")).toBe("href");
+		expect(animate?.getAttribute("from")).toBeNull();
+		expect(animate?.getAttribute("to")).toBe("https://example.com/next");
+	});
 
 	it("still applies a safe href animation value", () => {
 		const { host } = mount(
@@ -626,6 +645,29 @@ describe("URL scheme guard", () => {
 		expect(metas[0]?.getAttribute("http-equiv")).toBeNull();
 		expect(metas[0]?.httpEquiv ?? "").not.toMatch(/refresh/i);
 		expect(metas[1]?.getAttribute("content")).toBe("width=device-width");
+	});
+
+	it("does not apply a non-string meta http-equiv refresh", () => {
+		const { host } = mount(
+			jsx("meta", {
+				httpEquiv: ["refresh"],
+				content: "0;url=https://example.com/next",
+			}),
+		);
+		const meta = host.querySelector("meta");
+
+		expect(meta?.getAttribute("http-equiv")).toBeNull();
+		expect(String(meta?.httpEquiv ?? "")).not.toMatch(/refresh/i);
+	});
+
+	it("still applies a non-string meta http-equiv that is not refresh", () => {
+		const { host } = mount(
+			jsx("meta", { httpEquiv: ["content-type"], content: "text/html" }),
+		);
+		const meta = host.querySelector("meta");
+
+		expect(meta?.getAttribute("http-equiv")).toBe("content-type");
+		expect(meta?.getAttribute("content")).toBe("text/html");
 	});
 
 	it("does not apply base href", () => {
