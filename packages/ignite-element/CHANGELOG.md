@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## Pending
 
 ### Minor Changes
 
