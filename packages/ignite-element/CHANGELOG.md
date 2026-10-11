@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Minor Changes
+
+- BREAKING (beta): dropping `value` on an `input`, `textarea`, or `select` restores the live value from `defaultValue`. A `select` uses the default-selected option, then the first option. The `value` attribute stays. A file input `value` is never assigned `undefined`. JSX `innerText`, `textContent`, `outerText`, `innerHTML`, and `outerHTML` are unsupported: a TypeScript error, a development-only warning, and they are never set or reset. Children stay owned by the diff. They are unsupported in this beta, not deprecated until a later major. Use JSX children for text. A host `mount` may still assign `innerHTML`.
+
 ## 3.0.0-beta.18
 
 ### Major Changes

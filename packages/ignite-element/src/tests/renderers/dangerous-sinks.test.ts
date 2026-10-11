@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { jsx } from "../../renderers/jsx/jsx-runtime";
-import { mountIgniteJsx, renderIgniteJsx } from "../../renderers/jsx/renderer";
+import {
+	mountIgniteJsx,
+	renderIgniteJsx,
+	unmountIgniteSubtree,
+} from "../../renderers/jsx/renderer";
+import { unsupportedJsxProps } from "./unsupported-jsx-props";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
@@ -48,11 +53,14 @@ describe("blocked markup sinks", () => {
 		"does not apply %s",
 		(key) => {
 			const { host } = mount(
-				jsx("section", {
-					id: "stay",
-					[key]: "<p>injected</p><img src=x onerror=alert(1)>",
-					children: "visible",
-				}),
+				jsx(
+					"section",
+					unsupportedJsxProps({
+						id: "stay",
+						[key]: "<p>injected</p><img src=x onerror=alert(1)>",
+						children: "visible",
+					}),
+				),
 			);
 			const section = host.querySelector("section");
 
@@ -80,10 +88,13 @@ describe("blocked markup sinks", () => {
 
 	it("keeps JSX children when an innerHTML prop is removed", () => {
 		const { host, tree } = mount(
-			jsx("div", {
-				innerHTML: "<p>no</p>",
-				children: "kept",
-			}),
+			jsx(
+				"div",
+				unsupportedJsxProps({
+					innerHTML: "<p>no</p>",
+					children: "kept",
+				}),
+			),
 		);
 
 		renderIgniteJsx(host, jsx("div", { children: "kept" }), tree);
@@ -92,24 +103,29 @@ describe("blocked markup sinks", () => {
 		expect(host.querySelector("p")).toBeNull();
 	});
 
-	it("still applies textContent and warns that it is deprecated", () => {
+	it("does not apply textContent and warns that it is ignored", () => {
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-		const { host } = mount(jsx("div", { textContent: "plain" }));
+		const { host } = mount(
+			jsx("div", unsupportedJsxProps({ textContent: "plain" })),
+		);
 
-		expect(host.querySelector("div")?.textContent).toBe("plain");
+		expect(host.querySelector("div")?.textContent).toBe("");
 		expect(warn).toHaveBeenCalledWith(
-			"[ignite-jsx] `textContent` is deprecated and will be removed in the next major release. Use JSX children for text, and hosts for trusted rich content.",
+			"[ignite-jsx] `textContent` is ignored and not applied. Use JSX children for text, and hosts for trusted rich content.",
 		);
 	});
 
 	it("warns once in development for each blocked markup prop", () => {
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		const { host, tree } = mount(
-			jsx("div", {
-				innerHTML: "<p>no</p>",
-				outerHTML: "<p>no</p>",
-				srcdoc: "<p>no</p>",
-			}),
+			jsx(
+				"div",
+				unsupportedJsxProps({
+					innerHTML: "<p>no</p>",
+					outerHTML: "<p>no</p>",
+					srcdoc: "<p>no</p>",
+				}),
+			),
 		);
 
 		expect(warn).toHaveBeenCalledWith(
@@ -126,11 +142,14 @@ describe("blocked markup sinks", () => {
 		warn.mockClear();
 		renderIgniteJsx(
 			host,
-			jsx("div", {
-				innerHTML: "<p>no</p>",
-				outerHTML: "<p>no</p>",
-				srcdoc: "<p>no</p>",
-			}),
+			jsx(
+				"div",
+				unsupportedJsxProps({
+					innerHTML: "<p>no</p>",
+					outerHTML: "<p>no</p>",
+					srcdoc: "<p>no</p>",
+				}),
+			),
 			tree,
 		);
 		expect(warn).not.toHaveBeenCalled();
@@ -176,7 +195,10 @@ describe("URL scheme guard", () => {
 	it("does not assign outerHTML", () => {
 		const setter = vi.spyOn(Element.prototype, "outerHTML", "set");
 		const { host } = mount(
-			jsx("section", { id: "stay", outerHTML: "<p>injected</p>" }),
+			jsx(
+				"section",
+				unsupportedJsxProps({ id: "stay", outerHTML: "<p>injected</p>" }),
+			),
 		);
 
 		expect(setter).not.toHaveBeenCalled();
@@ -413,6 +435,114 @@ describe("URL scheme guard", () => {
 		renderIgniteJsx(host, jsx("input", {}), tree);
 
 		expect(input?.value).toBe("");
+	});
+
+	it("resets a dropped value to the rendered defaultValue", () => {
+		const { host, tree } = mount(
+			jsx("input", { defaultValue: "foo", value: "bar" }),
+		);
+		const input = host.querySelector("input") as HTMLInputElement;
+		expect(input.value).toBe("bar");
+		expect(input.defaultValue).toBe("foo");
+		expect(input.getAttribute("value")).toBe("foo");
+
+		renderIgniteJsx(host, jsx("input", { defaultValue: "foo" }), tree);
+
+		expect(input.value).toBe("foo");
+		expect(input.defaultValue).toBe("foo");
+		expect(input.getAttribute("value")).toBe("foo");
+	});
+
+	it("resets a dropped textarea value to its defaultValue", () => {
+		const { host, tree } = mount(
+			jsx("textarea", { defaultValue: "foo", value: "bar" }),
+		);
+		const area = host.querySelector("textarea") as HTMLTextAreaElement;
+		expect(area.value).toBe("bar");
+		expect(area.defaultValue).toBe("foo");
+
+		renderIgniteJsx(host, jsx("textarea", { defaultValue: "foo" }), tree);
+
+		expect(area.value).toBe("foo");
+		expect(area.defaultValue).toBe("foo");
+	});
+
+	it("resets a dropped select value to the default-selected option", () => {
+		const options = () => [
+			jsx("option", { value: "a", children: "A" }),
+			jsx("option", { value: "b", defaultSelected: true, children: "B" }),
+		];
+		const { host, tree } = mount(jsx("select", { children: options() }));
+		const select = host.querySelector("select") as HTMLSelectElement;
+		const selected = select.querySelector("option:last-child");
+		expect(select.value).toBe("b");
+		expect(selected?.hasAttribute("selected")).toBe(true);
+
+		const chosen = renderIgniteJsx(
+			host,
+			jsx("select", { value: "a", children: options() }),
+			tree,
+		);
+		expect(select.value).toBe("a");
+		expect(selected?.hasAttribute("selected")).toBe(true);
+
+		renderIgniteJsx(host, jsx("select", { children: options() }), chosen);
+
+		expect(select.value).toBe("b");
+		expect(selected?.hasAttribute("selected")).toBe(true);
+	});
+
+	it("mounts a child once when a content prop is dropped", () => {
+		const previous = Object.getOwnPropertyDescriptor(
+			HTMLElement.prototype,
+			"innerText",
+		);
+		Object.defineProperty(HTMLElement.prototype, "innerText", {
+			configurable: true,
+			enumerable: true,
+			get() {
+				return this.textContent ?? "";
+			},
+			set(value: string) {
+				this.textContent = value == null ? "" : String(value);
+			},
+		});
+		try {
+			let mounts = 0;
+			let unmounts = 0;
+			const ref = () => {
+				mounts += 1;
+				return () => {
+					unmounts += 1;
+				};
+			};
+			const child = () => jsx("span", { ref, children: "kept" });
+			const { host, tree } = mount(
+				jsx(
+					"div",
+					unsupportedJsxProps({ innerText: "gone", children: child() }),
+				),
+			);
+			const span = host.querySelector("span");
+			expect(span?.textContent).toBe("kept");
+			expect(mounts).toBe(1);
+
+			renderIgniteJsx(host, jsx("div", { children: child() }), tree);
+
+			expect(host.querySelector("span")).toBe(span);
+			expect(mounts).toBe(1);
+			expect(unmounts).toBe(0);
+
+			unmountIgniteSubtree(host);
+			expect(mounts).toBe(1);
+			expect(unmounts).toBe(1);
+		} finally {
+			if (previous) {
+				Object.defineProperty(HTMLElement.prototype, "innerText", previous);
+			} else {
+				Reflect.deleteProperty(HTMLElement.prototype, "innerText");
+			}
+		}
 	});
 
 	it("resets a dropped prop as if it had never been set", () => {

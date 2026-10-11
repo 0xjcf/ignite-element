@@ -316,14 +316,6 @@ function warnIgnoredProp(element: Element, key: string, message: string): void {
 	console.warn(message);
 }
 
-function warnDeprecatedContentProp(element: Element, key: string): void {
-	warnIgnoredProp(
-		element,
-		key,
-		`[ignite-jsx] \`${key}\` is deprecated and will be removed in the next major release. Use JSX children for text, and hosts for trusted rich content.`,
-	);
-}
-
 function warnBlockedMarkupProp(element: Element, key: string): void {
 	warnIgnoredProp(
 		element,
@@ -345,6 +337,9 @@ function isBlockedMarkupProp(key: string): boolean {
 	return (
 		normalized === "innerhtml" ||
 		normalized === "outerhtml" ||
+		normalized === "innertext" ||
+		normalized === "outertext" ||
+		normalized === "textcontent" ||
 		normalized === "srcdoc"
 	);
 }
@@ -867,18 +862,6 @@ function keyShapeIsInvalid(shape: KeyShape): boolean {
 	return shape === "duplicate" || shape === "mixed";
 }
 
-// textContent replaces the element's subtree as a DOM property. Nodes it creates
-// are not tracked by the normalized children model, so the child diff must defer
-// to it. Hosts claim the same rule through `claimSubtree`. innerHTML is not applied.
-function ownsSubtreeViaProps(props: IgniteJsxProps): boolean {
-	const value = (props as Record<string, unknown>).textContent;
-	return value !== undefined && value !== null && value !== false;
-}
-
-function subtreeIsOwned(element: Element, props: IgniteJsxProps): boolean {
-	return subtreeOwners.has(element) || ownsSubtreeViaProps(props);
-}
-
 function replaceMounted(
 	domNode: ChildNode,
 	newNode: NormalizedNode,
@@ -937,25 +920,17 @@ function patchNode(
 
 	const elementNode = domNode as Element & ParentNode;
 	const nextUse = newNode.props.use;
-	const droppingHost =
-		hostRuntimeEnabled &&
-		ownsSubtreeViaProps(newNode.props) &&
-		(typeof nextUse !== "string" || nextUse.length === 0);
-	if (droppingHost) {
-		syncHostElement(elementNode, nextUse);
-	}
 
 	patchProps(elementNode, oldNode.props, newNode.props);
-	const previouslyOwned = hostRuntimeEnabled
-		? subtreeIsOwned(elementNode, oldNode.props)
-		: ownsSubtreeViaProps(oldNode.props);
-	if (hostRuntimeEnabled && !droppingHost) {
+	// Content props are never applied, so they do not own the subtree. A host
+	// claim still does. Read it before sync, which may release the claim.
+	const previouslyOwned = hostRuntimeEnabled && subtreeOwners.has(elementNode);
+	if (hostRuntimeEnabled) {
 		syncHostElement(elementNode, nextUse);
 	}
-	// A subtree owner (textContent or a host claim) is opaque. patchProps already
-	// applied the owning prop — skip child diffing so the positional patch does
+	// A host claim is opaque. Skip child diffing so the positional patch does
 	// not desync against untracked DOM nodes (issue #57).
-	if (subtreeIsOwned(elementNode, newNode.props)) {
+	if (hostRuntimeEnabled && subtreeOwners.has(elementNode)) {
 		assignRef(elementNode, newNode.props.ref);
 		return domNode;
 	}
@@ -1099,20 +1074,6 @@ function patchProps(
 			continue;
 		}
 		const prev = oldProps[key];
-		if (
-			key === "textContent" &&
-			next !== undefined &&
-			next !== null &&
-			next !== false
-		) {
-			warnDeprecatedContentProp(element, key);
-			if (next !== prev) {
-				for (const child of Array.from(element.childNodes)) {
-					unmountIgniteSubtree(child);
-				}
-			}
-		}
-
 		if (key === "class" || key === "className") {
 			const nextClass = next !== false && next != null ? String(next) : "";
 			if (element.getAttribute("class") !== nextClass) {
@@ -1225,6 +1186,18 @@ function patchEventListener(
 	}
 }
 
+function restoredControlValue(element: HTMLElement): string {
+	if (element.localName === "select") {
+		const options = (element as HTMLSelectElement).options;
+		for (let index = 0; index < options.length; index++) {
+			const option = options.item(index);
+			if (option?.defaultSelected) return option.value;
+		}
+		return options.item(0)?.value ?? "";
+	}
+	return (element as HTMLInputElement).defaultValue;
+}
+
 const builtinDefaults: Record<string, HTMLElement> = {};
 
 function builtinDefault(tag: string): HTMLElement {
@@ -1277,6 +1250,26 @@ function removeProp(
 	if (isEventHandlerKey(key) && typeof prev === "function") {
 		const eventName = normalizeEventName(key.slice(2));
 		element.removeEventListener(eventName, prev as EventListener);
+		return;
+	}
+
+	// defaultValue owns the value attribute. Set the live value from it and
+	// leave that attribute in place. A file input never receives undefined.
+	if (
+		!isSvg &&
+		key === "value" &&
+		(element.localName === "input" ||
+			element.localName === "textarea" ||
+			element.localName === "select")
+	) {
+		const control = element as HTMLInputElement;
+		if (control.localName === "input" && control.type === "file") return;
+		try {
+			const next = restoredControlValue(control);
+			if (control.value !== next) control.value = next;
+		} catch {
+			// A throwing value setter stops here. File values never reach it.
+		}
 		return;
 	}
 

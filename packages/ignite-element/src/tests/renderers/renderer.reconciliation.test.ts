@@ -10,6 +10,7 @@ import {
 } from "../../renderers/jsx/renderer";
 import type { IgniteJsxComponent } from "../../renderers/jsx/types";
 import MockAdapter from "../MockAdapter";
+import { unsupportedJsxProps } from "./unsupported-jsx-props";
 
 type Ref = (element: Element | null) => void;
 
@@ -412,11 +413,11 @@ describe("keyed sibling reconciliation", () => {
 			);
 			mountIgniteJsx(
 				document.createElement("div"),
-				jsx("div", { innerHTML: "<p>rich</p>" }),
+				jsx("div", unsupportedJsxProps({ innerHTML: "<p>rich</p>" })),
 			);
 			mountIgniteJsx(
 				document.createElement("div"),
-				jsx("div", { textContent: "plain" }),
+				jsx("div", unsupportedJsxProps({ textContent: "plain" })),
 			);
 		} finally {
 			if (descriptor) {
@@ -631,10 +632,13 @@ describe("subtree ownership", () => {
 		let tree = mountIgniteJsx(
 			host,
 			jsx("div", {
-				children: jsx("section", {
-					innerHTML: "<p>owned</p>",
-					children: "kept",
-				}),
+				children: jsx(
+					"section",
+					unsupportedJsxProps({
+						innerHTML: "<p>owned</p>",
+						children: "kept",
+					}),
+				),
 			}),
 		);
 		const section = host.querySelector("section");
@@ -645,11 +649,14 @@ describe("subtree ownership", () => {
 		tree = renderIgniteJsx(
 			host,
 			jsx("div", {
-				children: jsx("section", {
-					innerHTML: "<p>owned</p>",
-					id: "next",
-					children: "kept",
-				}),
+				children: jsx(
+					"section",
+					unsupportedJsxProps({
+						innerHTML: "<p>owned</p>",
+						id: "next",
+						children: "kept",
+					}),
+				),
 			}),
 			tree,
 		);
@@ -699,14 +706,17 @@ describe("subtree ownership", () => {
 	});
 });
 
-describe("deprecated content props", () => {
-	it("warns that innerHTML is ignored and textContent is deprecated", () => {
+describe("unsupported content props", () => {
+	it("warns that innerHTML and textContent are ignored", () => {
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		const host = document.createElement("div");
-		let tree = mountIgniteJsx(host, jsx("div", { innerHTML: "<p>rich</p>" }));
+		let tree = mountIgniteJsx(
+			host,
+			jsx("div", unsupportedJsxProps({ innerHTML: "<p>rich</p>" })),
+		);
 		tree = renderIgniteJsx(
 			host,
-			jsx("div", { innerHTML: "<p>rich</p>" }),
+			jsx("div", unsupportedJsxProps({ innerHTML: "<p>rich</p>" })),
 			tree,
 		);
 
@@ -717,10 +727,14 @@ describe("deprecated content props", () => {
 
 		warn.mockClear();
 		const textHost = document.createElement("div");
-		mountIgniteJsx(textHost, jsx("div", { textContent: "plain" }));
+		mountIgniteJsx(
+			textHost,
+			jsx("div", unsupportedJsxProps({ textContent: "plain" })),
+		);
+		expect(textHost.querySelector("div")?.textContent).toBe("");
 		expect(warn).toHaveBeenCalledTimes(1);
 		expect(warn).toHaveBeenCalledWith(
-			"[ignite-jsx] `textContent` is deprecated and will be removed in the next major release. Use JSX children for text, and hosts for trusted rich content.",
+			"[ignite-jsx] `textContent` is ignored and not applied. Use JSX children for text, and hosts for trusted rich content.",
 		);
 	});
 
@@ -728,8 +742,14 @@ describe("deprecated content props", () => {
 		vi.stubEnv("NODE_ENV", "production");
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		const host = document.createElement("div");
-		mountIgniteJsx(host, jsx("div", { innerHTML: "<p>rich</p>" }));
-		mountIgniteJsx(host, jsx("div", { textContent: "plain" }));
+		mountIgniteJsx(
+			host,
+			jsx("div", unsupportedJsxProps({ innerHTML: "<p>rich</p>" })),
+		);
+		mountIgniteJsx(
+			host,
+			jsx("div", unsupportedJsxProps({ textContent: "plain" })),
+		);
 		expect(warn).toHaveBeenCalledTimes(2);
 	});
 });
@@ -918,7 +938,7 @@ describe("approved ref and key corrections", () => {
 		);
 		tree = renderIgniteJsx(
 			host,
-			jsx("section", { innerHTML: "<p>owned</p>" }),
+			jsx("section", unsupportedJsxProps({ innerHTML: "<p>owned</p>" })),
 			tree,
 		);
 		expect(order).toEqual(["dispose-connected"]);
@@ -926,7 +946,7 @@ describe("approved ref and key corrections", () => {
 		expect(host.querySelector("p")).toBeNull();
 	});
 
-	it("calls ref(null) before textContent replaces a void ref", () => {
+	it("unmounts a void child through the diff when textContent is unsupported", () => {
 		const host = document.createElement("div");
 		let connected: boolean | undefined;
 		const ref: Ref = (element) => {
@@ -939,11 +959,12 @@ describe("approved ref and key corrections", () => {
 		const input = host.querySelector("input");
 		tree = renderIgniteJsx(
 			host,
-			jsx("section", { textContent: "plain" }),
+			jsx("section", unsupportedJsxProps({ textContent: "plain" })),
 			tree,
 		);
 		expect(connected).toBe(true);
-		expect(host.querySelector("section")?.textContent).toBe("plain");
+		expect(host.querySelector("input")).toBeNull();
+		expect(host.querySelector("section")?.textContent).toBe("");
 	});
 
 	it("continues unmount when a hook and a ref cleanup throw", () => {

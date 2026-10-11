@@ -9,6 +9,7 @@ import {
 	type NormalizedNode,
 	renderIgniteJsx,
 } from "../../renderers/jsx/renderer";
+import { unsupportedJsxProps } from "./unsupported-jsx-props";
 
 describe("ignite-jsx diffing behavior", () => {
 	afterEach(() => {
@@ -136,10 +137,13 @@ describe("ignite-jsx diffing behavior", () => {
 		});
 	const innerHtmlView = () =>
 		jsx("div", {
-			children: jsx("main", {
-				class: "content",
-				innerHTML: "<p>Other view</p>",
-			}),
+			children: jsx(
+				"main",
+				unsupportedJsxProps({
+					class: "content",
+					innerHTML: "<p>Other view</p>",
+				}),
+			),
 		});
 
 	it("replaces (not appends) when toggling between JSX children and innerHTML", () => {

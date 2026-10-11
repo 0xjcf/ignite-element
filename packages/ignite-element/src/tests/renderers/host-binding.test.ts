@@ -7,6 +7,7 @@ import type { Host, HostContext } from "../../hosts/types";
 import { createIgniteJsxRenderStrategy } from "../../renderers/jsx/IgniteJsxRenderStrategy";
 import { jsx } from "../../renderers/jsx/jsx-runtime";
 import { renderIgniteJsx } from "../../renderers/jsx/renderer";
+import { unsupportedJsxProps } from "./unsupported-jsx-props";
 
 type Scene = { angle: number };
 type Handle = { id: number };
@@ -826,7 +827,7 @@ describe("host binding", () => {
 		expect(hostDescription(root.querySelector("canvas"))).toBe("angle 2");
 	});
 
-	it("disposes the host before innerHTML or textContent becomes final", () => {
+	it("disposes the host when use is dropped for an unsupported content prop", () => {
 		const clearOnDispose = () => {
 			let element: Element | null = null;
 			const host = sceneHost({
@@ -849,9 +850,14 @@ describe("host binding", () => {
 			undefined,
 			{ hosts: runtime(rich, 1) },
 		);
-		renderIgniteJsx(root, jsx("section", { innerHTML: "<p>kept</p>" }), tree, {
-			hosts: runtime(rich, 1),
-		});
+		renderIgniteJsx(
+			root,
+			jsx("section", unsupportedJsxProps({ innerHTML: "<p>kept</p>" })),
+			tree,
+			{
+				hosts: runtime(rich, 1),
+			},
+		);
 		expect(rich.disposed).toHaveLength(1);
 		expect(root.querySelector("p")).toBeNull();
 		expect(root.querySelector("section")?.textContent).toBe("");
@@ -867,12 +873,12 @@ describe("host binding", () => {
 		);
 		renderIgniteJsx(
 			textRoot,
-			jsx("section", { textContent: "plain" }),
+			jsx("section", unsupportedJsxProps({ textContent: "plain" })),
 			textTree,
 			{ hosts: runtime(plain, 1) },
 		);
 		expect(plain.disposed).toHaveLength(1);
-		expect(textRoot.querySelector("section")?.textContent).toBe("plain");
+		expect(textRoot.querySelector("section")?.textContent).toBe("");
 	});
 
 	it("disposes the new host after a reconnect of the same element", () => {

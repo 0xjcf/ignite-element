@@ -10,6 +10,11 @@ export type IgniteJsxComponent = (props: IgniteJsxProps) => IgniteJsxChild;
 export interface IgniteJsxProps {
 	[key: string]: unknown;
 	children?: IgniteJsxChild;
+	innerHTML?: never;
+	outerHTML?: never;
+	innerText?: never;
+	outerText?: never;
+	textContent?: never;
 }
 
 export interface IgniteJsxElement {
@@ -53,7 +58,16 @@ type HostNameHandle = {
 	readonly __igniteHost: (map: never) => string;
 };
 
-type IgniteTagProps<T extends Element> = {
+/** JSX cannot set these. They replace or detach children outside the diff. */
+type UnsupportedContentProps = {
+	innerHTML?: never;
+	outerHTML?: never;
+	innerText?: never;
+	outerText?: never;
+	textContent?: never;
+};
+
+type IgniteTagProps<T extends Element> = UnsupportedContentProps & {
 	ref?: IgniteRefCallback<T>;
 	/** Host-name string from the owning core's `hosts` handle. */
 	use?: HostNameHandle;

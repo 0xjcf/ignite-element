@@ -47,12 +47,11 @@ const DUPLICATE_KEY =
 const INNER_HTML =
 	"[ignite-jsx] `innerHTML` is ignored and not applied. Use JSX children for text, and hosts for trusted rich content.";
 const TEXT_CONTENT =
-	"[ignite-jsx] `textContent` is deprecated and will be removed in the next major release. Use JSX children for text, and hosts for trusted rich content.";
+	"[ignite-jsx] `textContent` is ignored and not applied. Use JSX children for text, and hosts for trusted rich content.";
 const WARNING_STRINGS = [
 	"Duplicate key",
 	"Mixed keyed and unkeyed",
 	"requires a single element",
-	"is deprecated and will be removed",
 	"is ignored and not applied",
 	"URL scheme is not allowed",
 ];
@@ -61,11 +60,13 @@ const EVENT_ORIGIN_WARNING = "observed from both native and effect";
 // Gzip level 9 of this production consumer entry before dev warnings were
 // left for a consumer bundler to strip. Previous target was 4634.
 // renderer security guard: SVG animate/set + meta refresh
-// The no-host ceiling is 5,040 B for cached built-in defaults that never
-// construct a custom element, removeAttribute for reflected props, and the
-// URL reset inside the same try/catch. The prototype check stays, so a
-// custom setter overriding an inherited name gets undefined.
-const TODAY_CONSUMER_GZIP = 5040;
+// The no-host ceiling is 5,120 B because a dropped value resets from
+// defaultValue, and JSX innerText, textContent, outerText, innerHTML, and
+// outerHTML are unsupported. Cached built-in defaults never construct a
+// custom element, reflected props use removeAttribute, and the URL reset
+// stays inside the same try/catch. The prototype check stays, so a custom
+// setter overriding an inherited name gets undefined.
+const TODAY_CONSUMER_GZIP = 5120;
 
 function consumerEntry() {
 	return `import { jsx, mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";

@@ -6,6 +6,18 @@ import {
 	normalizeChildren,
 } from "./types";
 
+type UnsupportedContentProps = {
+	innerHTML?: never;
+	outerHTML?: never;
+	innerText?: never;
+	outerText?: never;
+	textContent?: never;
+};
+
+type BanContentProps<Props> = Props extends null | undefined
+	? Props
+	: Props & UnsupportedContentProps;
+
 type ElementType = IgniteJsxElement["type"];
 
 function createElement(
@@ -29,7 +41,7 @@ type JsxResult<Props> = IgniteJsxElement &
 
 export function jsx<const Props extends object | null | undefined>(
 	type: ElementType,
-	props: Props,
+	props: BanContentProps<Props>,
 	key?: string | number | null,
 ): JsxResult<Props> {
 	return createElement(
@@ -41,7 +53,7 @@ export function jsx<const Props extends object | null | undefined>(
 
 export function jsxs<const Props extends object | null | undefined>(
 	type: ElementType,
-	props: Props,
+	props: BanContentProps<Props>,
 	key?: string | number | null,
 ): JsxResult<Props> {
 	return createElement(
@@ -53,7 +65,7 @@ export function jsxs<const Props extends object | null | undefined>(
 
 export function jsxDEV(
 	type: ElementType,
-	props: IgniteJsxProps | null | undefined,
+	props: (IgniteJsxProps & UnsupportedContentProps) | null | undefined,
 	key?: string | number | null,
 	isStaticChildren?: boolean,
 	source?: unknown,
