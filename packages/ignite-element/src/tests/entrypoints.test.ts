@@ -62,6 +62,7 @@ describe("public adapter entrypoints", () => {
 		expect(typeof renderer.isUriBearingKey).toBe("function");
 		expect(renderer.isUriBearingKey("href")).toBe(true);
 		expect(renderer.isUriBearingKey("data")).toBe(false);
+		expect(renderer.isUriBearingKey("codebase")).toBe(false);
 		expect(renderer.containsExecutableUri("javascript:alert(1)")).toBe(true);
 		expect(renderer.containsExecutableUri("https://example.com")).toBe(false);
 	});

@@ -8,7 +8,10 @@
  * were never connected still flush.
  */
 
-type StyleInject = (root: ShadowRoot, connectedAtQueue?: boolean) => void;
+type StyleInject = (
+	root: ShadowRoot,
+	connectedAtQueue?: boolean | null,
+) => void;
 type StyleSlot = StyleInject | Array<ShadowRoot | boolean>;
 
 const STYLE_INJECT_SLOT = Symbol.for("ignite-element.style-inject");
@@ -34,6 +37,12 @@ export function forgetQueuedStyles(root: ShadowRoot): void {
 	// The same symbol on the root, not on globalThis, means detach() ran.
 	(root as unknown as StyleInjectHost)[STYLE_INJECT_SLOT] = true as never;
 	const slot = (globalThis as StyleInjectHost)[STYLE_INJECT_SLOT];
+	// null asks the installed injector to drop its pending entry. The queue
+	// array used before install is spliced here instead.
+	if (typeof slot === "function") {
+		slot(root, null);
+		return;
+	}
 	if (!Array.isArray(slot)) return;
 	const index = slot.indexOf(root);
 	if (index >= 0) slot.splice(index, 2);

@@ -204,8 +204,14 @@ function warnRejectedStyleOnce(
  */
 export default function injectStyles(
 	shadowRoot: ShadowRoot,
-	connectedAtQueue?: boolean,
+	connectedAtQueue?: boolean | null,
 ): void {
+	// null is detach(). Drop the queued entry without clearing its stamp.
+	if (connectedAtQueue === null) {
+		const entry = pendingRootIndex.get(shadowRoot);
+		if (entry) deletePendingRootEntry(entry);
+		return;
+	}
 	// An explicit attach after detach is a new request. Reconnect watching
 	// checks the mark first and does not call back in here.
 	clearStyleDetachMark(shadowRoot);

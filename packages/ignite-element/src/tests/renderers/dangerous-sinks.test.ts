@@ -316,6 +316,18 @@ describe("URL scheme guard", () => {
 		);
 	});
 
+	it("clears a coerced checked property when the prop is removed", () => {
+		const { host, tree } = mount(
+			jsx("input", { type: "checkbox", checked: 1 }),
+		);
+		const input = host.querySelector("input");
+		expect(input?.checked).toBe(true);
+
+		renderIgniteJsx(host, jsx("input", { type: "checkbox" }), tree);
+
+		expect(input?.checked).toBe(false);
+	});
+
 	it.each(["href", "src", "action", "formAction"] as const)(
 		"clears a non-reflected %s property when a later value is executable",
 		(key) => {

@@ -150,6 +150,30 @@ describe("injectStyles", () => {
 		}
 	});
 
+	it("removes a detached root from the installed injector queue", () => {
+		const element = document.createElement("div");
+		document.body.append(element);
+		const root = element.attachShadow({ mode: "open" });
+
+		try {
+			setGlobalStyles(undefined);
+			const strategy = createIgniteJsxRenderStrategy();
+			strategy.attach(root);
+			strategy.detach();
+			delete (root as unknown as { [STYLE_INJECT_SLOT]?: unknown })[
+				STYLE_INJECT_SLOT
+			];
+
+			setGlobalStyles("./queued.css");
+			flushPendingStyles();
+
+			expect(root.querySelector("link")).toBeNull();
+		} finally {
+			element.remove();
+			setGlobalStyles(undefined);
+		}
+	});
+
 	it("drops a shadow root when the JSX strategy detaches before the injector loads", () => {
 		const slotHost = globalThis as typeof globalThis & {
 			[STYLE_INJECT_SLOT]?: unknown;

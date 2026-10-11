@@ -396,6 +396,7 @@ function isBlockedUrlValue(
 	}
 	const guarded =
 		name === "attributename" ||
+		name === "codebase" ||
 		(tag === "meta" && name.endsWith("equiv")) ||
 		uriBearingKeyPattern.test(name) ||
 		(name === "data" && tag === "object");
@@ -1234,14 +1235,18 @@ function removeProp(
 		element.removeAttribute(attrName);
 	}
 
-	// Reflected URL setters turn undefined into the relative URL "undefined".
-	// Attribute removal clears those. A non-reflected custom property stays
-	// equal to the previous value, and only that property is cleared.
+	if (isSvg || !(key in element) || key === "list") return;
+	const current = (element as HTMLElement)[key as keyof HTMLElement];
+	const name = key.toLowerCase();
+	const reflectedUrl =
+		name === "data" || name === "codebase" || uriBearingKeyPattern.test(name);
+	// URL setters turn undefined into the URL "undefined". A boolean the DOM
+	// normalized, such as checked={1} becoming true, still has to be cleared.
 	if (
-		!isSvg &&
-		key in element &&
-		key !== "list" &&
-		(element as HTMLElement)[key as keyof HTMLElement] === prev
+		(reflectedUrl && current === prev) ||
+		(!reflectedUrl &&
+			(current === prev ||
+				(typeof current === "boolean" && current === Boolean(prev))))
 	) {
 		Reflect.set(element as HTMLElement, key, undefined);
 	}
