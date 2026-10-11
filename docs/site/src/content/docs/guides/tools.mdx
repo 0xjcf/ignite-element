@@ -205,10 +205,14 @@ const session = { actor: 'ada' };
 const spent = new Set<string>();
 function isSnapshotProxy(value: object): boolean {
   try {
-    const builtin = (globalThis as {
-      process?: { getBuiltinModule?: (name: string) => { types?: { isProxy?: (candidate: object) => boolean } } };
-    }).process?.getBuiltinModule?.('node:util');
-    return builtin?.types?.isProxy?.(value) === true;
+    const host: {
+      process?: {
+        getBuiltinModule?: (name: string) => {
+          types?: { isProxy?: (candidate: object) => boolean };
+        };
+      };
+    } = globalThis;
+    return host.process?.getBuiltinModule?.('node:util')?.types?.isProxy?.(value) === true;
   } catch {
     return false;
   }
