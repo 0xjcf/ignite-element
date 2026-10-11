@@ -195,7 +195,7 @@ describe("renderer core behavior", () => {
 		expect(div.getAttribute("style")).toBe("");
 
 		tree = renderIgniteJsx(host, jsx("div", {}), tree);
-		expect(div.getAttribute("style")).toBe("");
+		expect(div.getAttribute("style")).toBeNull();
 	});
 
 	it("updates event listeners and removes stale props/attributes", () => {
