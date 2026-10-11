@@ -502,6 +502,97 @@ describe("URL scheme guard", () => {
 		expect(area.defaultValue).toBe("foo");
 	});
 
+	it("leaves a textarea defaultValue b unchanged when it is dropped", () => {
+		const { host, tree } = mount(
+			jsx("textarea", {
+				title: "222",
+				lang: "dca",
+				spellcheck: true,
+				defaultValue: "b",
+				rows: 3,
+			}),
+		);
+		const area = host.querySelector("textarea") as HTMLTextAreaElement;
+		expect(area.value).toBe("b");
+		expect(area.defaultValue).toBe("b");
+
+		renderIgniteJsx(
+			host,
+			jsx("textarea", {
+				title: "222",
+				lang: "dca",
+				spellcheck: true,
+				rows: 3,
+			}),
+			tree,
+		);
+
+		expect(area.value).toBe("b");
+		expect(area.defaultValue).toBe("b");
+		expect(area.textContent).toBe("b");
+		expect(area.title).toBe("222");
+		expect(area.lang).toBe("dca");
+		expect(area.getAttribute("spellcheck")).toBe("true");
+		expect(area.rows).toBe(3);
+	});
+
+	it("leaves an input defaultValue unchanged when it is dropped", () => {
+		const kept = mount(jsx("input", { defaultValue: "b", value: "live" }));
+		const keptInput = kept.host.querySelector("input") as HTMLInputElement;
+		renderIgniteJsx(kept.host, jsx("input", { value: "live" }), kept.tree);
+		expect(keptInput.value).toBe("live");
+		expect(keptInput.defaultValue).toBe("b");
+		expect(keptInput.getAttribute("value")).toBe("b");
+
+		const dropped = mount(jsx("input", { defaultValue: "b" }));
+		const input = dropped.host.querySelector("input") as HTMLInputElement;
+		renderIgniteJsx(dropped.host, jsx("input", {}), dropped.tree);
+		expect(input.value).toBe("b");
+		expect(input.defaultValue).toBe("b");
+		expect(input.getAttribute("value")).toBe("b");
+	});
+
+	it("leaves defaultChecked unchanged when it is dropped", () => {
+		for (const type of ["checkbox", "radio"] as const) {
+			const kept = mount(
+				jsx("input", { type, defaultChecked: true, checked: true }),
+			);
+			const keptInput = kept.host.querySelector("input") as HTMLInputElement;
+			renderIgniteJsx(
+				kept.host,
+				jsx("input", { type, checked: true }),
+				kept.tree,
+			);
+			expect(keptInput.checked).toBe(true);
+			expect(keptInput.defaultChecked).toBe(true);
+			expect(keptInput.hasAttribute("checked")).toBe(true);
+
+			const dropped = mount(jsx("input", { type, defaultChecked: true }));
+			const input = dropped.host.querySelector("input") as HTMLInputElement;
+			expect(input.checked).toBe(true);
+			renderIgniteJsx(dropped.host, jsx("input", { type }), dropped.tree);
+			expect(input.checked).toBe(true);
+			expect(input.defaultChecked).toBe(true);
+			expect(input.hasAttribute("checked")).toBe(true);
+		}
+	});
+
+	it("leaves defaultSelected unchanged when it is dropped", () => {
+		const { host, tree } = mount(
+			jsx("option", { value: "b", defaultSelected: true, children: "B" }),
+		);
+		const option = host.querySelector("option") as HTMLOptionElement;
+		expect(option.defaultSelected).toBe(true);
+		expect(option.selected).toBe(true);
+
+		renderIgniteJsx(host, jsx("option", { value: "b", children: "B" }), tree);
+
+		expect(option.defaultSelected).toBe(true);
+		expect(option.selected).toBe(true);
+		expect(option.hasAttribute("selected")).toBe(true);
+		expect(option.value).toBe("b");
+	});
+
 	it("resets a dropped select value to the default-selected option", () => {
 		const options = () => [
 			jsx("option", { value: "a", children: "A" }),
@@ -1083,9 +1174,12 @@ describe("URL scheme guard", () => {
 		);
 		const audio = read(media.host, "audio");
 		renderIgniteJsx(media.host, jsx("audio", {}), media.tree);
-		expect(audio.currentTime).toBe(0);
-		expect(audio.volume).toBe(1);
-		expect(audio.playbackRate).toBe(1);
+		expect(audio.currentTime).toBe(4);
+		expect(audio.volume).toBe(0.25);
+		expect(audio.playbackRate).toBe(0);
+		expect(audio.hasAttribute("currenttime")).toBe(false);
+		expect(audio.hasAttribute("volume")).toBe(false);
+		expect(audio.hasAttribute("playbackrate")).toBe(false);
 		expect(audio.id).toBe("");
 		expect(audio.getAttribute("id")).toBeNull();
 

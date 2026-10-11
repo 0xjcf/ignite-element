@@ -1347,6 +1347,17 @@ function removeProp(
 		return;
 	}
 
+	// These defaults stay so a later value, checked, or selected drop can
+	// still read them. They are not booleans to clear and not attributes to
+	// remove.
+	if (
+		key === "defaultValue" ||
+		key === "defaultChecked" ||
+		key === "defaultSelected"
+	) {
+		return;
+	}
+
 	const attrName = propAttributeName(element, key, isSvg);
 	const hadAttribute = element.hasAttribute(attrName);
 	const keepAttribute = attributeKeptBySibling(element, newProps, key, isSvg);

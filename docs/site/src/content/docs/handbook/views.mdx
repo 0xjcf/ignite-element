@@ -28,7 +28,9 @@ JSX files use `.tsx` and `jsxImportSource: "ignite-element/jsx"`.
 
 A source-free layout can use `igniteCore()` from `ignite-element`; it returns only a registrar, without the source-backed runtime methods.
 
-JSX `innerHTML`, `outerHTML`, `innerText`, `outerText`, `textContent`, and `srcdoc` are unsupported and are not applied. A host [`mount`](/ignite-element/handbook/hosts/) may still assign `innerHTML`. That imperative callback is the escape hatch for trusted markup. `href`, `src`, `action`, `formaction`, and `xlink:href` reject executable URL schemes. Use JSX children for text. Trusted rich content belongs to a [host](/ignite-element/handbook/hosts/), which owns that element's subtree.
+JSX `innerHTML`, `outerHTML`, `innerText`, `outerText`, `textContent`, and `srcdoc` are unsupported on intrinsic elements and are not applied. A function component may still receive those prop names. A host [`mount`](/ignite-element/handbook/hosts/) may still assign `innerHTML`. That imperative callback is the escape hatch for trusted markup. `href`, `src`, `action`, `formaction`, and `xlink:href` reject executable URL schemes. Use JSX children for text. Trusted rich content belongs to a [host](/ignite-element/handbook/hosts/), which owns that element's subtree.
+
+Dropping a prop restores only an allowlisted piece of state. `value`, `checked`, and `selected` return to the defaults still on the element: a multiple `select` restores each option from `defaultSelected`, and `checked` becomes `defaultChecked` while the `checked` attribute stays. `scrollTop` and `scrollLeft` become `0`. Boolean props become `false`. A reflected attribute is removed. Dropping `defaultValue`, `defaultChecked`, or `defaultSelected` leaves that default as it was. Every other native prop is left as it was, and dropping it writes no attribute. A custom element's own setter is called with `undefined`. Props in the same render are set before any drop. `length`, `options`, and `selectedOptions` are never set or reset.
 
 ## React
 

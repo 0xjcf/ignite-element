@@ -3,7 +3,29 @@ export type TagSpec =
 	| { kind: "textarea" }
 	| { kind: "select"; multiple: boolean }
 	| { kind: "div" }
-	| { kind: "custom" };
+	| { kind: "custom" }
+	| { kind: "audio" };
+
+// Native props the allowlist leaves alone. A drop must not change the
+// property and must not write or remove an attribute.
+export const OFF_LIST_PROPS = [
+	"volume",
+	"playbackRate",
+	"currentTime",
+	"defaultValue",
+	"defaultChecked",
+	"defaultSelected",
+] as const;
+
+const OFF_LIST_ATTR: Record<string, string> = {
+	defaultValue: "value",
+	defaultChecked: "checked",
+	defaultSelected: "selected",
+};
+
+export function offListAttribute(key: string): string {
+	return OFF_LIST_ATTR[key] ?? key;
+}
 
 export type OptionSpec = {
 	value: string;
@@ -65,9 +87,18 @@ export type ControlSnapshot = {
 	text: string;
 };
 
+export type OffListReading = {
+	key: string;
+	before: string | number | boolean | null;
+	after: string | number | boolean | null;
+	attrBefore: string | null;
+	attrAfter: string | null;
+};
+
 export type ResetReport = {
 	updated: ControlSnapshot;
 	fresh: ControlSnapshot;
+	offList: OffListReading[];
 	mounts: number;
 	unmounts: number;
 	optionCountBefore: number;

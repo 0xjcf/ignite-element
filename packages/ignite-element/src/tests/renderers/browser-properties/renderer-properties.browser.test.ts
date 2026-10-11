@@ -40,6 +40,7 @@ const tagArb: fc.Arbitrary<TagSpec> = fc.oneof(
 	fc.boolean().map((multiple) => ({ kind: "select" as const, multiple })),
 	fc.constant({ kind: "div" as const }),
 	fc.constant({ kind: "custom" as const }),
+	fc.constant({ kind: "audio" as const }),
 );
 
 function propKeys(tag: TagSpec): string[] {
@@ -90,6 +91,9 @@ function propKeys(tag: TagSpec): string[] {
 			"textContent",
 		];
 	}
+	if (tag.kind === "audio") {
+		return [...common, "volume", "playbackRate", "currentTime"];
+	}
 	return [
 		...common,
 		"class",
@@ -133,6 +137,9 @@ function propValue(
 	if (key === "value" && tag.kind === "select") {
 		return fc.constantFrom("a", "b", "c", "missing");
 	}
+	if (key === "volume") return fc.constantFrom(0, 0.25, 0.5, 1);
+	if (key === "playbackRate") return fc.constantFrom(0, 0.5, 1, 2);
+	if (key === "currentTime") return fc.constantFrom(0, 1, 4);
 	return token;
 }
 
@@ -294,8 +301,18 @@ function explainReset(
 	if (!report.sameOptionNodes) problems.push("option nodes replaced");
 	if (JSON.stringify(report.updated) !== JSON.stringify(report.fresh)) {
 		problems.push(
-			`updated ${JSON.stringify(report.updated)} fresh ${JSON.stringify(report.fresh)}`,
+			`allowlist ${JSON.stringify(report.updated)} fresh ${JSON.stringify(report.fresh)}`,
 		);
+	}
+	for (const reading of report.offList) {
+		if (reading.before !== reading.after) {
+			problems.push(`${reading.key} ${reading.before} -> ${reading.after}`);
+		}
+		if (reading.attrBefore !== reading.attrAfter) {
+			problems.push(
+				`${reading.key} attr ${reading.attrBefore} -> ${reading.attrAfter}`,
+			);
+		}
 	}
 	return problems.length === 0 ? null : problems.join("; ");
 }
@@ -350,7 +367,7 @@ describe("renderer properties in Chromium", () => {
 		await browser?.close();
 	});
 
-	it("dropped props match a fresh mount of the kept props", async () => {
+	it("allowlisted drops match a fresh mount and other props stay", async () => {
 		expect(SEED).toBeGreaterThan(0);
 		await fc.assert(
 			fc.asyncProperty(resetArb, async (scenario) => {

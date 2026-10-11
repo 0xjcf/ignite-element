@@ -4,12 +4,15 @@ import {
 	mountIgniteJsx,
 	renderIgniteJsx,
 } from "../../../../../ignite-renderer/src/renderers/jsx/renderer";
-import type {
-	ControlSnapshot,
-	ResetReport,
-	ResetScenario,
-	SinkScenario,
-	ValueSpec,
+import {
+	type ControlSnapshot,
+	OFF_LIST_PROPS,
+	type OffListReading,
+	offListAttribute,
+	type ResetReport,
+	type ResetScenario,
+	type SinkScenario,
+	type ValueSpec,
 } from "./scenarios";
 
 const PROBE = "x-reset-probe";
@@ -54,12 +57,22 @@ function tagName(tag: ResetScenario["tag"]): string {
 	if (tag.kind === "textarea") return "textarea";
 	if (tag.kind === "select") return "select";
 	if (tag.kind === "custom") return PROBE;
+	if (tag.kind === "audio") return "audio";
 	return "div";
 }
 
-function childNodes(scenario: ResetScenario, dropped: boolean) {
+function isOffList(key: string): boolean {
+	return (OFF_LIST_PROPS as readonly string[]).includes(key);
+}
+
+function childNodes(
+	scenario: ResetScenario,
+	dropped: boolean,
+	reference: boolean,
+) {
 	const dropSelected = dropped && scenario.drop.includes("selected");
-	const dropDefault = dropped && scenario.drop.includes("defaultSelected");
+	const dropDefault =
+		dropped && scenario.drop.includes("defaultSelected") && !reference;
 	if (scenario.tag.kind === "select") {
 		return scenario.options.map((option) => {
 			const props: Record<string, unknown> = {
@@ -74,7 +87,11 @@ function childNodes(scenario: ResetScenario, dropped: boolean) {
 			return jsx("option", props, option.value);
 		});
 	}
-	if (scenario.tag.kind === "input" || scenario.tag.kind === "textarea") {
+	if (
+		scenario.tag.kind === "input" ||
+		scenario.tag.kind === "textarea" ||
+		scenario.tag.kind === "audio"
+	) {
 		return undefined;
 	}
 	return jsx(
@@ -88,22 +105,32 @@ function childNodes(scenario: ResetScenario, dropped: boolean) {
 	);
 }
 
-function view(scenario: ResetScenario, dropped: boolean) {
+function view(scenario: ResetScenario, dropped: boolean, reference = false) {
 	const props: Record<string, unknown> = {
 		style: { height: "24px", overflow: "auto" },
 	};
 	if (scenario.tag.kind === "input") props.type = scenario.tag.type;
-	if (scenario.tag.kind === "input" || scenario.tag.kind === "textarea") {
+	if (
+		scenario.tag.kind === "input" ||
+		scenario.tag.kind === "textarea" ||
+		scenario.tag.kind === "audio"
+	) {
 		props.ref = childRef;
 	}
 	if (scenario.tag.kind === "select" && scenario.tag.multiple) {
 		props.multiple = true;
 	}
 	for (const [key, value] of Object.entries(scenario.props)) {
-		if (dropped && scenario.drop.includes(key)) continue;
+		if (
+			dropped &&
+			scenario.drop.includes(key) &&
+			!(reference && isOffList(key))
+		) {
+			continue;
+		}
 		props[key] = value;
 	}
-	props.children = childNodes(scenario, dropped);
+	props.children = childNodes(scenario, dropped, reference);
 	return jsx(tagName(scenario.tag), props);
 }
 
@@ -149,6 +176,48 @@ function optionNodes(element: Element): Element[] {
 	return Array.from((element as HTMLSelectElement).options);
 }
 
+function readValue(value: unknown): string | number | boolean | null {
+	if (
+		typeof value === "number" ||
+		typeof value === "string" ||
+		typeof value === "boolean"
+	) {
+		return value;
+	}
+	return null;
+}
+
+function readOffList(
+	element: Element,
+	scenario: ResetScenario,
+): OffListReading[] {
+	const record = element as unknown as Record<string, unknown>;
+	const readings: OffListReading[] = OFF_LIST_PROPS.filter(
+		(key) => key in scenario.props,
+	).map((key) => ({
+		key,
+		before: readValue(record[key]),
+		after: null,
+		attrBefore: element.getAttribute(offListAttribute(key)),
+		attrAfter: null,
+	}));
+	if (
+		element.localName === "select" &&
+		scenario.drop.includes("defaultSelected")
+	) {
+		for (const option of (element as HTMLSelectElement).options) {
+			readings.push({
+				key: `defaultSelected:${option.value}`,
+				before: option.defaultSelected,
+				after: null,
+				attrBefore: option.getAttribute("selected"),
+				attrAfter: null,
+			});
+		}
+	}
+	return readings;
+}
+
 function runReset(scenario: ResetScenario): ResetReport {
 	mounts = 0;
 	unmounts = 0;
@@ -159,17 +228,34 @@ function runReset(scenario: ResetScenario): ResetReport {
 		const tree = mountIgniteJsx(host, view(scenario, false));
 		const element = host.firstElementChild;
 		if (!element) throw new Error("mount produced no element");
+		const offList = readOffList(element, scenario);
 		const before = optionNodes(element);
 		renderIgniteJsx(host, view(scenario, true), tree);
+		const record = element as unknown as Record<string, unknown>;
+		const options = element as HTMLSelectElement;
+		for (const reading of offList) {
+			if (reading.key.startsWith("defaultSelected:")) {
+				const optionValue = reading.key.slice("defaultSelected:".length);
+				const option = Array.from(options.options).find(
+					(item) => item.value === optionValue,
+				);
+				reading.after = option ? option.defaultSelected : null;
+				reading.attrAfter = option ? option.getAttribute("selected") : null;
+				continue;
+			}
+			reading.after = readValue(record[reading.key]);
+			reading.attrAfter = element.getAttribute(offListAttribute(reading.key));
+		}
 		const after = optionNodes(element);
 		const mountsAfterUpdate = mounts;
 		const unmountsAfterUpdate = unmounts;
-		mountIgniteJsx(freshHost, view(scenario, true));
+		mountIgniteJsx(freshHost, view(scenario, true, true));
 		const fresh = freshHost.firstElementChild;
 		if (!fresh) throw new Error("fresh mount produced no element");
 		return {
 			updated: snapshot(element),
 			fresh: snapshot(fresh),
+			offList,
 			mounts: mountsAfterUpdate,
 			unmounts: unmountsAfterUpdate,
 			optionCountBefore: before.length,
