@@ -1,5 +1,6 @@
 import type { IgniteAdapter } from "@ignite-element/core";
 import { StateScope } from "@ignite-element/core";
+import { replayParkedStyles } from "./injectStyles";
 import type { RenderStrategy } from "./renderers/RenderStrategy";
 import { releaseAll } from "./runtime/lifetime";
 
@@ -158,6 +159,7 @@ export function getIgniteElementClasses(
 		connectedCallback(): void {
 			if (this.ended) return;
 			this.cancelDisconnectTeardown();
+			replayParkedStyles(this._shadowRoot);
 
 			if (!this._unsubscribe && this._adapter) {
 				this.subscribeToAdapter();

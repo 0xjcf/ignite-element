@@ -76,6 +76,8 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 	}
 
 	attach(host: ShadowRoot): void {
+		// A later attach replays a parked shadow root. Ignite elements also
+		// replay from connectedCallback. Light DOM uses the document observer.
 		injectStyles(host);
 		const existingRoot = host.querySelector<HTMLElement>(
 			"[data-ignite-jsx-root]",

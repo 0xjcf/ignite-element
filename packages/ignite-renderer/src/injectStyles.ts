@@ -97,7 +97,6 @@ function releaseParkedRoot(entry: PendingRootEntry): void {
 	if (parkedRoots.size > 0) return;
 	reconnectObserver?.disconnect();
 	reconnectObserver = undefined;
-	restoreShadowPatch();
 }
 
 function isTerminalStyleDetach(root: ShadowRoot): boolean {
@@ -113,42 +112,6 @@ function clearStyleDetachMark(root: ShadowRoot): void {
 	if (marked[STYLE_DETACHED_SLOT] === true) {
 		delete marked[STYLE_DETACHED_SLOT];
 	}
-}
-
-let savedAttachShadow: typeof Element.prototype.attachShadow | undefined;
-
-function observeReconnectTarget(target: Node): void {
-	reconnectObserver?.observe(target, { childList: true, subtree: true });
-}
-
-function observeOpenShadowRoots(root: ParentNode): void {
-	for (const element of root.querySelectorAll("*")) {
-		const shadow = element.shadowRoot;
-		if (!shadow) continue;
-		observeReconnectTarget(shadow);
-		observeOpenShadowRoots(shadow);
-	}
-}
-
-function installShadowPatch(): void {
-	if (savedAttachShadow) return;
-	const current = Element.prototype.attachShadow;
-	savedAttachShadow = current;
-	Element.prototype.attachShadow = function (
-		this: Element,
-		init: ShadowRootInit,
-	) {
-		const root = current.call(this, init);
-		if (parkedRoots.size > 0) observeReconnectTarget(root);
-		return root;
-	};
-}
-
-function restoreShadowPatch(): void {
-	const saved = savedAttachShadow;
-	if (!saved) return;
-	savedAttachShadow = undefined;
-	Element.prototype.attachShadow = saved;
 }
 
 function flushReconnectedRoots(): void {
@@ -173,17 +136,30 @@ function watchParkedRoots(): void {
 		return;
 	}
 
-	installShadowPatch();
+	// documentElement does not see a shadow tree. It is only the fallback
+	// for hosts that are not Ignite elements. Ignite elements replay from
+	// connectedCallback, and other hosts replay through the JSX strategy.
 	if (!reconnectObserver) {
 		reconnectObserver = new MutationObserver(() => {
 			flushReconnectedRoots();
-			if (parkedRoots.size > 0 && document.documentElement) {
-				observeOpenShadowRoots(document.documentElement);
-			}
 		});
 	}
-	observeReconnectTarget(document.documentElement);
-	observeOpenShadowRoots(document.documentElement);
+	reconnectObserver.observe(document.documentElement, {
+		childList: true,
+		subtree: true,
+	});
+}
+
+/**
+ * @internal Replay a parked root once its host connects. No-op unless the
+ * root is connected, still parked, and not detach-stamped.
+ */
+export function replayParkedStyles(root: ShadowRoot): void {
+	if (isTerminalStyleDetach(root)) return;
+	const entry = pendingRootIndex.get(root);
+	if (entry && root.isConnected) entry.live = true;
+	if (!entry || !parkedRoots.has(entry) || !root.isConnected) return;
+	injectStyles(root);
 }
 
 function collectPendingRoots(): ShadowRoot[] {
@@ -266,6 +242,11 @@ export default function injectStyles(
 			"Skipping initialization for shadow root - already initialized",
 		);
 		return;
+	}
+
+	if (shadowRoot.isConnected) {
+		const parked = pendingRootIndex.get(shadowRoot);
+		if (parked && parkedRoots.has(parked)) deletePendingRootEntry(parked);
 	}
 
 	debugLog(DebugNamespace.COMPONENT, "Initializing new shadow root");

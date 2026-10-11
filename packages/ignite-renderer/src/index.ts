@@ -17,7 +17,11 @@ export type {
 export { defineIgniteConfig, getIgniteConfig } from "./config";
 export type { GlobalStyles } from "./globalStyles";
 export { getGlobalStyles, setGlobalStyles } from "./globalStyles";
-export { default as injectStyles, flushPendingStyles } from "./injectStyles";
+export {
+	default as injectStyles,
+	flushPendingStyles,
+	replayParkedStyles,
+} from "./injectStyles";
 export {
 	AutoDetectRenderStrategy,
 	createAutoDetectRenderStrategy,

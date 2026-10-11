@@ -367,10 +367,11 @@ function strippedUri(value: string): string {
 }
 
 function smilHrefTarget(value: unknown): boolean {
-	return (
-		typeof value === "string" &&
-		strippedUri(value).split(/[:}]/).pop() === "href"
-	);
+	// A non-string name is treated as href so from/to/by/values cannot stay
+	// on a bare animate. Absent and null names are not href targets.
+	return typeof value === "string"
+		? strippedUri(value).split(/[:}]/).pop() === "href"
+		: value != null;
 }
 
 function isBlockedUrlValue(
@@ -386,8 +387,8 @@ function isBlockedUrlValue(
 	// documented in the changeset; they are not checked here.
 	if (tag === "base" && name === "href") return true;
 	// A string attributeName is lowercased, whitespace and ASCII controls
-	// are removed, then any Clark or namespace prefix is removed. href on
-	// these tags drops from, to, by, and values entirely.
+	// are removed, then any Clark or namespace prefix is removed. href,
+	// and any non-string attributeName, drops from, to, by, and values.
 	if (
 		(tag === "animate" || tag === "set" || tag === "animatemotion") &&
 		(name === "from" || name === "to" || name === "by" || name === "values") &&
@@ -1240,16 +1241,18 @@ function removeProp(
 	const el = element as HTMLElement;
 	const current = el[key as keyof HTMLElement];
 	const name = key.toLowerCase();
+	const custom = el.localName.includes("-");
 	// Reflected URL setters turn undefined into the URL "undefined".
 	// value={1} becomes the string "1", and checked={1} becomes true.
 	if (
 		uriBearingKeyPattern.test(name) ||
-		(name === "data" && el.localName === "object")
+		(name === "data" && el.localName === "object") ||
+		(custom && name === "codebase")
 	) {
 		// Custom-element setters can store an absolute URL, so the getter
 		// no longer equals the relative prop. Native reflected setters must
-		// not be assigned undefined.
-		if (current === prev || el.localName.includes("-")) {
+		// not be assigned undefined. codebase uses that custom clear only.
+		if (current === prev || custom) {
 			Reflect.set(el, key, undefined);
 		}
 		return;

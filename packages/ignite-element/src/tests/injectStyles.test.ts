@@ -346,13 +346,30 @@ describe("injectStyles", () => {
 		}
 	});
 
-	it("restyles a root reinserted inside a parent shadow root", async () => {
+	it("restyles a host appended into an already-connected parent shadow root", async () => {
 		const parent = document.createElement("section");
 		document.body.append(parent);
 		const parentRoot = parent.attachShadow({ mode: "open" });
-		const element = document.createElement("div");
-		document.body.append(element);
-		const moved = element.attachShadow({ mode: "open" });
+		const tag = "x-style-reconnect";
+		if (!customElements.get(tag)) {
+			class Host extends HTMLElement {
+				root: ShadowRoot;
+				strategy = createIgniteJsxRenderStrategy();
+				constructor() {
+					super();
+					this.root = this.attachShadow({ mode: "open" });
+				}
+				connectedCallback(): void {
+					// The shadow root is not an element. Replay goes through the
+					// JSX strategy, not a MutationObserver on this shadow tree.
+					this.strategy.attach(this.root);
+				}
+			}
+			customElements.define(tag, Host);
+		}
+		const element = document.createElement(tag) as HTMLElement & {
+			root: ShadowRoot;
+		};
 		const RealObserver = globalThis.MutationObserver;
 		let callbacks = 0;
 		function CountingObserver(
@@ -369,22 +386,24 @@ describe("injectStyles", () => {
 
 		try {
 			setGlobalStyles(undefined);
-			createIgniteJsxRenderStrategy().attach(moved);
+			document.body.append(element);
+			const moved = element.root;
 			element.remove();
 			setGlobalStyles("./nested.css");
 			flushPendingStyles();
 			expect(moved.querySelector("link")).toBeNull();
+			expect(moved.isConnected).toBe(false);
 
 			parentRoot.append(element);
-			await settleMutations();
 
+			expect(moved.isConnected).toBe(true);
 			expect(moved.querySelector("link")?.href).toContain("nested.css");
 			callbacks = 0;
 			document.body.append(document.createElement("span"));
 			await settleMutations();
 			expect(callbacks).toBe(0);
 		} finally {
-			forgetQueuedStyles(moved);
+			forgetQueuedStyles(element.root);
 			vi.unstubAllGlobals();
 			element.remove();
 			parent.remove();

@@ -415,33 +415,42 @@ describe("URL scheme guard", () => {
 		},
 	);
 
-	it("clears a custom href that normalized a relative URL", () => {
-		const tag = "x-url-normalized";
-		if (!customElements.get(tag)) {
-			class UrlElement extends HTMLElement {
-				#href = "";
-				get href() {
-					return this.#href;
+	it.each(["href", "codebase"] as const)(
+		"clears a custom %s setter that stored an absolute URL",
+		(key) => {
+			const tag = `x-abs-${key}`;
+			if (!customElements.get(tag)) {
+				class UrlElement extends HTMLElement {
+					#value = "";
+					get [key]() {
+						return this.#value;
+					}
+					set [key](value: unknown) {
+						// null and "" must not reach new URL. undefined becomes the
+						// relative URL "undefined", and "" becomes the document URL.
+						if (value == null || value === "") {
+							this.#value = "";
+							return;
+						}
+						this.#value = new URL(String(value), location.href).href;
+					}
 				}
-				set href(value: string) {
-					this.#href =
-						typeof value === "string" && value
-							? new URL(value, "https://safe.example").href
-							: "";
-				}
+				customElements.define(tag, UrlElement);
 			}
-			customElements.define(tag, UrlElement);
-		}
 
-		const { host, tree } = mount(jsx(tag, { href: "/keep" }));
-		const element = host.querySelector(tag) as HTMLElement & { href: string };
-		expect(element.href).toBe("https://safe.example/keep");
+			const { host, tree } = mount(jsx(tag, { [key]: "/safe.txt" }));
+			const element = host.querySelector(tag) as HTMLElement &
+				Record<typeof key, string>;
+			expect(element[key]).toContain("/safe.txt");
+			expect(element[key].startsWith("http")).toBe(true);
+			expect(element.getAttribute(key)).toBeNull();
 
-		renderIgniteJsx(host, jsx(tag, { href: "javascript:alert(1)" }), tree);
+			renderIgniteJsx(host, jsx(tag, { [key]: "javascript:alert(1)" }), tree);
 
-		expect(element.href).not.toContain("/keep");
-		expect(element.href).not.toContain("javascript:");
-	});
+			expect(element[key]).toBe("");
+			expect(element.getAttribute(key)).toBeNull();
+		},
+	);
 
 	it("applies a safe URL after an executable one was rejected", () => {
 		const { host, tree } = mount(
@@ -908,6 +917,7 @@ describe("URL scheme guard", () => {
 		expect(calls).toBe(0);
 		expect(setNode?.getAttribute("attributeName")).toBeNull();
 		expect(setNode?.getAttribute("attribute-name")).toBeNull();
+		expect(setNode?.getAttribute("to")).toBeNull();
 	});
 
 	it("does not apply an object attributeName after an executable set to", () => {
@@ -931,6 +941,43 @@ describe("URL scheme guard", () => {
 		expect(calls).toBe(0);
 		expect(setNode?.getAttribute("attributeName")).toBeNull();
 		expect(setNode?.getAttribute("attribute-name")).toBeNull();
+		expect(setNode?.getAttribute("to")).toBeNull();
+	});
+
+	it("drops animate to when attributeName is not a primitive", () => {
+		let calls = 0;
+		const attributeName = {
+			[Symbol.toPrimitive]() {
+				calls += 1;
+				return "href";
+			},
+		};
+		const { host } = mount(
+			jsx("animate", {
+				attributeName,
+				to: "javascript:alert(1)",
+			}),
+		);
+		const animate = host.querySelector("animate");
+
+		expect(calls).toBe(0);
+		expect(animate?.getAttribute("attributeName")).toBeNull();
+		expect(animate?.getAttribute("to")).toBeNull();
+
+		const symbolHost = mount(
+			jsx("animate", {
+				attributeName: Symbol("href"),
+				to: "javascript:alert(1)",
+				from: "javascript:alert(2)",
+				by: "javascript:alert(3)",
+				values: "javascript:alert(4)",
+			}),
+		).host;
+		const symbolAnimate = symbolHost.querySelector("animate");
+		expect(symbolAnimate?.getAttribute("to")).toBeNull();
+		expect(symbolAnimate?.getAttribute("from")).toBeNull();
+		expect(symbolAnimate?.getAttribute("by")).toBeNull();
+		expect(symbolAnimate?.getAttribute("values")).toBeNull();
 	});
 
 	it("does not apply a meta http-equiv refresh", () => {
