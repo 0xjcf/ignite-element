@@ -2,6 +2,8 @@
 
 Use ordinary Vitest or Node assertions over `execute()`, `get('states')`, projected availability, native source snapshots and subscriptions. Keep source behavior tests separate from real registered-component DOM tests.
 
+Every new invariant gets a property test when it can be stated as a property. Use `fast-check` as a devDependency only, with a fixed seed and run count recorded in the test so CI replays the same sequence. DOM behavior stays on the browser runner (`pnpm --filter ignite-element test:e2e`).
+
 The [testing guide](https://0xjcf.github.io/ignite-element/handbook/testing/) contains canonical source, core, and Ignite JSX accessible-control examples. Add `@testing-library/dom` as a development dependency for DOM queries, mount an actual registered element, and query its rendered root.
 
 ## Migration
