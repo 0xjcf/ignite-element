@@ -1225,6 +1225,15 @@ function patchEventListener(
 	}
 }
 
+const builtinDefaults: Record<string, HTMLElement> = {};
+
+function builtinDefault(tag: string): HTMLElement {
+	if (!builtinDefaults[tag]) {
+		builtinDefaults[tag] = document.createElement(tag);
+	}
+	return builtinDefaults[tag];
+}
+
 // 0 skip, 1 assign undefined to a custom element's own setter, 2 native reset.
 // Own means the descriptor sits on the instance or a prototype before
 // HTMLElement. Inherited IDL properties stay on the native reset. An own
@@ -1276,66 +1285,48 @@ function removeProp(
 		: isSvg
 			? normalizeSvgAttributeName(key)
 			: key;
-	if (element.hasAttribute(attrName)) {
-		element.removeAttribute(attrName);
-	}
+	const hadAttribute = element.hasAttribute(attrName);
+	if (hadAttribute) element.removeAttribute(attrName);
 
 	if (isSvg || !(key in element) || key === "list") return;
 	const el = element as HTMLElement;
 	const current = el[key as keyof HTMLElement];
 	const name = key.toLowerCase();
 	const custom = el.localName.includes("-");
-	// Reflected URL setters turn undefined into the URL "undefined".
-	// value={1} becomes the string "1", and checked={1} becomes true.
-	if (
-		uriBearingKeyPattern.test(name) ||
-		(name === "data" && el.localName === "object") ||
-		(custom && name === "codebase")
-	) {
-		// Custom-element setters can store an absolute URL, so the getter
-		// no longer equals the relative prop. Native reflected setters must
-		// not be assigned undefined. codebase uses that custom clear only.
-		if (current === prev || custom) {
-			Reflect.set(el, key, undefined);
-		}
-		return;
-	}
-	// The prop was set last render and is absent now. Do not compare the
-	// stored value with the previous prop. Own custom setters get undefined,
-	// including a setter that overrides an inherited name such as id.
-	// Inherited properties use the native reset for their IDL type.
-	const kind = droppedPropKind(el, key, custom);
-	if (kind === 1) {
-		try {
-			Reflect.set(el, key, undefined);
-		} catch {
-			// One setter must not abort the remaining drops.
-		}
-		return;
-	}
-	if (kind !== 2) return;
-	// A file input rejects every value except "". Skip it. Never assign
-	// undefined, which throws InvalidStateError.
-	if (
-		key === "value" &&
-		el.localName === "input" &&
-		(el as HTMLInputElement).type === "file"
-	) {
-		return;
-	}
-	// The default is whatever a new element of this tag already has:
-	// false, "", 0, tabIndex -1, volume 1, playbackRate 1. Writing a
-	// reflected string default back recreates the attribute, so skip that.
-	// Booleans still receive false. A throwing setter must not abort the rest.
+	// One try covers the URL reset and every other drop.
 	try {
-		const fallback = document.createElement(el.localName)[
+		if (
+			uriBearingKeyPattern.test(name) ||
+			(name === "data" && el.localName === "object") ||
+			(custom && name === "codebase")
+		) {
+			if (current === prev || custom) {
+				Reflect.set(el, key, undefined);
+			}
+			return;
+		}
+		const kind = droppedPropKind(el, key, custom);
+		if (kind === 1) {
+			Reflect.set(el, key, undefined);
+			return;
+		}
+		if (kind !== 2) return;
+		if (
+			key === "value" &&
+			el.localName === "input" &&
+			(el as HTMLInputElement).type === "file"
+		) {
+			return;
+		}
+		if (hadAttribute && typeof current !== "boolean") return;
+		const fallback = builtinDefault(custom ? "div" : el.localName)[
 			key as keyof HTMLElement
 		];
 		if (current !== fallback || typeof fallback === "boolean") {
 			Reflect.set(el, key, fallback);
 		}
 	} catch {
-		// currentTime and a file value must not abort the rest.
+		// currentTime, a file value, and a throwing URL setter stop here.
 	}
 }
 

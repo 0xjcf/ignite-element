@@ -1002,6 +1002,150 @@ describe("URL scheme guard", () => {
 		expect(element.id).not.toBe("");
 	});
 
+	it("does not construct a custom element to read a native default", () => {
+		const tag = "x-no-construct";
+		let constructed = 0;
+		if (!customElements.get(tag)) {
+			class NoConstruct extends HTMLElement {
+				constructor() {
+					super();
+					constructed += 1;
+				}
+			}
+			customElements.define(tag, NoConstruct);
+		}
+		constructed = 0;
+
+		const { host, tree } = mount(jsx(tag, { title: "named", scrollTop: 4 }));
+		const element = host.querySelector(tag) as HTMLElement;
+		expect(constructed).toBe(1);
+		expect(element.title).toBe("named");
+		expect(element.scrollTop).toBe(4);
+
+		renderIgniteJsx(host, jsx(tag, {}), tree);
+
+		expect(constructed).toBe(1);
+		expect(element.title).toBe("");
+		expect(element.getAttribute("title")).toBeNull();
+		expect(element.scrollTop).toBe(0);
+	});
+
+	it("does not assign a blank width when a loaded image drops width", () => {
+		const descriptor = Object.getOwnPropertyDescriptor(
+			HTMLImageElement.prototype,
+			"width",
+		);
+		if (!descriptor?.get || !descriptor.set) {
+			throw new Error("missing width setter");
+		}
+		const assigned: unknown[] = [];
+		Object.defineProperty(HTMLImageElement.prototype, "width", {
+			configurable: true,
+			enumerable: descriptor.enumerable,
+			get() {
+				const attr = this.getAttribute("width");
+				if (attr != null) return Number(attr);
+				return this.dataset.loaded === "1" ? 48 : 0;
+			},
+			set(value: unknown) {
+				assigned.push(value);
+				const next = Number(value);
+				if (!next) this.removeAttribute("width");
+				else this.setAttribute("width", String(next));
+			},
+		});
+
+		try {
+			const { host, tree } = mount(jsx("img", { width: 40 }));
+			const image = host.querySelector("img") as HTMLImageElement;
+			image.dataset.loaded = "1";
+			expect(image.width).toBe(40);
+			assigned.length = 0;
+
+			renderIgniteJsx(host, jsx("img", {}), tree);
+
+			expect(assigned).not.toContain(0);
+			expect(image.getAttribute("width")).toBeNull();
+			expect(image.width).toBe(48);
+
+			assigned.length = 0;
+			const matched = mount(jsx("img", { width: 48 }));
+			const matchedImage = matched.host.querySelector(
+				"img",
+			) as HTMLImageElement;
+			matchedImage.dataset.loaded = "1";
+			expect(matchedImage.width).toBe(48);
+			assigned.length = 0;
+			renderIgniteJsx(matched.host, jsx("img", {}), matched.tree);
+			expect(assigned).not.toContain(0);
+			expect(matchedImage.getAttribute("width")).toBeNull();
+			expect(matchedImage.width).toBe(48);
+		} finally {
+			Object.defineProperty(HTMLImageElement.prototype, "width", descriptor);
+		}
+	});
+
+	it("still resets scrollTop and checked while width stays natural", () => {
+		const { host, tree } = mount(
+			jsx("div", {
+				scrollTop: 6,
+				children: jsx("input", { type: "checkbox", checked: true }),
+			}),
+		);
+		const box = host.querySelector("div") as HTMLElement;
+		const input = host.querySelector("input") as HTMLInputElement;
+		expect(box.scrollTop).toBe(6);
+		expect(input.checked).toBe(true);
+
+		renderIgniteJsx(
+			host,
+			jsx("div", { children: jsx("input", { type: "checkbox" }) }),
+			tree,
+		);
+
+		expect(box.scrollTop).toBe(0);
+		expect(input.checked).toBe(false);
+	});
+
+	it("clears a later prop when a custom URL setter throws", () => {
+		const tag = "x-href-throws";
+		if (!customElements.get(tag)) {
+			class HrefThrows extends HTMLElement {
+				hrefLog: unknown[] = [];
+				#count: number | null = null;
+				#href = "";
+				get count() {
+					return this.#count;
+				}
+				set count(value: unknown) {
+					this.#count = value == null ? null : Number(value);
+				}
+				get href() {
+					return this.#href;
+				}
+				set href(value: unknown) {
+					this.hrefLog.push(value);
+					if (value === undefined) throw new Error("href boom");
+					this.#href = String(value ?? "");
+				}
+			}
+			customElements.define(tag, HrefThrows);
+		}
+
+		const { host, tree } = mount(jsx(tag, { href: "/safe.txt", count: "1" }));
+		const element = host.querySelector(tag) as HTMLElement & {
+			count: number | null;
+			hrefLog: unknown[];
+		};
+		expect(element.count).toBe(1);
+		element.hrefLog.length = 0;
+
+		expect(() => renderIgniteJsx(host, jsx(tag, {}), tree)).not.toThrow();
+
+		expect(element.hrefLog).toContain(undefined);
+		expect(element.count).toBeNull();
+	});
+
 	it("resets inherited custom id and title by attribute removal", () => {
 		const tag = "x-id-reflected";
 		if (!customElements.get(tag)) {

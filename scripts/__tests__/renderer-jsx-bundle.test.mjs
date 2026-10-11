@@ -61,10 +61,11 @@ const EVENT_ORIGIN_WARNING = "observed from both native and effect";
 // Gzip level 9 of this production consumer entry before dev warnings were
 // left for a consumer bundler to strip. Previous target was 4634.
 // renderer security guard: SVG animate/set + meta refresh
-// The no-host ceiling is 4,998 B because the dropped-prop reset uses a
-// prototype check so a custom setter overriding an inherited name gets
-// undefined. Ceiling is this measurement, with no extra slack.
-const TODAY_CONSUMER_GZIP = 4998;
+// The no-host ceiling is 5,040 B for cached built-in defaults that never
+// construct a custom element, removeAttribute for reflected props, and the
+// URL reset inside the same try/catch. The prototype check stays, so a
+// custom setter overriding an inherited name gets undefined.
+const TODAY_CONSUMER_GZIP = 5040;
 
 function consumerEntry() {
 	return `import { jsx, mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";
