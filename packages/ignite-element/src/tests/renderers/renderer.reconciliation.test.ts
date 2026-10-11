@@ -700,7 +700,7 @@ describe("subtree ownership", () => {
 });
 
 describe("deprecated content props", () => {
-	it("warns once in development that innerHTML and textContent are deprecated", () => {
+	it("warns that innerHTML is ignored and textContent is deprecated", () => {
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		const host = document.createElement("div");
 		let tree = mountIgniteJsx(host, jsx("div", { innerHTML: "<p>rich</p>" }));
@@ -712,7 +712,7 @@ describe("deprecated content props", () => {
 
 		expect(warn).toHaveBeenCalledTimes(1);
 		expect(warn).toHaveBeenCalledWith(
-			"[ignite-jsx] `innerHTML` is deprecated and will be removed in the next major release. Use JSX children for text, and hosts for trusted rich content.",
+			"[ignite-jsx] `innerHTML` is ignored and not applied. Use JSX children for text, and hosts for trusted rich content.",
 		);
 
 		warn.mockClear();

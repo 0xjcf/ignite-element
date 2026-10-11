@@ -45,7 +45,7 @@ const browserImportHelper = path.join(
 const DUPLICATE_KEY =
 	'[ignite-jsx] Duplicate key "dup" among siblings. Keys must be unique.';
 const INNER_HTML =
-	"[ignite-jsx] `innerHTML` is deprecated and will be removed in the next major release. Use JSX children for text, and hosts for trusted rich content.";
+	"[ignite-jsx] `innerHTML` is ignored and not applied. Use JSX children for text, and hosts for trusted rich content.";
 const TEXT_CONTENT =
 	"[ignite-jsx] `textContent` is deprecated and will be removed in the next major release. Use JSX children for text, and hosts for trusted rich content.";
 const WARNING_STRINGS = [
@@ -53,6 +53,7 @@ const WARNING_STRINGS = [
 	"Mixed keyed and unkeyed",
 	"requires a single element",
 	"is deprecated and will be removed",
+	"is ignored and not applied",
 	"URL scheme is not allowed",
 ];
 const EVENT_ORIGIN_WARNING = "observed from both native and effect";

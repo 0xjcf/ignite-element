@@ -2,12 +2,13 @@
  * Shared slot so the JSX bundle can ask for style injection without pulling
  * the stylesheet machinery into a no-host consumer. The full injector
  * installs itself when the renderer entry loads. Roots attached before that
- * install stay queued as [root, wasConnected] pairs. detach() drops the pair.
- * A root that was connected and later removed is not replayed. Roots that
+ * install stay queued as [root, wasConnected] pairs. detach() drops the pair
+ * and stamps the root so a pending flush will not replay it. A root that is
+ * only disconnected for a move stays pending until it reconnects. Roots that
  * were never connected still flush.
  */
 
-type StyleInject = (root: ShadowRoot) => void;
+type StyleInject = (root: ShadowRoot, connectedAtQueue?: boolean) => void;
 type StyleSlot = StyleInject | Array<ShadowRoot | boolean>;
 
 const STYLE_INJECT_SLOT = Symbol.for("ignite-element.style-inject");
@@ -30,6 +31,8 @@ export function injectStyles(root: ShadowRoot): void {
 }
 
 export function forgetQueuedStyles(root: ShadowRoot): void {
+	// The same symbol on the root, not on globalThis, means detach() ran.
+	(root as unknown as StyleInjectHost)[STYLE_INJECT_SLOT] = true as never;
 	const slot = (globalThis as StyleInjectHost)[STYLE_INJECT_SLOT];
 	if (!Array.isArray(slot)) return;
 	const index = slot.indexOf(root);
@@ -43,11 +46,8 @@ export function installStyleInject(inject: StyleInject): void {
 	if (!Array.isArray(queued)) return;
 	for (let index = 0; index < queued.length; index += 2) {
 		const root = queued[index];
-		if (
-			root instanceof ShadowRoot &&
-			(root.isConnected || !queued[index + 1])
-		) {
-			inject(root);
+		if (root instanceof ShadowRoot) {
+			inject(root, queued[index + 1] === true);
 		}
 	}
 }

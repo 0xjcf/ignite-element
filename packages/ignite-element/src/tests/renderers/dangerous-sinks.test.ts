@@ -64,10 +64,14 @@ describe("blocked markup sinks", () => {
 		expect(host.querySelector("p")).toBeNull();
 	});
 
-	it("still applies textContent", () => {
+	it("still applies textContent and warns that it is deprecated", () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		const { host } = mount(jsx("div", { textContent: "plain" }));
 
 		expect(host.querySelector("div")?.textContent).toBe("plain");
+		expect(warn).toHaveBeenCalledWith(
+			"[ignite-jsx] `textContent` is deprecated and will be removed in the next major release. Use JSX children for text, and hosts for trusted rich content.",
+		);
 	});
 
 	it("warns once in development for each blocked markup prop", () => {
@@ -81,14 +85,15 @@ describe("blocked markup sinks", () => {
 		);
 
 		expect(warn).toHaveBeenCalledWith(
-			"[ignite-jsx] `innerHTML` is deprecated and will be removed in the next major release. Use JSX children for text, and hosts for trusted rich content.",
+			"[ignite-jsx] `innerHTML` is ignored and not applied. Use JSX children for text, and hosts for trusted rich content.",
 		);
 		expect(warn).toHaveBeenCalledWith(
-			"[ignite-jsx] `outerHTML` is deprecated and will be removed in the next major release. Use JSX children for text, and hosts for trusted rich content.",
+			"[ignite-jsx] `outerHTML` is ignored and not applied. Use JSX children for text, and hosts for trusted rich content.",
 		);
 		expect(warn).toHaveBeenCalledWith(
-			"[ignite-jsx] `srcdoc` is deprecated and will be removed in the next major release. Use JSX children for text, and hosts for trusted rich content.",
+			"[ignite-jsx] `srcdoc` is ignored and not applied. Use JSX children for text, and hosts for trusted rich content.",
 		);
+		expect(warn.mock.calls.flat().join("\n")).not.toContain("deprecated");
 
 		warn.mockClear();
 		renderIgniteJsx(
@@ -223,7 +228,59 @@ describe("URL scheme guard", () => {
 		expect(anchor?.getAttribute("href")).toBeNull();
 		expect(anchor?.href ?? "").not.toContain("example.com/ok");
 		expect(anchor?.href ?? "").not.toContain("javascript:");
+		expect(anchor?.href ?? "").not.toContain("undefined");
 	});
+
+	it.each([
+		["iframe", "src", HTMLIFrameElement],
+		["object", "data", HTMLObjectElement],
+		["embed", "src", HTMLEmbedElement],
+	] as const)(
+		"clears a reflected %s %s through the attribute",
+		(tag, key, prototype) => {
+			const descriptor = Object.getOwnPropertyDescriptor(
+				prototype.prototype,
+				key,
+			);
+			const set = descriptor?.set;
+			const get = descriptor?.get;
+			if (!descriptor || !set || !get) {
+				throw new Error(`missing ${tag} ${key} setter`);
+			}
+			const assigned: unknown[] = [];
+			Object.defineProperty(prototype.prototype, key, {
+				configurable: true,
+				enumerable: descriptor.enumerable,
+				get,
+				set(value: unknown) {
+					assigned.push(value);
+					set.call(this, value);
+				},
+			});
+
+			try {
+				const host = document.createElement("div");
+				document.body.append(host);
+				const tree = mountIgniteJsx(
+					host,
+					jsx(tag, { [key]: "https://example.com/ok" }),
+				);
+				assigned.length = 0;
+				renderIgniteJsx(host, jsx(tag, { [key]: "javascript:alert(1)" }), tree);
+
+				const element = host.querySelector(tag);
+				const reflected = String(
+					(element as unknown as Record<string, unknown> | null)?.[key] ?? "",
+				);
+				expect(element?.getAttribute(key)).toBeNull();
+				expect(assigned).not.toContain(undefined);
+				expect(reflected).not.toContain("undefined");
+				expect(reflected).not.toContain("javascript:");
+			} finally {
+				Object.defineProperty(prototype.prototype, key, descriptor);
+			}
+		},
+	);
 
 	it("does not apply an executable data URL on object", () => {
 		const { host } = mount(
@@ -406,6 +463,25 @@ describe("URL scheme guard", () => {
 			}
 		},
 	);
+
+	it("does not set an xlink:onclick string", () => {
+		const { host } = mount(
+			jsx("svg", {
+				children: jsx("a", {
+					"xlink:onclick": "alert(1)",
+					"xlink:href": "https://example.com/ok",
+					children: "go",
+				}),
+			}),
+		);
+		const anchor = host.querySelector("a");
+
+		expect(anchor?.getAttribute("xlink:onclick")).toBeNull();
+		expect(anchor?.getAttribute("onclick")).toBeNull();
+		expect(anchor?.getAttribute("xlink:href")).toContain(
+			"https://example.com/ok",
+		);
+	});
 
 	it("still binds a function onClick without an onclick attribute", () => {
 		const onClick = vi.fn();

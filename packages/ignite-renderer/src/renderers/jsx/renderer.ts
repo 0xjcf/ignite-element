@@ -323,6 +323,14 @@ function warnDeprecatedContentProp(element: Element, key: string): void {
 	);
 }
 
+function warnBlockedMarkupProp(element: Element, key: string): void {
+	warnIgnoredProp(
+		element,
+		key,
+		`[ignite-jsx] \`${key}\` is ignored and not applied. Use JSX children for text, and hosts for trusted rich content.`,
+	);
+}
+
 function warnBlockedUrl(element: Element, key: string): void {
 	warnIgnoredProp(
 		element,
@@ -345,6 +353,11 @@ const dataDocumentTagPattern = /^(?:script|iframe|frame|object|embed)$/;
 function isEventHandlerKey(key: string): boolean {
 	const name = key.toLowerCase();
 	return name.length > 2 && name.startsWith("on");
+}
+
+function isIgnoredHandlerAttribute(key: string): boolean {
+	const name = key.toLowerCase();
+	return isEventHandlerKey(name) || name.startsWith("xlink:on");
 }
 
 function isBlockedUrlValue(
@@ -1022,14 +1035,17 @@ function patchProps(
 		if (key === "children" || key === "ref") continue;
 		if (isBlockedMarkupProp(key)) {
 			if (next !== undefined && next !== null && next !== false) {
-				warnDeprecatedContentProp(element, key);
+				warnBlockedMarkupProp(element, key);
 			}
 			continue;
 		}
-		if (isEventHandlerKey(key)) {
-			// A string `ONCLICK` would become an executable attribute. Functions
-			// still bind through addEventListener.
-			if (typeof next === "function" || typeof oldProps[key] === "function") {
+		if (isIgnoredHandlerAttribute(key)) {
+			// A string `ONCLICK` or `xlink:onclick` would become an executable
+			// attribute. Functions still bind through addEventListener.
+			if (
+				isEventHandlerKey(key) &&
+				(typeof next === "function" || typeof oldProps[key] === "function")
+			) {
 				patchEventListener(element, key, oldProps[key], next);
 			}
 			continue;
@@ -1186,14 +1202,21 @@ function removeProp(
 		return;
 	}
 
-	if (!isSvg && key in element && key !== "list") {
-		// Reset property to undefined to avoid stale values.
-		Reflect.set(element as HTMLElement, key, undefined);
-	}
-
 	const attrName = isSvg ? normalizeSvgAttributeName(key) : key;
 	if (element.hasAttribute(attrName)) {
 		element.removeAttribute(attrName);
+	}
+
+	// Reflected URL setters turn undefined into the relative URL "undefined".
+	// Attribute removal clears those. A non-reflected custom property stays
+	// equal to the previous value, and only that property is cleared.
+	if (
+		!isSvg &&
+		key in element &&
+		key !== "list" &&
+		(element as HTMLElement)[key as keyof HTMLElement] === prev
+	) {
+		Reflect.set(element as HTMLElement, key, undefined);
 	}
 }
 

@@ -214,6 +214,91 @@ describe("injectStyles", () => {
 		}
 	});
 
+	async function settleMutations(): Promise<void> {
+		await new Promise((resolve) => setTimeout(resolve, 0));
+	}
+
+	it("restyles a root flushed while it was moving between parents", async () => {
+		const element = document.createElement("div");
+		document.body.append(element);
+		const moved = element.attachShadow({ mode: "open" });
+		const nextParent = document.createElement("section");
+		document.body.append(nextParent);
+
+		try {
+			setGlobalStyles(undefined);
+			createIgniteJsxRenderStrategy().attach(moved);
+			element.remove();
+			expect(moved.isConnected).toBe(false);
+
+			setGlobalStyles("./moved.css");
+			flushPendingStyles();
+			expect(moved.querySelector("link")).toBeNull();
+
+			nextParent.append(element);
+			await settleMutations();
+
+			expect(moved.querySelector("link")?.href).toContain("moved.css");
+		} finally {
+			element.remove();
+			nextParent.remove();
+			setGlobalStyles(undefined);
+		}
+	});
+
+	it("restyles a root when the injector loads during a move", async () => {
+		const slotHost = globalThis as typeof globalThis & {
+			[STYLE_INJECT_SLOT]?: unknown;
+		};
+		const previous = slotHost[STYLE_INJECT_SLOT];
+		delete slotHost[STYLE_INJECT_SLOT];
+		const element = document.createElement("div");
+		document.body.append(element);
+		const moved = element.attachShadow({ mode: "open" });
+
+		try {
+			setGlobalStyles(undefined);
+			createIgniteJsxRenderStrategy().attach(moved);
+			element.remove();
+			setGlobalStyles("./moved.css");
+			installStyleInject(isStyleInject(previous) ? previous : injectStyles);
+			expect(moved.querySelector("link")).toBeNull();
+
+			document.body.append(element);
+			await settleMutations();
+
+			expect(moved.querySelector("link")?.href).toContain("moved.css");
+		} finally {
+			element.remove();
+			setGlobalStyles(undefined);
+			if (isStyleInject(previous)) installStyleInject(previous);
+		}
+	});
+
+	it("does not restyle a root after the JSX strategy detaches", async () => {
+		const element = document.createElement("div");
+		document.body.append(element);
+		const dropped = element.attachShadow({ mode: "open" });
+
+		try {
+			setGlobalStyles(undefined);
+			const strategy = createIgniteJsxRenderStrategy();
+			strategy.attach(dropped);
+			element.remove();
+			setGlobalStyles("./detached.css");
+			flushPendingStyles();
+			strategy.detach();
+
+			document.body.append(element);
+			await settleMutations();
+
+			expect(dropped.querySelector("link")).toBeNull();
+		} finally {
+			element.remove();
+			setGlobalStyles(undefined);
+		}
+	});
+
 	it("does not flush styles into a connected root that was removed later", () => {
 		const removedElement = document.createElement("div");
 		const keptElement = document.createElement("div");
