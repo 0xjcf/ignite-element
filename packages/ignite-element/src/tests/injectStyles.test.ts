@@ -151,9 +151,14 @@ describe("injectStyles", () => {
 	});
 
 	it("collects a detached host when WeakRef was missing at injector load", async () => {
+		// ES2020 has no WeakRef lib name. The probe is the runtime constructor.
+		type HostProbe = { deref(): HTMLElement | undefined };
+		type HostProbeConstructor = new <T extends object>(
+			value: T,
+		) => { deref(): T | undefined };
 		const globals = globalThis as typeof globalThis & {
 			gc?: () => void;
-			WeakRef?: typeof WeakRef;
+			WeakRef?: HostProbeConstructor;
 		};
 		const collect = globals.gc;
 		expect(typeof collect).toBe("function");
@@ -166,14 +171,16 @@ describe("injectStyles", () => {
 		vi.resetModules();
 
 		let freshForget: ((shadowRoot: ShadowRoot) => void) | undefined;
-		let leakedProbe: WeakRef<HTMLElement> | undefined;
-		let probe: WeakRef<HTMLElement> | undefined;
+		let leakedProbe: HostProbe | undefined;
+		let probe: HostProbe | undefined;
 
 		try {
 			const fresh = await import("../../../ignite-renderer/src/injectStyles");
 			const styleHook = await import("../../../ignite-renderer/src/styleHook");
 			freshForget = styleHook.forgetQueuedStyles;
 			globals.WeakRef = PreviousWeakRef;
+			const Probe = globals.WeakRef;
+			if (!Probe) throw new Error("WeakRef missing");
 
 			// Locals die with these functions so gc() can see the module ref.
 			leakedProbe = (() => {
@@ -182,7 +189,7 @@ describe("injectStyles", () => {
 				const leakedRoot = leakedHost.attachShadow({ mode: "open" });
 				fresh.default(leakedRoot);
 				leakedHost.remove();
-				return new WeakRef(leakedHost);
+				return new Probe(leakedHost);
 			})();
 			probe = (() => {
 				const host = document.createElement("div");
@@ -191,14 +198,14 @@ describe("injectStyles", () => {
 				fresh.default(root);
 				freshForget?.(root);
 				host.remove();
-				return new WeakRef(host);
+				return new Probe(host);
 			})();
 			const parkedProbe = (() => {
 				const host = document.createElement("div");
 				const root = host.attachShadow({ mode: "open" });
 				fresh.default(root, true);
 				freshForget?.(root);
-				return new WeakRef(host);
+				return new Probe(host);
 			})();
 			await new Promise((resolve) => setTimeout(resolve, 0));
 			collect?.();
