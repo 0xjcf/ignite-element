@@ -155,12 +155,12 @@ describe("app-owned command approvals", () => {
 			{ a: 1 },
 			{
 				get(target, key, receiver) {
-					reads += 1;
-					return Reflect.get(target, key, receiver);
+					if (key === "a") reads += 1;
+					return key === "a" ? 99 : Reflect.get(target, key, receiver);
 				},
 			},
 		);
-		expect(canonicalCall("n", proxy)).not.toBe(canonicalCall("n", { a: 1 }));
+		expect(canonicalCall("n", proxy)).toBe(canonicalCall("n", { a: 1 }));
 		expect(reads).toBe(0);
 		const cycle: { a?: unknown } = {};
 		cycle.a = cycle;

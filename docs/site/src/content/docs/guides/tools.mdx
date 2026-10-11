@@ -198,28 +198,13 @@ The mark is not a side-effect-free read. The command stays denied unless `canExe
 
 Ignite does not validate or consume the approval. `canExecute` is application preflight, not authentication. A caller can fabricate a structurally valid record, so the library cannot prove a person approved the call.
 
-Keep the single-use record in the application. Compare the canonical call, the command name plus the validated snapshot, with the granted call. The snapshot is plain JSON: finite numbers (`-0` is `0`), strings, booleans, null, arrays, and plain objects. `Date`, `Map`, `Set`, bigint, symbols, functions, accessors, and proxies are not that snapshot. Compare `granted.actor` with the live session actor. Track consumption by approval id and keep a spent id tombstoned so pruning cannot grant it again. `run` calls `canExecute` once and sets `context.execute` only on that call, after observation setup succeeds and immediately before `execute`. `resolveCall` does not set it. Listing calls `canExecute(name)` with no context. A schema default is checked before it is routed. A plain object from another JavaScript realm is accepted. Deny every command that is not explicitly allowed.
+Keep the single-use record in the application. Compare the canonical call, the command name plus the validated snapshot, with the granted call. The library reads the call once into a plain-JSON snapshot and validates that copy. Finite numbers (`-0` is `0`), strings, booleans, null, arrays, and plain objects are copied. A proxy is not forwarded live, and the library does not detect proxies with a Node-only check. `Date`, `Map`, `Set`, bigint, symbols, functions, and accessors are not that snapshot. Compare `granted.actor` with the live session actor. Track consumption by approval id and keep a spent id tombstoned so pruning cannot grant it again. `run` calls `canExecute` once and sets `context.execute` only on that call, after observation setup succeeds and immediately before `execute`. `resolveCall` does not set it. Listing calls `canExecute(name)` with no context. A schema default is checked before it is routed. A plain object from another JavaScript realm is accepted. Deny every command that is not explicitly allowed.
 
 ```ts
 const session = { actor: 'ada' };
 const spent = new Set<string>();
-function isSnapshotProxy(value: object): boolean {
-  try {
-    const host: {
-      process?: {
-        getBuiltinModule?: (name: string) => {
-          types?: { isProxy?: (candidate: object) => boolean };
-        };
-      };
-    } = globalThis;
-    return host.process?.getBuiltinModule?.('node:util')?.types?.isProxy?.(value) === true;
-  } catch {
-    return false;
-  }
-}
 function plainSnapshotShape(value: object): boolean {
   try {
-    if (isSnapshotProxy(value)) return false;
     const brand = Object.prototype.toString.call(value);
     const prototype = Object.getPrototypeOf(value);
     if (brand === '[object Array]') {
@@ -251,7 +236,6 @@ function canonicalValue(value: unknown, depth = 0, seen?: WeakSet<object>): stri
     if (typeof value === 'bigint') return `bigint:${value.toString()}`;
     if (typeof value === 'symbol') return `symbol:${String(value)}`;
     if (typeof value !== 'object') return `invalid:${typeof value}`;
-    if (isSnapshotProxy(value)) return 'invalid:proxy';
     const brand = Object.prototype.toString.call(value);
     if (!plainSnapshotShape(value)) return `invalid:${brand}`;
     const active = seen ?? new WeakSet<object>();

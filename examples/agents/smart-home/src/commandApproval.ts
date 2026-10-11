@@ -16,26 +16,8 @@ export type AppCommandApproval = {
 
 const MAX_CANONICAL_DEPTH = 32;
 
-function isNodeProxy(value: object): boolean {
-	try {
-		const builtin = (
-			globalThis as {
-				process?: {
-					getBuiltinModule?: (name: string) => {
-						types?: { isProxy?: (candidate: object) => boolean };
-					};
-				};
-			}
-		).process?.getBuiltinModule?.("node:util");
-		return builtin?.types?.isProxy?.(value) === true;
-	} catch {
-		return false;
-	}
-}
-
 function plainShape(value: object): boolean {
 	try {
-		if (isNodeProxy(value)) return false;
 		const brand = Object.prototype.toString.call(value);
 		const prototype = Object.getPrototypeOf(value);
 		if (brand === "[object Array]") {
@@ -76,7 +58,6 @@ function stable(value: unknown, depth = 0, seen?: WeakSet<object>): string {
 		if (typeof value === "bigint") return `bigint:${value.toString()}`;
 		if (typeof value === "symbol") return `symbol:${String(value)}`;
 		if (typeof value !== "object") return `invalid:${typeof value}`;
-		if (isNodeProxy(value)) return "invalid:proxy";
 		const brand = Object.prototype.toString.call(value);
 		if (!plainShape(value)) return `invalid:${brand}`;
 		const active = seen ?? new WeakSet<object>();
