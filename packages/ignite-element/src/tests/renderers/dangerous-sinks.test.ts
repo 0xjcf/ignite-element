@@ -456,14 +456,14 @@ describe("URL scheme guard", () => {
 		const tag = "x-count-coerced";
 		if (!customElements.get(tag)) {
 			class CountElement extends HTMLElement {
-				#count = 0;
+				#count: number | null = null;
 				get count() {
 					return this.#count;
 				}
 				set count(value: unknown) {
-					// undefined must not reach Number. Number(undefined) is NaN.
-					if (value == null || value === "") {
-						this.#count = 0;
+					// null and undefined are empty. Number(undefined) is NaN.
+					if (value == null) {
+						this.#count = null;
 						return;
 					}
 					this.#count = Number(value);
@@ -472,16 +472,20 @@ describe("URL scheme guard", () => {
 			customElements.define(tag, CountElement);
 		}
 
-		const { host, tree } = mount(jsx(tag, { count: "1" }));
-		const element = host.querySelector(tag) as HTMLElement & { count: number };
-		expect(element.count).toBe(1);
+		for (const count of ["1", true, "0"] as const) {
+			const { host, tree } = mount(jsx(tag, { count }));
+			const element = host.querySelector(tag) as HTMLElement & {
+				count: number | null;
+			};
+			expect(element.count).toBe(count === "0" ? 0 : 1);
 
-		renderIgniteJsx(host, jsx(tag, {}), tree);
+			renderIgniteJsx(host, jsx(tag, {}), tree);
 
-		expect(element.count).toBe(0);
+			expect(element.count).toBeNull();
+		}
 	});
 
-	it("does not assign undefined when a custom element id is removed", () => {
+	it("assigns undefined when a custom element drops a reflected property", () => {
 		const tag = "x-id-reflected";
 		if (!customElements.get(tag)) {
 			customElements.define(tag, class extends HTMLElement {});
@@ -497,10 +501,12 @@ describe("URL scheme guard", () => {
 
 		renderIgniteJsx(host, jsx(tag, {}), tree);
 
-		expect(element.id).toBe("");
-		expect(element.title).toBe("");
+		// The inherited IDL setter stringifies undefined. className returns
+		// before that assignment and stays on attribute removal.
+		expect(element.id).toBe("undefined");
+		expect(element.title).toBe("undefined");
 		expect(element.className).toBe("");
-		expect(element.getAttribute("id")).toBeNull();
+		expect(element.getAttribute("id")).toBe("undefined");
 	});
 
 	it("clears a custom string setter that trimmed the value", () => {
@@ -1066,8 +1072,42 @@ describe("URL scheme guard", () => {
 	});
 
 	it("still applies a content-type http-equiv", () => {
+		for (const httpEquiv of ["content-type", "Content-Type", "default-style"]) {
+			const { host } = mount(jsx("meta", { httpEquiv, content: "text/html" }));
+			const meta = host.querySelector("meta");
+
+			expect(meta?.getAttribute("http-equiv")).toBe(httpEquiv);
+			expect(meta?.getAttribute("content")).toBe("text/html");
+		}
+	});
+
+	it("treats a spaced or NUL meta key as http-equiv", () => {
+		const keys = [
+			"http-equiv ",
+			"http-equiv\0",
+			" http-equiv",
+			"{http://www.w3.org/1999/xhtml}http-equiv",
+		];
+		for (const key of keys) {
+			const { host } = mount(
+				jsx("meta", {
+					[key]: "refresh",
+					content: "0;url=https://example.com/next",
+				}),
+			);
+			const meta = host.querySelector("meta");
+
+			expect(meta?.getAttribute("http-equiv")).toBeNull();
+			expect(meta?.httpEquiv ?? "").not.toMatch(/refresh/i);
+		}
+	});
+
+	it("applies content-type when the meta key has a trailing space", () => {
 		const { host } = mount(
-			jsx("meta", { httpEquiv: "content-type", content: "text/html" }),
+			jsx("meta", {
+				"http-equiv ": "content-type",
+				content: "text/html",
+			}),
 		);
 		const meta = host.querySelector("meta");
 

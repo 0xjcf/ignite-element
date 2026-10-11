@@ -366,6 +366,16 @@ function strippedUri(value: string): string {
 	return value.replace(uriSpacePattern, "").toLowerCase();
 }
 
+// Meta refresh keys use the same normalization as a SMIL attributeName:
+// lowercase, strip ASCII space and controls, then the local part after the
+// last ":" or "}". The DOM name is http-equiv, so setAttribute never sees
+// the space or NUL that would throw InvalidCharacterError.
+function metaRefreshKey(element: Element, key: string): boolean {
+	if (element.localName.toLowerCase() !== "meta") return false;
+	const name = strippedUri(key).split(/[:}]/).pop();
+	return name === "http-equiv" || name === "httpequiv";
+}
+
 function smilHrefTarget(value: unknown): boolean {
 	// A non-string name is treated as href so from/to/by/values cannot stay
 	// on a bare animate. Absent and null names are not href targets.
@@ -396,8 +406,7 @@ function isBlockedUrlValue(
 	) {
 		return true;
 	}
-	const metaEquiv =
-		tag === "meta" && (name === "http-equiv" || name === "httpequiv");
+	const metaEquiv = metaRefreshKey(element, key);
 	const guarded =
 		name === "attributename" ||
 		name === "codebase" ||
@@ -1135,7 +1144,11 @@ function patchProps(
 			continue;
 		}
 
-		const attrName = isSvgElement ? normalizeSvgAttributeName(key) : key;
+		const attrName = metaRefreshKey(element, key)
+			? "http-equiv"
+			: isSvgElement
+				? normalizeSvgAttributeName(key)
+				: key;
 		const nextString = String(next);
 		if (element.getAttribute(attrName) !== nextString) {
 			element.setAttribute(attrName, nextString);
@@ -1234,7 +1247,11 @@ function removeProp(
 		return;
 	}
 
-	const attrName = isSvg ? normalizeSvgAttributeName(key) : key;
+	const attrName = metaRefreshKey(element, key)
+		? "http-equiv"
+		: isSvg
+			? normalizeSvgAttributeName(key)
+			: key;
 	if (element.hasAttribute(attrName)) {
 		element.removeAttribute(attrName);
 	}
@@ -1259,15 +1276,19 @@ function removeProp(
 		}
 		return;
 	}
+	// A custom setter may store 0, false, or another coerced value. Assign
+	// undefined whenever the prop is dropped. Native elements do not.
+	if (custom) {
+		Reflect.set(el, key, undefined);
+		return;
+	}
 	if (name === "value" || typeof current === "boolean") {
 		Reflect.set(el, key, name === "value" ? "" : false);
 		return;
 	}
 	// Reflected properties such as id become "" when the attribute is
-	// removed. undefined would stringify. A coerced custom value does not.
-	if (current === prev || (custom && current)) {
-		Reflect.set(el, key, undefined);
-	}
+	// removed. undefined would stringify.
+	if (current === prev) Reflect.set(el, key, undefined);
 }
 
 function applyProperty(
