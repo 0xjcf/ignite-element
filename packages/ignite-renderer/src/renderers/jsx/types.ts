@@ -10,11 +10,6 @@ export type IgniteJsxComponent = (props: IgniteJsxProps) => IgniteJsxChild;
 export interface IgniteJsxProps {
 	[key: string]: unknown;
 	children?: IgniteJsxChild;
-	innerHTML?: never;
-	outerHTML?: never;
-	innerText?: never;
-	outerText?: never;
-	textContent?: never;
 }
 
 export interface IgniteJsxElement {

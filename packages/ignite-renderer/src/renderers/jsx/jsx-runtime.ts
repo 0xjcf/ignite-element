@@ -14,14 +14,21 @@ type UnsupportedContentProps = {
 	textContent?: never;
 };
 
-type BanContentProps<Props> = Props extends null | undefined
+type BanContentProps<Type, Props> = Props extends null | undefined
 	? Props
-	: Props & UnsupportedContentProps;
+	: [Type] extends [string]
+		? Props & UnsupportedContentProps
+		: Props;
 
 type ElementType = IgniteJsxElement["type"];
 
+// `props: never` accepts every function component. Parameter positions are
+// checked contravariantly, and `never` is assignable to each props type.
+type JsxCallable = (props: never) => IgniteJsxChild;
+type JsxType = string | typeof Fragment | JsxCallable;
+
 function createElement(
-	type: ElementType,
+	type: JsxType,
 	rawProps: IgniteJsxProps | null | undefined,
 	key: string | number | null | undefined,
 ): IgniteJsxElement {
@@ -30,7 +37,7 @@ function createElement(
 	props.children = children;
 
 	return {
-		type,
+		type: type as ElementType,
 		props,
 		key: key ?? null,
 	};
@@ -39,9 +46,12 @@ function createElement(
 type JsxResult<Props> = IgniteJsxElement &
 	(Props extends object ? { readonly props: Props } : Record<never, never>);
 
-export function jsx<const Props extends object | null | undefined>(
-	type: ElementType,
-	props: BanContentProps<Props>,
+export function jsx<
+	const Type extends JsxType,
+	const Props extends object | null | undefined,
+>(
+	type: Type,
+	props: BanContentProps<Type, Props>,
 	key?: string | number | null,
 ): JsxResult<Props> {
 	return createElement(
@@ -51,9 +61,12 @@ export function jsx<const Props extends object | null | undefined>(
 	) as JsxResult<Props>;
 }
 
-export function jsxs<const Props extends object | null | undefined>(
-	type: ElementType,
-	props: BanContentProps<Props>,
+export function jsxs<
+	const Type extends JsxType,
+	const Props extends object | null | undefined,
+>(
+	type: Type,
+	props: BanContentProps<Type, Props>,
 	key?: string | number | null,
 ): JsxResult<Props> {
 	return createElement(
@@ -63,9 +76,12 @@ export function jsxs<const Props extends object | null | undefined>(
 	) as JsxResult<Props>;
 }
 
-export function jsxDEV(
-	type: ElementType,
-	props: (IgniteJsxProps & UnsupportedContentProps) | null | undefined,
+export function jsxDEV<
+	const Type extends JsxType,
+	const Props extends object | null | undefined,
+>(
+	type: Type,
+	props: BanContentProps<Type, Props>,
 	key?: string | number | null,
 	isStaticChildren?: boolean,
 	source?: unknown,
@@ -74,7 +90,7 @@ export function jsxDEV(
 	void isStaticChildren;
 	void source;
 	void self;
-	return createElement(type, props, key);
+	return createElement(type, props as IgniteJsxProps | null | undefined, key);
 }
 
 export type { JSX } from "./types";

@@ -317,9 +317,9 @@
 		"prepare": "husky"
 	},
 	"dependencies": {
+		"@ignite-element/adapters": "workspace:*",
 		"@ignite-element/core": "workspace:*",
-		"@ignite-element/renderer": "workspace:*",
-		"@ignite-element/adapters": "workspace:*"
+		"@ignite-element/renderer": "workspace:*"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.3.1",

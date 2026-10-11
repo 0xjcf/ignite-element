@@ -437,6 +437,41 @@ describe("URL scheme guard", () => {
 		expect(input?.value).toBe("");
 	});
 
+	it("restores a dropped checked from defaultChecked and keeps the attribute", () => {
+		for (const type of ["checkbox", "radio"] as const) {
+			const { host, tree } = mount(
+				jsx("input", { type, defaultChecked: true, checked: true }),
+			);
+			const input = host.querySelector("input") as HTMLInputElement;
+			expect(input.checked).toBe(true);
+			expect(input.defaultChecked).toBe(true);
+			expect(input.hasAttribute("checked")).toBe(true);
+
+			input.checked = false;
+			expect(input.checked).toBe(false);
+			expect(input.defaultChecked).toBe(true);
+
+			renderIgniteJsx(host, jsx("input", { type, defaultChecked: true }), tree);
+
+			expect(input.checked).toBe(true);
+			expect(input.defaultChecked).toBe(true);
+			expect(input.hasAttribute("checked")).toBe(true);
+		}
+	});
+
+	it("restores a dropped value from the defaultValue applied in the same render", () => {
+		const { host, tree } = mount(
+			jsx("input", { defaultValue: "foo", value: "bar" }),
+		);
+		const input = host.querySelector("input") as HTMLInputElement;
+
+		renderIgniteJsx(host, jsx("input", { defaultValue: "baz" }), tree);
+
+		expect(input.value).toBe("baz");
+		expect(input.defaultValue).toBe("baz");
+		expect(input.getAttribute("value")).toBe("baz");
+	});
+
 	it("resets a dropped value to the rendered defaultValue", () => {
 		const { host, tree } = mount(
 			jsx("input", { defaultValue: "foo", value: "bar" }),
@@ -490,6 +525,70 @@ describe("URL scheme guard", () => {
 
 		expect(select.value).toBe("b");
 		expect(selected?.hasAttribute("selected")).toBe(true);
+	});
+
+	it("restores every default selection when a multiple select drops value", () => {
+		const options = () => [
+			jsx("option", { value: "a", defaultSelected: true, children: "A" }),
+			jsx("option", { value: "b", defaultSelected: true, children: "B" }),
+			jsx("option", { value: "c", children: "C" }),
+		];
+		const { host, tree } = mount(
+			jsx("select", { multiple: true, children: options() }),
+		);
+		const select = host.querySelector("select") as HTMLSelectElement;
+		expect(
+			Array.from(select.selectedOptions).map((option) => option.value),
+		).toEqual(["a", "b"]);
+
+		const chosen = renderIgniteJsx(
+			host,
+			jsx("select", { multiple: true, value: "c", children: options() }),
+			tree,
+		);
+		expect(
+			Array.from(select.selectedOptions).map((option) => option.value),
+		).toEqual(["c"]);
+
+		renderIgniteJsx(
+			host,
+			jsx("select", { multiple: true, children: options() }),
+			chosen,
+		);
+		expect(
+			Array.from(select.selectedOptions).map((option) => option.value),
+		).toEqual(["a", "b"]);
+	});
+
+	it("leaves option nodes untouched when length is dropped", () => {
+		let mounts = 0;
+		let unmounts = 0;
+		const ref = () => {
+			mounts += 1;
+			return () => {
+				unmounts += 1;
+			};
+		};
+		const options = () => [
+			jsx("option", { ref, value: "a", children: "A" }),
+			jsx("option", { ref, value: "b", children: "B" }),
+		];
+		const { host, tree } = mount(
+			jsx("select", { length: 0, children: options() }),
+		);
+		const select = host.querySelector("select") as HTMLSelectElement;
+		const first = select.options.item(0);
+		const second = select.options.item(1);
+		expect(select.options).toHaveLength(2);
+		expect(mounts).toBe(2);
+
+		renderIgniteJsx(host, jsx("select", { children: options() }), tree);
+
+		expect(select.options).toHaveLength(2);
+		expect(select.options.item(0)).toBe(first);
+		expect(select.options.item(1)).toBe(second);
+		expect(mounts).toBe(2);
+		expect(unmounts).toBe(0);
 	});
 
 	it("mounts a child once when a content prop is dropped", () => {

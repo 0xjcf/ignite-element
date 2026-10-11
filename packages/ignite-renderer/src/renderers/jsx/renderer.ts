@@ -340,7 +340,10 @@ function isBlockedMarkupProp(key: string): boolean {
 		normalized === "innertext" ||
 		normalized === "outertext" ||
 		normalized === "textcontent" ||
-		normalized === "srcdoc"
+		normalized === "srcdoc" ||
+		normalized === "length" ||
+		normalized === "options" ||
+		normalized === "selectedoptions"
 	);
 }
 
@@ -1037,15 +1040,6 @@ function patchProps(
 ) {
 	const isSvgElement = element instanceof SVGElement;
 
-	for (const key of Object.keys(oldProps)) {
-		if (hostRuntimeEnabled && key === "use") continue;
-		if (key === "children" || key === "ref" || isBlockedMarkupProp(key))
-			continue;
-		if (!(key in newProps)) {
-			removeProp(element, key, oldProps[key], isSvgElement);
-		}
-	}
-
 	for (const [key, next] of Object.entries(newProps)) {
 		if (hostRuntimeEnabled && key === "use") continue;
 		if (key === "children" || key === "ref") continue;
@@ -1070,7 +1064,7 @@ function patchProps(
 			warnBlockedUrl(element, key);
 			// removeProp clears a non-reflected property and the attribute.
 			// Attribute removal alone leaves a stale custom-element URL.
-			removeProp(element, key, oldProps[key], isSvgElement);
+			removeProp(element, key, oldProps[key], isSvgElement, newProps);
 			continue;
 		}
 		const prev = oldProps[key];
@@ -1096,7 +1090,7 @@ function patchProps(
 		}
 
 		if (next === false || next === null || next === undefined) {
-			removeProp(element, key, prev, isSvgElement);
+			removeProp(element, key, prev, isSvgElement, newProps);
 			continue;
 		}
 
@@ -1113,6 +1107,17 @@ function patchProps(
 		const nextString = String(next);
 		if (element.getAttribute(attrName) !== nextString) {
 			element.setAttribute(attrName, nextString);
+		}
+	}
+
+	// Resets read the props applied above, so a dropped value sees the new
+	// defaultValue rather than the one from the previous render.
+	for (const key of Object.keys(oldProps)) {
+		if (hostRuntimeEnabled && key === "use") continue;
+		if (key === "children" || key === "ref" || isBlockedMarkupProp(key))
+			continue;
+		if (!(key in newProps)) {
+			removeProp(element, key, oldProps[key], isSvgElement, newProps);
 		}
 	}
 }
@@ -1231,14 +1236,49 @@ function droppedPropKind(
 	return 0;
 }
 
+function propAttributeName(
+	element: Element,
+	key: string,
+	isSvg: boolean,
+): string {
+	if (key === "class" || key === "className") return "class";
+	return metaRefreshKey(element, key)
+		? "http-equiv"
+		: isSvg
+			? normalizeSvgAttributeName(key)
+			: key;
+}
+
+function attributeKeptBySibling(
+	element: Element,
+	newProps: IgniteJsxProps,
+	key: string,
+	isSvg: boolean,
+): boolean {
+	const attrName = propAttributeName(element, key, isSvg);
+	for (const nextKey of Object.keys(newProps)) {
+		if (nextKey === key || nextKey === "children" || nextKey === "ref") {
+			continue;
+		}
+		if (isBlockedMarkupProp(nextKey)) continue;
+		const next = newProps[nextKey];
+		if (next === false || next == null) continue;
+		if (propAttributeName(element, nextKey, isSvg) === attrName) return true;
+	}
+	return false;
+}
+
 function removeProp(
 	element: Element,
 	key: string,
 	prev: unknown,
 	isSvg: boolean,
+	newProps: IgniteJsxProps,
 ): void {
 	if (key === "class" || key === "className") {
-		element.removeAttribute("class");
+		if (!attributeKeptBySibling(element, newProps, key, isSvg)) {
+			element.removeAttribute("class");
+		}
 		return;
 	}
 
@@ -1265,6 +1305,15 @@ function removeProp(
 		const control = element as HTMLInputElement;
 		if (control.localName === "input" && control.type === "file") return;
 		try {
+			const select = control as unknown as HTMLSelectElement;
+			if (control.localName === "select" && select.multiple) {
+				const options = select.options;
+				for (let index = 0; index < options.length; index++) {
+					const option = options.item(index);
+					if (option) option.selected = option.defaultSelected;
+				}
+				return;
+			}
 			const next = restoredControlValue(control);
 			if (control.value !== next) control.value = next;
 		} catch {
@@ -1273,13 +1322,27 @@ function removeProp(
 		return;
 	}
 
-	const attrName = metaRefreshKey(element, key)
-		? "http-equiv"
-		: isSvg
-			? normalizeSvgAttributeName(key)
-			: key;
+	// defaultChecked owns the checked attribute. Restore the live state from
+	// it and leave that attribute in place.
+	if (!isSvg && key === "checked" && element.localName === "input") {
+		const input = element as HTMLInputElement;
+		if (input.type === "checkbox" || input.type === "radio") {
+			try {
+				if (input.checked !== input.defaultChecked) {
+					input.checked = input.defaultChecked;
+				}
+			} catch {
+				// A throwing checked setter stops here.
+			}
+			return;
+		}
+	}
+
+	const attrName = propAttributeName(element, key, isSvg);
 	const hadAttribute = element.hasAttribute(attrName);
-	if (hadAttribute) element.removeAttribute(attrName);
+	if (hadAttribute && !attributeKeptBySibling(element, newProps, key, isSvg)) {
+		element.removeAttribute(attrName);
+	}
 
 	if (isSvg || !(key in element) || key === "list") return;
 	const el = element as HTMLElement;
