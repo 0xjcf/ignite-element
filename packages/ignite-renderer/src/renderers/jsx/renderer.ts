@@ -1203,37 +1203,22 @@ function restoredControlValue(element: HTMLElement): string {
 	return (element as HTMLInputElement).defaultValue;
 }
 
-const builtinDefaults: Record<string, HTMLElement> = {};
-
-function builtinDefault(tag: string): HTMLElement {
-	if (!builtinDefaults[tag]) {
-		builtinDefaults[tag] = document.createElement(tag);
-	}
-	return builtinDefaults[tag];
-}
-
-// 0 skip, 1 assign undefined to a custom element's own setter, 2 native reset.
-// Own means the descriptor sits on the instance or a prototype before
-// HTMLElement. Inherited IDL properties stay on the native reset. An own
-// setter that overrides an inherited name, such as id, is still own.
-function droppedPropKind(
-	element: HTMLElement,
-	key: string,
-	custom: boolean,
-): number {
-	let passedHtml = false;
+// Own means a writable field or setter on the instance or a prototype before
+// HTMLElement. Inherited IDL, including a media element's volume, is not own.
+// The walk stops at HTMLElement so an override of an inherited name such as
+// id still counts. There is no cached built-in element.
+function hasOwnCustomSetter(element: HTMLElement, key: string): boolean {
+	if (!element.localName.includes("-")) return false;
 	for (
-		let proto: object | null = element;
-		proto;
-		proto = Object.getPrototypeOf(proto)
+		let current: object | null = element;
+		current && current !== HTMLElement.prototype;
+		current = Object.getPrototypeOf(current)
 	) {
-		if (proto === HTMLElement.prototype) passedHtml = true;
-		const desc = Object.getOwnPropertyDescriptor(proto, key);
+		const desc = Object.getOwnPropertyDescriptor(current, key);
 		if (!desc) continue;
-		if (!(desc.set || desc.writable)) return 0;
-		return custom && !passedHtml ? 1 : 2;
+		return Boolean(desc.set || desc.writable);
 	}
-	return 0;
+	return false;
 }
 
 function propAttributeName(
@@ -1283,7 +1268,7 @@ function removeProp(
 	}
 
 	if (key === "style") {
-		(element as HTMLElement).style.cssText = "";
+		element.removeAttribute("style");
 		return;
 	}
 
@@ -1338,51 +1323,57 @@ function removeProp(
 		}
 	}
 
-	const attrName = propAttributeName(element, key, isSvg);
-	const hadAttribute = element.hasAttribute(attrName);
-	if (hadAttribute && !attributeKeptBySibling(element, newProps, key, isSvg)) {
-		element.removeAttribute(attrName);
+	// defaultSelected owns the selected attribute. Restore the live state
+	// from it and leave that attribute in place.
+	if (!isSvg && key === "selected" && element.localName === "option") {
+		const option = element as HTMLOptionElement;
+		try {
+			if (option.selected !== option.defaultSelected) {
+				option.selected = option.defaultSelected;
+			}
+		} catch {
+			// A throwing selected setter stops here.
+		}
+		return;
 	}
 
-	if (isSvg || !(key in element) || key === "list") return;
-	const el = element as HTMLElement;
-	const current = el[key as keyof HTMLElement];
-	const name = key.toLowerCase();
-	const custom = el.localName.includes("-");
-	// One try covers the URL reset and every other drop.
-	try {
-		if (
-			uriBearingKeyPattern.test(name) ||
-			(name === "data" && el.localName === "object") ||
-			(custom && name === "codebase")
-		) {
-			if (current === prev || custom) {
+	if (key === "scrollTop" || key === "scrollLeft") {
+		const scrolling = element as HTMLElement;
+		try {
+			if (scrolling[key] !== 0) scrolling[key] = 0;
+		} catch {
+			// A throwing scroll setter stops here.
+		}
+		return;
+	}
+
+	const attrName = propAttributeName(element, key, isSvg);
+	const hadAttribute = element.hasAttribute(attrName);
+	const keepAttribute = attributeKeptBySibling(element, newProps, key, isSvg);
+	if (!isSvg && key in element && key !== "list") {
+		const el = element as HTMLElement;
+		if (hasOwnCustomSetter(el, key)) {
+			try {
 				Reflect.set(el, key, undefined);
+			} catch {
+				// A throwing custom setter stops here.
 			}
 			return;
 		}
-		const kind = droppedPropKind(el, key, custom);
-		if (kind === 1) {
-			Reflect.set(el, key, undefined);
+		const current = el[key as keyof HTMLElement];
+		if (typeof current === "boolean") {
+			try {
+				if (current) Reflect.set(el, key, false);
+			} catch {
+				// A throwing boolean setter stops here.
+			}
+			if (!keepAttribute) element.removeAttribute(attrName);
 			return;
 		}
-		if (kind !== 2) return;
-		if (
-			key === "value" &&
-			el.localName === "input" &&
-			(el as HTMLInputElement).type === "file"
-		) {
-			return;
-		}
-		if (hadAttribute && typeof current !== "boolean") return;
-		const fallback = builtinDefault(custom ? "div" : el.localName)[
-			key as keyof HTMLElement
-		];
-		if (current !== fallback || typeof fallback === "boolean") {
-			Reflect.set(el, key, fallback);
-		}
-	} catch {
-		// currentTime, a file value, and a throwing URL setter stop here.
+	}
+
+	if (hadAttribute && !keepAttribute) {
+		element.removeAttribute(attrName);
 	}
 }
 
