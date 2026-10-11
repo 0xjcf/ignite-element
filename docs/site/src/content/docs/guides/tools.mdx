@@ -42,6 +42,7 @@ export const toolSchema = defineToolSchema({
     description: 'Set the counter limit.',
     input: { type: 'number', minimum: 3, maximum: 12 },
     gated: true,
+    consequential: true,
   },
   increment: {
     description: 'Add one to the count.',
@@ -79,9 +80,15 @@ export const tools = igniteTools({
 });
 ```
 
-`canExecute?: (name: string) => boolean` is one predicate for every `gated: true` command.
+`canExecute?: (name, input?, context?) => boolean` is the explicit allow for commands.
 
-Omit it and gated tools stay available.
+Listing calls it with the name. A call also passes one immutable snapshot of the validated input and `{ core }`. `run` passes that same snapshot to `execute`. `run` sets `context.execute` only after observation setup succeeds, immediately before `execute`. `resolveCall` does not set it.
+
+Omit it and commands are denied. An ungated `read: true` tool still runs only when that command is side-effect-free, and `run` still calls `core.execute`. Do not mark a command `read` if executing it changes source state. `observe` and `until` do not execute commands.
+
+Return true only for a command this application allows. Any other result, including a throw or a promise, denies the call. `canExecute: () => true` allows every command in that schema. That is a choice, not the default.
+
+`gated: true` still rechecks the predicate when availability changes. A gated read follows the same predicate.
 
 `canExecute` is availability preflight; source guards still enforce.
 
@@ -122,6 +129,8 @@ const states = await until(
 ```
 
 Without a dialect, `igniteTools({ core, schema })` still exposes `run`, `until`, and `observe` for headless proof.
+
+`run` of a command still needs `canExecute`. `until` and `observe` do not.
 
 UI registration stays on the callable core: `home('smart-home', renderer)`.
 
@@ -180,6 +189,155 @@ Scalar inputs are object-wrapped under a strict `value` property at the provider
 The bound `toolCalls(response)` method unwraps them.
 
 For a raw fetch client, pass parsed Chat Completions JSON to `toolCalls`.
+
+## Consequential commands
+
+Mark a command `consequential: true` when a person must approve that exact call.
+
+The mark is not a side-effect-free read. The command stays denied unless `canExecute` returns true.
+
+Ignite does not validate or consume the approval. `canExecute` is application preflight, not authentication. A caller can fabricate a structurally valid record, so the library cannot prove a person approved the call.
+
+Keep the single-use record in the application. Compare the canonical call, the command name plus the validated snapshot, with the granted call. The library reads the call once into a plain-JSON snapshot and validates that copy. Finite numbers are copied, and signed zero is collapsed to `0` on purpose, so a grant of `0` and a call of `-0` are the same snapshot. Strings, booleans, null, arrays, and plain objects are copied. The walk is `ownKeys` and one data descriptor per key. Array length comes from that descriptor or the copied indexes. A proxy is not forwarded live, and the library does not detect proxies with a Node-only check. `Date`, `Map`, `Set`, bigint, symbols, functions, and accessors are not that snapshot. Compare `granted.actor` with the live session actor. Track consumption by approval id. Keep a spent id tombstoned until the grant's maximum lifetime has passed, and refuse a grant older than that window, so an expired id cannot come back. `run` calls `canExecute` once and sets `context.execute` only on that call, after observation setup succeeds and immediately before `execute`. `resolveCall` does not set it. Listing calls `canExecute(name)` with no context. A schema default is checked before it is routed. A plain object from another JavaScript realm is accepted. Deny every command that is not explicitly allowed.
+
+```ts
+const session = { actor: 'ada' };
+const maxGrantLifetimeMs = 24 * 60 * 60 * 1000;
+const spent = new Map<string, number>();
+function plainSnapshotShape(value: object): boolean {
+  try {
+    const brand = Object.prototype.toString.call(value);
+    const prototype = Object.getPrototypeOf(value);
+    if (brand === '[object Array]') {
+      if (prototype === null) return false;
+      const parent = Object.getPrototypeOf(prototype);
+      if (parent === null || Object.getPrototypeOf(parent) !== null) return false;
+      const ctor = (prototype as { constructor?: unknown }).constructor;
+      return typeof ctor === 'function' && (ctor as { prototype?: unknown }).prototype === prototype;
+    }
+    if (brand !== '[object Object]') return false;
+    if (prototype === null) return true;
+    if (Object.getPrototypeOf(prototype) !== null) return false;
+    const ctor = (prototype as { constructor?: unknown }).constructor;
+    return typeof ctor === 'function' && (ctor as { prototype?: unknown }).prototype === prototype;
+  } catch {
+    return false;
+  }
+}
+function canonicalValue(value: unknown, depth = 0, seen?: WeakSet<object>): string {
+  try {
+    if (depth > 32) return 'invalid:depth';
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value)) return `invalid:number:${String(value)}`;
+      return `number:${value === 0 ? 0 : value}`;
+    }
+    if (typeof value === 'string') return `string:${JSON.stringify(value)}`;
+    if (typeof value === 'boolean') return `boolean:${value}`;
+    if (value === null) return 'null';
+    if (typeof value === 'bigint') return `bigint:${value.toString()}`;
+    if (typeof value === 'symbol') return `symbol:${String(value)}`;
+    if (typeof value !== 'object') return `invalid:${typeof value}`;
+    const brand = Object.prototype.toString.call(value);
+    if (!plainSnapshotShape(value)) return `invalid:${brand}`;
+    const active = seen ?? new WeakSet<object>();
+    if (active.has(value)) return 'invalid:cycle';
+    active.add(value);
+    try {
+      if (Array.isArray(value)) {
+        const indexed = new Map<number, unknown>();
+        let length: number | undefined;
+        for (const key of Reflect.ownKeys(value)) {
+          if (typeof key === 'symbol') return 'invalid:symbol';
+          const descriptor = Object.getOwnPropertyDescriptor(value, key);
+          if (!descriptor || !('value' in descriptor)) return 'invalid:array';
+          if (key === 'length') {
+            const reported = descriptor.value;
+            if (typeof reported !== 'number' || !Number.isSafeInteger(reported) || reported < 0) {
+              return 'invalid:array';
+            }
+            length = reported;
+            continue;
+          }
+          if (!/^(?:0|[1-9]\d*)$/.test(key)) return 'invalid:array';
+          indexed.set(Number(key), descriptor.value);
+        }
+        if (length === undefined) {
+          length = 0;
+          for (const index of indexed.keys()) length = Math.max(length, index + 1);
+        }
+        if (indexed.size !== length) return 'invalid:array';
+        const items: string[] = [];
+        for (let index = 0; index < length; index += 1) {
+          items.push(canonicalValue(indexed.get(index), depth + 1, active));
+        }
+        return `array:[${items.join(',')}]`;
+      }
+      const record = value as Record<string, unknown>;
+      const props: Array<[string, unknown]> = [];
+      for (const key of Reflect.ownKeys(record)) {
+        if (typeof key === 'symbol') return 'invalid:symbol';
+        const descriptor = Object.getOwnPropertyDescriptor(record, key);
+        if (!descriptor || descriptor.enumerable !== true) continue;
+        if (!('value' in descriptor)) return 'invalid:accessor';
+        props.push([key, descriptor.value]);
+      }
+      props.sort((left, right) => (left[0] < right[0] ? -1 : 1));
+      const body = props
+        .map(([key, property]) => `${JSON.stringify(key)}:${canonicalValue(property, depth + 1, active)}`)
+        .join(',');
+      return `object:{${body}}`;
+    } finally {
+      active.delete(value);
+    }
+  } catch {
+    return 'invalid:unreadable';
+  }
+}
+function canonicalCall(name: string, input: unknown): string {
+  return `${canonicalValue(name)}\u0000${canonicalValue(input)}`;
+}
+const granted = {
+  actor: session.actor,
+  name: 'setLimit',
+  input: 6,
+  target: component,
+  id: 'approval-1',
+  expiresAt: Date.now() + 60_000,
+};
+const grantedCall = canonicalCall(granted.name, granted.input);
+function canExecute(
+  name: string,
+  input?: unknown,
+  context?: { core: object; execute?: boolean },
+): boolean {
+  if (name !== 'setLimit') return false;
+  if (!context) return true;
+  if (context.core !== granted.target || granted.actor !== session.actor) return false;
+  const lifetime = granted.expiresAt - Date.now();
+  if (lifetime <= 0 || lifetime > maxGrantLifetimeMs) return false;
+  const retainUntil = spent.get(granted.id);
+  if (retainUntil !== undefined && retainUntil > Date.now()) return false;
+  if (canonicalCall(name, input) !== grantedCall) return false;
+  if (context.execute) {
+    spent.set(granted.id, granted.expiresAt + maxGrantLifetimeMs);
+    for (const [id, until] of spent) {
+      if (until <= Date.now()) spent.delete(id);
+    }
+  }
+  return true;
+}
+const { resolveCall, run } = igniteTools({
+  core: component,
+  schema: toolSchema,
+  canExecute,
+});
+const preview = resolveCall('setLimit', 6);
+const allowed = await run({ name: 'setLimit', input: 6 });
+const changed = await run({ name: 'setLimit', input: 7 });
+const reused = await run({ name: 'setLimit', input: 6 });
+```
+
+A later grant uses a new id. A boolean `confirmed` flag is not an approval. `run` calls `core.execute({ command, input })` and does not take the record.
 
 ## Errors
 

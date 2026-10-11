@@ -97,8 +97,27 @@ const reply = textOf({
 });
 ```
 
-`canExecute` remains one `(name: string) => boolean` predicate for gated tools.
-Omit it and gated tools stay available. `ignite-element/tools/anthropic` exports
+`canExecute` is `(name, input?, context?) => boolean`. Commands are denied
+when it is omitted or returns anything other than `true`. A throw or a
+promise denies the call as `Unavailable`. Pass an explicit allow to keep a
+command callable. `canExecute: () => true` allows every command in that
+schema. An ungated `read: true` tool stays available only when that command
+is side-effect-free. `run` still calls `core.execute` for it. `observe` and
+`until` do not execute commands.
+
+A `consequential: true` command is not a side-effect-free read. Listing calls
+`canExecute(name)`. A call also passes the validated input and `{ core }`.
+`run` sets `context.execute` only after observation setup succeeds and
+immediately before `execute`. The predicate and `execute` share one immutable
+snapshot of the validated input. `resolveCall` does not set `execute`. The application owns the single-use approval
+`{ actor, name, input, target, id, expiresAt }`. Compare the canonical call,
+the name plus the validated input, and consume the approval id only when
+`context.execute` is true. A new id can approve the same call again. Deny
+every command that is not explicitly allowed. Ignite does not validate,
+store, or consume the record. A boolean `confirmed` flag is not an approval.
+`run` calls `core.execute({ command, input })`.
+
+`ignite-element/tools/anthropic` exports
 `textOf` the same way as `ignite-element/tools/openai`.
 
 ## Act, then settle

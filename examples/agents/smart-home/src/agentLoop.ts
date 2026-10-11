@@ -10,6 +10,7 @@ import {
 	textOf as textOfOpenAI,
 } from "ignite-element/tools/openai";
 import {
+	allowHomeCommands,
 	createLocalHomeSession,
 	type HomeAgentRuntime,
 	type HomeRuntimeFactory,
@@ -75,6 +76,7 @@ export async function runHomeAgent(
 			core: home,
 			dialect: anthropic,
 			schema: homeToolSchema,
+			canExecute: allowHomeCommands,
 		});
 
 		const messages: AnthropicMessage[] = [
@@ -154,6 +156,7 @@ export async function runHomeOpenAICompatibleAgent(
 			core: home,
 			dialect: openai,
 			schema: homeToolSchema,
+			canExecute: allowHomeCommands,
 		});
 
 		const messages: OpenAICompatibleMessage[] = [

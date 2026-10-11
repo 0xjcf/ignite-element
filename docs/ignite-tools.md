@@ -34,9 +34,32 @@ the built-in structural validator, not Zod and not full JSON Schema. Unknown
 `type` strings are rejected at `defineToolSchema`. There is no Zod peer and no
 core Zod adapter.
 
-`canExecute?: (name: string) => boolean` is one predicate for every
-`gated: true` command. Omit it and gated tools stay available (`() => true`).
-`canExecute` is availability preflight; source guards still enforce.
+`canExecute?: (name, input?, context?) => boolean` is the explicit allow for
+commands. Listing calls it with the name. A call passes the validated input
+and `{ core }`. Omit it and commands are denied. Return true only for an
+explicit allow. A throw, a thenable, or any other result denies the call.
+An ungated `read: true` tool stays available only when that command is
+side-effect-free; `run` still calls `core.execute`. `observe` and `until` do
+not execute commands. `gated: true` rechecks the predicate. `canExecute` is
+availability preflight; source guards still enforce.
+
+A `consequential: true` command is not a side-effect-free read. The
+application owns the single-use approval
+`{ actor, name, input, target, id, expiresAt }`. Compare the canonical call,
+the name plus the validated input. Consume the approval id only when
+`context.execute` is true. `run` sets that flag after observation setup
+succeeds and immediately before `execute`. The predicate and `execute` share
+one detached plain-JSON snapshot. Signed zero is collapsed to `0` on
+purpose. The library reads the call once and validates that copy. A proxy is not forwarded live, and the check
+does not use a Node-only proxy detector. Accessors, bigint, symbols,
+functions, `Date`, `Map`, `Set`, cycles, and non-finite defaults are
+`InvalidInput`. `resolveCall` does not set the
+flag. A new id can approve the same call again. A spent id stays tombstoned
+until the grant's maximum lifetime has passed. A grant older than that
+window is refused, so an expired id cannot come back.
+Deny every command that is not explicitly allowed. Ignite does not validate,
+store, or consume the record. A boolean `confirmed` flag is not an approval.
+`run` calls `core.execute({ command, input })`.
 Rebuild the bind when a fresh provider list is needed.
 
 ## Provider port

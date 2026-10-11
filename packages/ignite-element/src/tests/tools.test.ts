@@ -68,6 +68,17 @@ const fakeSchema: ToolSchema = {
 	},
 };
 
+const allowCommands = () => true;
+
+function resolveAllowed(
+	manifest: NeutralManifest,
+	name: string,
+	input: unknown,
+	canExecute: (command: string) => boolean = allowCommands,
+) {
+	return resolveCall(manifest, name, input, canExecute);
+}
+
 const fakeCatalogue: IgniteAgentSchema = {
 	schemaVersion: 1,
 	commands: Object.fromEntries(
@@ -247,7 +258,7 @@ const fakeDialect: ToolDialect<FakeToolDefs, FakeResponse, FakeResultBlock> = {
 
 describe("buildManifest", () => {
 	it("maps an explicit command map to neutral tools, sorted by name", () => {
-		const manifest = buildManifest(fakeSchema);
+		const manifest = buildManifest(fakeSchema, allowCommands);
 		expect(manifest.map((t) => t.name)).toEqual([
 			"addItem",
 			"adminOnly",
@@ -259,7 +270,7 @@ describe("buildManifest", () => {
 	});
 
 	it("carries description and input schema as the tool's inputSchema", () => {
-		const manifest = buildManifest(fakeSchema);
+		const manifest = buildManifest(fakeSchema, allowCommands);
 		const setLimit = manifest.find((t) => t.name === "setLimit");
 		expect(setLimit).toMatchObject({
 			name: "setLimit",
@@ -270,13 +281,13 @@ describe("buildManifest", () => {
 	});
 
 	it("preserves the explicitly supplied no-argument tool schema", () => {
-		const manifest = buildManifest(fakeSchema);
+		const manifest = buildManifest(fakeSchema, allowCommands);
 		const increment = manifest.find((t) => t.name === "increment");
 		expect(increment?.inputSchema).toEqual({ type: "object", properties: {} });
 	});
 
 	it("preserves object input schemas verbatim", () => {
-		const manifest = buildManifest(fakeSchema);
+		const manifest = buildManifest(fakeSchema, allowCommands);
 		const addItem = manifest.find((t) => t.name === "addItem");
 		expect(addItem?.inputSchema).toEqual({
 			type: "object",
@@ -285,16 +296,15 @@ describe("buildManifest", () => {
 		});
 	});
 
-	it("marks gated commands and includes them when no availability predicate is given", () => {
+	it("omits commands, including gated ones, when no availability predicate is given", () => {
 		const manifest = buildManifest(fakeSchema);
-		const adminOnly = manifest.find((t) => t.name === "adminOnly");
-		expect(adminOnly?.gated).toBe(true);
+		expect(manifest.find((tool) => tool.name === "adminOnly")).toBeUndefined();
+		expect(manifest.find((tool) => tool.name === "increment")).toBeUndefined();
 	});
 
 	it("omits gated commands that are unavailable per canExecute", () => {
 		const manifest = buildManifest(fakeSchema, (name) => name !== "adminOnly");
 		expect(manifest.find((t) => t.name === "adminOnly")).toBeUndefined();
-		// non-gated commands are unaffected by the predicate
 		expect(manifest.find((t) => t.name === "increment")).toBeDefined();
 	});
 
@@ -325,10 +335,10 @@ describe("buildManifest", () => {
 // --- resolveCall (pure core, errors as values) --------------------------------
 
 describe("resolveCall", () => {
-	const manifest = buildManifest(fakeSchema);
+	const manifest = buildManifest(fakeSchema, allowCommands);
 
 	it("routes a valid scalar input to { command, input }", () => {
-		const result = resolveCall(manifest, "setLimit", 5);
+		const result = resolveAllowed(manifest, "setLimit", 5);
 		expect(result).toEqual({
 			ok: true,
 			value: { command: "setLimit", input: 5 },
@@ -338,7 +348,7 @@ describe("resolveCall", () => {
 	it.each([undefined, {}])(
 		"routes a no-arg command without an input field for input %j",
 		(input) => {
-			const result = resolveCall(manifest, "increment", input);
+			const result = resolveAllowed(manifest, "increment", input);
 			expect(result).toEqual({
 				ok: true,
 				value: { command: "increment" },
@@ -353,7 +363,7 @@ describe("resolveCall", () => {
 	])(
 		"returns InvalidInput for unexpected no-arg command input %j",
 		(input, issue) => {
-			const result = resolveCall(manifest, "increment", input);
+			const result = resolveAllowed(manifest, "increment", input);
 			expect(result).toEqual({
 				ok: false,
 				error: {
@@ -378,21 +388,21 @@ describe("resolveCall", () => {
 		];
 
 		expect(
-			resolveCall(optionalInputManifest, "maybeLabel", { label: "later" }),
+			resolveAllowed(optionalInputManifest, "maybeLabel", { label: "later" }),
 		).toEqual({
 			ok: true,
 			value: { command: "maybeLabel", input: { label: "later" } },
 		});
-		expect(resolveCall(optionalInputManifest, "maybeLabel", undefined)).toEqual(
-			{
-				ok: true,
-				value: { command: "maybeLabel", input: undefined },
-			},
-		);
+		expect(
+			resolveAllowed(optionalInputManifest, "maybeLabel", undefined),
+		).toEqual({
+			ok: true,
+			value: { command: "maybeLabel", input: undefined },
+		});
 	});
 
 	it("returns UnknownCommand for a name not in the manifest", () => {
-		const result = resolveCall(manifest, "nope", 1);
+		const result = resolveAllowed(manifest, "nope", 1);
 		expect(result).toEqual({
 			ok: false,
 			error: { kind: "UnknownCommand", name: "nope" },
@@ -400,7 +410,7 @@ describe("resolveCall", () => {
 	});
 
 	it("returns InvalidInput on a type mismatch", () => {
-		const result = resolveCall(manifest, "setLimit", "not-a-number");
+		const result = resolveAllowed(manifest, "setLimit", "not-a-number");
 		expect(isErr(result)).toBe(true);
 		if (isErr(result)) {
 			expect(result.error.kind).toBe("InvalidInput");
@@ -412,30 +422,33 @@ describe("resolveCall", () => {
 	});
 
 	it("returns InvalidInput when a number is out of range", () => {
-		const result = resolveCall(manifest, "setLimit", 99);
+		const result = resolveAllowed(manifest, "setLimit", 99);
 		expect(isErr(result)).toBe(true);
 		if (isErr(result)) expect(result.error.kind).toBe("InvalidInput");
 	});
 
 	it("returns InvalidInput for an enum violation", () => {
-		const result = resolveCall(manifest, "pickColor", "purple");
+		const result = resolveAllowed(manifest, "pickColor", "purple");
 		expect(isErr(result)).toBe(true);
 		if (isErr(result)) expect(result.error.kind).toBe("InvalidInput");
 	});
 
 	it("accepts a valid enum value", () => {
-		const result = resolveCall(manifest, "pickColor", "green");
+		const result = resolveAllowed(manifest, "pickColor", "green");
 		expect(isOk(result)).toBe(true);
 	});
 
 	it("returns InvalidInput when a required object property is missing", () => {
-		const result = resolveCall(manifest, "addItem", { qty: 2 });
+		const result = resolveAllowed(manifest, "addItem", { qty: 2 });
 		expect(isErr(result)).toBe(true);
 		if (isErr(result)) expect(result.error.kind).toBe("InvalidInput");
 	});
 
 	it("accepts a valid object input", () => {
-		const result = resolveCall(manifest, "addItem", { name: "apple", qty: 2 });
+		const result = resolveAllowed(manifest, "addItem", {
+			name: "apple",
+			qty: 2,
+		});
 		expect(isOk(result)).toBe(true);
 		if (isOk(result)) {
 			expect(result.value).toEqual({
@@ -454,15 +467,15 @@ describe("resolveCall", () => {
 			},
 		];
 
-		expect(resolveCall(manifestWithDefault, "setLimit", undefined)).toEqual({
+		expect(resolveAllowed(manifestWithDefault, "setLimit", undefined)).toEqual({
 			ok: true,
 			value: { command: "setLimit", input: 5 },
 		});
 	});
 
 	it("returns Unavailable for a gated command when canExecute is false", () => {
-		const gatedManifest = buildManifest(fakeSchema);
-		const result = resolveCall(
+		const gatedManifest = buildManifest(fakeSchema, allowCommands);
+		const result = resolveAllowed(
 			gatedManifest,
 			"adminOnly",
 			undefined,
@@ -484,38 +497,38 @@ describe("resolveCall input validation", () => {
 
 	it("accepts an exact multiple and rejects a non-multiple", () => {
 		const manifest = tool({ type: "number", multipleOf: 0.5 });
-		expect(isOk(resolveCall(manifest, "t", 1.5))).toBe(true);
-		expect(isErr(resolveCall(manifest, "t", 0.3))).toBe(true);
+		expect(isOk(resolveAllowed(manifest, "t", 1.5))).toBe(true);
+		expect(isErr(resolveAllowed(manifest, "t", 0.3))).toBe(true);
 	});
 
 	it("treats a float-imprecise multiple as valid", () => {
 		// 0.3 / 0.1 === 2.9999999999999996 — must not be rejected.
 		const manifest = tool({ type: "number", multipleOf: 0.1 });
-		expect(isOk(resolveCall(manifest, "t", 0.3))).toBe(true);
+		expect(isOk(resolveAllowed(manifest, "t", 0.3))).toBe(true);
 	});
 
 	it("enforces string minLength/maxLength", () => {
 		const manifest = tool({ type: "string", minLength: 2, maxLength: 4 });
-		expect(isErr(resolveCall(manifest, "t", "a"))).toBe(true);
-		expect(isErr(resolveCall(manifest, "t", "abcde"))).toBe(true);
-		expect(isOk(resolveCall(manifest, "t", "abc"))).toBe(true);
+		expect(isErr(resolveAllowed(manifest, "t", "a"))).toBe(true);
+		expect(isErr(resolveAllowed(manifest, "t", "abcde"))).toBe(true);
+		expect(isOk(resolveAllowed(manifest, "t", "abc"))).toBe(true);
 	});
 
 	it("enforces a string pattern", () => {
 		const manifest = tool({ type: "string", pattern: "^[a-z]+$" });
-		expect(isErr(resolveCall(manifest, "t", "ABC"))).toBe(true);
-		expect(isOk(resolveCall(manifest, "t", "abc"))).toBe(true);
+		expect(isErr(resolveAllowed(manifest, "t", "ABC"))).toBe(true);
+		expect(isOk(resolveAllowed(manifest, "t", "abc"))).toBe(true);
 	});
 
 	it("type-checks booleans", () => {
 		const manifest = tool({ type: "boolean" });
-		expect(isOk(resolveCall(manifest, "t", true))).toBe(true);
-		expect(isErr(resolveCall(manifest, "t", "nope"))).toBe(true);
+		expect(isOk(resolveAllowed(manifest, "t", true))).toBe(true);
+		expect(isErr(resolveAllowed(manifest, "t", "nope"))).toBe(true);
 	});
 
 	it("rejects unknown types instead of accepting any value", () => {
 		const manifest = tool({ type: "nubmer" as never });
-		const result = resolveCall(manifest, "t", 1);
+		const result = resolveAllowed(manifest, "t", 1);
 		expect(isErr(result)).toBe(true);
 		if (isErr(result) && result.error.kind === "InvalidInput") {
 			expect(result.error.issues).toEqual(["input: unsupported type nubmer"]);
@@ -529,15 +542,15 @@ describe("resolveCall input validation", () => {
 			minItems: 1,
 			maxItems: 2,
 		});
-		expect(isErr(resolveCall(manifest, "t", []))).toBe(true); // below minItems
-		expect(isErr(resolveCall(manifest, "t", ["a", "b", "c"]))).toBe(true); // above maxItems
-		expect(isErr(resolveCall(manifest, "t", [1]))).toBe(true); // wrong element type
-		expect(isOk(resolveCall(manifest, "t", ["a", "b"]))).toBe(true);
+		expect(isErr(resolveAllowed(manifest, "t", []))).toBe(true); // below minItems
+		expect(isErr(resolveAllowed(manifest, "t", ["a", "b", "c"]))).toBe(true); // above maxItems
+		expect(isErr(resolveAllowed(manifest, "t", [1]))).toBe(true); // wrong element type
+		expect(isOk(resolveAllowed(manifest, "t", ["a", "b"]))).toBe(true);
 	});
 
 	it("accepts an omitted input when the schema declares a default", () => {
 		const manifest = tool({ type: "number", default: 5 });
-		expect(isOk(resolveCall(manifest, "t", undefined))).toBe(true);
+		expect(isOk(resolveAllowed(manifest, "t", undefined))).toBe(true);
 	});
 });
 
@@ -566,7 +579,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const tools = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		expect(Array.isArray(tools.manifest)).toBe(true);
 		expect(typeof tools.resolveCall).toBe("function");
@@ -579,7 +592,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { run } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		const result = await run({ name: "setLimit", input: 7 });
 		expect(component.calls).toEqual([{ name: "setLimit", payload: 7 }]);
@@ -602,7 +615,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { run } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		const result = await run({ name: "setLimit", input: 7 });
 		expect(component.calls).toEqual([{ name: "setLimit", payload: 7 }]);
@@ -621,7 +634,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { run } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		const result = await run({ name: "ghost", input: 1 });
 		expect(component.calls).toEqual([]);
@@ -634,7 +647,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { run } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		const result = await run({ name: "setLimit", input: "bad" });
 		expect(component.calls).toEqual([]);
@@ -647,7 +660,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { run } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		const result = await run({ name: "boom", input: undefined });
 		expect(isErr(result)).toBe(true);
@@ -670,7 +683,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { manifest, run } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		// Offered at build time.
 		expect(manifest.find((t) => t.name === "adminOnly")).toBeDefined();
@@ -732,6 +745,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 				watch: () => ({ unsubscribe: () => undefined }),
 			},
 			schema: projectionSchema,
+			canExecute: allowCommands,
 		});
 
 		expect(tools.manifest.map((tool) => tool.name)).toEqual([
@@ -764,23 +778,31 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { manifest } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		expect(manifest.find((t) => t.name === "adminOnly")).toBeUndefined();
 	});
 
-	it("defaults omitted canExecute to always-available, including gated commands", async () => {
+	it("defaults omitted canExecute to deny commands", async () => {
 		const component = createFakeComponent();
 		const { manifest, run } = igniteTools({
 			core: component,
-			schema: fakeSchema,
+			schema: {
+				...fakeSchema,
+				status: {
+					description: "Read the count.",
+					input: { type: "object", properties: {} },
+					read: true,
+				},
+			},
 		});
-		expect(manifest.find((t) => t.name === "adminOnly")).toBeDefined();
-		const result = await run({ name: "adminOnly", input: undefined });
-		expect(isOk(result)).toBe(true);
-		expect(component.calls).toEqual([
-			{ name: "adminOnly", payload: undefined },
-		]);
+		expect(manifest.map((tool) => tool.name)).toEqual(["status"]);
+		const denied = await run({ name: "adminOnly", input: undefined });
+		expect(isErr(denied)).toBe(true);
+		if (isErr(denied)) expect(denied.error.kind).toBe("UnknownCommand");
+		const read = await run({ name: "status", input: undefined });
+		expect(isOk(read)).toBe(true);
+		expect(component.calls).toEqual([{ name: "status", payload: undefined }]);
 	});
 
 	it("observe streams schema-declared events and states changes between acts", () => {
@@ -788,7 +810,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { observe } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		const seen: Array<ToolStreamObservation<FakeStates, FakeEvents>> = [];
 
@@ -836,7 +858,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { observe } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 
 		expect(() => observe(() => undefined)).toThrow("watch failed");
@@ -851,7 +873,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { until } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		const match = vi.fn(
 			(observation: ToolStreamObservation<FakeStates, FakeEvents>) =>
@@ -875,7 +897,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { until } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 
 		const pending = until(
@@ -895,7 +917,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { until } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		const match = vi.fn(
 			(observation: ToolStreamObservation<FakeStates, FakeEvents>) =>
@@ -920,7 +942,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { until } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 
 		const pending = until(
@@ -961,7 +983,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { until } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		const failure = new Error("seed failed");
 
@@ -980,7 +1002,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { until } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		const failure = new Error("match failed");
 		const match = vi.fn(
@@ -1010,7 +1032,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { until } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 
 		await expect(until(() => undefined)).rejects.toThrow("watch failed");
@@ -1030,7 +1052,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { until } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		const match = vi.fn(
 			(observation: ToolStreamObservation<FakeStates, FakeEvents>) =>
@@ -1059,7 +1081,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { until } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		const report = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -1086,7 +1108,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { until } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 
 		const pending = until(
@@ -1104,7 +1126,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { until } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 
 		const pending = until(
@@ -1130,7 +1152,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { until } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		const controller = new AbortController();
 		const match = vi.fn(() => undefined);
@@ -1149,7 +1171,7 @@ describe("igniteTools (neutral, no dialect)", () => {
 		const { until } = igniteTools({
 			core: component,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		const controller = new AbortController();
 		controller.abort();
@@ -1167,7 +1189,7 @@ describe("igniteTools (with a ToolDialect)", () => {
 			core: component,
 			dialect: fakeDialect,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		expect(tools.tools).toEqual(
 			tools.manifest.map((t) => ({ tool: t.name, schema: t.inputSchema })),
@@ -1184,7 +1206,7 @@ describe("igniteTools (with a ToolDialect)", () => {
 			core: component,
 			dialect: fakeDialect,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 
 		const response: FakeResponse = {
@@ -1210,7 +1232,7 @@ describe("igniteTools (with a ToolDialect)", () => {
 			core: component,
 			dialect: openai,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		const response: OpenAIChatCompletionResponse = {
 			choices: [
@@ -1250,7 +1272,7 @@ describe("igniteTools (with a ToolDialect)", () => {
 			core: component,
 			dialect: openai,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		const response = (argumentsValue: Record<string, unknown>) =>
 			({
@@ -1292,7 +1314,7 @@ describe("igniteTools (with a ToolDialect)", () => {
 			core: component,
 			dialect: fakeDialect,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		const call: NeutralToolCall = {
 			id: "call_2",
@@ -1311,7 +1333,7 @@ describe("igniteTools (with a ToolDialect)", () => {
 			core: component,
 			dialect: fakeDialect,
 			schema: fakeSchema,
-			canExecute: component.canExecute,
+			canExecute: component.canExecute ?? allowCommands,
 		});
 		await expect(
 			run({ name: "boom", input: undefined }),

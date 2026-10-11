@@ -27,7 +27,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import type { HomeBridgeClientMessage, HomeBridgeMessage } from "./bridge";
 import { parseBridgeMessage, serializeBridgeMessage } from "./bridge";
 import { resolveSmartHomeRuntimeFactory } from "./cli";
-import { homeToolSchema } from "./home";
+import { allowHomeCommands, homeToolSchema } from "./home";
 import { runSmartHomeBridgeCli, waitForLifecyclePromise } from "./lifecycle";
 import {
 	type AnthropicMessage,
@@ -175,16 +175,19 @@ export async function startSmartHomeBridgeServer(
 		const tools = igniteTools({
 			core: home,
 			schema: homeToolSchema,
+			canExecute: allowHomeCommands,
 		});
 		const agentTools = igniteTools({
 			core: home,
 			dialect: anthropic,
 			schema: homeToolSchema,
+			canExecute: allowHomeCommands,
 		}) as unknown as SharedHomeAgentTools;
 		const openAIAgentTools = igniteTools({
 			core: home,
 			dialect: openai,
 			schema: homeToolSchema,
+			canExecute: allowHomeCommands,
 		}) as unknown as SharedHomeOpenAICompatibleAgentTools;
 		vite = await createViteMiddleware();
 		httpServer = createHttpServer((request, response) => {

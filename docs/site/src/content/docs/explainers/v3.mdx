@@ -100,6 +100,7 @@ const home = component;
 const { run, until } = igniteTools({
   core: home,
   schema,
+  canExecute: () => true,
 });
 
 const result = await run({ name: 'runScene', input: 'movie' });
@@ -112,7 +113,7 @@ if (result.ok) {
 }
 ```
 
-`canExecute` and `dialect` are optional on that named bind. This page does not use a provider dialect because the model is scripted.
+`canExecute: () => true` is this page's explicit allow for the scripted commands. Omit it and those commands are denied. `dialect` stays optional. This page does not use a provider dialect because the model is scripted.
 
 `observe` stays for ongoing fan-in — logging or long-lived listeners — not for this one settle.
 

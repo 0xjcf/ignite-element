@@ -47,6 +47,17 @@ export type ToolCommandSchema = {
 	description?: string;
 	input: ToolInputSchema;
 	gated?: boolean;
+	/**
+	 * Side-effect-free command. An ungated read skips `canExecute` and `run`
+	 * still calls `core.execute`. Do not set this when execute changes state.
+	 */
+	read?: boolean;
+	/**
+	 * Schema marker for a command a person must approve. Ignite does not check
+	 * or consume that approval. The mark is not an ungated read: the command
+	 * stays denied unless `canExecute` returns true.
+	 */
+	consequential?: boolean;
 };
 
 /**
@@ -78,6 +89,16 @@ export type NeutralTool = {
 	 * `docs/can-execute.md`).
 	 */
 	gated: boolean;
+	/**
+	 * Side-effect-free command. Ungated reads skip the availability gate and
+	 * still execute. A consequential command is not a read.
+	 */
+	read?: boolean;
+	/**
+	 * Copied from the schema. Ignite does not approve or consume it. A
+	 * consequential command is not offered as an ungated read.
+	 */
+	consequential?: boolean;
 };
 
 export type NeutralManifest = NeutralTool[];
@@ -199,8 +220,19 @@ export interface ToolDialect<
 	>(result: NeutralToolResult<CommandResult, States, Events>): ResultBlock;
 }
 
-/** Per-command availability predicate, evaluated against the current snapshot. */
-export type AvailabilityPredicate = (name: string) => boolean;
+/**
+ * Application availability preflight. Return true only for an explicit allow.
+ * Listing calls `canExecute(name)`. A call also passes the validated input and
+ * `{ core }`. `execute` is true only on the run path, immediately before
+ * `execute`. `resolveCall` does not set it. Ignite does not store or consume
+ * approvals. A throw, a thenable, or any result other than true denies the
+ * command.
+ */
+export type AvailabilityPredicate = (
+	name: string,
+	input?: unknown,
+	context?: { readonly core: object; readonly execute?: boolean },
+) => boolean;
 
 /**
  * The source-backed runtime slice borrowed by tools: keyed discovery/state reads,

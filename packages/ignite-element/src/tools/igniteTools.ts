@@ -109,6 +109,41 @@ function isNoArgSchema(schema: ToolInputSchema): boolean {
 	);
 }
 
+function isSideEffectFreeRead(tool: {
+	read?: boolean;
+	gated?: boolean;
+	consequential?: boolean;
+}): boolean {
+	return (
+		tool.read === true && tool.consequential !== true && tool.gated !== true
+	);
+}
+
+function allowsConsumingExecution(
+	tool: { read?: boolean; gated?: boolean; consequential?: boolean },
+	name: string,
+	input: unknown,
+	core: object,
+	canExecute?: AvailabilityPredicate,
+): boolean {
+	if (isSideEffectFreeRead(tool)) return true;
+	if (typeof canExecute !== "function") return false;
+	try {
+		const result = canExecute(name, input, { core, execute: true });
+		if (
+			typeof result === "object" &&
+			result !== null &&
+			typeof (result as PromiseLike<unknown>).then === "function"
+		) {
+			void Promise.resolve(result).catch(() => undefined);
+			return false;
+		}
+		return result === true;
+	} catch {
+		return false;
+	}
+}
+
 function isIgniteCommandCall<Commands extends FacadeCommandResult>(
 	call: Route,
 	schema: ToolInputSchema,
@@ -138,7 +173,17 @@ type IgniteToolsResult<
 
 /**
  * Bridge the agent-runtime contract to LLM tool-use. Bind with named options
- * only: `{ core, schema, canExecute?, dialect? }`. The pure core builds a
+ * only: `{ core, schema, canExecute?, dialect? }`. Commands are denied
+ * unless `canExecute` returns true. A call passes the validated input and
+ * `{ core }` so the application can bind an approval to that exact call.
+ * The input is one immutable snapshot shared by validation, preflight, and
+ * `execute`. `resolveCall` does not set `execute`. `run` calls `canExecute`
+ * once, with `context.execute` set, only after observation setup succeeds and
+ * immediately before `execute`. A throw from `get("events")` or `on` does not
+ * set `execute`. Denial after subscription still unsubscribes.
+ * Ungated side-effect-free `read` tools, `observe`, and `until` stay available
+ * without that predicate. `canExecute` is application preflight, not
+ * authentication, and Ignite does not store approvals. The pure core builds a
  * neutral manifest from explicit tool definitions and routes validated calls;
  * the shell (`run`) performs the single `execute` side effect. `run` is
  * act-plus-acknowledgement; everyday settle uses `until`, and `observe`
@@ -171,14 +216,15 @@ export function igniteTools<
 	const runtime = options.core;
 	const schema = options.schema;
 	const dialect = options.dialect;
-	const canExecute = options.canExecute ?? (() => true);
+	const canExecute = options.canExecute;
 	const catalogue = runtime.get("schema");
 	const manifest = buildManifest(schema, canExecute);
 
 	const boundResolveCall = (
 		name: string,
 		input: unknown,
-	): Result<Route, ToolError> => resolveCall(manifest, name, input, canExecute);
+	): Result<Route, ToolError> =>
+		resolveCall(manifest, name, input, canExecute, { core: runtime });
 
 	const run = async (
 		call: NeutralToolCall,
@@ -192,34 +238,35 @@ export function igniteTools<
 			ToolError
 		>
 	> => {
-		const routed = boundResolveCall(call.name, call.input);
+		// Validate and snapshot without the application's predicate. The
+		// consuming call happens only after observation setup succeeds.
+		const routed = resolveCall(manifest, call.name, call.input, () => true);
 		if (!routed.ok) {
 			return routed;
+		}
+		const snapshot = routed.value.input;
+
+		const routedTool = manifest.find(
+			(candidate) => candidate.name === routed.value.command,
+		);
+		if (!routedTool) {
+			return err({
+				kind: "UnknownCommand",
+				name: routed.value.command,
+			});
+		}
+
+		if (!isIgniteCommandCall<Commands>(routed.value, routedTool.inputSchema)) {
+			return err({
+				kind: "InvalidInput",
+				name: routed.value.command,
+				issues: ["input: command route could not be typed for execution"],
+			});
 		}
 
 		const subscriptions: ToolStreamSubscription[] = [];
 		let observing = true;
 		try {
-			const routedTool = manifest.find(
-				(candidate) => candidate.name === routed.value.command,
-			);
-			if (!routedTool) {
-				return err({
-					kind: "UnknownCommand",
-					name: routed.value.command,
-				});
-			}
-
-			if (
-				!isIgniteCommandCall<Commands>(routed.value, routedTool.inputSchema)
-			) {
-				return err({
-					kind: "InvalidInput",
-					name: routed.value.command,
-					issues: ["input: command route could not be typed for execution"],
-				});
-			}
-
 			const events: RuntimeEvent<Events>[] = [];
 			for (const { type } of runtime.get("events")) {
 				subscriptions.push(
@@ -227,6 +274,17 @@ export function igniteTools<
 						if (observing) events.push(event);
 					}),
 				);
+			}
+			if (
+				!allowsConsumingExecution(
+					routedTool,
+					routed.value.command,
+					snapshot,
+					runtime,
+					canExecute,
+				)
+			) {
+				return err({ kind: "Unavailable", name: routed.value.command });
 			}
 			const result = await runtime.execute(routed.value);
 			const states = runtime.get("states");

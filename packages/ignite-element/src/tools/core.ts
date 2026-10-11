@@ -1,4 +1,10 @@
+import { applySchemaDefaults, snapshotPlainJson } from "./plainJson";
 import { err, ok, type Result } from "./result";
+import {
+	isNoArgSchema,
+	isPlainObject,
+	validateToolInputValue,
+} from "./toolInput";
 import type {
 	AvailabilityPredicate,
 	NeutralManifest,
@@ -9,10 +15,6 @@ import type {
 	ToolInputSchema,
 	ToolSchema,
 } from "./types";
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 const TOOL_INPUT_TYPES = new Set([
 	"number",
@@ -71,33 +73,6 @@ export function assertSupportedToolSchema(schema: ToolSchema): void {
 	}
 }
 
-function isNoArgSchema(schema: ToolInputSchema): boolean {
-	if (schema.type !== "object") {
-		return false;
-	}
-
-	const properties = isPlainObject(schema.properties) ? schema.properties : {};
-	return (
-		Object.keys(properties).length === 0 &&
-		(!Array.isArray(schema.required) || schema.required.length === 0)
-	);
-}
-
-function normalizeRouteInput(
-	schema: ToolInputSchema,
-	input: unknown,
-): { input?: unknown } {
-	if (isNoArgSchema(schema)) {
-		return {};
-	}
-
-	if (input === undefined && "default" in schema) {
-		return { input: schema.default };
-	}
-
-	return { input };
-}
-
 // Explicit application input schema, scalar or object, mirrored verbatim.
 // Unknown discovery metadata must not fabricate an empty-object contract.
 function toInputSchema(metadata: ToolCommandSchema): ToolInputSchema {
@@ -123,12 +98,66 @@ function toInputSchema(metadata: ToolCommandSchema): ToolInputSchema {
  *
  * Pure: explicit application schema → neutral tool manifest, sorted by name.
  * Gated commands are omitted when an availability predicate reports them
- * currently unavailable; without a predicate, every command is offered
- * (`() => true`).
+ * currently unavailable. Without a predicate, commands are denied. An ungated
+ * `read: true` tool stays available only when that command is side-effect-free.
  *
  * Only the bare command map is read. Minimal core discovery does not provide
  * input validation; missing explicit definitions fail before execution.
  */
+function isSideEffectFreeRead(tool: {
+	read?: boolean;
+	gated?: boolean;
+	consequential?: boolean;
+}): boolean {
+	return (
+		tool.read === true && tool.consequential !== true && tool.gated !== true
+	);
+}
+
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		typeof (value as PromiseLike<unknown>).then === "function"
+	);
+}
+
+function predicateAllows(
+	canExecute: AvailabilityPredicate | undefined,
+	name: string,
+	call?: {
+		input: unknown;
+		context?: { readonly core: object; readonly execute?: boolean };
+	},
+): boolean {
+	if (typeof canExecute !== "function") return false;
+	try {
+		const result = call
+			? canExecute(name, call.input, call.context)
+			: canExecute(name);
+		if (isThenable(result)) {
+			void Promise.resolve(result).catch(() => undefined);
+			return false;
+		}
+		return result === true;
+	} catch {
+		return false;
+	}
+}
+
+function allowsTool(
+	tool: { read?: boolean; gated?: boolean; consequential?: boolean },
+	name: string,
+	canExecute?: AvailabilityPredicate,
+	call?: {
+		input: unknown;
+		context?: { readonly core: object; readonly execute?: boolean };
+	},
+): boolean {
+	if (isSideEffectFreeRead(tool)) return true;
+	return predicateAllows(canExecute, name, call);
+}
+
 export function buildManifest(
 	schema: ToolSchema,
 	canExecute?: AvailabilityPredicate,
@@ -139,13 +168,14 @@ export function buildManifest(
 		);
 	}
 	assertSupportedToolSchema(schema);
-	const isAvailable = canExecute ?? (() => true);
 	const manifest: NeutralManifest = [];
 
 	for (const name of Object.keys(schema).sort()) {
 		const metadata = schema[name];
+		const consequential = metadata.consequential === true;
+		const read = metadata.read === true && !consequential;
 		const gated = metadata.gated === true;
-		if (gated && !isAvailable(name)) {
+		if (!allowsTool({ read, gated, consequential }, name, canExecute)) {
 			continue;
 		}
 
@@ -153,6 +183,8 @@ export function buildManifest(
 			name,
 			inputSchema: toInputSchema(metadata),
 			gated,
+			read,
+			consequential,
 		};
 		if (typeof metadata.description === "string") {
 			tool.description = metadata.description;
@@ -167,174 +199,91 @@ export function buildManifest(
  * Advanced/testing helper. Everyday apps should call `run` on a named
  * `igniteTools({ core, schema })` bind instead of importing this.
  *
- * Pure: validate a model-supplied input against a command's schema and route it
- * to `{ command, input? }`. Errors are returned as values — `UnknownCommand`
- * (not in the manifest), `Unavailable` (gated and currently unavailable — the
- * availability may have changed since the manifest was built), or `InvalidInput`
- * (fails the input schema). Never throws.
+ * Pure: apply a schema default, copy one detached plain-JSON snapshot, then
+ * validate that copy. `canExecute(name, input, context)` and the returned
+ * route share that frozen snapshot. Only finite numbers (with `-0` normalized
+ * to `0`), strings, booleans, null, arrays, and plain objects are copied.
+ * Accessors, bigint, symbols, functions, `Date` / `Map` / `Set`, cycles, and
+ * values past the nesting limit are `InvalidInput`. Signed zero is collapsed
+ * to `0` on purpose. A proxy is walked once (`ownKeys`, then one data
+ * descriptor per key) and that copy is what is validated. Array length comes
+ * from that descriptor or the copied indexes, never from `[[Get]]` of
+ * `length`. This function
+ * forwards `context` and does not set `execute`. `run` calls it without
+ * `execute`, then calls `canExecute` with `{ execute: true }` only after
+ * observation is subscribed and immediately before `core.execute`. A throw
+ * while reading the input is `InvalidInput`, never an exception. `UnknownCommand`
+ * means the name is not in the manifest. `Unavailable` means the predicate is
+ * missing, throws, returns a thenable, or returns anything other than true.
  */
 export function resolveCall(
 	manifest: NeutralManifest,
 	name: string,
 	input: unknown,
 	canExecute?: AvailabilityPredicate,
+	context?: { readonly core: object; readonly execute?: boolean },
 ): Result<Route, ToolError> {
 	const tool = manifest.find((candidate) => candidate.name === name);
 	if (!tool) {
 		return err({ kind: "UnknownCommand", name });
 	}
 
-	if (tool.gated && canExecute && !canExecute(name)) {
+	let route: Route;
+	try {
+		const source = applySchemaDefaults(tool.inputSchema, input);
+		if (!source.ok) {
+			return err({ kind: "InvalidInput", name, issues: source.issues });
+		}
+		if (source.value === undefined) {
+			const issues = validateToolInputValue(
+				tool.inputSchema,
+				undefined,
+				"input",
+			);
+			if (issues.length > 0) {
+				return err({ kind: "InvalidInput", name, issues });
+			}
+			// An omitted optional object stays omitted. A no-arg command drops the
+			// input field. Neither one is a JSON value to snapshot.
+			route = isNoArgSchema(tool.inputSchema)
+				? { command: name }
+				: { command: name, input: undefined };
+		} else {
+			const snapshot = snapshotPlainJson(
+				source.value,
+				"input",
+				tool.inputSchema,
+			);
+			if (!snapshot.ok) {
+				return err({ kind: "InvalidInput", name, issues: snapshot.issues });
+			}
+			const issues = validateToolInputValue(
+				tool.inputSchema,
+				snapshot.value,
+				"input",
+			);
+			if (issues.length > 0) {
+				return err({ kind: "InvalidInput", name, issues });
+			}
+			route = isNoArgSchema(tool.inputSchema)
+				? { command: name }
+				: { command: name, input: snapshot.value };
+		}
+	} catch {
+		return err({
+			kind: "InvalidInput",
+			name,
+			issues: ["input: unable to read value"],
+		});
+	}
+	if (
+		!allowsTool(tool, name, canExecute, {
+			input: route.input,
+			context,
+		})
+	) {
 		return err({ kind: "Unavailable", name });
 	}
 
-	const issues = validateToolInputValue(tool.inputSchema, input, "input");
-	if (issues.length > 0) {
-		return err({ kind: "InvalidInput", name, issues });
-	}
-
-	return ok({ command: name, ...normalizeRouteInput(tool.inputSchema, input) });
-}
-
-/**
- * Minimal structural validation covering the command-input metadata vocabulary
- * (number/string/boolean/enum/object/array + their declared constraints). Pure;
- * returns the list of issues (empty = valid). Not a full JSON-Schema validator —
- * scoped to the retained application input vocabulary.
- */
-export function validateToolInputValue(
-	schema: ToolInputSchema,
-	value: unknown,
-	path: string,
-): string[] {
-	const type = schema.type;
-
-	if (value === undefined) {
-		// Absent input is acceptable when a default exists, or for an object schema
-		// with no required properties (the no-arg command case).
-		if ("default" in schema) {
-			return [];
-		}
-		if (type === "object") {
-			return validateToolInputValue(schema, {}, path);
-		}
-		return [`${path}: expected ${String(type)} but received undefined`];
-	}
-
-	switch (type) {
-		case "number": {
-			if (typeof value !== "number" || Number.isNaN(value)) {
-				return [`${path}: expected number`];
-			}
-			const issues: string[] = [];
-			if (typeof schema.minimum === "number" && value < schema.minimum) {
-				issues.push(`${path}: below minimum ${schema.minimum}`);
-			}
-			if (typeof schema.maximum === "number" && value > schema.maximum) {
-				issues.push(`${path}: above maximum ${schema.maximum}`);
-			}
-			if (typeof schema.multipleOf === "number" && schema.multipleOf !== 0) {
-				// Compare the quotient to its nearest integer with a tolerance —
-				// `value % multipleOf` is unreliable for non-integer steps (e.g.
-				// `0.3 % 0.1 !== 0` due to floating-point representation).
-				const quotient = value / schema.multipleOf;
-				if (Math.abs(quotient - Math.round(quotient)) > 1e-9) {
-					issues.push(`${path}: not a multiple of ${schema.multipleOf}`);
-				}
-			}
-			return issues;
-		}
-		case "string": {
-			if (typeof value !== "string") {
-				return [`${path}: expected string`];
-			}
-			const issues: string[] = [];
-			if (Array.isArray(schema.enum) && !schema.enum.includes(value)) {
-				issues.push(`${path}: not one of ${schema.enum.join(", ")}`);
-			}
-			if (
-				typeof schema.minLength === "number" &&
-				value.length < schema.minLength
-			) {
-				issues.push(`${path}: shorter than minLength ${schema.minLength}`);
-			}
-			if (
-				typeof schema.maxLength === "number" &&
-				value.length > schema.maxLength
-			) {
-				issues.push(`${path}: longer than maxLength ${schema.maxLength}`);
-			}
-			if (
-				typeof schema.pattern === "string" &&
-				!new RegExp(schema.pattern).test(value)
-			) {
-				issues.push(`${path}: does not match pattern ${schema.pattern}`);
-			}
-			return issues;
-		}
-		case "boolean":
-			return typeof value === "boolean" ? [] : [`${path}: expected boolean`];
-		case "object": {
-			if (!isPlainObject(value)) {
-				return [`${path}: expected object`];
-			}
-			const issues: string[] = [];
-			const properties = isPlainObject(schema.properties)
-				? schema.properties
-				: {};
-			if (isNoArgSchema(schema)) {
-				for (const key of Object.keys(value)) {
-					issues.push(`${path}.${key}: unexpected`);
-				}
-				return issues;
-			}
-			if (Array.isArray(schema.required)) {
-				for (const key of schema.required) {
-					if (typeof key === "string" && !(key in value)) {
-						issues.push(`${path}.${key}: required`);
-					}
-				}
-			}
-			for (const [key, propSchema] of Object.entries(properties)) {
-				if (key in value && isPlainObject(propSchema)) {
-					issues.push(
-						...validateToolInputValue(propSchema, value[key], `${path}.${key}`),
-					);
-				}
-			}
-			return issues;
-		}
-		case "array": {
-			if (!Array.isArray(value)) {
-				return [`${path}: expected array`];
-			}
-			const issues: string[] = [];
-			if (
-				typeof schema.minItems === "number" &&
-				value.length < schema.minItems
-			) {
-				issues.push(`${path}: fewer than minItems ${schema.minItems}`);
-			}
-			if (
-				typeof schema.maxItems === "number" &&
-				value.length > schema.maxItems
-			) {
-				issues.push(`${path}: more than maxItems ${schema.maxItems}`);
-			}
-			if (isPlainObject(schema.items)) {
-				const itemSchema = schema.items;
-				value.forEach((item, index) => {
-					issues.push(
-						...validateToolInputValue(itemSchema, item, `${path}[${index}]`),
-					);
-				});
-			}
-			return issues;
-		}
-		default:
-			if (type !== undefined) {
-				return [`${path}: unsupported type ${String(type)}`];
-			}
-			return [];
-	}
+	return ok(route);
 }
