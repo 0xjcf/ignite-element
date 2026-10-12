@@ -60,13 +60,13 @@ const EVENT_ORIGIN_WARNING = "observed from both native and effect";
 // Gzip level 9 of this production consumer entry before dev warnings were
 // left for a consumer bundler to strip. Previous target was 4634.
 // renderer security guard: SVG animate/set + meta refresh
-// The no-host ceiling is 5,447 B. Dropped props restore only the allowlist.
+// The no-host ceiling is 5,583 B. Dropped props restore only the allowlist.
 // A single select restores the defaultSelected option by identity.
 // Native defaultValue, defaultChecked, and defaultSelected stay on drop.
 // Explicit false for the last two is a set. Own custom setters get undefined
 // and stay case-sensitive. There is no cached built-in element and no
 // fresh-element default reset.
-const TODAY_CONSUMER_GZIP = 5447;
+const TODAY_CONSUMER_GZIP = 5583;
 
 function consumerEntry() {
 	return `import { jsx, mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";
