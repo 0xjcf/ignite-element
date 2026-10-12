@@ -380,7 +380,11 @@ describe(`command approval properties (seed ${PROPERTY_SEED}, runs ${PROPERTY_RU
 						runThrew = true;
 						ran = {
 							ok: false,
-							error: { kind: "ExecuteFailed", name: "act" },
+							error: {
+								kind: "ExecuteFailed",
+								name: "act",
+								message: "unreachable",
+							},
 						};
 					}
 					expect(runThrew).toBe(false);

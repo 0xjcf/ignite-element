@@ -931,7 +931,7 @@ const rawValue: fc.Arbitrary<RawValue> = fc.oneof(
 		weight: 4,
 		arbitrary: fc
 			.integer({ min: -30, max: 30 })
-			.map((n) => ({ kind: "number", n })),
+			.map((n): RawValue => ({ kind: "number", n })),
 	},
 	{ weight: 1, arbitrary: fc.constant({ kind: "negzero" }) },
 	{ weight: 1, arbitrary: fc.constant({ kind: "nan" }) },
@@ -941,24 +941,24 @@ const rawValue: fc.Arbitrary<RawValue> = fc.oneof(
 		weight: 3,
 		arbitrary: fc
 			.stringMatching(/^[a-z0-9]{0,6}$/)
-			.map((s) => ({ kind: "string", s })),
+			.map((s): RawValue => ({ kind: "string", s })),
 	},
 	{
 		weight: 2,
-		arbitrary: fc.boolean().map((b) => ({ kind: "boolean", b })),
+		arbitrary: fc.boolean().map((b): RawValue => ({ kind: "boolean", b })),
 	},
 	{ weight: 1, arbitrary: fc.constant({ kind: "null" }) },
 	{
 		weight: 2,
 		arbitrary: fc
 			.oneof(fc.constant(null), fc.integer({ min: -10, max: 10 }))
-			.map((v) => ({ kind: "object", v })),
+			.map((v): RawValue => ({ kind: "object", v })),
 	},
 	{
 		weight: 2,
 		arbitrary: fc
 			.array(fc.integer({ min: -10, max: 10 }), { maxLength: 3 })
-			.map((items) => ({ kind: "array", items })),
+			.map((items): RawValue => ({ kind: "array", items })),
 	},
 	{ weight: 1, arbitrary: fc.constant({ kind: "date" }) },
 	{ weight: 1, arbitrary: fc.constant({ kind: "map" }) },
