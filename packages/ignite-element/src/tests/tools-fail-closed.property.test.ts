@@ -1644,7 +1644,11 @@ describe(`toStringTag getters stay unread (seed ${PROPERTY_SEED}, runs ${PROPERT
 						where: "top" | "nested",
 					) => {
 						let reads = 0;
-						const host: { a?: number; n?: number } = { [field]: from };
+						const host: {
+							a?: number;
+							n?: number;
+							[Symbol.toStringTag]?: unknown;
+						} = { [field]: from };
 						Object.defineProperty(host, Symbol.toStringTag, {
 							configurable: true,
 							enumerable: false,
