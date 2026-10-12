@@ -227,6 +227,11 @@ function plainSnapshotShape(value: object): boolean {
 type Sealed =
   | { readonly ok: true; readonly value: unknown }
   | { readonly ok: false; readonly reason: string };
+function rejected(
+  sealed: Sealed,
+): sealed is { readonly ok: false; readonly reason: string } {
+  return sealed.ok === false;
+}
 function seal(value: unknown, depth: number, active: WeakSet<object>): Sealed {
   try {
     if (typeof value === 'number') {
@@ -331,7 +336,7 @@ function encodeSealed(value: unknown, depth: number): string {
 }
 function canonicalValue(value: unknown, depth = 0): string {
   const sealed = seal(value, depth, new WeakSet());
-  if (!sealed.ok) return sealed.reason;
+  if (rejected(sealed)) return sealed.reason;
   if (sealed.value !== null && typeof sealed.value === 'object' && !plainSnapshotShape(sealed.value)) {
     return 'invalid:prototype';
   }
