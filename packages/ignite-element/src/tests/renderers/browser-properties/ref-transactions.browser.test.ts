@@ -5,7 +5,7 @@ import { type Browser, chromium, type Page } from "@playwright/test";
 import * as fc from "fast-check";
 import { build } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { TransactionCase } from "./ref-transactions";
+import type { SelectCase, TransactionCase } from "./ref-transactions";
 const seed = Number(process.env.FAST_CHECK_SEED ?? 168173);
 const numRuns = Number(process.env.FAST_CHECK_NUM_RUNS ?? 60);
 const kinds: TransactionCase["kind"][] = [
@@ -86,7 +86,16 @@ describe("public renderer ref transactions", () => {
 					);
 					expect(report.afterUnrelated).toBe(report.beforeUnrelated);
 					expect(report.beforeUnrelated).toBe(0);
-					if (
+					if (kind === "native-radio") {
+						expect(report.native).toEqual({
+							value: sample.value,
+							defaultValue: sample.value,
+							valueAttribute: sample.value,
+							checked: false,
+							defaultChecked: true,
+							checkedAttribute: "",
+						});
+					} else if (
 						kind === "setter" ||
 						kind === "connect" ||
 						kind === "nested-failure"
@@ -112,6 +121,38 @@ describe("public renderer ref transactions", () => {
 						expect(report.cleanupBeforeDetach).toBe(0);
 				}),
 				{ seed, numRuns },
+			);
+		},
+		120000,
+	);
+	it.each(["option", "live", "insert"] as const)(
+		"applies native select setters through %s",
+		async (mode) => {
+			const arbitrary = fc.record({
+				value: fc.string({
+					unit: fc.constantFrom(..."abc123"),
+					minLength: 1,
+					maxLength: 5,
+				}),
+				multiple: fc.boolean(),
+				connected: fc.boolean(),
+			});
+			await fc.assert(
+				fc.asyncProperty(arbitrary, async (sample) => {
+					const scenario: SelectCase = { ...sample, mode };
+					const report = await page.evaluate(
+						(input) => window.__selectTransaction(input),
+						scenario,
+					);
+					expect(report.actual).toEqual(report.expected);
+					expect(report.observations).toHaveLength(report.expected.length);
+					report.observations.forEach((observation, index) => {
+						expect(observation.state).toEqual(report.expected[index]);
+						expect(observation.placed).toBe(true);
+						expect(observation.connected).toBe(sample.connected);
+					});
+				}),
+				{ seed: Number(process.env.FAST_CHECK_SEED ?? 168174), numRuns },
 			);
 		},
 		120000,

@@ -598,18 +598,19 @@ export function unmountIgniteSubtree(node: Node): void {
 }
 
 // Each commit has two ordered phases: controlled writes, then ref acquisition.
-let commitQueue: [(() => void)[], (() => void)[]] = [[], []];
+// Queue writers are private; all create/render/reacquire paths establish a frame.
+let commitQueue: [(() => void)[], (() => void)[]];
 function assignRef(element: Element, ref: unknown): void {
 	const mount = ensureMount(element);
 	const acquire = () => {
-		const current = () => !mount.unmounted && mount.pending === acquire;
-		if (!current()) return;
+		if (mount.unmounted || mount.pending !== acquire) return;
 		const next = typeof ref === "function" ? (ref as RefCallback) : null;
 		if (mount.ref === next && !mount.released) return;
-		if (mount.ref && !mount.released) releaseStoredRef(element, mount);
-		if (!current()) return;
+		if (mount.ref && !mount.released) {
+			releaseStoredRef(element, mount);
+			if (mount.unmounted || mount.pending !== acquire) return;
+		}
 		mount.ref = next;
-		mount.cleanup = null;
 		mount.released = false;
 		mount.binding = acquire;
 		if (!next) return;
@@ -1499,13 +1500,19 @@ function assignControlled(
 	key: string,
 	value: unknown,
 ): void {
-	// compositionstart holds value until the render after compositionend.
+	// Composition keeps text until the next render after compositionend.
 	if (key === "value" && composing.get(element) === true) {
-		// :focus recognizes controls inside shadow roots as well as light DOM.
 		if (element.isConnected && element.matches(":focus")) return;
 		composing.set(element, false);
 	}
-	if (key === "value" && Reflect.get(element, key) === value) return;
+	// A select setter clears extra selections even when its getter matches.
+	if (
+		key === "value" &&
+		element.localName !== "select" &&
+		Reflect.get(element, key) === value
+	)
+		return;
+
 	try {
 		Reflect.set(element, key, value);
 	} catch {

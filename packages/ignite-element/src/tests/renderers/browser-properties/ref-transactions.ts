@@ -231,3 +231,117 @@ declare global {
 		__refTransactions: typeof transaction;
 	}
 }
+
+export type SelectCase = {
+	mode: "option" | "live" | "insert";
+	value: string;
+	multiple: boolean;
+	connected: boolean;
+};
+export function selectTransaction(scenario: SelectCase) {
+	const host = document.createElement("div");
+	const nativeForm = document.createElement("form");
+	if (scenario.connected) document.body.append(host, nativeForm);
+	const root = host.attachShadow({ mode: "open" });
+	const strategy = createIgniteJsxRenderStrategy();
+	strategy.attach(root);
+	const native = document.createElement("select");
+	native.name = "choice";
+	native.multiple = scenario.multiple;
+	nativeForm.append(native);
+	const extraValue = `_extra_${scenario.value}`;
+	const extra = document.createElement("option");
+	extra.value = extraValue;
+	extra.textContent = "extra";
+	const wanted = document.createElement("option");
+	wanted.value = scenario.value;
+	wanted.textContent = "wanted";
+	if (scenario.mode !== "insert") native.append(wanted);
+	native.append(extra);
+	const read = (select: HTMLSelectElement, form: HTMLFormElement) => ({
+		value: select.value,
+		options: Array.from(select.options, (option) => option.value),
+		selected: Array.from(select.options, (option) => option.selected),
+		submitted: new FormData(form).getAll("choice").map(String),
+	});
+	const observations: {
+		state: ReturnType<typeof read>;
+		placed: boolean;
+		connected: boolean;
+	}[] = [];
+	const actual: ReturnType<typeof read>[] = [];
+	const expected: ReturnType<typeof read>[] = [];
+	const view = (showWanted: boolean, controlled: boolean) =>
+		jsx("form", {
+			children: jsx("select", {
+				name: "choice",
+				multiple: scenario.multiple,
+				...(controlled ? { value: scenario.value } : {}),
+				ref: (node: HTMLSelectElement | null) => {
+					if (node)
+						observations.push({
+							state: read(node, node.form!),
+							placed: root.contains(node),
+							connected: node.isConnected,
+						});
+				},
+				children: [
+					...(showWanted
+						? [
+								jsx(
+									"option",
+									{ value: scenario.value, children: "wanted" },
+									"wanted",
+								),
+							]
+						: []),
+					jsx(
+						"option",
+						{
+							value: extraValue,
+							children: "extra",
+							...(scenario.mode === "option" ? { selected: true } : {}),
+						},
+						"extra",
+					),
+				],
+			}),
+		});
+	const render = (showWanted: boolean, controlled: boolean) => {
+		// Independent native operations: child selected writes, then the parent setter.
+		if (scenario.mode === "option") extra.selected = true;
+		if (controlled) native.value = scenario.value;
+		expected.push(read(native, nativeForm));
+		strategy.render(view(showWanted, controlled));
+		actual.push(
+			read(root.querySelector("select")!, root.querySelector("form")!),
+		);
+	};
+	try {
+		render(scenario.mode !== "insert", true);
+		if (scenario.mode === "insert") native.insertBefore(wanted, extra);
+		if (scenario.mode === "live") {
+			root.querySelector("select")!.options[1].selected = true;
+			extra.selected = true;
+		}
+		render(true, true);
+		// Repeated getter-equal render must remove an extra live selection as well.
+		root.querySelector("select")!.options[1].selected = true;
+		extra.selected = true;
+		render(true, true);
+		root.querySelector("select")!.options[1].selected = true;
+		extra.selected = true;
+		render(true, false);
+		return { actual, expected, observations };
+	} finally {
+		strategy.detach();
+		host.remove();
+		nativeForm.remove();
+	}
+}
+window.__selectTransaction = selectTransaction;
+declare global {
+	interface Window {
+		__selectTransaction: typeof selectTransaction;
+	}
+}
