@@ -1135,6 +1135,72 @@ const contractExamples: ContractScenario[] = [
 	},
 ];
 
+// A passed select value matches the option with that value after children
+// exist. Writing it before the options leaves the first option selected.
+const controlledSelectMount: ContractScenario = {
+	shape: "select",
+	steps: [
+		contractStep({
+			selectValue: "b",
+			controls: [
+				contractControl("a", { value: "a", text: "A" }),
+				contractControl("b", { value: "b", text: "B" }),
+			],
+		}),
+	],
+};
+
+const controlledSelectArb: fc.Arbitrary<ContractScenario> = fc
+	.array(
+		fc.record({
+			optionCount: fc.constantFrom(1, 2),
+			selectValue: fc.constantFrom("a", "b"),
+		}),
+		{ minLength: 1, maxLength: 3 },
+	)
+	.map((steps) => ({
+		shape: "select" as const,
+		steps: steps.map((step) =>
+			contractStep({
+				selectValue: step.selectValue,
+				controls: (["a", "b"] as const)
+					.slice(0, step.optionCount)
+					.map((id) =>
+						contractControl(id, {
+							value: id,
+							text: id === "a" ? "A" : "B",
+						}),
+					),
+			}),
+		),
+	}));
+
+function explainControlledSelect(
+	scenario: ContractScenario,
+	traces: ContractTrace[],
+): string | null {
+	for (let index = 0; index < traces.length; index++) {
+		const step = scenario.steps[index];
+		const trace = traces[index];
+		if (!step || !trace) return `missing step ${index}`;
+		if (step.selectValue == null) continue;
+		const wanted = step.selectValue;
+		const hasOption = step.controls.some(
+			(control) => (control.value ?? control.id) === wanted,
+		);
+		if (!hasOption) continue;
+		if (trace.updated.values[0] !== wanted) {
+			return `step ${index} select ${trace.updated.values[0]} wanted ${wanted}`;
+		}
+		const first = step.controls[0];
+		const firstValue = first ? (first.value ?? first.id) : null;
+		if (firstValue !== wanted && trace.updated.selected[0] === true) {
+			return `step ${index} select first option stayed selected`;
+		}
+	}
+	return null;
+}
+
 function contractControlArb(
 	id: string,
 	shape: ContractScenario["shape"],
@@ -1556,6 +1622,32 @@ describe("renderer properties in Chromium", () => {
 
 	it("leaves a dropped select value selected", async () => {
 		await assertReset(duplicateOptionArb);
+	}, 120_000);
+
+	it("selects the passed value once the matching option exists", async () => {
+		await fc.assert(
+			fc.asyncProperty(controlledSelectArb, async (scenario) => {
+				const traces = await page.evaluate((input) => {
+					const properties = (
+						window as unknown as {
+							__igniteProperties: {
+								runContract: (value: typeof input) => ContractTrace[];
+							};
+						}
+					).__igniteProperties;
+					return properties.runContract(input);
+				}, scenario);
+				const problem = explainControlledSelect(scenario, traces);
+				if (problem) {
+					throw new Error(`${problem}\n${JSON.stringify(scenario)}`);
+				}
+			}),
+			{
+				seed: SEED,
+				numRuns: ALLOW_RUNS,
+				examples: [[controlledSelectMount]],
+			},
+		);
 	}, 120_000);
 
 	it("applies passed props and leaves dropped form state", async () => {

@@ -966,6 +966,7 @@ function patchNode(
 	// A host claim is opaque. Skip child diffing so the positional patch does
 	// not desync against untracked DOM nodes (issue #57).
 	if (hostRuntimeEnabled && subtreeOwners.has(elementNode)) {
+		flushSelectValue(elementNode, newNode.props);
 		assignRef(elementNode, newNode.props.ref);
 		return domNode;
 	}
@@ -1009,6 +1010,7 @@ function patchNode(
 		}
 	}
 
+	flushSelectValue(elementNode, newNode.props);
 	assignRef(elementNode, newNode.props.ref);
 	return domNode;
 }
@@ -1031,6 +1033,7 @@ function createDomFromNormalized(node: NormalizedNode): ChildNode {
 			for (const child of node.children) {
 				element.appendChild(createDomFromNormalized(child));
 			}
+			flushSelectValue(element, node.props);
 			assignRef(element, node.props.ref);
 			if (hostRuntimeEnabled) freshNodes.add(element);
 			return element;
@@ -1123,6 +1126,8 @@ function patchProps(
 		// Passed checked, value, and selected are written every render,
 		// including explicit false. Null leaves the live property alone.
 		if (!isSvgElement && isLiveField(element, key)) {
+			// Select value is applied after options exist.
+			if (key === "value" && element.localName === "select") continue;
 			if (next != null) assignControlled(element as HTMLElement, key, next);
 			continue;
 		}
@@ -1489,6 +1494,11 @@ function isComposingInput(element: HTMLElement): boolean {
 		"isComposing" in element &&
 		Boolean((element as HTMLElement & { isComposing?: boolean }).isComposing)
 	);
+}
+
+function flushSelectValue(element: Element, props: IgniteJsxProps): void {
+	if (element.localName !== "select" || props.value == null) return;
+	assignControlled(element as HTMLElement, "value", props.value);
 }
 
 function replaceAll(parent: ParentNode, children: NormalizedNode[]): void {

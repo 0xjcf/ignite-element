@@ -903,9 +903,6 @@ function manualForm(
 }
 
 function applyManualSelect(select: HTMLSelectElement, step: ContractStep): void {
-	if (step.selectValue != null && !step.composing && select.value !== step.selectValue) {
-		select.value = step.selectValue;
-	}
 	const existing = new Map<string, HTMLOptionElement>();
 	for (const option of Array.from(select.options)) existing.set(option.id, option);
 	const next: HTMLOptionElement[] = [];
@@ -927,6 +924,10 @@ function applyManualSelect(select: HTMLSelectElement, step: ContractStep): void 
 		if (!next.includes(option)) option.remove();
 	}
 	for (const option of next) select.append(option);
+	// Match the renderer: a passed select value is applied after options exist.
+	if (step.selectValue != null && select.value !== step.selectValue) {
+		select.value = step.selectValue;
+	}
 }
 
 function applyManual(
