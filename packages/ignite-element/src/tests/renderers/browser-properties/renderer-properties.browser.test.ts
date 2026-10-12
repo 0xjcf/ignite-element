@@ -837,19 +837,31 @@ function explainAlias(
 	return `listeners ${report.firstCalls},${report.secondCalls} wanted ${wantFirst},${wantSecond}`;
 }
 
-function explainLive(scenario: LiveScenario, report: LiveReport): string | null {
-	const liveKey = scenario.fromKey === "checked" || scenario.fromKey === "value";
+function explainLive(
+	scenario: LiveScenario,
+	report: LiveReport,
+): string | null {
+	const liveKey =
+		scenario.fromKey === "checked" || scenario.fromKey === "value";
 	const sameSink = scenario.toKey === scenario.fromKey;
 	if (liveKey && !sameSink) {
-		if (scenario.fromKey === "checked" && report.updatedChecked !== report.heldChecked) {
+		if (
+			scenario.fromKey === "checked" &&
+			report.updatedChecked !== report.heldChecked
+		) {
 			return `checked moved ${report.updatedChecked} held ${report.heldChecked}`;
 		}
-		if (scenario.fromKey === "value" && report.updatedValue !== report.heldValue) {
+		if (
+			scenario.fromKey === "value" &&
+			report.updatedValue !== report.heldValue
+		) {
 			return `value moved ${report.updatedValue} held ${report.heldValue}`;
 		}
 		const attrs =
 			JSON.stringify(report.updatedAttrs) === JSON.stringify(report.freshAttrs);
-		return attrs ? null : `attrs ${JSON.stringify(report.updatedAttrs)} fresh ${JSON.stringify(report.freshAttrs)}`;
+		return attrs
+			? null
+			: `attrs ${JSON.stringify(report.updatedAttrs)} fresh ${JSON.stringify(report.freshAttrs)}`;
 	}
 	const sameValue = report.updatedValue === report.freshValue;
 	const sameChecked = report.updatedChecked === report.freshChecked;
@@ -898,7 +910,10 @@ function explainEvents(
 	return null;
 }
 
-function explainClass(scenario: ClassScenario, report: ClassReport): string | null {
+function explainClass(
+	scenario: ClassScenario,
+	report: ClassReport,
+): string | null {
 	const wanted = scenario.drop ? null : scenario.value;
 	if (report.classAttr !== wanted) {
 		return `class ${report.classAttr} wanted ${wanted} names ${report.names.join(",")}`;
@@ -950,9 +965,7 @@ function contractControl(
 	};
 }
 
-function contractStep(
-	patch: Partial<ContractStep> = {},
-): ContractStep {
+function contractStep(patch: Partial<ContractStep> = {}): ContractStep {
 	return {
 		controls: [],
 		selectValue: null,
@@ -1163,14 +1176,12 @@ const controlledSelectArb: fc.Arbitrary<ContractScenario> = fc
 		steps: steps.map((step) =>
 			contractStep({
 				selectValue: step.selectValue,
-				controls: (["a", "b"] as const)
-					.slice(0, step.optionCount)
-					.map((id) =>
-						contractControl(id, {
-							value: id,
-							text: id === "a" ? "A" : "B",
-						}),
-					),
+				controls: (["a", "b"] as const).slice(0, step.optionCount).map((id) =>
+					contractControl(id, {
+						value: id,
+						text: id === "a" ? "A" : "B",
+					}),
+				),
 			}),
 		),
 	}));
@@ -1223,7 +1234,12 @@ function contractControlArb(
 }
 
 const contractArb: fc.Arbitrary<ContractScenario> = fc
-	.constantFrom("checkbox" as const, "text" as const, "radios" as const, "select" as const)
+	.constantFrom(
+		"checkbox" as const,
+		"text" as const,
+		"radios" as const,
+		"select" as const,
+	)
 	.chain((shape) => {
 		const ids = shape === "radios" || shape === "select" ? ["a", "b"] : ["a"];
 		const controls = fc.tuple(
@@ -1242,25 +1258,20 @@ const contractArb: fc.Arbitrary<ContractScenario> = fc
 			actionCased: fc.constant(null),
 			checkedAttr: fc.constant(null),
 		});
-		return fc
-			.array(one, { minLength: 2, maxLength: 3 })
-			.map((steps) => ({
-				shape,
-				steps: steps.map((item, index) => ({
-					...item,
-					composing: shape === "text" && index > 0 && item.composing,
-				})),
-			}));
+		return fc.array(one, { minLength: 2, maxLength: 3 }).map((steps) => ({
+			shape,
+			steps: steps.map((item, index) => ({
+				...item,
+				composing: shape === "text" && index > 0 && item.composing,
+			})),
+		}));
 	});
 
 function sameSnap(left: unknown, right: unknown): boolean {
 	return JSON.stringify(left) === JSON.stringify(right);
 }
 
-function droppedDefault(
-	scenario: ContractScenario,
-	index: number,
-): boolean {
+function droppedDefault(scenario: ContractScenario, index: number): boolean {
 	const previous = scenario.steps[index - 1];
 	const next = scenario.steps[index];
 	if (!previous || !next) return false;
@@ -1311,9 +1322,12 @@ function explainContract(
 				([name]) => name === "accept-charset",
 			);
 			const value = attr ? attr[1] : null;
-			const armed = [...trace.updated.attrs, ...trace.updated.values.map(
-				(item) => ["action", item] as [string, string],
-			)].filter(([, item]) => item.toLowerCase().includes("javascript:"));
+			const armed = [
+				...trace.updated.attrs,
+				...trace.updated.values.map(
+					(item) => ["action", item] as [string, string],
+				),
+			].filter(([, item]) => item.toLowerCase().includes("javascript:"));
 			if (armed.length > 0) {
 				return `step ${index} url ${armed.map((item) => item.join("=")).join(" ")}`;
 			}
@@ -1622,6 +1636,177 @@ describe("renderer properties in Chromium", () => {
 
 	it("leaves a dropped select value selected", async () => {
 		await assertReset(duplicateOptionArb);
+	}, 120_000);
+
+	it("keeps a real composition until the next render after it ends", async () => {
+		const heComposition = [
+			{ value: "he", composing: false, text: null },
+			{ value: "he", composing: true, text: "he\u3042" },
+			{ value: "he", composing: false, text: null },
+		];
+		const compositionArb = fc
+			.array(
+				fc.record({
+					value: fc.constantFrom("he", "a"),
+					composing: fc.boolean(),
+					text: fc.constantFrom("he\u3042", "ime"),
+				}),
+				{ minLength: 2, maxLength: 3 },
+			)
+			.map((steps) =>
+				steps.map((step, index) => ({
+					...step,
+					composing: index > 0 && step.composing,
+					text: index > 0 && step.composing ? step.text : null,
+				})),
+			);
+		await fc.assert(
+			fc.asyncProperty(compositionArb, async (steps) => {
+				const values = await page.evaluate((input) => {
+					const properties = (
+						window as unknown as {
+							__igniteProperties: {
+								runComposition: (value: typeof input) => string[];
+							};
+						}
+					).__igniteProperties;
+					return properties.runComposition(input);
+				}, steps);
+				for (let index = 0; index < steps.length; index++) {
+					const step = steps[index];
+					const previous = steps[index - 1];
+					if (!step) continue;
+					if (
+						step.composing &&
+						step.text != null &&
+						values[index] !== step.text
+					) {
+						throw new Error(
+							`step ${index} composition ${values[index]} text ${step.text}`,
+						);
+					}
+					if (
+						previous?.composing &&
+						!step.composing &&
+						values[index] !== step.value
+					) {
+						throw new Error(
+							`step ${index} after composition ${values[index]} wanted ${step.value}`,
+						);
+					}
+				}
+			}),
+			{
+				seed: SEED,
+				numRuns: ALLOW_RUNS,
+				examples: [[heComposition]],
+			},
+		);
+	}, 120_000);
+
+	it("keeps a passed radio checked beside a sibling defaultChecked", async () => {
+		const radioBesideDefault: ContractScenario = {
+			shape: "radios",
+			steps: [
+				contractStep({
+					controls: [contractControl("a"), contractControl("b")],
+				}),
+				contractStep({
+					controls: [
+						contractControl("a", { checked: true }),
+						contractControl("b", {
+							checked: false,
+							defaultChecked: true,
+						}),
+					],
+				}),
+			],
+		};
+		const radioFocusedArb = fc
+			.record({
+				checkedFirst: fc.boolean(),
+				siblingChecked: fc.constantFrom(false as boolean | null, null),
+			})
+			.map(({ checkedFirst, siblingChecked }) => ({
+				shape: "radios" as const,
+				steps: [
+					contractStep({
+						controls: [contractControl("a"), contractControl("b")],
+					}),
+					contractStep({
+						controls: checkedFirst
+							? [
+									contractControl("a", { checked: true }),
+									contractControl("b", {
+										checked: siblingChecked,
+										defaultChecked: true,
+									}),
+								]
+							: [
+									contractControl("a", {
+										checked: siblingChecked,
+										defaultChecked: true,
+									}),
+									contractControl("b", { checked: true }),
+								],
+					}),
+				],
+			}));
+		for (const seed of [42, 168171]) {
+			await fc.assert(
+				fc.asyncProperty(radioFocusedArb, async (scenario) => {
+					const traces = await page.evaluate((input) => {
+						const properties = (
+							window as unknown as {
+								__igniteProperties: {
+									runContract: (value: typeof input) => ContractTrace[];
+								};
+							}
+						).__igniteProperties;
+						return properties.runContract(input);
+					}, scenario);
+					for (let index = 0; index < scenario.steps.length; index++) {
+						const step = scenario.steps[index];
+						const trace = traces[index];
+						if (!step || !trace) throw new Error(`missing step ${index}`);
+						let winner = -1;
+						for (
+							let controlIndex = 0;
+							controlIndex < step.controls.length;
+							controlIndex++
+						) {
+							if (step.controls[controlIndex]?.checked === true) {
+								winner = controlIndex;
+							}
+						}
+						if (winner >= 0 && trace.updated.checked[winner] !== true) {
+							throw new Error(
+								`step ${index} radio ${JSON.stringify(trace.updated.checked)} winner ${winner}`,
+							);
+						}
+						for (
+							let controlIndex = 0;
+							controlIndex < step.controls.length;
+							controlIndex++
+						) {
+							if (
+								step.controls[controlIndex]?.checked === false &&
+								trace.updated.checked[controlIndex] !== false
+							) {
+								throw new Error(
+									`step ${index} radio ${JSON.stringify(trace.updated.checked)} false ${controlIndex}`,
+								);
+							}
+						}
+					}
+				}),
+				{
+					seed,
+					numRuns: ALLOW_RUNS,
+					examples: [[radioBesideDefault]],
+				},
+			);
+		}
 	}, 120_000);
 
 	it("selects the passed value once the matching option exists", async () => {

@@ -1501,6 +1501,47 @@ describe("URL scheme guard", () => {
 		expect(element.className).toBe("");
 	});
 
+	it("assigns false to an own custom setter", () => {
+		const tag = "x-active-flag";
+		const seen: unknown[] = [];
+		if (!customElements.get(tag)) {
+			class ActiveFlag extends HTMLElement {
+				#active: boolean | null = null;
+				get active() {
+					return this.#active;
+				}
+				set active(value: unknown) {
+					seen.push(value);
+					this.#active =
+						value === false ? false : value == null ? null : Boolean(value);
+				}
+			}
+			customElements.define(tag, ActiveFlag);
+		}
+
+		const mounted = mount(jsx(tag, { active: false }));
+		const element = mounted.host.querySelector(tag) as HTMLElement & {
+			active: boolean | null;
+		};
+		expect(seen).toEqual([false]);
+		expect(element.active).toBe(false);
+
+		const turnedOn = renderIgniteJsx(
+			mounted.host,
+			jsx(tag, { active: true }),
+			mounted.tree,
+		);
+		const turnedOff = renderIgniteJsx(
+			mounted.host,
+			jsx(tag, { active: false }),
+			turnedOn,
+		);
+		expect(seen).toEqual([false, true, false]);
+
+		renderIgniteJsx(mounted.host, jsx(tag, {}), turnedOff);
+		expect(seen[seen.length - 1]).toBe(undefined);
+	});
+
 	it("clears a custom string setter that trimmed the value", () => {
 		const tag = "x-label-trimmed";
 		if (!customElements.get(tag)) {

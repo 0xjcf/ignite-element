@@ -80,6 +80,7 @@ export function mountIgniteJsx(
 	const mount = () => {
 		const normalized = normalizeRoot(view);
 		replaceAll(host, normalized);
+		flushRadioChecked();
 		return normalized;
 	};
 	if (hostRuntimeEnabled) return withIgniteHostRuntime(options.hosts, mount);
@@ -114,25 +115,12 @@ function renderIgniteJsxNow(
 ): NormalizedNode[] {
 	const next = normalizeRoot(view);
 
-	if (options.mode === "replace") {
+	if (options.mode === "replace" || !previous || host.childNodes.length === 0) {
 		replaceAll(host, next);
-		return next;
-	}
-
-	if (!previous || host.childNodes.length === 0) {
-		replaceAll(host, next);
-		return next;
-	}
-
-	const patched = patchChildren(
-		host,
-		previous,
-		next,
-		options.onFallbackReplace,
-	);
-	if (!patched) {
+	} else if (!patchChildren(host, previous, next, options.onFallbackReplace)) {
 		replaceAll(host, next);
 	}
+	flushRadioChecked();
 	return next;
 }
 
@@ -1074,6 +1062,12 @@ function patchProps(
 	newProps: IgniteJsxProps,
 ) {
 	const isSvgElement = element instanceof SVGElement;
+	if (
+		!isSvgElement &&
+		(element.localName === "input" || element.localName === "textarea")
+	) {
+		watchComposition(element as HTMLElement);
+	}
 	// One listener per event. The last spelling in prop order wins.
 	patchEventSlots(element, oldProps, newProps);
 	if (__IGNITE_DEV_WARNINGS__) {
@@ -1082,104 +1076,116 @@ function patchProps(
 
 	// default* before checked, value, and selected, whatever the key order.
 	for (let pass = 0; pass < 2; pass++) {
-	for (const [key, next] of Object.entries(newProps)) {
-		const late = key === "checked" || key === "value" || key === "selected";
-		if (late !== (pass === 1)) continue;
-		if (hostRuntimeEnabled && key === "use") continue;
-		if (key === "children" || key === "ref") continue;
-		if (isBlockedMarkupProp(key)) {
-			if (next !== undefined && next !== null && next !== false) {
-				warnBlockedMarkupProp(element, key);
-			}
-			continue;
-		}
-		if (isIgnoredHandlerAttribute(key)) {
-			// A string `ONCLICK` or `xlink:onclick` would become an executable
-			// attribute. Functions bind once per event slot above.
-			continue;
-		}
-		if (isBlockedUrlValue(element, key, next, newProps)) {
-			warnBlockedUrl(element, key);
-			// removeProp clears a non-reflected property and the attribute.
-			// Attribute removal alone leaves a stale custom-element URL.
-			removeProp(element, key, oldProps[key], isSvgElement);
-			continue;
-		}
-		const prev = oldProps[key];
-		if (key === "class" || key === "className") {
-			const nextClass = next !== false && next != null ? String(next) : "";
-			if (element.getAttribute("class") !== nextClass) {
-				if (nextClass) {
-					element.setAttribute("class", nextClass);
-				} else {
-					element.removeAttribute("class");
+		for (const [key, next] of Object.entries(newProps)) {
+			const late = key === "checked" || key === "value" || key === "selected";
+			if (late !== (pass === 1)) continue;
+			if (hostRuntimeEnabled && key === "use") continue;
+			if (key === "children" || key === "ref") continue;
+			if (isBlockedMarkupProp(key)) {
+				if (next !== undefined && next !== null && next !== false) {
+					warnBlockedMarkupProp(element, key);
 				}
+				continue;
 			}
-			continue;
-		}
-
-		if (key === "style") {
-			patchStyle(element as HTMLElement, prev, next);
-			continue;
-		}
-
-		// Passed checked, value, and selected are written every render,
-		// including explicit false. Null leaves the live property alone.
-		if (!isSvgElement && isLiveField(element, key)) {
-			// Select value is applied after options exist.
-			if (key === "value" && element.localName === "select") continue;
-			if (next != null) assignControlled(element as HTMLElement, key, next);
-			continue;
-		}
-
-		// An unchanged spelling is still applied when its twin was dropped.
-		// Two spellings at once stay unspecified; one remaining spelling is not.
-		if (
-			next === prev &&
-			!droppedSiblingSpelling(
-				oldProps,
-				newProps,
-				element,
-				key,
-				isSvgElement,
-			)
-		) {
-			continue;
-		}
-
-		// Explicit false is a set for these defaults, not a drop. Applying it
-		// can clear a still-controlled checked or selected value, so write
-		// that listed prop again in this pass.
-		if (
-			next === false &&
-			!isSvgElement &&
-			(key === "defaultChecked" || key === "defaultSelected")
-		) {
-			const host = element as HTMLElement;
-			applyProperty(host, key, false);
-			const live = key === "defaultChecked" ? "checked" : "selected";
-			if (typeof newProps[live] === "boolean") {
-				applyProperty(host, live, newProps[live]);
+			if (isIgnoredHandlerAttribute(key)) {
+				// A string `ONCLICK` or `xlink:onclick` would become an executable
+				// attribute. Functions bind once per event slot above.
+				continue;
 			}
-			continue;
-		}
+			if (isBlockedUrlValue(element, key, next, newProps)) {
+				warnBlockedUrl(element, key);
+				// removeProp clears a non-reflected property and the attribute.
+				// Attribute removal alone leaves a stale custom-element URL.
+				removeProp(element, key, oldProps[key], isSvgElement);
+				continue;
+			}
+			const prev = oldProps[key];
+			if (key === "class" || key === "className") {
+				const nextClass = next !== false && next != null ? String(next) : "";
+				if (element.getAttribute("class") !== nextClass) {
+					if (nextClass) {
+						element.setAttribute("class", nextClass);
+					} else {
+						element.removeAttribute("class");
+					}
+				}
+				continue;
+			}
 
-		if (next === false || next === null || next === undefined) {
-			removeProp(element, key, prev, isSvgElement);
-			continue;
-		}
+			if (key === "style") {
+				patchStyle(element as HTMLElement, prev, next);
+				continue;
+			}
 
-		if (!isSvgElement && key in element && key !== "list") {
-			applyProperty(element as HTMLElement, key, next);
-			continue;
-		}
+			// Passed checked, value, and selected are written every render,
+			// including explicit false. Null leaves the live property alone.
+			if (!isSvgElement && isLiveField(element, key)) {
+				// Select value is applied after options exist.
+				if (key === "value" && element.localName === "select") continue;
+				if (
+					next != null &&
+					!(
+						key === "checked" &&
+						element.isConnected &&
+						queueRadioChecked(element as HTMLElement, next)
+					)
+				) {
+					assignControlled(element as HTMLElement, key, next);
+				}
+				continue;
+			}
 
-		const attrName = propAttributeName(element, key, isSvgElement);
-		const nextString = String(next);
-		if (element.getAttribute(attrName) !== nextString) {
-			element.setAttribute(attrName, nextString);
+			// An unchanged spelling is still applied when its twin was dropped.
+			// Two spellings at once stay unspecified; one remaining spelling is not.
+			if (
+				next === prev &&
+				!droppedSiblingSpelling(oldProps, newProps, element, key, isSvgElement)
+			) {
+				continue;
+			}
+
+			// Explicit false is a set for these defaults, not a drop. Applying it
+			// can clear a still-controlled checked or selected value, so write
+			// that listed prop again in this pass.
+			if (
+				next === false &&
+				!isSvgElement &&
+				(key === "defaultChecked" || key === "defaultSelected")
+			) {
+				const host = element as HTMLElement;
+				applyProperty(host, key, false);
+				const live = key === "defaultChecked" ? "checked" : "selected";
+				if (typeof newProps[live] === "boolean") {
+					applyProperty(host, live, newProps[live]);
+				}
+				continue;
+			}
+
+			if (next === false || next === null || next === undefined) {
+				// A present false is a value. undefined is only for a later drop.
+				if (
+					next === false &&
+					!isSvgElement &&
+					hasOwnCustomSetter(element as HTMLElement, key)
+				) {
+					applyProperty(element as HTMLElement, key, false);
+				} else {
+					removeProp(element, key, prev, isSvgElement);
+				}
+				continue;
+			}
+
+			if (!isSvgElement && key in element && key !== "list") {
+				applyProperty(element as HTMLElement, key, next);
+				continue;
+			}
+
+			const attrName = propAttributeName(element, key, isSvgElement);
+			const nextString = String(next);
+			if (element.getAttribute(attrName) !== nextString) {
+				element.setAttribute(attrName, nextString);
+			}
 		}
-	}
 	}
 
 	for (const key of Object.keys(oldProps)) {
@@ -1450,19 +1456,45 @@ function removeProp(
 	if (hadAttribute) element.removeAttribute(attrName);
 }
 
+const composing = new WeakMap<HTMLElement, boolean>();
+const radioQueue: Array<HTMLInputElement | boolean> = [];
+
+function watchComposition(element: HTMLElement): void {
+	if (composing.has(element)) return;
+	composing.set(element, false);
+	element.addEventListener("compositionstart", () => {
+		composing.set(element, true);
+	});
+	element.addEventListener("compositionend", () => {
+		composing.set(element, false);
+	});
+}
+
+function queueRadioChecked(element: HTMLElement, value: unknown): boolean {
+	if ((element as HTMLInputElement).type !== "radio") return false;
+	radioQueue.push(element as HTMLInputElement, value === true);
+	return true;
+}
+
+function flushRadioChecked(): void {
+	const queued = radioQueue.splice(0, radioQueue.length);
+	for (let index = 0; index < queued.length; index += 2) {
+		assignControlled(
+			queued[index] as HTMLInputElement,
+			"checked",
+			queued[index + 1],
+		);
+	}
+}
+
 function assignControlled(
 	element: HTMLElement,
 	key: string,
 	value: unknown,
 ): void {
-	// Composition is the exception to an exact value. The write waits for the
-	// next render after isComposing is false, so onInput can re-render without
-	// resetting the composition. An equal value is left alone so a textarea
-	// keeps its selection.
-	if (key === "value") {
-		if (isComposingInput(element)) return;
-		if (Reflect.get(element, key) === value) return;
-	}
+	// compositionstart holds value until the render after compositionend.
+	if (key === "value" && composing.get(element) === true) return;
+	if (key === "value" && Reflect.get(element, key) === value) return;
 	try {
 		Reflect.set(element, key, value);
 	} catch {
@@ -1475,25 +1507,10 @@ function applyProperty(
 	key: string,
 	value: unknown,
 ): void {
-	if (key === "value" || key === "checked") {
-		const current = Reflect.get(element, key);
-		if (current !== value && !(isComposingInput(element) && key === "value")) {
-			Reflect.set(element, key, value);
-		}
-		return;
-	}
-
 	const current = Reflect.get(element, key);
 	if (current !== value) {
 		Reflect.set(element, key, value);
 	}
-}
-
-function isComposingInput(element: HTMLElement): boolean {
-	return (
-		"isComposing" in element &&
-		Boolean((element as HTMLElement & { isComposing?: boolean }).isComposing)
-	);
 }
 
 function flushSelectValue(element: Element, props: IgniteJsxProps): void {

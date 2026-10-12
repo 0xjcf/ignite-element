@@ -231,7 +231,7 @@ describe("renderer core behavior", () => {
 
 		const inputTree = mountIgniteJsx(host, jsx("input", { value: "x" }));
 		const input = host.querySelector("input") as HTMLInputElement;
-		(input as HTMLInputElement & { isComposing?: boolean }).isComposing = true;
+		input.dispatchEvent(new Event("compositionstart"));
 		renderIgniteJsx(host, jsx("input", { value: "y" }), inputTree);
 		expect(input.value).toBe("x");
 	});

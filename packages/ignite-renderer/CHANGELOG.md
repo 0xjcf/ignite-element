@@ -1,12 +1,5 @@
 # ignite-renderer
 
-## Unreleased
-
-### Minor Changes
-
-- BREAKING (beta): passed `checked`, `value`, and `selected` are applied on every render, including an explicit `false`. `defaultChecked`, `defaultValue`, and `defaultSelected` run before those live props. While `isComposing` is true, `value` is not written. The next render after composition ends writes that `value`. Dropping `checked`, `value`, or `selected` leaves the live form state as it was. Development builds warn to pass it every render or use a catalog form component. A file input `value` is never assigned `undefined`. JSX `innerText`, `textContent`, `outerText`, `innerHTML`, and `outerHTML` are unsupported on intrinsic elements: a TypeScript error, a development-only warning, and they are never set or reset. Children stay owned by the diff. They are unsupported in this beta, not deprecated until a later major. Use JSX children for text. A host `mount` may still assign `innerHTML`.
-- BREAKING (beta): dropping a prop restores only an allowlisted piece of state. `value`, `checked`, and `selected` stay as they were. `scrollTop` and `scrollLeft` become `0`. Boolean props become `false`. A reflected attribute is removed. Dropping `defaultValue`, `defaultChecked`, or `defaultSelected` on a native element leaves that default as it was. `defaultChecked={false}` and `defaultSelected={false}` are sets. A native attribute or event key that is still present under another casing is not a drop. If the previous render set both spellings of one event and the next keeps one, the other listener is unbound. Two spellings of one prop are an authoring error. `htmlFor`, `HtmlFor`, `acceptCharset`, `AcceptCharset`, `className`, and `httpEquiv` remove `for`, `accept-charset`, `class`, and `http-equiv`. An ARIA IDL name such as `ariaLabel` removes `aria-label`. Every other native prop is left as it was, and dropping it writes no attribute. A custom element's own setter is called with `undefined`, including a setter named `defaultValue`, `defaultChecked`, or `defaultSelected`. Own custom setters stay case-sensitive, so `foo` and `FOO` are different keys. Sets apply before drops. `length`, `options`, and `selectedOptions` are never set or reset.
-
 ## 3.0.0-beta.18
 
 ## 3.0.0-beta.17

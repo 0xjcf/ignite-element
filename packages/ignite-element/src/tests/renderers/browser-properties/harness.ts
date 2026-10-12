@@ -154,8 +154,7 @@ function childNodes(
 	reference: boolean,
 ) {
 	const dropSelected = dropped && scenario.drop.includes("selected");
-	const falseDefault =
-		dropped && scenario.falses.includes("defaultSelected");
+	const falseDefault = dropped && scenario.falses.includes("defaultSelected");
 	const dropDefault =
 		dropped && scenario.drop.includes("defaultSelected") && !reference;
 	if (scenario.tag.kind === "select") {
@@ -606,7 +605,10 @@ function runLive(scenario: LiveScenario): LiveReport {
 	try {
 		const tree = mountIgniteJsx(
 			host,
-			jsx(scenario.tag, controlProps(scenario, scenario.fromKey, scenario.from)),
+			jsx(
+				scenario.tag,
+				controlProps(scenario, scenario.fromKey, scenario.from),
+			),
 		);
 		const held = readControl(host.firstElementChild);
 		renderIgniteJsx(
@@ -790,7 +792,12 @@ function contractView(scenario: ContractScenario, step: ContractStep) {
 		if (step.selectValue != null) props.value = step.selectValue;
 		return jsx("select", props);
 	}
-	const type = scenario.shape === "text" ? "text" : scenario.shape === "radios" ? "radio" : "checkbox";
+	const type =
+		scenario.shape === "text"
+			? "text"
+			: scenario.shape === "radios"
+				? "radio"
+				: "checkbox";
 	return jsx("form", {
 		children: step.controls.map((control) => {
 			const props: Record<string, unknown> = { id: control.id, type };
@@ -799,7 +806,8 @@ function contractView(scenario: ContractScenario, step: ContractStep) {
 				props.defaultChecked = control.defaultChecked;
 			}
 			if (control.checked != null) props.checked = control.checked;
-			if (control.defaultValue != null) props.defaultValue = control.defaultValue;
+			if (control.defaultValue != null)
+				props.defaultValue = control.defaultValue;
 			if (control.value != null) props.value = control.value;
 			if (scenario.shape === "live" && step.checkedAttr != null) {
 				props.CHECKED = step.checkedAttr;
@@ -843,7 +851,9 @@ function contractSnap(
 
 function markComposing(root: ParentNode, on: boolean): void {
 	for (const input of root.querySelectorAll("input, textarea")) {
-		(input as HTMLElement & { isComposing?: boolean }).isComposing = on;
+		const field = input as HTMLElement & { isComposing?: boolean };
+		field.isComposing = on;
+		field.dispatchEvent(new Event(on ? "compositionstart" : "compositionend"));
 	}
 }
 
@@ -855,7 +865,8 @@ function applyManualControl(
 ): void {
 	(element as HTMLElement & { isComposing?: boolean }).isComposing =
 		step.composing;
-	if (control.defaultChecked != null) element.defaultChecked = control.defaultChecked;
+	if (control.defaultChecked != null)
+		element.defaultChecked = control.defaultChecked;
 	if (control.defaultValue != null) element.defaultValue = control.defaultValue;
 	if (control.checked != null) element.checked = control.checked;
 	if (
@@ -902,9 +913,13 @@ function manualForm(
 	return form;
 }
 
-function applyManualSelect(select: HTMLSelectElement, step: ContractStep): void {
+function applyManualSelect(
+	select: HTMLSelectElement,
+	step: ContractStep,
+): void {
 	const existing = new Map<string, HTMLOptionElement>();
-	for (const option of Array.from(select.options)) existing.set(option.id, option);
+	for (const option of Array.from(select.options))
+		existing.set(option.id, option);
 	const next: HTMLOptionElement[] = [];
 	for (const control of step.controls) {
 		let option = existing.get(control.id);
@@ -942,10 +957,62 @@ function applyManual(
 		return;
 	}
 	const inputs = Array.from(form.querySelectorAll("input"));
+	if (scenario.shape === "radios") {
+		for (const [index, input] of inputs.entries()) {
+			const control = step.controls[index];
+			if (control?.defaultChecked != null) {
+				input.defaultChecked = control.defaultChecked;
+			}
+		}
+		for (const [index, input] of inputs.entries()) {
+			const control = step.controls[index];
+			if (!control) continue;
+			if (control.defaultValue != null)
+				input.defaultValue = control.defaultValue;
+			if (
+				control.value != null &&
+				!step.composing &&
+				input.value !== control.value
+			) {
+				input.value = control.value;
+			}
+			if (control.checked != null) input.checked = control.checked;
+		}
+		return;
+	}
 	step.controls.forEach((control, index) => {
 		const input = inputs[index] as HTMLInputElement | undefined;
 		if (input) applyManualControl(input, control, step, scenario.shape);
 	});
+}
+
+function runComposition(
+	steps: { value: string; composing: boolean; text: string | null }[],
+): string[] {
+	const host = document.createElement("div");
+	document.body.append(host);
+	const values: string[] = [];
+	try {
+		let tree: ReturnType<typeof mountIgniteJsx> | undefined;
+		let input: HTMLInputElement | undefined;
+		for (const step of steps) {
+			if (input) {
+				input.dispatchEvent(
+					new Event(step.composing ? "compositionstart" : "compositionend"),
+				);
+				if (step.composing && step.text != null) input.value = step.text;
+			}
+			const view = jsx("input", { value: step.value });
+			tree = tree
+				? renderIgniteJsx(host, view, tree)
+				: mountIgniteJsx(host, view);
+			input = host.querySelector("input") as HTMLInputElement;
+			values.push(input.value);
+		}
+		return values;
+	} finally {
+		host.remove();
+	}
 }
 
 function runContract(scenario: ContractScenario): ContractTrace[] {
@@ -1010,6 +1077,7 @@ window.__igniteProperties = {
 	runEvents,
 	runClass,
 	runContract,
+	runComposition,
 };
 
 declare global {
@@ -1023,6 +1091,7 @@ declare global {
 			runEvents: typeof runEvents;
 			runClass: typeof runClass;
 			runContract: typeof runContract;
+			runComposition: typeof runComposition;
 		};
 	}
 }

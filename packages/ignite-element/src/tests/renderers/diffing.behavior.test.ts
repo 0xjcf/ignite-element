@@ -35,7 +35,7 @@ describe("ignite-jsx diffing behavior", () => {
 		const host = document.createElement("div");
 		const tree = mountIgniteJsx(host, jsx("input", { value: "a" }));
 		const input = host.querySelector("input") as HTMLInputElement;
-		(input as unknown as { isComposing: boolean }).isComposing = true;
+		input.dispatchEvent(new Event("compositionstart"));
 
 		renderIgniteJsx(host, jsx("input", { value: "b" }), tree);
 
@@ -56,7 +56,7 @@ describe("ignite-jsx diffing behavior", () => {
 			});
 		tree = mountIgniteJsx(host, view());
 		const input = host.querySelector("input") as HTMLInputElement;
-		(input as unknown as { isComposing: boolean }).isComposing = true;
+		input.dispatchEvent(new Event("compositionstart"));
 		// The field already shows the composition. onInput copies it and re-renders.
 		input.value = "hel";
 		input.dispatchEvent(new Event("input"));
@@ -67,7 +67,7 @@ describe("ignite-jsx diffing behavior", () => {
 		tree = renderIgniteJsx(host, view(), tree);
 		expect(input.value).toBe("hel");
 
-		(input as unknown as { isComposing: boolean }).isComposing = false;
+		input.dispatchEvent(new Event("compositionend"));
 		tree = renderIgniteJsx(host, view(), tree);
 		expect(input.value).toBe("he");
 	});
