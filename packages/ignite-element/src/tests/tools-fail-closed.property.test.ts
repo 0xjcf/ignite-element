@@ -1,12 +1,11 @@
 /**
  * Fail-closed properties for igniteTools.
  * The CI seed and run count are fixed so a failure replays the same sequence.
- * Seed: 20261011. Runs: 100 per case, except the schema-default property,
- * which runs 200 times.
+ * Seed: 20261011. Runs: 200 per case.
  */
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import type { IgniteToolsRuntime, ToolInputSchema } from "../tools";
+import type { IgniteToolsRuntime, ToolInputSchema, ToolSchema } from "../tools";
 import {
 	buildManifest,
 	defineToolSchema,
@@ -17,7 +16,7 @@ import { snapshotPlainJson } from "../tools/plainJson";
 import { validateToolInputValue } from "../tools/toolInput";
 
 const PROPERTY_SEED = 20261011;
-const PROPERTY_RUNS = 100;
+const PROPERTY_RUNS = 200;
 
 const looseSchema = defineToolSchema({
 	act: {
@@ -843,8 +842,6 @@ describe(`igniteTools fail-closed properties (seed ${PROPERTY_SEED}, runs ${PROP
  * canExecute and execute. The schema default is read once.
  * CI seed: 20261011. Runs: 200.
  */
-const DEFAULT_READ_SEED = 20261011;
-const DEFAULT_READ_RUNS = 200;
 
 type RawValue =
 	| { kind: "undefined" }
@@ -1147,7 +1144,7 @@ function assertMaterializedRoute(
 	}
 }
 
-describe(`schema default is materialized once (seed ${DEFAULT_READ_SEED}, runs ${DEFAULT_READ_RUNS})`, () => {
+describe(`schema default is materialized once (seed ${PROPERTY_SEED}, runs ${PROPERTY_RUNS})`, () => {
 	it("routes the validated default to canExecute and execute", async () => {
 		// The input value that passes validation is exactly the value routed
 		// to canExecute and execute. The schema default is read once, including
@@ -1239,8 +1236,174 @@ describe(`schema default is materialized once (seed ${DEFAULT_READ_SEED}, runs $
 				return true;
 			}),
 			{
-				seed: DEFAULT_READ_SEED,
-				numRuns: DEFAULT_READ_RUNS,
+				seed: PROPERTY_SEED,
+				numRuns: PROPERTY_RUNS,
+				endOnFailure: true,
+			},
+		);
+	}, 60_000);
+});
+
+const commandName = fc.stringMatching(/^[a-z][a-z0-9]{0,6}$/);
+
+type HostileTag =
+	| "object"
+	| "array"
+	| "number"
+	| "null"
+	| "date"
+	| "cycle"
+	| "proxy"
+	| "nan";
+
+const allowlistedCase = fc
+	.uniqueArray(commandName, { minLength: 1, maxLength: 4 })
+	.chain((names) =>
+		fc.record({
+			names: fc.constant(names),
+			allow: fc.shuffledSubarray(names),
+			tag: fc.constantFrom(
+				"object" as const,
+				"array" as const,
+				"number" as const,
+				"null" as const,
+				"date" as const,
+				"cycle" as const,
+				"proxy" as const,
+				"nan" as const,
+			),
+			payload: plainJson(1),
+		}),
+	);
+
+function schemaFor(names: readonly string[]): ToolSchema {
+	const commands: {
+		[name: string]: {
+			description: string;
+			input: ToolInputSchema;
+			consequential: true;
+		};
+	} = {};
+	for (const name of names) {
+		commands[name] = {
+			description: "Act.",
+			input: { type: "object", properties: { v: {} } },
+			consequential: true,
+		};
+	}
+	return commands;
+}
+
+function callInput(tag: HostileTag, payload: unknown): unknown {
+	if (tag === "object") return { v: cloneJson(payload) };
+	if (tag === "array") return [cloneJson(payload)];
+	if (tag === "number") return 4;
+	if (tag === "null") return null;
+	if (tag === "date") return new Date(0);
+	if (tag === "nan") return Number.NaN;
+	if (tag === "cycle") {
+		const cycle: { self?: unknown } = {};
+		cycle.self = cycle;
+		return cycle;
+	}
+	return new Proxy(
+		{ v: 1 },
+		{
+			ownKeys() {
+				throw new Error("ownKeys");
+			},
+		},
+	);
+}
+
+describe(`non-allowlisted commands are denied (seed ${PROPERTY_SEED}, runs ${PROPERTY_RUNS})`, () => {
+	it("denies every command outside the allowlist", async () => {
+		// Arbitrary non-allowlisted commands are always denied.
+		// Hostile inputs are generated. An allowlisted plain object still runs.
+		await fc.assert(
+			fc.asyncProperty(allowlistedCase, async (sample) => {
+				const allow = new Set(sample.allow);
+				const defined = defineToolSchema(schemaFor(sample.names));
+				const runtime = createRuntime();
+				let threw = false;
+				let tools: ReturnType<typeof igniteTools> | undefined;
+				try {
+					tools = igniteTools({
+						core: runtime as unknown as IgniteToolsRuntime,
+						schema: defined,
+						canExecute: (name) => allow.has(name),
+					});
+				} catch {
+					threw = true;
+				}
+				expect(threw).toBe(false);
+				if (!tools) throw new Error("bind failed");
+				for (const name of sample.names) {
+					expect(tools.manifest.some((tool) => tool.name === name)).toBe(
+						allow.has(name),
+					);
+				}
+				const outsider = `!${sample.names[0]}`;
+				for (const name of [...sample.names, outsider]) {
+					const allowed = allow.has(name) && sample.names.includes(name);
+					let resolveThrew = false;
+					let resolved: ReturnType<typeof tools.resolveCall> | undefined;
+					try {
+						resolved = tools.resolveCall(
+							name,
+							callInput(sample.tag, sample.payload),
+						);
+					} catch {
+						resolveThrew = true;
+					}
+					let runThrew = false;
+					let ran: Awaited<ReturnType<typeof tools.run>> | undefined;
+					try {
+						ran = await tools.run({
+							name,
+							input: callInput(sample.tag, sample.payload),
+						});
+					} catch {
+						runThrew = true;
+					}
+					expect(resolveThrew).toBe(false);
+					expect(runThrew).toBe(false);
+					if (!allowed) {
+						expect(resolved?.ok).toBe(false);
+						expect(ran?.ok).toBe(false);
+						expect(resolved).toMatchObject({
+							ok: false,
+							error: { kind: "UnknownCommand", name },
+						});
+						expect(ran).toMatchObject({
+							ok: false,
+							error: { kind: "UnknownCommand", name },
+						});
+						continue;
+					}
+					if (sample.tag === "object") {
+						expect(resolved?.ok).toBe(true);
+						expect(ran?.ok).toBe(true);
+						continue;
+					}
+					expect(resolved).toMatchObject({
+						ok: false,
+						error: { kind: "InvalidInput", name },
+					});
+					expect(ran).toMatchObject({
+						ok: false,
+						error: { kind: "InvalidInput", name },
+					});
+				}
+				const executed = runtime.calls.map((call) => call.command);
+				expect(executed.every((name) => allow.has(name))).toBe(true);
+				if (sample.tag !== "object") expect(runtime.calls).toEqual([]);
+				else expect(runtime.calls).toHaveLength(sample.allow.length);
+				return true;
+			}),
+			{
+				seed: PROPERTY_SEED,
+				numRuns: PROPERTY_RUNS,
 				endOnFailure: true,
 			},
 		);
