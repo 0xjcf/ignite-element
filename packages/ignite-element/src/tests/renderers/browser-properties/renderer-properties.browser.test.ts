@@ -7,7 +7,15 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type {
 	AliasReport,
 	AliasScenario,
+	ClassReport,
+	ClassScenario,
+	EventReport,
+	EventSequence,
+	LiveReport,
+	LiveScenario,
 	OptionSpec,
+	RadioReport,
+	RadioScenario,
 	ResetReport,
 	ResetScenario,
 	SinkScenario,
@@ -429,74 +437,164 @@ const reflectedNameArb: fc.Arbitrary<ResetScenario> = fc.oneof(
 		})),
 );
 
-const aliasArb: fc.Arbitrary<AliasScenario> = fc.oneof(
-	fc
-		.record({
-			pair: fc.constantFrom(
-				["data-id", "DATA-ID"],
-				["DATA-ID", "data-id"],
-				["data-id", "Data-Id"],
-				["id", "ID"],
-				["ID", "id"],
-				["title", "TITLE"],
-				["TITLE", "title"],
-				["lang", "LANG"],
-			),
-			value: token,
-			next: token,
-			tag: fc.constantFrom("div", "span", "button"),
-		})
-		.map(({ pair, value, next, tag }) => ({
-			kind: "attr" as const,
-			tag,
-			fromKey: pair[0],
-			toKey: pair[1],
-			value,
-			next,
-		})),
-	fc
-		.record({
-			pair: fc.constantFrom(
-				["onClick", "onclick"],
-				["onclick", "onClick"],
-				["onClick", "ONCLICK"],
-				["ONCLICK", "onClick"],
-				["onChange", "onchange"],
-				["onchange", "onChange"],
-			),
-			same: fc.boolean(),
-			value: token,
-			tag: fc.constantFrom("div", "button", "span"),
-		})
-		.map(({ pair, same, value, tag }) => ({
-			kind: "event" as const,
-			tag,
-			fromKey: pair[0],
-			toKey: pair[1],
-			value,
-			next: same ? value : `${value}x`,
-		})),
-);
-
-const eventBothArb: fc.Arbitrary<AliasScenario> = fc
+const aliasArb: fc.Arbitrary<AliasScenario> = fc
 	.record({
 		pair: fc.constantFrom(
-			["onClick", "onclick"],
-			["onclick", "onClick"],
-			["onChange", "onchange"],
+			["data-id", "DATA-ID"],
+			["DATA-ID", "data-id"],
+			["data-id", "Data-Id"],
+			["id", "ID"],
+			["ID", "id"],
+			["title", "TITLE"],
+			["TITLE", "title"],
+			["lang", "LANG"],
 		),
-		same: fc.boolean(),
 		value: token,
-		tag: fc.constantFrom("div", "button", "span"),
+		next: token,
+		tag: fc.constantFrom("div", "span", "button"),
 	})
-	.map(({ pair, same, value, tag }) => ({
-		kind: "event-both" as const,
+	.map(({ pair, value, next, tag }) => ({
+		kind: "attr" as const,
 		tag,
 		fromKey: pair[0],
 		toKey: pair[1],
 		value,
-		next: same ? value : `${value}x`,
+		next,
 	}));
+
+const liveArb: fc.Arbitrary<LiveScenario> = fc.constantFrom<LiveScenario>(
+	{
+		tag: "input",
+		type: "checkbox",
+		fromKey: "checked",
+		toKey: "CHECKED",
+		from: true,
+		to: false,
+	},
+	{
+		tag: "input",
+		type: "checkbox",
+		fromKey: "checked",
+		toKey: "Checked",
+		from: true,
+		to: false,
+	},
+	{
+		tag: "input",
+		type: "radio",
+		fromKey: "checked",
+		toKey: "CHECKED",
+		from: true,
+		to: false,
+	},
+	{
+		tag: "input",
+		type: "text",
+		fromKey: "value",
+		toKey: "VALUE",
+		from: "ab",
+		to: "cd",
+	},
+	{
+		tag: "input",
+		type: "text",
+		fromKey: "value",
+		toKey: "Value",
+		from: "ab",
+		to: false,
+	},
+	{
+		tag: "textarea",
+		type: "",
+		fromKey: "value",
+		toKey: "VALUE",
+		from: "ab",
+		to: "cd",
+	},
+);
+
+const scrollOverrideArb: fc.Arbitrary<ResetScenario> = fc
+	.record({
+		key: fc.constantFrom("scrollTop", "scrollLeft"),
+		value: fc.integer({ min: 1, max: 6 }),
+	})
+	.map(({ key, value }) => ({
+		tag: { kind: "custom" as const },
+		props: { [key]: value },
+		drop: [key],
+		falses: [],
+		options: [],
+	}));
+
+const radioArb: fc.Arbitrary<RadioScenario> = fc.record({
+	name: fc.constantFrom("g", "group", "station"),
+	defaultChecked: fc.boolean(),
+	secondChecked: fc.boolean(),
+});
+
+const eventKeyArb = fc.constantFrom(
+	"onclick",
+	"onClick",
+	"ONCLICK",
+	"onCLICK",
+	"onchange",
+	"onChange",
+	"ONCHANGE",
+	"oninput",
+	"onInput",
+	"ONINPUT",
+);
+
+const eventStepArb = fc.record({
+	bindings: fc.array(
+		fc.record({
+			key: eventKeyArb,
+			id: fc.integer({ min: 1, max: 4 }),
+		}),
+		{ minLength: 0, maxLength: 3 },
+	),
+});
+
+const repeatedSlotArb: fc.Arbitrary<EventSequence> = fc
+	.record({
+		tag: fc.constantFrom("div", "button"),
+		first: fc.integer({ min: 1, max: 3 }),
+		second: fc.integer({ min: 1, max: 3 }),
+		added: fc.integer({ min: 1, max: 3 }),
+		grow: fc.boolean(),
+	})
+	.map(({ tag, first, second, added, grow }) => {
+		const both = {
+			bindings: [
+				{ key: "onClick", id: first },
+				{ key: "onclick", id: second },
+			],
+		};
+		const steps = [both, both];
+		if (grow) {
+			steps.push({
+				bindings: [
+					{ key: "onClick", id: first },
+					{ key: "onclick", id: added },
+				],
+			});
+		}
+		return { tag, steps };
+	});
+
+const eventSequenceArb: fc.Arbitrary<EventSequence> = fc.oneof(
+	repeatedSlotArb,
+	fc.record({
+		tag: fc.constantFrom("div", "button", "span"),
+		steps: fc.array(eventStepArb, { minLength: 2, maxLength: 4 }),
+	}),
+);
+
+const classNameArb: fc.Arbitrary<ClassScenario> = fc.record({
+	key: fc.constantFrom("class", "className", "ClassName", "CLASSNAME"),
+	value: token,
+	drop: fc.boolean(),
+});
 
 const customCaseArb: fc.Arbitrary<AliasScenario> = fc
 	.record({
@@ -686,6 +784,65 @@ function explainAlias(
 	return `listeners ${report.firstCalls},${report.secondCalls} wanted ${wantFirst},${wantSecond}`;
 }
 
+function explainLive(report: LiveReport): string | null {
+	const sameValue = report.updatedValue === report.freshValue;
+	const sameChecked = report.updatedChecked === report.freshChecked;
+	const sameAttrs =
+		JSON.stringify(report.updatedAttrs) === JSON.stringify(report.freshAttrs);
+	if (sameValue && sameChecked && sameAttrs) return null;
+	return `live ${JSON.stringify(report)}`;
+}
+
+function explainRadio(report: RadioReport): string | null {
+	const updated = JSON.stringify(report.updated);
+	const fresh = JSON.stringify(report.fresh);
+	return updated === fresh ? null : `radios ${updated} fresh ${fresh}`;
+}
+
+function eventTypeOf(key: string): string {
+	return key.slice(2).toLowerCase();
+}
+
+function explainEvents(
+	sequence: EventSequence,
+	report: EventReport,
+): string | null {
+	const seen: string[] = [];
+	for (let index = 0; index < sequence.steps.length; index++) {
+		const props: Record<string, number> = {};
+		for (const binding of sequence.steps[index].bindings) {
+			props[binding.key] = binding.id;
+			const name = eventTypeOf(binding.key);
+			if (!seen.includes(name)) seen.push(name);
+		}
+		const slots: Record<string, number> = {};
+		for (const [key, id] of Object.entries(props)) {
+			slots[eventTypeOf(key)] = id;
+		}
+		const fires = report.steps[index] ?? [];
+		for (const event of seen) {
+			const got = fires.find((fire) => fire.event === event)?.ids ?? [];
+			const winner = slots[event];
+			const want = winner === undefined ? [] : [winner];
+			if (JSON.stringify(got) !== JSON.stringify(want)) {
+				return `step ${index} ${event} fired ${JSON.stringify(got)} wanted ${JSON.stringify(want)}`;
+			}
+		}
+	}
+	return null;
+}
+
+function explainClass(scenario: ClassScenario, report: ClassReport): string | null {
+	const wanted = scenario.drop ? null : scenario.value;
+	if (report.classAttr !== wanted) {
+		return `class ${report.classAttr} wanted ${wanted} names ${report.names.join(",")}`;
+	}
+	if (report.names.includes("classname")) {
+		return `classname attribute ${report.names.join(",")}`;
+	}
+	return null;
+}
+
 function explainReflected(
 	scenario: ResetScenario,
 	report: ResetReport,
@@ -812,12 +969,100 @@ describe("renderer properties in Chromium", () => {
 		await assertReset(resetArb);
 	}, 120_000);
 
-	it("keeps a renamed attribute or listener on the same normalized key", async () => {
+	it("keeps a renamed attribute on the same normalized key", async () => {
 		await assertAlias(aliasArb);
 	}, 120_000);
 
-	it("unbinds the spelling that was dropped when both event casings were set", async () => {
-		await assertAlias(eventBothArb);
+	it("keeps one listener for each event slot across renders", async () => {
+		await fc.assert(
+			fc.asyncProperty(eventSequenceArb, async (sequence) => {
+				const report = await page.evaluate((input) => {
+					const properties = (
+						window as unknown as {
+							__igniteProperties: {
+								runEvents: (value: typeof input) => EventReport;
+							};
+						}
+					).__igniteProperties;
+					return properties.runEvents(input);
+				}, sequence);
+				const problem = explainEvents(sequence, report);
+				if (problem) {
+					throw new Error(`${problem}\n${JSON.stringify(sequence)}`);
+				}
+			}),
+			{ seed: SEED, numRuns: NUM_RUNS },
+		);
+	}, 120_000);
+
+	it("treats a cased attribute as a different sink from a live property", async () => {
+		await fc.assert(
+			fc.asyncProperty(liveArb, async (scenario) => {
+				const report = await page.evaluate((input) => {
+					const properties = (
+						window as unknown as {
+							__igniteProperties: {
+								runLive: (value: typeof input) => LiveReport;
+							};
+						}
+					).__igniteProperties;
+					return properties.runLive(input);
+				}, scenario);
+				const problem = explainLive(report);
+				if (problem) {
+					throw new Error(`${problem}\n${JSON.stringify(scenario)}`);
+				}
+			}),
+			{ seed: SEED, numRuns: NUM_RUNS },
+		);
+	}, 120_000);
+
+	it("passes undefined to an own scroll setter when that prop is dropped", async () => {
+		await assertReset(scrollOverrideArb);
+	}, 120_000);
+
+	it("reapplies a controlled radio after a defaultChecked reset", async () => {
+		await fc.assert(
+			fc.asyncProperty(radioArb, async (scenario) => {
+				const report = await page.evaluate((input) => {
+					const properties = (
+						window as unknown as {
+							__igniteProperties: {
+								runRadio: (value: typeof input) => RadioReport;
+							};
+						}
+					).__igniteProperties;
+					return properties.runRadio(input);
+				}, scenario);
+				const problem = explainRadio(report);
+				if (problem) {
+					throw new Error(`${problem}\n${JSON.stringify(scenario)}`);
+				}
+			}),
+			{ seed: SEED, numRuns: NUM_RUNS },
+		);
+	}, 120_000);
+
+	it("maps ClassName onto the class attribute", async () => {
+		await fc.assert(
+			fc.asyncProperty(classNameArb, async (scenario) => {
+				const report = await page.evaluate((input) => {
+					const properties = (
+						window as unknown as {
+							__igniteProperties: {
+								runClass: (value: typeof input) => ClassReport;
+							};
+						}
+					).__igniteProperties;
+					return properties.runClass(input);
+				}, scenario);
+				const problem = explainClass(scenario, report);
+				if (problem) {
+					throw new Error(`${problem}\n${JSON.stringify(scenario)}`);
+				}
+			}),
+			{ seed: SEED, numRuns: NUM_RUNS },
+		);
 	}, 120_000);
 
 	it("keeps custom setter names case-sensitive", async () => {

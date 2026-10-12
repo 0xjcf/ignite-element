@@ -70,6 +70,59 @@ export type AliasReport = {
 	freshFOO: number | null;
 };
 
+// Exact IDL spelling replaced by a differently cased attribute key.
+export type LiveScenario = {
+	tag: "input" | "textarea";
+	type: string;
+	fromKey: string;
+	toKey: string;
+	from: string | boolean;
+	to: string | boolean;
+};
+
+export type LiveReport = {
+	updatedValue: string | null;
+	freshValue: string | null;
+	updatedChecked: boolean | null;
+	freshChecked: boolean | null;
+	updatedAttrs: [string, string][];
+	freshAttrs: [string, string][];
+};
+
+// First radio drops checked. Second keeps its checked prop.
+export type RadioScenario = {
+	name: string;
+	defaultChecked: boolean;
+	secondChecked: boolean;
+};
+
+export type RadioReport = {
+	updated: boolean[];
+	fresh: boolean[];
+};
+
+export type EventBinding = { key: string; id: number };
+
+export type EventSequence = {
+	tag: string;
+	steps: { bindings: EventBinding[] }[];
+};
+
+export type EventFire = { event: string; ids: number[] };
+
+export type EventReport = { steps: EventFire[][] };
+
+export type ClassScenario = {
+	key: string;
+	value: string;
+	drop: boolean;
+};
+
+export type ClassReport = {
+	classAttr: string | null;
+	names: string[];
+};
+
 export type ValueSpec =
 	| { kind: "string"; value: string }
 	| { kind: "array"; values: string[] }

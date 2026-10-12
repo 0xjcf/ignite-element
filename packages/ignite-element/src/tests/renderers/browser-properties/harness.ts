@@ -7,10 +7,18 @@ import {
 import {
 	type AliasReport,
 	type AliasScenario,
+	type ClassReport,
+	type ClassScenario,
 	type ControlSnapshot,
+	type EventReport,
+	type EventSequence,
+	type LiveReport,
+	type LiveScenario,
 	OFF_LIST_PROPS,
 	type OffListReading,
 	offListAttribute,
+	type RadioReport,
+	type RadioScenario,
 	type ResetReport,
 	type ResetScenario,
 	type SinkScenario,
@@ -27,6 +35,9 @@ class ResetProbe extends HTMLElement {
 	#defaultSelected = false;
 	#foo = 0;
 	#fooUpper = 0;
+	// -1 is the unset sentinel so a native reset of 0 is visible.
+	#scrollTop = -1;
+	#scrollLeft = -1;
 
 	get label(): string {
 		return this.#label;
@@ -82,6 +93,22 @@ class ResetProbe extends HTMLElement {
 
 	set FOO(value: unknown) {
 		this.#fooUpper = value == null || value === false ? 0 : Number(value);
+	}
+
+	get scrollTop(): number {
+		return this.#scrollTop;
+	}
+
+	set scrollTop(value: unknown) {
+		this.#scrollTop = value == null ? -1 : Number(value);
+	}
+
+	get scrollLeft(): number {
+		return this.#scrollLeft;
+	}
+
+	set scrollLeft(value: unknown) {
+		this.#scrollLeft = value == null ? -1 : Number(value);
 	}
 }
 
@@ -539,6 +566,178 @@ function runAlias(scenario: AliasScenario): AliasReport {
 	}
 }
 
+function controlProps(
+	scenario: LiveScenario,
+	key: string,
+	value: string | boolean,
+): Record<string, unknown> {
+	const props: Record<string, unknown> = { [key]: value };
+	if (scenario.tag === "input") props.type = scenario.type;
+	return props;
+}
+
+function readControl(element: Element | null): {
+	value: string | null;
+	checked: boolean | null;
+	attrs: [string, string][];
+} {
+	if (!element) throw new Error("live mount produced no element");
+	const control = element as HTMLInputElement;
+	const isControl =
+		element.localName === "input" || element.localName === "textarea";
+	return {
+		value: isControl ? control.value : null,
+		checked: element.localName === "input" ? control.checked : null,
+		attrs: attrsOf(element),
+	};
+}
+
+function runLive(scenario: LiveScenario): LiveReport {
+	const host = document.createElement("div");
+	const freshHost = document.createElement("div");
+	document.body.append(host, freshHost);
+	try {
+		const tree = mountIgniteJsx(
+			host,
+			jsx(scenario.tag, controlProps(scenario, scenario.fromKey, scenario.from)),
+		);
+		renderIgniteJsx(
+			host,
+			jsx(scenario.tag, controlProps(scenario, scenario.toKey, scenario.to)),
+			tree,
+		);
+		mountIgniteJsx(
+			freshHost,
+			jsx(scenario.tag, controlProps(scenario, scenario.toKey, scenario.to)),
+		);
+		const updated = readControl(host.firstElementChild);
+		const fresh = readControl(freshHost.firstElementChild);
+		return {
+			updatedValue: updated.value,
+			freshValue: fresh.value,
+			updatedChecked: updated.checked,
+			freshChecked: fresh.checked,
+			updatedAttrs: updated.attrs,
+			freshAttrs: fresh.attrs,
+		};
+	} finally {
+		host.remove();
+		freshHost.remove();
+	}
+}
+
+function radioView(scenario: RadioScenario, dropped: boolean) {
+	const first: Record<string, unknown> = {
+		type: "radio",
+		name: scenario.name,
+		defaultChecked: scenario.defaultChecked,
+	};
+	if (!dropped) first.checked = false;
+	const second: Record<string, unknown> = {
+		type: "radio",
+		name: scenario.name,
+		checked: scenario.secondChecked,
+	};
+	return jsx("div", {
+		children: [jsx("input", first, "a"), jsx("input", second, "b")],
+	});
+}
+
+function radioChecked(root: ParentNode): boolean[] {
+	return Array.from(root.querySelectorAll("input")).map(
+		(element) => (element as HTMLInputElement).checked,
+	);
+}
+
+function runRadio(scenario: RadioScenario): RadioReport {
+	// Separate forms so the fresh mount is not in the updated radio group.
+	const host = document.createElement("form");
+	const freshHost = document.createElement("form");
+	document.body.append(host, freshHost);
+	try {
+		const tree = mountIgniteJsx(host, radioView(scenario, false));
+		renderIgniteJsx(host, radioView(scenario, true), tree);
+		const updated = radioChecked(host);
+		mountIgniteJsx(freshHost, radioView(scenario, true));
+		return { updated, fresh: radioChecked(freshHost) };
+	} finally {
+		host.remove();
+		freshHost.remove();
+	}
+}
+
+function eventType(key: string): string {
+	return key.slice(2).toLowerCase();
+}
+
+function runEvents(sequence: EventSequence): EventReport {
+	const host = document.createElement("div");
+	document.body.append(host);
+	const pool = new Map<number, EventListener>();
+	let fired: number[] = [];
+	const handler = (id: number): EventListener => {
+		const existing = pool.get(id);
+		if (existing) return existing;
+		const created = () => {
+			fired.push(id);
+		};
+		pool.set(id, created);
+		return created;
+	};
+	const seen: string[] = [];
+	try {
+		let tree: ReturnType<typeof mountIgniteJsx> | undefined;
+		const steps: EventReport["steps"] = [];
+		for (let index = 0; index < sequence.steps.length; index++) {
+			const props: Record<string, unknown> = {};
+			for (const binding of sequence.steps[index].bindings) {
+				props[binding.key] = handler(binding.id);
+				const name = eventType(binding.key);
+				if (!seen.includes(name)) seen.push(name);
+			}
+			const view = jsx(sequence.tag, props);
+			tree =
+				index === 0
+					? mountIgniteJsx(host, view)
+					: renderIgniteJsx(host, view, tree);
+			const element = host.firstElementChild;
+			if (!element) throw new Error("event mount produced no element");
+			const fires: EventReport["steps"][number] = [];
+			for (const event of seen) {
+				fired = [];
+				element.dispatchEvent(new Event(event));
+				fires.push({ event, ids: fired.slice() });
+			}
+			steps.push(fires);
+		}
+		return { steps };
+	} finally {
+		host.remove();
+	}
+}
+
+function runClass(scenario: ClassScenario): ClassReport {
+	const host = document.createElement("div");
+	document.body.append(host);
+	try {
+		const tree = mountIgniteJsx(
+			host,
+			jsx("div", { [scenario.key]: scenario.value }),
+		);
+		if (scenario.drop) {
+			renderIgniteJsx(host, jsx("div", {}), tree);
+		}
+		const element = host.firstElementChild;
+		if (!element) throw new Error("class mount produced no element");
+		return {
+			classAttr: element.getAttribute("class"),
+			names: element.getAttributeNames().sort(),
+		};
+	} finally {
+		host.remove();
+	}
+}
+
 function runSink(scenario: SinkScenario): { armed: string[] } {
 	const host = document.createElement("div");
 	document.body.append(host);
@@ -551,7 +750,15 @@ function runSink(scenario: SinkScenario): { armed: string[] } {
 	}
 }
 
-window.__igniteProperties = { runReset, runSink, runAlias };
+window.__igniteProperties = {
+	runReset,
+	runSink,
+	runAlias,
+	runLive,
+	runRadio,
+	runEvents,
+	runClass,
+};
 
 declare global {
 	interface Window {
@@ -559,6 +766,10 @@ declare global {
 			runReset: typeof runReset;
 			runSink: typeof runSink;
 			runAlias: typeof runAlias;
+			runLive: typeof runLive;
+			runRadio: typeof runRadio;
+			runEvents: typeof runEvents;
+			runClass: typeof runClass;
 		};
 	}
 }

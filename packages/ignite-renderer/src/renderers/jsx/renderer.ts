@@ -1039,6 +1039,8 @@ function patchProps(
 	newProps: IgniteJsxProps,
 ) {
 	const isSvgElement = element instanceof SVGElement;
+	// One listener per event. The last spelling in prop order wins.
+	patchEventSlots(element, oldProps, newProps);
 
 	for (const [key, next] of Object.entries(newProps)) {
 		if (hostRuntimeEnabled && key === "use") continue;
@@ -1051,15 +1053,7 @@ function patchProps(
 		}
 		if (isIgnoredHandlerAttribute(key)) {
 			// A string `ONCLICK` or `xlink:onclick` would become an executable
-			// attribute. Functions still bind through addEventListener.
-			// The previous listener may be stored under a different casing.
-			if (isEventHandlerKey(key)) {
-				const matched = sinkMatch(oldProps, element, key, isSvgElement);
-				const prev = matched === undefined ? undefined : oldProps[matched];
-				if (typeof next === "function" || typeof prev === "function") {
-					patchEventListener(element, key, prev, next);
-				}
-			}
+			// attribute. Functions bind once per event slot above.
 			continue;
 		}
 		if (isBlockedUrlValue(element, key, next, newProps)) {
@@ -1125,30 +1119,28 @@ function patchProps(
 		}
 	}
 
+	// A controlled radio can be skipped when its boolean did not change, so
+	// remember checked={true} after type is applied and before any group reset.
+	if (!isSvgElement && element.localName === "input") {
+		const input = element as HTMLInputElement;
+		if (input.type === "radio") {
+			if (newProps.checked === true) radioOn.set(input, true);
+			else radioOn.delete(input);
+		}
+	}
+
 	// Resets read the props applied above, so a dropped value sees the new
 	// defaultValue rather than the one from the previous render.
 	for (const key of Object.keys(oldProps)) {
 		if (hostRuntimeEnabled && key === "use") continue;
 		if (key === "children" || key === "ref" || isBlockedMarkupProp(key))
 			continue;
-		// onClick and onclick, or data-id and DATA-ID, are one key. A spelling
-		// that is still present is not a drop. A second listener under the
-		// other spelling is unbound when only one remains.
+		// Listeners are diffed by event slot, not by each spelling.
+		if (isEventHandlerKey(key)) continue;
+		// data-id and DATA-ID are one key. A spelling that is still present
+		// is not a drop.
 		const matched = sinkMatch(newProps, element, key, isSvgElement);
-		if (matched) {
-			const prev = oldProps[key];
-			if (
-				isEventHandlerKey(key) &&
-				typeof prev === "function" &&
-				prev !== newProps[matched]
-			) {
-				element.removeEventListener(
-					normalizeEventName(key.slice(2)),
-					prev as EventListener,
-				);
-			}
-			continue;
-		}
+		if (matched) continue;
 		removeProp(element, key, oldProps[key], isSvgElement);
 	}
 }
@@ -1201,24 +1193,32 @@ function patchStyle(element: HTMLElement, prev: unknown, next: unknown): void {
 	}
 }
 
-function patchEventListener(
-	element: Element,
-	key: string,
-	prev: unknown,
-	next: unknown,
-) {
-	const eventName = normalizeEventName(key.slice(2));
-	const prevHandler =
-		typeof prev === "function" ? (prev as EventListener) : null;
-	const nextHandler =
-		typeof next === "function" ? (next as EventListener) : null;
-
-	if (prevHandler && prevHandler !== nextHandler) {
-		element.removeEventListener(eventName, prevHandler);
+function eventSlots(props: IgniteJsxProps): Record<string, EventListener> {
+	const slots: Record<string, EventListener> = {};
+	for (const key of Object.keys(props)) {
+		const value = props[key];
+		if (typeof value !== "function" || !isEventHandlerKey(key)) continue;
+		slots[normalizeEventName(key.slice(2))] = value as EventListener;
 	}
+	return slots;
+}
 
-	if (nextHandler && nextHandler !== prevHandler) {
-		element.addEventListener(eventName, nextHandler);
+function patchEventSlots(
+	element: Element,
+	oldProps: IgniteJsxProps,
+	newProps: IgniteJsxProps,
+) {
+	const prev = eventSlots(oldProps);
+	const next = eventSlots(newProps);
+	for (const name in prev) {
+		if (prev[name] !== next[name]) {
+			element.removeEventListener(name, prev[name]);
+		}
+	}
+	for (const name in next) {
+		if (next[name] !== prev[name]) {
+			element.addEventListener(name, next[name]);
+		}
 	}
 }
 
@@ -1245,8 +1245,8 @@ function propAttributeName(
 	key: string,
 	isSvg: boolean,
 ): string {
-	if (key === "class" || key === "className") return "class";
 	const lower = key.toLowerCase();
+	if (lower === "class" || lower === "classname") return "class";
 	if (lower === "htmlfor") return "for";
 	if (lower === "acceptcharset") return "accept-charset";
 	if (lower === "httpequiv" || metaRefreshKey(element, key)) {
@@ -1263,13 +1263,30 @@ function propAttributeName(
 	return isSvg ? normalizeSvgAttributeName(key) : lower;
 }
 
+// value, checked, and selected use the IDL property only in that spelling.
+// CHECKED and VALUE are attributes, so they are not the same sink.
+function isLiveField(element: Element, key: string): boolean {
+	const tag = element.localName;
+	if (key === "checked") return tag === "input";
+	if (key === "selected") return tag === "option";
+	return (
+		key === "value" &&
+		(tag === "input" || tag === "textarea" || tag === "select")
+	);
+}
+
 // Events and HTML attributes compare case-insensitively. An own custom
 // setter keeps its spelling, so foo and FOO are different keys.
 function sinkKey(element: Element, key: string, isSvg: boolean): string {
 	if (isEventHandlerKey(key)) {
 		return `*${normalizeEventName(key.slice(2))}`;
 	}
-	if (hasOwnCustomSetter(element as HTMLElement, key)) return `\0${key}`;
+	if (
+		hasOwnCustomSetter(element as HTMLElement, key) ||
+		isLiveField(element, key)
+	) {
+		return `\0${key}`;
+	}
 	return propAttributeName(element, key, isSvg);
 }
 
@@ -1284,6 +1301,17 @@ function sinkMatch(
 		if (sinkKey(element, other, isSvg) === id) return other;
 	}
 	return undefined;
+}
+
+const radioOn = new WeakMap<HTMLInputElement, true>();
+
+function reapplyRadios(input: HTMLInputElement): void {
+	const root = input.form ?? input.ownerDocument;
+	const peers = root.querySelectorAll('input[type="radio"]');
+	for (const node of peers) {
+		const peer = node as HTMLInputElement;
+		if (peer.name === input.name && radioOn.has(peer)) peer.checked = true;
+	}
 }
 
 function removeProp(
@@ -1353,13 +1381,18 @@ function removeProp(
 	}
 
 	// defaultChecked owns the checked attribute. Restore the live state from
-	// it and leave that attribute in place.
+	// it and leave that attribute in place. Checking a radio clears the rest
+	// of its group, so controlled peers are written again afterwards.
 	if (!isSvg && key === "checked" && element.localName === "input") {
 		const input = element as HTMLInputElement;
 		if (input.type === "checkbox" || input.type === "radio") {
 			try {
+				if (input.type === "radio") radioOn.delete(input);
 				if (input.checked !== input.defaultChecked) {
 					input.checked = input.defaultChecked;
+				}
+				if (input.type === "radio" && input.defaultChecked) {
+					reapplyRadios(input);
 				}
 			} catch {
 				// A throwing checked setter stops here.
@@ -1382,7 +1415,10 @@ function removeProp(
 		return;
 	}
 
-	if (key === "scrollTop" || key === "scrollLeft") {
+	if (
+		(key === "scrollTop" || key === "scrollLeft") &&
+		!hasOwnCustomSetter(element as HTMLElement, key)
+	) {
 		const scrolling = element as HTMLElement;
 		try {
 			if (scrolling[key] !== 0) scrolling[key] = 0;
