@@ -93,7 +93,7 @@ Projected states such as `canIncrement` are facts for views and for `canExecute`
 
 Keep descriptions and input schemas at the application boundary.
 
-Mark commands `gated: true` and supply `canExecute`.
+Supply `canExecute` for every command. Omit it and commands are denied. Mark a read with `read: true` when it should stay available without that allow. `gated: true` rechecks the predicate.
 
 ```ts title="agent-counter-tools.ts"
 import { defineToolSchema, igniteTools } from 'ignite-element/tools';

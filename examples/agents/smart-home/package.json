@@ -33,6 +33,7 @@
 	},
 	"devDependencies": {
 		"@types/ws": "^8.18.1",
+		"fast-check": "4.10.2",
 		"typescript": "^5.9.3",
 		"vite": "^7.2.7",
 		"vite-node": "^6.0.0",

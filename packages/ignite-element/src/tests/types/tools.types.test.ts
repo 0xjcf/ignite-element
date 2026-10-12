@@ -155,6 +155,28 @@ describe("igniteTools types", () => {
 		expectTypeOf(tools.toolResult).returns.toEqualTypeOf<Block>();
 	});
 
+	it("does not accept an actor or an approval record on the tool bind", () => {
+		const defined = defineToolSchema({
+			status: { input: { type: "object", properties: {} }, read: true },
+			setLimit: { input: { type: "number" }, consequential: true },
+		});
+		const tools = igniteTools({
+			core: component,
+			schema: defined,
+			// @ts-expect-error actor belongs to the application, not the bind
+			actor: "ada",
+			canExecute: () => true,
+		});
+		const call: NeutralToolCall = {
+			name: "setLimit",
+			input: 5,
+			// @ts-expect-error approval records are not a tool-call field
+			approval: { confirmed: true },
+		};
+		expectTypeOf(tools.run).toBeFunction();
+		void call;
+	});
+
 	it("accepts satisfies ToolSchema and defineToolSchema factories", () => {
 		const satisfied = {
 			toggle: { input: { type: "object", properties: {} } },

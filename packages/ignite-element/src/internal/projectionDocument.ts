@@ -2,7 +2,7 @@ import {
 	containsExecutableUri,
 	isUriBearingKey,
 } from "@ignite-element/renderer";
-import { validateToolInputValue } from "../tools/core";
+import { validateToolInputValue } from "../tools/toolInput";
 import type {
 	ProjectionActionNode,
 	ProjectionChartNode,

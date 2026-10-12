@@ -335,7 +335,10 @@ The canonical flow is:
   act-plus-acknowledgement; everyday settle uses `until` on the same stream as
   `observe`. `observe` remains for ongoing fan-in. Headless proof is the Smart
   Home example. Discovery does not infer schemas. `canExecute` is availability
-  preflight, not authentication. `buildManifest` / `resolveCall` stay exported
+  preflight, not authentication. A `Date`, `Map`, `Set`, or class instance is
+  `InvalidInput`, including one from another realm. An empty instance is not
+  `{}`. A plain object or array from another realm is still accepted.
+  `buildManifest` / `resolveCall` stay exported
   for advanced/testing only.
 - Routing remains separate from source behavior and projection.
 - Environmental I/O belongs in application/source ports, native actions,

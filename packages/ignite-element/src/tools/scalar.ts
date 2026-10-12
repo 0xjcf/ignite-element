@@ -55,10 +55,10 @@ export function fromProviderInput(
 		schema !== undefined &&
 		schema.type !== "object" &&
 		isPlainObject(input) &&
-		Object.keys(input).length === 1 &&
-		SCALAR_KEY in input
+		Object.keys(input).length === 1
 	) {
-		return input[SCALAR_KEY];
+		const descriptor = Object.getOwnPropertyDescriptor(input, SCALAR_KEY);
+		if (descriptor && "value" in descriptor) return descriptor.value;
 	}
 	return input;
 }

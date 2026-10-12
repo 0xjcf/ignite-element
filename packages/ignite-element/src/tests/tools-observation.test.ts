@@ -107,6 +107,7 @@ describe("tools public observation window", () => {
 				const tools = igniteTools({
 					core: f.runtime as ObservationRuntime,
 					schema: options.schema,
+					canExecute: () => true,
 				});
 				const outcome = await tools.run(call);
 				expect(outcome).toMatchObject({
@@ -131,6 +132,7 @@ describe("tools public observation window", () => {
 		const tools = igniteTools({
 			core: f.runtime as ObservationRuntime,
 			schema: options.schema,
+			canExecute: () => true,
 		});
 		expect((await tools.run({ name: "missing", input: {} })).ok).toBe(false);
 		expect(f.handlers.size).toBe(0);
@@ -180,6 +182,7 @@ describe("tools public observation window", () => {
 			const tools = igniteTools({
 				core,
 				schema: options.schema,
+				canExecute: () => true,
 			});
 			const outcome = await tools.run(call);
 			expect(outcome).toEqual({
@@ -216,6 +219,7 @@ describe("tools public observation window", () => {
 		const tools = igniteTools({
 			core: f.runtime as ObservationRuntime,
 			schema: options.schema,
+			canExecute: () => true,
 		});
 		const first = tools.run(call),
 			second = tools.run(call);
@@ -247,6 +251,7 @@ it("releases temporary handles when a pending core is disposed", async () => {
 	const tools = igniteTools({
 		core,
 		schema: options.schema,
+		canExecute: () => true,
 	});
 	const outcome = tools.run(call);
 	const releases = subscribe.mock.results.map((entry) =>
@@ -295,6 +300,7 @@ it("until resolves from current states after run without a later transition", as
 			schema: defineToolSchema({
 				setCount: { input: { type: "number" } },
 			}),
+			canExecute: () => true,
 		});
 		const result = await run({ name: "setCount", input: 2 });
 		expect(result.ok).toBe(true);
