@@ -63,12 +63,15 @@ export function createDomNode(
 ): Node | DocumentFragment {
 	const normalized = normalizeChild(node, namespace);
 	if (normalized.length === 1) {
-		return createDomFromNormalized(normalized[0]);
+		const result = createDomFromNormalized(normalized[0]);
+		flushControlled();
+		return result;
 	}
 	const fragment = document.createDocumentFragment();
 	for (const child of normalized) {
 		fragment.appendChild(createDomFromNormalized(child));
 	}
+	flushControlled();
 	return fragment;
 }
 
@@ -80,7 +83,7 @@ export function mountIgniteJsx(
 	const mount = () => {
 		const normalized = normalizeRoot(view);
 		replaceAll(host, normalized);
-		flushRadioChecked();
+		flushControlled();
 		return normalized;
 	};
 	if (hostRuntimeEnabled) return withIgniteHostRuntime(options.hosts, mount);
@@ -120,7 +123,7 @@ function renderIgniteJsxNow(
 	} else if (!patchChildren(host, previous, next, options.onFallbackReplace)) {
 		replaceAll(host, next);
 	}
-	flushRadioChecked();
+	flushControlled();
 	return next;
 }
 
@@ -1120,17 +1123,12 @@ function patchProps(
 			// Passed checked, value, and selected are written every render,
 			// including explicit false. Null leaves the live property alone.
 			if (!isSvgElement && isLiveField(element, key)) {
-				// Select value is applied after options exist.
+				// Select value is queued after its options. Every other live
+				// field waits for the same flush, so a later default* sibling
+				// cannot clear it.
 				if (key === "value" && element.localName === "select") continue;
-				if (
-					next != null &&
-					!(
-						key === "checked" &&
-						element.isConnected &&
-						queueRadioChecked(element as HTMLElement, next)
-					)
-				) {
-					assignControlled(element as HTMLElement, key, next);
+				if (next != null) {
+					queueControlled(element as HTMLElement, key, next);
 				}
 				continue;
 			}
@@ -1457,7 +1455,7 @@ function removeProp(
 }
 
 const composing = new WeakMap<HTMLElement, boolean>();
-const radioQueue: Array<HTMLInputElement | boolean> = [];
+const controlledQueue: unknown[] = [];
 
 function watchComposition(element: HTMLElement): void {
 	if (composing.has(element)) return;
@@ -1470,19 +1468,21 @@ function watchComposition(element: HTMLElement): void {
 	});
 }
 
-function queueRadioChecked(element: HTMLElement, value: unknown): boolean {
-	if ((element as HTMLInputElement).type !== "radio") return false;
-	radioQueue.push(element as HTMLInputElement, value === true);
-	return true;
+function queueControlled(
+	element: HTMLElement,
+	key: string,
+	value: unknown,
+): void {
+	controlledQueue.push(element, key, value);
 }
 
-function flushRadioChecked(): void {
-	const queued = radioQueue.splice(0, radioQueue.length);
-	for (let index = 0; index < queued.length; index += 2) {
+function flushControlled(): void {
+	const queued = controlledQueue.splice(0, controlledQueue.length);
+	for (let index = 0; index < queued.length; index += 3) {
 		assignControlled(
-			queued[index] as HTMLInputElement,
-			"checked",
-			queued[index + 1],
+			queued[index] as HTMLElement,
+			queued[index + 1] as string,
+			queued[index + 2],
 		);
 	}
 }
@@ -1515,7 +1515,7 @@ function applyProperty(
 
 function flushSelectValue(element: Element, props: IgniteJsxProps): void {
 	if (element.localName !== "select" || props.value == null) return;
-	assignControlled(element as HTMLElement, "value", props.value);
+	queueControlled(element as HTMLElement, "value", props.value);
 }
 
 function replaceAll(parent: ParentNode, children: NormalizedNode[]): void {

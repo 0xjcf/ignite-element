@@ -895,20 +895,48 @@ function manualForm(
 		return form;
 	}
 	if (scenario.shape === "form") return form;
+	const inputType =
+		scenario.shape === "text"
+			? "text"
+			: scenario.shape === "radios"
+				? "radio"
+				: "checkbox";
+	const inputs: HTMLInputElement[] = [];
 	for (const control of step.controls) {
 		const input = document.createElement("input");
 		input.id = control.id;
-		const inputType =
-			scenario.shape === "text"
-				? "text"
-				: scenario.shape === "radios"
-					? "radio"
-					: "checkbox";
 		if (input.type !== inputType) input.type = inputType;
 		if (scenario.shape === "radios") input.name = "g";
-		// Props run before the node is appended, matching the first mount.
-		applyManualControl(input, control, step, scenario.shape);
+		inputs.push(input);
 		form.append(input);
+	}
+	if (scenario.shape === "radios") {
+		for (const [index, input] of inputs.entries()) {
+			const control = step.controls[index];
+			if (control?.defaultChecked != null) {
+				input.defaultChecked = control.defaultChecked;
+			}
+		}
+		for (const [index, input] of inputs.entries()) {
+			const control = step.controls[index];
+			if (!control) continue;
+			if (control.checked != null) input.checked = control.checked;
+			if (control.defaultValue != null) {
+				input.defaultValue = control.defaultValue;
+			}
+			if (
+				control.value != null &&
+				!step.composing &&
+				input.value !== control.value
+			) {
+				input.value = control.value;
+			}
+		}
+		return form;
+	}
+	for (const [index, input] of inputs.entries()) {
+		const control = step.controls[index];
+		if (control) applyManualControl(input, control, step, scenario.shape);
 	}
 	return form;
 }
@@ -929,17 +957,23 @@ function applyManualSelect(
 		}
 		option.value = control.value ?? control.id;
 		option.textContent = control.text;
-		if (control.defaultSelected != null) {
-			option.defaultSelected = control.defaultSelected;
-		}
-		if (control.selected != null) option.selected = control.selected;
 		next.push(option);
 	}
 	for (const option of Array.from(select.options)) {
 		if (!next.includes(option)) option.remove();
 	}
 	for (const option of next) select.append(option);
-	// Match the renderer: a passed select value is applied after options exist.
+	for (const [index, option] of next.entries()) {
+		const control = step.controls[index];
+		if (control?.defaultSelected != null) {
+			option.defaultSelected = control.defaultSelected;
+		}
+	}
+	for (const [index, option] of next.entries()) {
+		const control = step.controls[index];
+		if (control?.selected != null) option.selected = control.selected;
+	}
+	// A passed select value is applied after option selected state.
 	if (step.selectValue != null && select.value !== step.selectValue) {
 		select.value = step.selectValue;
 	}
@@ -984,6 +1018,181 @@ function applyManual(
 		const input = inputs[index] as HTMLInputElement | undefined;
 		if (input) applyManualControl(input, control, step, scenario.shape);
 	});
+}
+
+type ControlledScenario = {
+	kind: "input" | "checkbox" | "radio" | "select" | "option";
+	connected: boolean;
+	update: boolean;
+	controlled: boolean | number | string;
+	siblingDefault: boolean;
+};
+
+type ControlledReading = {
+	checked: boolean[];
+	values: string[];
+	selected: boolean[];
+	selectValue: string | null;
+};
+
+function controlledString(value: boolean | number | string): string {
+	const probe = document.createElement("input");
+	probe.value = value as string;
+	return probe.value;
+}
+
+function controlledView(scenario: ControlledScenario, bare: boolean) {
+	const controlled = bare ? null : scenario.controlled;
+	const siblingDefault = bare ? false : scenario.siblingDefault;
+	if (scenario.kind === "input") {
+		const first: Record<string, unknown> = { type: "text" };
+		if (controlled != null) first.value = controlled;
+		const second: Record<string, unknown> = { type: "text" };
+		if (!bare && siblingDefault) second.defaultValue = "sib";
+		return jsx("form", {
+			children: [jsx("input", first, "a"), jsx("input", second, "b")],
+		});
+	}
+	if (scenario.kind === "checkbox" || scenario.kind === "radio") {
+		const type = scenario.kind === "radio" ? "radio" : "checkbox";
+		const first: Record<string, unknown> = { type };
+		const second: Record<string, unknown> = { type };
+		if (type === "radio") {
+			first.name = "g";
+			second.name = "g";
+		}
+		if (controlled != null) first.checked = controlled;
+		if (!bare) second.defaultChecked = siblingDefault;
+		return jsx("form", {
+			children: [jsx("input", first, "a"), jsx("input", second, "b")],
+		});
+	}
+	const matched =
+		controlled == null ? "b" : controlledString(controlled) || "b";
+	const other = matched === "other" ? "other2" : "other";
+	if (scenario.kind === "select") {
+		const props: Record<string, unknown> = {
+			children: [
+				jsx(
+					"option",
+					{
+						value: other,
+						defaultSelected: siblingDefault,
+						children: "o",
+					},
+					"o",
+				),
+				jsx("option", { value: matched, children: "m" }, "m"),
+			],
+		};
+		if (controlled != null) props.value = controlled;
+		return jsx("select", props);
+	}
+	return jsx("select", {
+		children: [
+			jsx(
+				"option",
+				{
+					value: "a",
+					...(controlled != null ? { selected: controlled } : {}),
+					children: "a",
+				},
+				"a",
+			),
+			jsx(
+				"option",
+				{ value: "b", defaultSelected: siblingDefault, children: "b" },
+				"b",
+			),
+		],
+	});
+}
+
+function readControlled(root: ParentNode): ControlledReading {
+	const select = root.querySelector("select") as HTMLSelectElement | null;
+	const inputs = Array.from(root.querySelectorAll("input"));
+	const options = select ? Array.from(select.options) : [];
+	return {
+		checked: inputs.map((input) => (input as HTMLInputElement).checked),
+		values: inputs.map((input) => (input as HTMLInputElement).value),
+		selected: options.map((option) => option.selected),
+		selectValue: select ? select.value : null,
+	};
+}
+
+function manualControlled(scenario: ControlledScenario): ControlledReading {
+	const host = document.createElement("div");
+	const controlled = scenario.controlled;
+	if (scenario.kind === "input") {
+		const form = document.createElement("form");
+		const first = document.createElement("input");
+		const second = document.createElement("input");
+		form.append(first, second);
+		host.append(form);
+		if (scenario.siblingDefault) second.defaultValue = "sib";
+		first.value = controlled as string;
+	} else if (scenario.kind === "checkbox" || scenario.kind === "radio") {
+		const form = document.createElement("form");
+		const first = document.createElement("input");
+		const second = document.createElement("input");
+		first.type = scenario.kind === "radio" ? "radio" : "checkbox";
+		second.type = first.type;
+		if (first.type === "radio") {
+			first.name = "g";
+			second.name = "g";
+		}
+		form.append(first, second);
+		host.append(form);
+		second.defaultChecked = scenario.siblingDefault;
+		first.checked = controlled as boolean;
+	} else if (scenario.kind === "select") {
+		const select = document.createElement("select");
+		const other = document.createElement("option");
+		const match = document.createElement("option");
+		const matched = controlledString(controlled) || "b";
+		other.value = matched === "other" ? "other2" : "other";
+		other.textContent = "o";
+		match.value = matched;
+		match.textContent = "m";
+		select.append(other, match);
+		host.append(select);
+		if (scenario.siblingDefault) other.defaultSelected = true;
+		select.value = controlled as string;
+	} else {
+		const select = document.createElement("select");
+		const first = document.createElement("option");
+		const second = document.createElement("option");
+		first.value = "a";
+		first.textContent = "a";
+		second.value = "b";
+		second.textContent = "b";
+		select.append(first, second);
+		host.append(select);
+		if (scenario.siblingDefault) second.defaultSelected = true;
+		first.selected = controlled as boolean;
+	}
+	return readControlled(host);
+}
+
+function runControlled(scenario: ControlledScenario): {
+	renderer: ControlledReading;
+	manual: ControlledReading;
+} {
+	const host = document.createElement("div");
+	if (scenario.connected) document.body.append(host);
+	try {
+		let tree = mountIgniteJsx(host, controlledView(scenario, scenario.update));
+		if (scenario.update) {
+			tree = renderIgniteJsx(host, controlledView(scenario, false), tree);
+		}
+		void tree;
+		return {
+			renderer: readControlled(host),
+			manual: manualControlled(scenario),
+		};
+	} finally {
+		host.remove();
+	}
 }
 
 function runComposition(
@@ -1078,6 +1287,7 @@ window.__igniteProperties = {
 	runClass,
 	runContract,
 	runComposition,
+	runControlled,
 };
 
 declare global {
@@ -1092,6 +1302,7 @@ declare global {
 			runClass: typeof runClass;
 			runContract: typeof runContract;
 			runComposition: typeof runComposition;
+			runControlled: typeof runControlled;
 		};
 	}
 }

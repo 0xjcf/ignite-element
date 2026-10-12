@@ -1704,6 +1704,107 @@ describe("renderer properties in Chromium", () => {
 		);
 	}, 120_000);
 
+	it("applies controlled form state after siblings", async () => {
+		type ControlledScenario = {
+			kind: "input" | "checkbox" | "radio" | "select" | "option";
+			connected: boolean;
+			update: boolean;
+			controlled: boolean | number | string;
+			siblingDefault: boolean;
+		};
+		const radioCoercion: ControlledScenario = {
+			kind: "radio",
+			connected: true,
+			update: true,
+			controlled: 1,
+			siblingDefault: false,
+		};
+		const radioCoercionText: ControlledScenario = {
+			kind: "radio",
+			connected: true,
+			update: true,
+			controlled: "yes",
+			siblingDefault: false,
+		};
+		const radioMount: ControlledScenario = {
+			kind: "radio",
+			connected: false,
+			update: false,
+			controlled: true,
+			siblingDefault: true,
+		};
+		const optionSelected: ControlledScenario = {
+			kind: "option",
+			connected: true,
+			update: true,
+			controlled: true,
+			siblingDefault: true,
+		};
+		const controlledArb = fc.record({
+			kind: fc.constantFrom(
+				"input" as const,
+				"checkbox" as const,
+				"radio" as const,
+				"select" as const,
+				"option" as const,
+			),
+			connected: fc.boolean(),
+			update: fc.boolean(),
+			controlled: fc.constantFrom<boolean | number | string>(
+				true,
+				false,
+				1,
+				0,
+				"yes",
+				"",
+				"b",
+			),
+			siblingDefault: fc.boolean(),
+		});
+		await fc.assert(
+			fc.asyncProperty(controlledArb, async (scenario) => {
+				const result = await page.evaluate((input) => {
+					const properties = (
+						window as unknown as {
+							__igniteProperties: {
+								runControlled: (value: typeof input) => {
+									renderer: {
+										checked: boolean[];
+										values: string[];
+										selected: boolean[];
+										selectValue: string | null;
+									};
+									manual: {
+										checked: boolean[];
+										values: string[];
+										selected: boolean[];
+										selectValue: string | null;
+									};
+								};
+							};
+						}
+					).__igniteProperties;
+					return properties.runControlled(input);
+				}, scenario);
+				if (JSON.stringify(result.renderer) !== JSON.stringify(result.manual)) {
+					throw new Error(
+						`${scenario.kind} renderer ${JSON.stringify(result.renderer)} manual ${JSON.stringify(result.manual)}`,
+					);
+				}
+			}),
+			{
+				seed: SEED,
+				numRuns: ALLOW_RUNS,
+				examples: [
+					[radioCoercion],
+					[radioCoercionText],
+					[radioMount],
+					[optionSelected],
+				],
+			},
+		);
+	}, 120_000);
+
 	it("keeps a passed radio checked beside a sibling defaultChecked", async () => {
 		const radioBesideDefault: ContractScenario = {
 			shape: "radios",
