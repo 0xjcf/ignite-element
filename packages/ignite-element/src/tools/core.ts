@@ -195,14 +195,27 @@ export function buildManifest(
 	return manifest;
 }
 
+/** Copy every own property except `default`, without reading that getter. */
+function schemaWithoutOwnDefault(schema: ToolInputSchema): ToolInputSchema {
+	const copy: ToolInputSchema = {};
+	for (const key of Reflect.ownKeys(schema)) {
+		if (key === "default") continue;
+		const descriptor = Object.getOwnPropertyDescriptor(schema, key);
+		if (descriptor) Object.defineProperty(copy, key, descriptor);
+	}
+	return copy;
+}
+
 /**
  * Advanced/testing helper. Everyday apps should call `run` on a named
  * `igniteTools({ core, schema })` bind instead of importing this.
  *
- * Pure: apply a schema default, copy one detached plain-JSON snapshot, then
- * validate that copy. `canExecute(name, input, context)` and the returned
- * route share that frozen snapshot. Only finite numbers (with `-0` normalized
- * to `0`), strings, booleans, null, arrays, and plain objects are copied.
+ * Pure: read a schema default once, copy one detached plain-JSON snapshot of
+ * that materialized value, then validate that copy. `canExecute(name, input,
+ * context)` and the returned route share that frozen snapshot. A later read of
+ * the same default is not validated and is not routed. Only finite numbers
+ * (with `-0` normalized to `0`), strings, booleans, null, arrays, and plain
+ * objects are copied.
  * Accessors, bigint, symbols, functions, `Date` / `Map` / `Set`, cycles, and
  * values past the nesting limit are `InvalidInput`. Signed zero is collapsed
  * to `0` on purpose. A proxy is walked once (`ownKeys`, then one data
@@ -234,9 +247,18 @@ export function resolveCall(
 		if (!source.ok) {
 			return err({ kind: "InvalidInput", name, issues: source.issues });
 		}
+		const noArg = isNoArgSchema(tool.inputSchema);
+		// applySchemaDefaults already read a top-level default. Keep that value
+		// for the snapshot, the validation, and the route. Stripping `default`
+		// when the read was undefined stops a later getter value from being
+		// validated in its place.
+		const defaultMaterialized =
+			input === undefined && !noArg && "default" in tool.inputSchema;
 		if (source.value === undefined) {
 			const issues = validateToolInputValue(
-				tool.inputSchema,
+				defaultMaterialized
+					? schemaWithoutOwnDefault(tool.inputSchema)
+					: tool.inputSchema,
 				undefined,
 				"input",
 			);
@@ -245,9 +267,7 @@ export function resolveCall(
 			}
 			// An omitted optional object stays omitted. A no-arg command drops the
 			// input field. Neither one is a JSON value to snapshot.
-			route = isNoArgSchema(tool.inputSchema)
-				? { command: name }
-				: { command: name, input: undefined };
+			route = noArg ? { command: name } : { command: name, input: undefined };
 		} else {
 			const snapshot = snapshotPlainJson(
 				source.value,
@@ -265,7 +285,7 @@ export function resolveCall(
 			if (issues.length > 0) {
 				return err({ kind: "InvalidInput", name, issues });
 			}
-			route = isNoArgSchema(tool.inputSchema)
+			route = noArg
 				? { command: name }
 				: { command: name, input: snapshot.value };
 		}

@@ -1,7 +1,8 @@
 /**
  * Fail-closed properties for igniteTools.
  * The CI seed and run count are fixed so a failure replays the same sequence.
- * Seed: 20261011. Runs: 100 per case.
+ * Seed: 20261011. Runs: 100 per case, except the schema-default property,
+ * which runs 200 times.
  */
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
@@ -12,6 +13,8 @@ import {
 	igniteTools,
 	resolveCall,
 } from "../tools";
+import { snapshotPlainJson } from "../tools/plainJson";
+import { validateToolInputValue } from "../tools/toolInput";
 
 const PROPERTY_SEED = 20261011;
 const PROPERTY_RUNS = 100;
@@ -832,5 +835,414 @@ describe(`igniteTools fail-closed properties (seed ${PROPERTY_SEED}, runs ${PROP
 			});
 			expect(runtime.calls).toEqual([]);
 		});
+	}, 60_000);
+});
+
+/**
+ * The input value that passes validation is exactly the value routed to
+ * canExecute and execute. The schema default is read once.
+ * CI seed: 20261011. Runs: 200.
+ */
+const DEFAULT_READ_SEED = 20261011;
+const DEFAULT_READ_RUNS = 200;
+
+type RawValue =
+	| { kind: "undefined" }
+	| { kind: "number"; n: number }
+	| { kind: "negzero" }
+	| { kind: "nan" }
+	| { kind: "posinf" }
+	| { kind: "neginf" }
+	| { kind: "string"; s: string }
+	| { kind: "boolean"; b: boolean }
+	| { kind: "null" }
+	| { kind: "object"; v: number | null }
+	| { kind: "array"; items: number[] }
+	| { kind: "date" }
+	| { kind: "map" }
+	| { kind: "set" }
+	| { kind: "bigint" };
+
+type DefaultAccess = "changing-getter" | "stable-getter" | "data";
+
+type DefaultSample = {
+	type: "number" | "string" | "boolean" | "object" | "array";
+	minimum: number | undefined;
+	maximum: number | undefined;
+	multipleOf: number | undefined;
+	minLength: number | undefined;
+	maxLength: number | undefined;
+	enumValues: string[] | undefined;
+	pattern: boolean;
+	required: boolean;
+	minItems: number | undefined;
+	maxItems: number | undefined;
+	placement: "top" | "nested";
+	access: DefaultAccess;
+	first: RawValue;
+	later: RawValue;
+};
+
+function materializeRaw(raw: RawValue): unknown {
+	switch (raw.kind) {
+		case "undefined":
+			return undefined;
+		case "number":
+			return raw.n;
+		case "negzero":
+			return -0;
+		case "nan":
+			return Number.NaN;
+		case "posinf":
+			return Number.POSITIVE_INFINITY;
+		case "neginf":
+			return Number.NEGATIVE_INFINITY;
+		case "string":
+			return raw.s;
+		case "boolean":
+			return raw.b;
+		case "null":
+			return null;
+		case "object":
+			return raw.v === null ? {} : { v: raw.v };
+		case "array":
+			return raw.items.slice();
+		case "date":
+			return new Date(0);
+		case "map":
+			return new Map();
+		case "set":
+			return new Set();
+		case "bigint":
+			return 1n;
+	}
+}
+
+function optionalNumber(
+	min: number,
+	max: number,
+): fc.Arbitrary<number | undefined> {
+	return fc.oneof(
+		{ weight: 2, arbitrary: fc.constant(undefined) },
+		{ weight: 3, arbitrary: fc.integer({ min, max }) },
+	);
+}
+
+const rawValue: fc.Arbitrary<RawValue> = fc.oneof(
+	{ weight: 5, arbitrary: fc.constant({ kind: "undefined" }) },
+	{
+		weight: 4,
+		arbitrary: fc
+			.integer({ min: -30, max: 30 })
+			.map((n) => ({ kind: "number", n })),
+	},
+	{ weight: 1, arbitrary: fc.constant({ kind: "negzero" }) },
+	{ weight: 1, arbitrary: fc.constant({ kind: "nan" }) },
+	{ weight: 1, arbitrary: fc.constant({ kind: "posinf" }) },
+	{ weight: 1, arbitrary: fc.constant({ kind: "neginf" }) },
+	{
+		weight: 3,
+		arbitrary: fc
+			.stringMatching(/^[a-z0-9]{0,6}$/)
+			.map((s) => ({ kind: "string", s })),
+	},
+	{
+		weight: 2,
+		arbitrary: fc.boolean().map((b) => ({ kind: "boolean", b })),
+	},
+	{ weight: 1, arbitrary: fc.constant({ kind: "null" }) },
+	{
+		weight: 2,
+		arbitrary: fc
+			.oneof(fc.constant(null), fc.integer({ min: -10, max: 10 }))
+			.map((v) => ({ kind: "object", v })),
+	},
+	{
+		weight: 2,
+		arbitrary: fc
+			.array(fc.integer({ min: -10, max: 10 }), { maxLength: 3 })
+			.map((items) => ({ kind: "array", items })),
+	},
+	{ weight: 1, arbitrary: fc.constant({ kind: "date" }) },
+	{ weight: 1, arbitrary: fc.constant({ kind: "map" }) },
+	{ weight: 1, arbitrary: fc.constant({ kind: "set" }) },
+	{ weight: 1, arbitrary: fc.constant({ kind: "bigint" }) },
+);
+
+const defaultSample: fc.Arbitrary<DefaultSample> = fc.record({
+	type: fc.constantFrom("number", "string", "boolean", "object", "array"),
+	minimum: optionalNumber(-5, 5),
+	maximum: optionalNumber(-5, 5),
+	multipleOf: optionalNumber(1, 4),
+	minLength: optionalNumber(0, 3),
+	maxLength: optionalNumber(0, 6),
+	enumValues: fc.oneof(
+		{ weight: 2, arbitrary: fc.constant(undefined) },
+		{
+			weight: 1,
+			arbitrary: fc.array(fc.stringMatching(/^[a-z]{1,3}$/), {
+				minLength: 1,
+				maxLength: 3,
+			}),
+		},
+	),
+	pattern: fc.boolean(),
+	required: fc.boolean(),
+	minItems: optionalNumber(0, 2),
+	maxItems: optionalNumber(0, 3),
+	placement: fc.constantFrom("top", "nested"),
+	access: fc.constantFrom("changing-getter", "stable-getter", "data"),
+	first: rawValue,
+	later: rawValue,
+});
+
+function constraintSchema(sample: DefaultSample): ToolInputSchema {
+	const schema: ToolInputSchema = { type: sample.type };
+	if (sample.type === "number") {
+		if (sample.minimum !== undefined) schema.minimum = sample.minimum;
+		if (sample.maximum !== undefined) schema.maximum = sample.maximum;
+		if (sample.multipleOf !== undefined) schema.multipleOf = sample.multipleOf;
+	}
+	if (sample.type === "string") {
+		if (sample.minLength !== undefined) schema.minLength = sample.minLength;
+		if (sample.maxLength !== undefined) schema.maxLength = sample.maxLength;
+		if (sample.enumValues !== undefined) schema.enum = sample.enumValues;
+		if (sample.pattern) schema.pattern = "^[a-z]+$";
+	}
+	if (sample.type === "object") {
+		schema.properties = { v: { type: "number" } };
+		if (sample.required) schema.required = ["v"];
+	}
+	if (sample.type === "array") {
+		schema.items = { type: "number" };
+		if (sample.minItems !== undefined) schema.minItems = sample.minItems;
+		if (sample.maxItems !== undefined) schema.maxItems = sample.maxItems;
+	}
+	return schema;
+}
+
+function omitOwnDefault(schema: ToolInputSchema): ToolInputSchema {
+	const copy: ToolInputSchema = {};
+	for (const key of Reflect.ownKeys(schema)) {
+		if (key === "default") continue;
+		const descriptor = Object.getOwnPropertyDescriptor(schema, key);
+		if (descriptor) Object.defineProperty(copy, key, descriptor);
+	}
+	return copy;
+}
+
+function watchDefault(
+	schema: ToolInputSchema,
+	access: DefaultAccess,
+	first: unknown,
+	later: unknown,
+): { schema: ToolInputSchema; reads: unknown[] } {
+	const reads: unknown[] = [];
+	if (access === "data") {
+		schema.default = first;
+	} else {
+		const values = access === "stable-getter" ? [first] : [first, later];
+		let index = 0;
+		Object.defineProperty(schema, "default", {
+			enumerable: true,
+			configurable: true,
+			get() {
+				const value = values[Math.min(index, values.length - 1)];
+				index += 1;
+				return value;
+			},
+		});
+	}
+	const wrapped = new Proxy(schema, {
+		get(target, key, receiver) {
+			const value = Reflect.get(target, key, receiver);
+			if (key === "default") reads.push(value);
+			return value;
+		},
+	});
+	return { schema: wrapped, reads };
+}
+
+function expectedFromMaterialized(
+	schema: ToolInputSchema,
+	materialized: unknown,
+	placement: DefaultSample["placement"],
+): { ok: true; input: unknown } | { ok: false } {
+	if (placement === "nested") {
+		const parent: ToolInputSchema = {
+			type: "object",
+			properties: { v: omitOwnDefault(schema) },
+		};
+		const snapshot = snapshotPlainJson({ v: materialized }, "input", parent);
+		if (!snapshot.ok) return { ok: false };
+		const issues = validateToolInputValue(parent, snapshot.value, "input");
+		if (issues.length > 0) return { ok: false };
+		return { ok: true, input: snapshot.value };
+	}
+	const bare = omitOwnDefault(schema);
+	if (materialized === undefined) {
+		const issues = validateToolInputValue(bare, undefined, "input");
+		if (issues.length > 0) return { ok: false };
+		return { ok: true, input: undefined };
+	}
+	const snapshot = snapshotPlainJson(materialized, "input", bare);
+	if (!snapshot.ok) return { ok: false };
+	const issues = validateToolInputValue(bare, snapshot.value, "input");
+	if (issues.length > 0) return { ok: false };
+	return { ok: true, input: snapshot.value };
+}
+
+function prepareDefault(sample: DefaultSample): {
+	schema: ReturnType<typeof defineToolSchema>;
+	input: unknown;
+	reads: unknown[];
+	watched: ToolInputSchema;
+} {
+	const first = materializeRaw(sample.first);
+	const later = materializeRaw(sample.later);
+	const watched = watchDefault(
+		constraintSchema(sample),
+		sample.access,
+		first,
+		later,
+	);
+	const inputSchema =
+		sample.placement === "top"
+			? watched.schema
+			: { type: "object" as const, properties: { v: watched.schema } };
+	return {
+		schema: defineToolSchema({
+			act: {
+				description: "Act.",
+				input: inputSchema,
+				consequential: true,
+			},
+		}),
+		input: sample.placement === "top" ? undefined : { v: undefined },
+		reads: watched.reads,
+		watched: watched.schema,
+	};
+}
+
+function assertMaterializedRoute(
+	ok: boolean,
+	routed: unknown,
+	seen: unknown[],
+	executed: unknown,
+	expected: { ok: true; input: unknown } | { ok: false },
+): void {
+	if (!expected.ok) {
+		expect(ok).toBe(false);
+		expect(seen).toEqual([]);
+		expect(executed).toBeUndefined();
+		return;
+	}
+	expect(ok).toBe(true);
+	expect(seen).toHaveLength(1);
+	expect(seen[0]).toBe(routed);
+	expect(executed).toBe(routed);
+	expect(sameJson(routed, expected.input)).toBe(true);
+	if (routed !== undefined) {
+		expect(isDeepFrozenPlainJson(routed)).toBe(true);
+	}
+}
+
+describe(`schema default is materialized once (seed ${DEFAULT_READ_SEED}, runs ${DEFAULT_READ_RUNS})`, () => {
+	it("routes the validated default to canExecute and execute", async () => {
+		// The input value that passes validation is exactly the value routed
+		// to canExecute and execute. The schema default is read once, including
+		// when a getter returns a different value on every read.
+		await fc.assert(
+			fc.asyncProperty(defaultSample, async (sample) => {
+				const resolved = prepareDefault(sample);
+				expect(resolved.reads).toEqual([]);
+				const manifest = buildManifest(resolved.schema, () => true);
+				expect(resolved.reads).toEqual([]);
+				const resolveSeen: unknown[] = [];
+				let resolveThrew = false;
+				let resolveResult: ReturnType<typeof resolveCall> | undefined;
+				try {
+					resolveResult = resolveCall(
+						manifest,
+						"act",
+						resolved.input,
+						(_name, value) => {
+							resolveSeen.push(value);
+							return true;
+						},
+					);
+				} catch {
+					resolveThrew = true;
+				}
+				expect(resolveThrew).toBe(false);
+				expect(resolved.reads).toHaveLength(1);
+				const resolveExpected = expectedFromMaterialized(
+					resolved.watched,
+					resolved.reads[0],
+					sample.placement,
+				);
+				assertMaterializedRoute(
+					resolveResult?.ok === true,
+					resolveResult?.ok === true ? resolveResult.value.input : undefined,
+					resolveSeen,
+					resolveResult?.ok === true ? resolveResult.value.input : undefined,
+					resolveExpected,
+				);
+				if (!resolveResult?.ok) {
+					expect(resolveResult).toMatchObject({
+						ok: false,
+						error: { kind: "InvalidInput", name: "act" },
+					});
+				}
+
+				const ran = prepareDefault(sample);
+				expect(ran.reads).toEqual([]);
+				const runtime = createRuntime();
+				const runSeen: unknown[] = [];
+				const tools = igniteTools({
+					core: runtime as unknown as IgniteToolsRuntime,
+					schema: ran.schema,
+					canExecute: (_name, value, context) => {
+						if (context?.execute === true) runSeen.push(value);
+						return true;
+					},
+				});
+				expect(ran.reads).toEqual([]);
+				let runThrew = false;
+				let runResult: Awaited<ReturnType<typeof tools.run>> | undefined;
+				try {
+					runResult = await tools.run({ name: "act", input: ran.input });
+				} catch {
+					runThrew = true;
+				}
+				expect(runThrew).toBe(false);
+				expect(ran.reads).toHaveLength(1);
+				const runExpected = expectedFromMaterialized(
+					ran.watched,
+					ran.reads[0],
+					sample.placement,
+				);
+				assertMaterializedRoute(
+					runResult?.ok === true,
+					runSeen[0],
+					runSeen,
+					runtime.calls[0]?.input,
+					runExpected,
+				);
+				if (!runResult?.ok) {
+					expect(runResult).toMatchObject({
+						ok: false,
+						error: { kind: "InvalidInput", name: "act" },
+					});
+					expect(runtime.calls).toEqual([]);
+				}
+				return true;
+			}),
+			{
+				seed: DEFAULT_READ_SEED,
+				numRuns: DEFAULT_READ_RUNS,
+				endOnFailure: true,
+			},
+		);
 	}, 60_000);
 });
