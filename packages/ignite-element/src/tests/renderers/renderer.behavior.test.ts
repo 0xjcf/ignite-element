@@ -231,9 +231,12 @@ describe("renderer core behavior", () => {
 
 		const inputTree = mountIgniteJsx(host, jsx("input", { value: "x" }));
 		const input = host.querySelector("input") as HTMLInputElement;
+		document.body.append(host);
+		input.focus();
 		input.dispatchEvent(new Event("compositionstart"));
 		renderIgniteJsx(host, jsx("input", { value: "y" }), inputTree);
 		expect(input.value).toBe("x");
+		host.remove();
 	});
 
 	it("handles denylisted tags and tag mismatches with fallback replace", () => {

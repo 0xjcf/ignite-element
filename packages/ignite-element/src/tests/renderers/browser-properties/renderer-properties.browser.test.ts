@@ -1443,7 +1443,7 @@ describe("renderer properties in Chromium", () => {
 		const code = await bundleHarness();
 		browser = await chromium.launch({
 			headless: true,
-			args: ["--no-sandbox", "--disable-dev-shm-usage"],
+			chromiumSandbox: true,
 		});
 		page = await browser.newPage();
 		await page.setContent("<!doctype html><html><body></body></html>");

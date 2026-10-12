@@ -853,6 +853,7 @@ function markComposing(root: ParentNode, on: boolean): void {
 	for (const input of root.querySelectorAll("input, textarea")) {
 		const field = input as HTMLElement & { isComposing?: boolean };
 		field.isComposing = on;
+		if (on) field.focus();
 		field.dispatchEvent(new Event(on ? "compositionstart" : "compositionend"));
 	}
 }
@@ -1206,6 +1207,7 @@ function runComposition(
 		let input: HTMLInputElement | undefined;
 		for (const step of steps) {
 			if (input) {
+				input.focus();
 				input.dispatchEvent(
 					new Event(step.composing ? "compositionstart" : "compositionend"),
 				);
@@ -1256,7 +1258,7 @@ function runContract(scenario: ContractScenario): ContractTrace[] {
 				continue;
 			}
 			markComposing(host, step.composing);
-			markComposing(manual, step.composing);
+			// The native oracle uses the requested session state without taking focus.
 			const held = contractSnap(host, scenario.shape);
 			tree = renderIgniteJsx(host, view, tree);
 			applyManual(manual, scenario, step);

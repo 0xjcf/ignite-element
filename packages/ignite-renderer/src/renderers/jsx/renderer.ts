@@ -577,6 +577,7 @@ function releaseStoredRef(node: Node, mount: ElementMount): void {
 
 /** Shared unmount path. Runs before detach, exactly once per mount. */
 export function unmountIgniteSubtree(node: Node): void {
+	composing.set(node, false);
 	if (
 		node.nodeType === ELEMENT_NODE ||
 		node.nodeType === DOCUMENT_FRAGMENT_NODE
@@ -594,33 +595,37 @@ export function unmountIgniteSubtree(node: Node): void {
 	elementMounts.delete(node);
 }
 
+// Acquire refs only after placement, child reconciliation and controlled writes.
+const refQueue: (() => void)[] = [];
 function assignRef(element: Element, ref: unknown): void {
 	const mount = ensureMount(element);
-	if (mount.unmounted) return;
-	const next = typeof ref === "function" ? (ref as RefCallback) : null;
-	if (mount.ref === next && !mount.released) return;
-	if (mount.ref && !mount.released) {
-		const previous = mount.ref;
-		const cleanup = mount.cleanup;
-		mount.ref = null;
-		mount.cleanup = null;
-		releaseRefBinding(element, previous, cleanup);
-	}
-	mount.ref = next;
-	mount.cleanup = null;
-	mount.released = false;
-	if (!next) return;
-	try {
-		const result = next(element);
-		if (typeof result === "function") {
-			mount.cleanup = result;
-			return;
+	refQueue.push(() => {
+		if (mount.unmounted) return;
+		const next = typeof ref === "function" ? (ref as RefCallback) : null;
+		if (mount.ref === next && !mount.released) return;
+		if (mount.ref && !mount.released) {
+			const previous = mount.ref;
+			const cleanup = mount.cleanup;
+			mount.ref = null;
+			mount.cleanup = null;
+			releaseRefBinding(element, previous, cleanup);
 		}
-		observeRejection(element, result);
-	} catch (error) {
+		mount.ref = next;
 		mount.cleanup = null;
-		reportRendererError(element, error);
-	}
+		mount.released = false;
+		if (!next) return;
+		try {
+			const result = next(element);
+			if (typeof result === "function") {
+				mount.cleanup = result;
+				return;
+			}
+			observeRejection(element, result);
+		} catch (error) {
+			mount.cleanup = null;
+			reportRendererError(element, error);
+		}
+	});
 }
 
 function releaseNodeRefs(node: Node): void {
@@ -1143,8 +1148,8 @@ function patchProps(
 			}
 
 			// Explicit false is a set for these defaults, not a drop. Applying it
-			// can clear a still-controlled checked or selected value, so write
-			// that listed prop again in this pass.
+			// can clear a still-controlled checked or selected value. Reapply
+			// custom fields here; native live fields also have a final flush.
 			if (
 				next === false &&
 				!isSvgElement &&
@@ -1167,6 +1172,13 @@ function patchProps(
 					hasOwnCustomSetter(element as HTMLElement, key)
 				) {
 					applyProperty(element as HTMLElement, key, false);
+				} else if (
+					next === false &&
+					!isSvgElement &&
+					/^(translate|spellcheck|draggable)$/i.test(key)
+				) {
+					// These attributes have false tokens; absence has different semantics.
+					element.setAttribute(key, /^translate$/i.test(key) ? "no" : "false");
 				} else {
 					removeProp(element, key, prev, isSvgElement);
 				}
@@ -1454,8 +1466,8 @@ function removeProp(
 	if (hadAttribute) element.removeAttribute(attrName);
 }
 
-const composing = new WeakMap<HTMLElement, boolean>();
-const controlledQueue: unknown[] = [];
+const composing = new WeakMap<Node, boolean>();
+const controlledQueue: (() => void)[] = [];
 
 function watchComposition(element: HTMLElement): void {
 	if (composing.has(element)) return;
@@ -1463,9 +1475,10 @@ function watchComposition(element: HTMLElement): void {
 	element.addEventListener("compositionstart", () => {
 		composing.set(element, true);
 	});
-	element.addEventListener("compositionend", () => {
-		composing.set(element, false);
-	});
+	const end = () => composing.set(element, false);
+	element.addEventListener("compositionend", end);
+	element.addEventListener("blur", end);
+	element.addEventListener("focus", end);
 }
 
 function queueControlled(
@@ -1473,18 +1486,12 @@ function queueControlled(
 	key: string,
 	value: unknown,
 ): void {
-	controlledQueue.push(element, key, value);
+	controlledQueue.push(() => assignControlled(element, key, value));
 }
 
 function flushControlled(): void {
-	const queued = controlledQueue.splice(0, controlledQueue.length);
-	for (let index = 0; index < queued.length; index += 3) {
-		assignControlled(
-			queued[index] as HTMLElement,
-			queued[index + 1] as string,
-			queued[index + 2],
-		);
-	}
+	for (const assign of controlledQueue.splice(0)) assign();
+	for (const acquire of refQueue.splice(0)) acquire();
 }
 
 function assignControlled(
@@ -1493,7 +1500,11 @@ function assignControlled(
 	value: unknown,
 ): void {
 	// compositionstart holds value until the render after compositionend.
-	if (key === "value" && composing.get(element) === true) return;
+	if (key === "value" && composing.get(element) === true) {
+		// :focus recognizes controls inside shadow roots as well as light DOM.
+		if (element.isConnected && element.matches(":focus")) return;
+		composing.set(element, false);
+	}
 	if (key === "value" && Reflect.get(element, key) === value) return;
 	try {
 		Reflect.set(element, key, value);

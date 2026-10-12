@@ -14,6 +14,7 @@ import { unsupportedJsxProps } from "./unsupported-jsx-props";
 describe("ignite-jsx diffing behavior", () => {
 	afterEach(() => {
 		clearNoDiffDenylistForTests();
+		document.body.replaceChildren();
 	});
 
 	it("does not rewrite input value when unchanged", () => {
@@ -35,6 +36,8 @@ describe("ignite-jsx diffing behavior", () => {
 		const host = document.createElement("div");
 		const tree = mountIgniteJsx(host, jsx("input", { value: "a" }));
 		const input = host.querySelector("input") as HTMLInputElement;
+		document.body.append(host);
+		input.focus();
 		input.dispatchEvent(new Event("compositionstart"));
 
 		renderIgniteJsx(host, jsx("input", { value: "b" }), tree);
@@ -56,6 +59,8 @@ describe("ignite-jsx diffing behavior", () => {
 			});
 		tree = mountIgniteJsx(host, view());
 		const input = host.querySelector("input") as HTMLInputElement;
+		document.body.append(host);
+		input.focus();
 		input.dispatchEvent(new Event("compositionstart"));
 		// The field already shows the composition. onInput copies it and re-renders.
 		input.value = "hel";
