@@ -12,19 +12,6 @@ function snapshotIssue(path: string, detail: string): JsonSnapshot {
 	return { ok: false, issues: [`${path}: ${detail}`] };
 }
 
-function isPlainArray(value: object): boolean {
-	if (!Array.isArray(value)) return false;
-	const prototype = Object.getPrototypeOf(value);
-	if (prototype === null) return false;
-	const parent = Object.getPrototypeOf(prototype);
-	if (parent === null || Object.getPrototypeOf(parent) !== null) return false;
-	const ctor = (prototype as { constructor?: unknown }).constructor;
-	return (
-		typeof ctor === "function" &&
-		(ctor as { prototype?: unknown }).prototype === prototype
-	);
-}
-
 export function applySchemaDefaults(
 	schema: ToolInputSchema,
 	input: unknown,
@@ -94,13 +81,18 @@ function snapshotJsonValue(
 		if (active.has(value)) {
 			return snapshotIssue(path, "cyclic data is not allowed");
 		}
+		// One pass over own data descriptors. Brand and prototype checks run
+		// on the frozen copy this returns, not on the caller object.
 		if (Array.isArray(value)) {
 			return snapshotJsonArray(value, path, depth, active, schema);
 		}
-		if (isPlainObject(value)) {
-			return snapshotJsonObject(value, path, depth, active, schema);
-		}
-		return snapshotIssue(path, "expected a JSON value");
+		return snapshotJsonObject(
+			value as Record<string, unknown>,
+			path,
+			depth,
+			active,
+			schema,
+		);
 	} catch {
 		return snapshotIssue(path, "unable to read value");
 	}
@@ -113,9 +105,6 @@ function snapshotJsonArray(
 	active: WeakSet<object>,
 	schema?: ToolInputSchema,
 ): JsonSnapshot {
-	if (!isPlainArray(value)) {
-		return snapshotIssue(path, "expected array");
-	}
 	active.add(value);
 	try {
 		const indexed = new Map<number, unknown>();
@@ -176,7 +165,11 @@ function snapshotJsonArray(
 			if (!item.ok) return item;
 			output.push(item.value);
 		}
-		return { ok: true, value: Object.freeze(output) };
+		const sealed = Object.freeze(output);
+		if (Object.getPrototypeOf(sealed) !== Array.prototype) {
+			return snapshotIssue(path, "expected array");
+		}
+		return { ok: true, value: sealed };
 	} catch {
 		return snapshotIssue(path, "unable to read value");
 	} finally {
@@ -221,7 +214,11 @@ function snapshotJsonObject(
 				configurable: true,
 			});
 		}
-		return { ok: true, value: Object.freeze(output) };
+		const sealed = Object.freeze(output);
+		if (!isPlainObject(sealed)) {
+			return snapshotIssue(path, "expected a JSON value");
+		}
+		return { ok: true, value: sealed };
 	} catch {
 		return snapshotIssue(path, "unable to read value");
 	} finally {

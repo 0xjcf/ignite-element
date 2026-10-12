@@ -122,15 +122,22 @@ describe("plain JSON snapshot pairs", () => {
 		expect(Object.is(seen[0], -0)).toBe(false);
 	});
 
-	it("rejects Date, Map, Set, and bigint before canExecute", () => {
-		invalid("payload", new Date(0));
-		invalid("payload", new Map());
-		invalid("payload", new Set());
+	it("copies own data from Date, Map, and Set and rejects bigint", () => {
+		for (const input of [new Date(0), new Map(), new Set()]) {
+			const seen: unknown[] = [];
+			expect(
+				resolveCall(manifest, "payload", input, (_command, value) => {
+					seen.push(value);
+					return true;
+				}).ok,
+			).toBe(true);
+			expect(seen).toEqual([{}]);
+		}
 		invalid("series", [1n]);
 		invalid("loose", { v: 1n });
 	});
 
-	it("rejects symbol keys, accessors, functions, and class instances", () => {
+	it("rejects symbol keys, accessors, and functions, and copies class fields", () => {
 		const symbolKey: { a: number; [key: symbol]: string } = { a: 1 };
 		symbolKey[Symbol("id")] = "x";
 		invalid("payload", symbolKey);
@@ -177,7 +184,14 @@ describe("plain JSON snapshot pairs", () => {
 		class Box {
 			a = 1;
 		}
-		invalid("payload", new Box());
+		const boxed: unknown[] = [];
+		expect(
+			resolveCall(manifest, "payload", new Box(), (_command, value) => {
+				boxed.push(value);
+				return true;
+			}).ok,
+		).toBe(true);
+		expect(boxed).toEqual([{ a: 1 }]);
 	});
 
 	it("does not call toJSON", () => {
@@ -216,7 +230,7 @@ describe("plain JSON snapshot pairs", () => {
 		invalid("box", deep);
 	});
 
-	it("keeps an own __proto__ key and rejects a __proto__ prototype", () => {
+	it("keeps an own __proto__ key and drops an inherited prototype", () => {
 		const parsed = JSON.parse('{"__proto__":{"admin":true},"a":1}') as {
 			a: number;
 		};
@@ -235,7 +249,18 @@ describe("plain JSON snapshot pairs", () => {
 		expect((Object.prototype as { admin?: boolean }).admin).toBeUndefined();
 
 		const literal = { __proto__: { admin: true }, a: 1 } as { a: number };
-		invalid("payload", literal);
+		const inherited: unknown[] = [];
+		expect(
+			resolveCall(manifest, "payload", literal, (_command, value) => {
+				inherited.push(value);
+				return true;
+			}).ok,
+		).toBe(true);
+		expect(inherited).toEqual([{ a: 1 }]);
+		expect(Object.getPrototypeOf(inherited[0] as object)).toBe(
+			Object.prototype,
+		);
+		expect((Object.prototype as { admin?: boolean }).admin).toBeUndefined();
 	});
 
 	it("accepts a null-prototype object and a cross-realm object as detached plain snapshots", () => {
@@ -310,7 +335,14 @@ describe("plain JSON snapshot pairs", () => {
 
 	it("rejects exotic values nested in an untyped field", () => {
 		invalid("box", { a: Number.POSITIVE_INFINITY });
-		invalid("box", { a: new Date(0) });
+		const dated: unknown[] = [];
+		expect(
+			resolveCall(manifest, "box", { a: new Date(0) }, (_command, value) => {
+				dated.push(value);
+				return true;
+			}).ok,
+		).toBe(true);
+		expect(dated).toEqual([{ a: {} }]);
 		const nestedProxy = new Proxy({ n: 1 }, {});
 		const seenProxy: unknown[] = [];
 		const copied = resolveCall(
@@ -446,15 +478,25 @@ describe("plain JSON snapshot pairs", () => {
 		});
 	});
 
-	it("returns InvalidInput when getPrototypeOf throws", () => {
+	it("does not call getPrototypeOf while copying own data", () => {
+		let reads = 0;
 		const input = {};
 		Object.setPrototypeOf(input, {});
 		const proxy = new Proxy(input, {
 			getPrototypeOf() {
+				reads += 1;
 				throw new Error("prototype getter");
 			},
 		});
-		invalid("payload", proxy);
+		const seen: unknown[] = [];
+		expect(
+			resolveCall(manifest, "payload", proxy, (_command, value) => {
+				seen.push(value);
+				return true;
+			}).ok,
+		).toBe(true);
+		expect(reads).toBe(0);
+		expect(seen).toEqual([{}]);
 	});
 
 	it("validates the detached snapshot when a browser proxy changes between reads", () => {

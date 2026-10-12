@@ -471,9 +471,6 @@ describe("canExecute receives the call and fails closed", () => {
 			["amount", Number.POSITIVE_INFINITY],
 			["amount", Number.NEGATIVE_INFINITY],
 			["series", [1, undefined, 2]],
-			["payload", new Date(0)],
-			["payload", new Map()],
-			["payload", new Set()],
 		] as const) {
 			expect(resolveCall(manifest, name, input, allow)).toMatchObject({
 				ok: false,
@@ -481,6 +478,11 @@ describe("canExecute receives the call and fails closed", () => {
 			});
 		}
 		expect(seen).toEqual([]);
+		for (const input of [new Date(0), new Map(), new Set()]) {
+			expect(resolveCall(manifest, "payload", input, allow).ok).toBe(true);
+		}
+		expect(seen).toEqual([{}, {}, {}]);
+		seen.length = 0;
 		expect(resolveCall(manifest, "amount", 0, allow).ok).toBe(true);
 		expect(resolveCall(manifest, "amount", -0, allow).ok).toBe(true);
 		expect(Object.is(seen[0], 0)).toBe(true);
@@ -967,7 +969,7 @@ describe("plain objects from another JavaScript realm", () => {
 		}
 	});
 
-	it("accepts a null-prototype object and rejects a class instance", () => {
+	it("accepts a null-prototype object and a class instance's own fields", () => {
 		const input = Object.create(null) as { room?: string; temp?: number };
 		input.room = "living";
 		input.temp = 72;
@@ -998,12 +1000,14 @@ describe("plain objects from another JavaScript realm", () => {
 			expect(Object.getPrototypeOf(result.value.input)).toBe(Object.prototype);
 			expect(Object.isFrozen(result.value.input)).toBe(true);
 		}
-		expect(
-			resolveCall(manifest, "payload", new Room(), () => true),
-		).toMatchObject({
-			ok: false,
-			error: { kind: "InvalidInput", name: "payload" },
-		});
+		const instance = resolveCall(manifest, "payload", new Room(), () => true);
+		expect(instance.ok).toBe(true);
+		if (instance.ok) {
+			expect(instance.value.input).toEqual({ room: "living", temp: 72 });
+			expect(Object.getPrototypeOf(instance.value.input as object)).toBe(
+				Object.prototype,
+			);
+		}
 	});
 
 	it("rejects cyclic input before canExecute", () => {
@@ -1031,7 +1035,7 @@ describe("plain objects from another JavaScript realm", () => {
 		expect(seen).toEqual([]);
 	});
 
-	it("still rejects Date, Map, and Set created in another realm", () => {
+	it("copies own data from a Date, Map, and Set created in another realm", () => {
 		const manifest = buildManifest(
 			defineToolSchema({
 				payload: {
@@ -1048,12 +1052,9 @@ describe("plain objects from another JavaScript realm", () => {
 		};
 		for (const source of ["new Date(0)", "new Map()", "new Set()"]) {
 			expect(
-				resolveCall(manifest, "payload", vm.runInNewContext(source), allow),
-			).toMatchObject({
-				ok: false,
-				error: { kind: "InvalidInput", name: "payload" },
-			});
+				resolveCall(manifest, "payload", vm.runInNewContext(source), allow).ok,
+			).toBe(true);
 		}
-		expect(seen).toEqual([]);
+		expect(seen).toEqual([{}, {}, {}]);
 	});
 });

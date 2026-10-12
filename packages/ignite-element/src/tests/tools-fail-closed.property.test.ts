@@ -5,6 +5,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import vm from "node:vm";
 import fc from "fast-check";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
@@ -16,6 +17,7 @@ import {
 	resolveCall,
 } from "../tools";
 import { snapshotPlainJson } from "../tools/plainJson";
+import { fromProviderInput } from "../tools/scalar";
 import { validateToolInputValue } from "../tools/toolInput";
 
 const PROPERTY_SEED = 20261011;
@@ -716,13 +718,40 @@ describe(`igniteTools fail-closed properties (seed ${PROPERTY_SEED}, runs ${PROP
 		);
 
 		await assertProperty(fc.constant(null), async () => {
-			assertRejected(await exercise({ v: new Date(0) }), () => 0);
+			const input = { v: new Date(0) };
+			assertAccepted(
+				await exercise(input),
+				input,
+				{ v: {} },
+				() => 0,
+				() => {
+					input.v = new Date(1);
+				},
+			);
 		});
 		await assertProperty(fc.constant(null), async () => {
-			assertRejected(await exercise({ v: new Map() }), () => 0);
+			const input = { v: new Map() };
+			assertAccepted(
+				await exercise(input),
+				input,
+				{ v: {} },
+				() => 0,
+				() => {
+					input.v = new Map([["a", 1]]);
+				},
+			);
 		});
 		await assertProperty(fc.constant(null), async () => {
-			assertRejected(await exercise({ v: new Set() }), () => 0);
+			const input = { v: new Set() };
+			assertAccepted(
+				await exercise(input),
+				input,
+				{ v: {} },
+				() => 0,
+				() => {
+					input.v = new Set([1]);
+				},
+			);
 		});
 
 		await assertProperty(jsonValue, async (value) => {
@@ -1384,9 +1413,12 @@ describe(`non-allowlisted commands are denied (seed ${PROPERTY_SEED}, runs ${PRO
 						});
 						continue;
 					}
-					if (sample.tag === "object") {
+					if (sample.tag === "object" || sample.tag === "date") {
 						expect(resolved?.ok).toBe(true);
 						expect(ran?.ok).toBe(true);
+						if (sample.tag === "date" && resolved?.ok) {
+							expect(resolved.value.input).toEqual({});
+						}
 						continue;
 					}
 					expect(resolved).toMatchObject({
@@ -1400,8 +1432,9 @@ describe(`non-allowlisted commands are denied (seed ${PROPERTY_SEED}, runs ${PRO
 				}
 				const executed = runtime.calls.map((call) => call.command);
 				expect(executed.every((name) => allow.has(name))).toBe(true);
-				if (sample.tag !== "object") expect(runtime.calls).toEqual([]);
-				else expect(runtime.calls).toHaveLength(sample.allow.length);
+				if (sample.tag !== "object" && sample.tag !== "date") {
+					expect(runtime.calls).toEqual([]);
+				} else expect(runtime.calls).toHaveLength(sample.allow.length);
 				return true;
 			}),
 			{
@@ -1721,6 +1754,393 @@ describe(`toStringTag getters stay unread (seed ${PROPERTY_SEED}, runs ${PROPERT
 					return true;
 				},
 			),
+			{ seed: PROPERTY_SEED, numRuns: PROPERTY_RUNS, endOnFailure: true },
+		);
+	}, 60_000);
+});
+
+type HostilePlant = { a: number } | number[];
+
+type HostileInput = {
+	input: object;
+	planted: HostilePlant;
+	mutated: HostilePlant;
+	getReads: () => number;
+	ctorReads: () => number;
+	restore: () => void;
+};
+
+function loadAuthorityCanonical(): (name: string, input: unknown) => string {
+	let dir = path.dirname(publishedToolsGuide());
+	let source: string | undefined;
+	for (let hop = 0; hop < 8; hop += 1) {
+		const candidate = path.join(
+			dir,
+			"examples/agents/smart-home/src/commandApproval.ts",
+		);
+		if (existsSync(candidate)) {
+			source = readFileSync(candidate, "utf8");
+			break;
+		}
+		const parent = path.dirname(dir);
+		if (parent === dir) break;
+		dir = parent;
+	}
+	if (!source) throw new Error("command approval canonicalizer missing");
+	const compiled = ts.transpileModule(source.replace(/^export /gm, ""), {
+		compilerOptions: {
+			module: ts.ModuleKind.None,
+			target: ts.ScriptTarget.ES2022,
+		},
+	}).outputText;
+	return new Function(`${compiled}\nreturn canonicalCall;`)() as (
+		name: string,
+		input: unknown,
+	) => string;
+}
+
+function loadGuideCanonical(): (name: string, input: unknown) => string {
+	const source = readFileSync(publishedToolsGuide(), "utf8");
+	const fence = [...source.matchAll(/```ts\n([\s\S]*?)```/g)].find((match) =>
+		match[1]?.includes("function canonicalValue"),
+	);
+	const block = fence?.[1];
+	if (!block) throw new Error("published canonicalizer missing");
+	const start = block.indexOf("function plainSnapshotShape");
+	const end = block.indexOf("const granted");
+	if (start < 0 || end < start) {
+		throw new Error("published canonicalizer shape changed");
+	}
+	const compiled = ts.transpileModule(block.slice(start, end), {
+		compilerOptions: {
+			module: ts.ModuleKind.None,
+			target: ts.ScriptTarget.ES2022,
+		},
+	}).outputText;
+	return new Function(`${compiled}\nreturn canonicalCall;`)() as (
+		name: string,
+		input: unknown,
+	) => string;
+}
+
+function mutatePlant(target: { a?: number } | number[]): void {
+	if (Array.isArray(target)) target[0] = 999;
+	else target.a = 999;
+}
+
+function plantOf(array: boolean): HostilePlant {
+	return array ? [1] : { a: 1 };
+}
+
+function mutatedOf(array: boolean): HostilePlant {
+	return array ? [999] : { a: 999 };
+}
+
+function inheritedTag(array: boolean): HostileInput {
+	let getReads = 0;
+	const proto = array ? Array.prototype : Object.prototype;
+	const previous = Object.getOwnPropertyDescriptor(proto, Symbol.toStringTag);
+	const input = (array ? [1] : { a: 1 }) as { a?: number } | number[];
+	Object.defineProperty(proto, Symbol.toStringTag, {
+		configurable: true,
+		get() {
+			if (this !== input) return undefined;
+			getReads += 1;
+			mutatePlant(input);
+			return array ? "Array" : "Object";
+		},
+	});
+	return {
+		input,
+		planted: plantOf(array),
+		mutated: mutatedOf(array),
+		getReads: () => getReads,
+		ctorReads: () => 0,
+		restore() {
+			if (previous) Object.defineProperty(proto, Symbol.toStringTag, previous);
+			else Reflect.deleteProperty(proto, Symbol.toStringTag);
+		},
+	};
+}
+
+function ownTag(): HostileInput {
+	let getReads = 0;
+	const input: { a: number; [Symbol.toStringTag]?: unknown } = { a: 1 };
+	Object.defineProperty(input, Symbol.toStringTag, {
+		configurable: true,
+		get() {
+			getReads += 1;
+			input.a = 999;
+			delete input[Symbol.toStringTag];
+			return "Object";
+		},
+	});
+	return {
+		input,
+		planted: { a: 1 },
+		mutated: { a: 999 },
+		getReads: () => getReads,
+		ctorReads: () => 0,
+		restore() {},
+	};
+}
+
+function proxyOn(
+	array: boolean,
+	traps: "get" | "prototype" | "every",
+): HostileInput {
+	let getReads = 0;
+	const target = (array ? [1] : { a: 1 }) as { a?: number } | number[];
+	const input = new Proxy(target, {
+		get(current, key, receiver) {
+			if (
+				key === Symbol.toStringTag &&
+				(traps === "get" || traps === "every")
+			) {
+				getReads += 1;
+				mutatePlant(current as { a?: number } | number[]);
+				return array ? "Array" : "Object";
+			}
+			return Reflect.get(current, key, receiver);
+		},
+		set(current, key, value, receiver) {
+			if (traps === "every") mutatePlant(current as { a?: number } | number[]);
+			return Reflect.set(current, key, value, receiver);
+		},
+		has(current, key) {
+			if (traps === "every") mutatePlant(current as { a?: number } | number[]);
+			return Reflect.has(current, key);
+		},
+		deleteProperty(current, key) {
+			if (traps === "every") mutatePlant(current as { a?: number } | number[]);
+			return Reflect.deleteProperty(current, key);
+		},
+		ownKeys(current) {
+			return Reflect.ownKeys(current);
+		},
+		getOwnPropertyDescriptor(current, key) {
+			return Reflect.getOwnPropertyDescriptor(current, key);
+		},
+		defineProperty(current, key, attributes) {
+			if (traps === "every") mutatePlant(current as { a?: number } | number[]);
+			return Reflect.defineProperty(current, key, attributes);
+		},
+		preventExtensions(current) {
+			if (traps === "every") mutatePlant(current as { a?: number } | number[]);
+			return Reflect.preventExtensions(current);
+		},
+		getPrototypeOf(current) {
+			if (traps === "prototype" || traps === "every") {
+				mutatePlant(current as { a?: number } | number[]);
+			}
+			return Reflect.getPrototypeOf(current);
+		},
+		setPrototypeOf(current, prototype) {
+			if (traps === "every") mutatePlant(current as { a?: number } | number[]);
+			return Reflect.setPrototypeOf(current, prototype);
+		},
+		isExtensible(current) {
+			if (traps === "every") mutatePlant(current as { a?: number } | number[]);
+			return Reflect.isExtensible(current);
+		},
+		apply() {
+			return undefined;
+		},
+		construct() {
+			return {};
+		},
+	});
+	return {
+		input,
+		planted: plantOf(array),
+		mutated: mutatedOf(array),
+		getReads: () => getReads,
+		ctorReads: () => 0,
+		restore() {},
+	};
+}
+
+function constructorAccessor(): HostileInput {
+	let ctorReads = 0;
+	const prototype = Object.create(null) as object;
+	const input = Object.create(prototype) as { a: number };
+	input.a = 1;
+	Object.defineProperty(prototype, "constructor", {
+		configurable: true,
+		get() {
+			ctorReads += 1;
+			input.a = 999;
+			function Ctor() {}
+			Ctor.prototype = prototype;
+			return Ctor;
+		},
+	});
+	return {
+		input,
+		planted: { a: 1 },
+		mutated: { a: 999 },
+		getReads: () => 0,
+		ctorReads: () => ctorReads,
+		restore() {},
+	};
+}
+
+function crossRealmConstructor(): HostileInput {
+	let ctorReads = 0;
+	const prototype = vm.runInNewContext("Object.create(null)") as object;
+	const input = Object.create(prototype) as { a: number };
+	input.a = 1;
+	Object.defineProperty(prototype, "constructor", {
+		configurable: true,
+		get() {
+			ctorReads += 1;
+			input.a = 999;
+			function Ctor() {}
+			Ctor.prototype = prototype;
+			return Ctor;
+		},
+	});
+	return {
+		input,
+		planted: { a: 1 },
+		mutated: { a: 999 },
+		getReads: () => 0,
+		ctorReads: () => ctorReads,
+		restore() {},
+	};
+}
+
+describe(`caller input is sealed before brand checks (seed ${PROPERTY_SEED}, runs ${PROPERTY_RUNS})`, () => {
+	it("keeps the executed value equal to the own-data snapshot for every copy", async () => {
+		// The same hostile object is shown to the library snapshot, the
+		// application authority, and the published guide. A trap may try to
+		// rewrite 1 into 999. The executed value is the sealed snapshot, or
+		// the call is rejected. It is never the rewritten value.
+		const authorityCanonical = loadAuthorityCanonical();
+		const guideCanonical = loadGuideCanonical();
+		const attack = fc.constantFrom(
+			"inherited-tag" as const,
+			"own-tag" as const,
+			"proxy-get" as const,
+			"proxy-prototype" as const,
+			"proxy-traps" as const,
+			"constructor-accessor" as const,
+			"cross-realm-constructor" as const,
+			"array-inherited-tag" as const,
+			"array-proxy-get" as const,
+			"array-proxy-prototype" as const,
+			"array-proxy-traps" as const,
+		);
+
+		await fc.assert(
+			fc.asyncProperty(attack, async (kind) => {
+				const hostile =
+					kind === "inherited-tag"
+						? inheritedTag(false)
+						: kind === "own-tag"
+							? ownTag()
+							: kind === "proxy-get"
+								? proxyOn(false, "get")
+								: kind === "proxy-prototype"
+									? proxyOn(false, "prototype")
+									: kind === "proxy-traps"
+										? proxyOn(false, "every")
+										: kind === "constructor-accessor"
+											? constructorAccessor()
+											: kind === "cross-realm-constructor"
+												? crossRealmConstructor()
+												: kind === "array-inherited-tag"
+													? inheritedTag(true)
+													: kind === "array-proxy-get"
+														? proxyOn(true, "get")
+														: kind === "array-proxy-prototype"
+															? proxyOn(true, "prototype")
+															: proxyOn(true, "every");
+				try {
+					const array = Array.isArray(hostile.planted);
+					const schema = array
+						? {
+								type: "array" as const,
+								items: { type: "number" as const },
+							}
+						: {
+								type: "object" as const,
+								properties: { a: { type: "number" as const } },
+							};
+					const manifest = buildManifest(
+						defineToolSchema({
+							act: {
+								description: "Payload.",
+								input: schema,
+								consequential: true,
+							},
+						}),
+						() => true,
+					);
+					const snap = snapshotPlainJson(hostile.input, "input", schema);
+					const routed = resolveCall(
+						manifest,
+						"act",
+						hostile.input,
+						() => true,
+					);
+					const runtime = createRuntime();
+					const tools = igniteTools({
+						core: runtime as unknown as IgniteToolsRuntime,
+						schema: defineToolSchema({
+							act: {
+								description: "Payload.",
+								input: schema,
+								consequential: true,
+							},
+						}),
+						canExecute: () => true,
+					});
+					const ran = await tools.run({ name: "act", input: hostile.input });
+					const authorityKey = authorityCanonical("act", hostile.input);
+					const guideKey = guideCanonical("act", hostile.input);
+					const mutatedKey = authorityCanonical("act", hostile.mutated);
+					expect(hostile.getReads()).toBe(0);
+					expect(hostile.ctorReads()).toBe(0);
+					expect(authorityKey).toBe(guideKey);
+					expect(authorityKey).not.toBe(mutatedKey);
+					if (routed.ok) {
+						expect(snap.ok).toBe(true);
+						expect(routed.value.input).toEqual(hostile.planted);
+						expect(routed.value.input).toEqual(snap.ok ? snap.value : null);
+						expect(ran.ok).toBe(true);
+						expect(runtime.calls.map((call) => call.input)).toEqual([
+							routed.value.input,
+						]);
+						expect(authorityKey).toBe(
+							authorityCanonical("act", routed.value.input),
+						);
+					} else {
+						expect(ran.ok).toBe(false);
+						expect(runtime.calls).toEqual([]);
+						expect(authorityKey).not.toBe(
+							authorityCanonical("act", hostile.planted),
+						);
+					}
+					let scalarReads = 0;
+					const envelope: { value?: number } = {};
+					Object.defineProperty(envelope, "value", {
+						enumerable: true,
+						configurable: true,
+						get() {
+							scalarReads += 1;
+							return 999;
+						},
+					});
+					expect(fromProviderInput(envelope, { type: "number" })).toBe(
+						envelope,
+					);
+					expect(scalarReads).toBe(0);
+					return true;
+				} finally {
+					hostile.restore();
+				}
+			}),
 			{ seed: PROPERTY_SEED, numRuns: PROPERTY_RUNS, endOnFailure: true },
 		);
 	}, 60_000);
