@@ -14,10 +14,40 @@ type UnsupportedContentProps = {
 	textContent?: never;
 };
 
+// An index signature cannot tell two spellings apart. A fresh props object can.
+type HasLiteralKey<Props, Key extends string> = string extends keyof Props
+	? false
+	: number extends keyof Props
+		? false
+		: Key extends keyof Props
+			? true
+			: false;
+
+type BanPair<Props, A extends string, B extends string> = HasLiteralKey<
+	Props,
+	A
+> extends true
+	? HasLiteralKey<Props, B> extends true
+		? { [K in A | B]: never }
+		: unknown
+	: unknown;
+
+// Two spellings of one prop are an authoring error. Computed keys are not
+// visible here; development builds warn for those.
+type DuplicateSpellingBan<Props> = BanPair<
+	Props,
+	"acceptCharset",
+	"accept-charset"
+> &
+	BanPair<Props, "htmlFor", "for"> &
+	BanPair<Props, "onClick", "onclick"> &
+	BanPair<Props, "ariaLabel", "aria-label"> &
+	BanPair<Props, "className", "class">;
+
 type BanContentProps<Type, Props> = Props extends null | undefined
 	? Props
 	: [Type] extends [string]
-		? Props & UnsupportedContentProps
+		? Props & UnsupportedContentProps & DuplicateSpellingBan<Props>
 		: Props;
 
 type ElementType = IgniteJsxElement["type"];

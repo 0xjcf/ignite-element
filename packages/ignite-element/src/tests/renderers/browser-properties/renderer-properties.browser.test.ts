@@ -9,6 +9,11 @@ import type {
 	AliasScenario,
 	ClassReport,
 	ClassScenario,
+	ContractControl,
+	ContractScenario,
+	ContractStep,
+	ContractTrace,
+	ControlSnapshot,
 	EventReport,
 	EventSequence,
 	LiveReport,
@@ -26,6 +31,7 @@ import type {
 // Fixed seed so CI replays the same cases. Override locally to explore.
 const SEED = Number(process.env.FAST_CHECK_SEED ?? 168171);
 const NUM_RUNS = Number(process.env.FAST_CHECK_NUM_RUNS ?? 40);
+const ALLOW_RUNS = Math.max(NUM_RUNS, 200);
 
 const token = fc.string({
 	unit: fc.constantFrom(..."abcd1234"),
@@ -725,6 +731,52 @@ const sinkArb: fc.Arbitrary<SinkScenario> = fc.record({
 	),
 });
 
+function selectValuePassed(scenario: ResetScenario): boolean {
+	return (
+		scenario.tag.kind === "select" &&
+		!scenario.drop.includes("value") &&
+		"value" in scenario.props
+	);
+}
+
+function expectedReset(
+	scenario: ResetScenario,
+	report: ResetReport,
+): ControlSnapshot {
+	const expected = JSON.parse(JSON.stringify(report.fresh)) as ControlSnapshot;
+	const kind = scenario.tag.kind;
+	const dropValue = scenario.drop.includes("value");
+	const dropChecked = scenario.drop.includes("checked");
+	const dropSelected = scenario.drop.includes("selected");
+	if (dropChecked && kind === "input") expected.checked = report.held.checked;
+	if (dropValue && (kind === "input" || kind === "textarea")) {
+		expected.value = report.held.value;
+	}
+	const optionSelectedPassed = scenario.options.some(
+		(option) => option.selected != null && !dropSelected,
+	);
+	if (
+		kind === "select" &&
+		(dropValue || dropSelected) &&
+		!selectValuePassed(scenario) &&
+		!(dropValue && optionSelectedPassed)
+	) {
+		expected.value = report.held.value;
+		expected.options = expected.options.map((option, index) => ({
+			...option,
+			selected: report.held.options[index]?.selected ?? option.selected,
+		}));
+	}
+	if (selectValuePassed(scenario)) {
+		expected.value = report.updated.value;
+		expected.options = expected.options.map((option, index) => ({
+			...option,
+			selected: report.updated.options[index]?.selected ?? option.selected,
+		}));
+	}
+	return expected;
+}
+
 function explainReset(
 	scenario: ResetScenario,
 	report: ResetReport,
@@ -742,9 +794,10 @@ function explainReset(
 		);
 	}
 	if (!report.sameOptionNodes) problems.push("option nodes replaced");
-	if (JSON.stringify(report.updated) !== JSON.stringify(report.fresh)) {
+	const expected = expectedReset(scenario, report);
+	if (JSON.stringify(report.updated) !== JSON.stringify(expected)) {
 		problems.push(
-			`allowlist ${JSON.stringify(report.updated)} fresh ${JSON.stringify(report.fresh)}`,
+			`allowlist ${JSON.stringify(report.updated)} wanted ${JSON.stringify(expected)}`,
 		);
 	}
 	for (const reading of report.offList) {
@@ -784,7 +837,20 @@ function explainAlias(
 	return `listeners ${report.firstCalls},${report.secondCalls} wanted ${wantFirst},${wantSecond}`;
 }
 
-function explainLive(report: LiveReport): string | null {
+function explainLive(scenario: LiveScenario, report: LiveReport): string | null {
+	const liveKey = scenario.fromKey === "checked" || scenario.fromKey === "value";
+	const sameSink = scenario.toKey === scenario.fromKey;
+	if (liveKey && !sameSink) {
+		if (scenario.fromKey === "checked" && report.updatedChecked !== report.heldChecked) {
+			return `checked moved ${report.updatedChecked} held ${report.heldChecked}`;
+		}
+		if (scenario.fromKey === "value" && report.updatedValue !== report.heldValue) {
+			return `value moved ${report.updatedValue} held ${report.heldValue}`;
+		}
+		const attrs =
+			JSON.stringify(report.updatedAttrs) === JSON.stringify(report.freshAttrs);
+		return attrs ? null : `attrs ${JSON.stringify(report.updatedAttrs)} fresh ${JSON.stringify(report.freshAttrs)}`;
+	}
 	const sameValue = report.updatedValue === report.freshValue;
 	const sameChecked = report.updatedChecked === report.freshChecked;
 	const sameAttrs =
@@ -795,8 +861,8 @@ function explainLive(report: LiveReport): string | null {
 
 function explainRadio(report: RadioReport): string | null {
 	const updated = JSON.stringify(report.updated);
-	const fresh = JSON.stringify(report.fresh);
-	return updated === fresh ? null : `radios ${updated} fresh ${fresh}`;
+	const held = JSON.stringify(report.held);
+	return updated === held ? null : `radios ${updated} held ${held}`;
 }
 
 function eventTypeOf(key: string): string {
@@ -867,6 +933,398 @@ function explainReflected(
 	return problems.length === 0 ? null : problems.join("; ");
 }
 
+function contractControl(
+	id: string,
+	patch: Partial<ContractControl> = {},
+): ContractControl {
+	return {
+		id,
+		checked: null,
+		defaultChecked: null,
+		value: null,
+		defaultValue: null,
+		selected: null,
+		defaultSelected: null,
+		text: "t",
+		...patch,
+	};
+}
+
+function contractStep(
+	patch: Partial<ContractStep> = {},
+): ContractStep {
+	return {
+		controls: [],
+		selectValue: null,
+		composing: false,
+		acceptCharset: null,
+		acceptCharsetAttr: null,
+		action: null,
+		actionCased: null,
+		checkedAttr: null,
+		...patch,
+	};
+}
+
+const contractExamples: ContractScenario[] = [
+	{
+		shape: "radios",
+		steps: [
+			contractStep({
+				controls: [
+					contractControl("a", { checked: true, defaultChecked: false }),
+					contractControl("b", { checked: true, defaultChecked: false }),
+				],
+			}),
+			contractStep({
+				controls: [
+					contractControl("a", { checked: true, defaultChecked: false }),
+					contractControl("b", { checked: null, defaultChecked: false }),
+				],
+			}),
+		],
+	},
+	{
+		shape: "select",
+		steps: [
+			contractStep({
+				controls: [
+					contractControl("a", { value: "a", selected: true, text: "A" }),
+				],
+			}),
+			contractStep({
+				controls: [
+					contractControl("n", { value: "a", selected: true, text: "N" }),
+					contractControl("a", { value: "a", selected: true, text: "A" }),
+				],
+			}),
+		],
+	},
+	{
+		shape: "form",
+		steps: [
+			contractStep({ acceptCharset: "a", acceptCharsetAttr: "c" }),
+			contractStep({ acceptCharset: "a" }),
+		],
+	},
+	{
+		shape: "checkbox",
+		steps: [
+			contractStep({
+				controls: [
+					contractControl("c", { checked: false, defaultChecked: false }),
+				],
+			}),
+			contractStep({
+				controls: [
+					contractControl("c", { checked: null, defaultChecked: true }),
+				],
+			}),
+		],
+	},
+	{
+		shape: "radios",
+		steps: [
+			contractStep({
+				controls: [
+					contractControl("a", { checked: true, defaultChecked: false }),
+					contractControl("b", { checked: true, defaultChecked: false }),
+				],
+			}),
+			contractStep({
+				controls: [
+					contractControl("a", { checked: true, defaultChecked: false }),
+					contractControl("b", { checked: null, defaultChecked: true }),
+				],
+			}),
+		],
+	},
+	{
+		shape: "live",
+		steps: [
+			contractStep({
+				controls: [contractControl("c", { checked: true })],
+			}),
+			contractStep({
+				controls: [contractControl("c")],
+				checkedAttr: false,
+			}),
+		],
+	},
+	{
+		shape: "form",
+		steps: [
+			contractStep({ acceptCharset: "a", acceptCharsetAttr: "a" }),
+			contractStep({ acceptCharset: "b", acceptCharsetAttr: "a" }),
+			contractStep({
+				action: "https://example.com/ok",
+				actionCased: "javascript:alert(1)",
+			}),
+			contractStep({ action: "javascript:alert(1)" }),
+		],
+	},
+	{
+		shape: "radios",
+		steps: [
+			contractStep({
+				controls: [
+					contractControl("a", { checked: false, defaultChecked: true }),
+					contractControl("b", { checked: false, defaultChecked: false }),
+				],
+			}),
+			contractStep({
+				controls: [
+					contractControl("a", { checked: false, defaultChecked: true }),
+					contractControl("b", { defaultChecked: false }),
+				],
+			}),
+		],
+	},
+	{
+		shape: "select",
+		steps: [
+			contractStep({
+				selectValue: "a",
+				controls: [
+					contractControl("a", {
+						value: "a",
+						defaultSelected: false,
+						text: "A",
+					}),
+					contractControl("b", {
+						value: "b",
+						defaultSelected: false,
+						text: "B",
+					}),
+				],
+			}),
+			contractStep({
+				controls: [
+					contractControl("n", {
+						value: "n",
+						selected: true,
+						defaultSelected: false,
+						text: "N",
+					}),
+					contractControl("a", {
+						value: "a",
+						defaultSelected: false,
+						text: "A",
+					}),
+					contractControl("b", {
+						value: "b",
+						defaultSelected: true,
+						text: "B",
+					}),
+				],
+			}),
+		],
+	},
+	{
+		shape: "text",
+		steps: [
+			contractStep({ controls: [contractControl("t", { value: "he" })] }),
+			contractStep({
+				composing: true,
+				controls: [contractControl("t", { value: "hel" })],
+			}),
+			contractStep({
+				controls: [contractControl("t", { value: "hel" })],
+			}),
+		],
+	},
+];
+
+function contractControlArb(
+	id: string,
+	shape: ContractScenario["shape"],
+): fc.Arbitrary<ContractControl> {
+	const flag = fc.option(fc.boolean(), { nil: null });
+	const word = fc.option(fc.constantFrom("a", "b", "c"), { nil: null });
+	const choice = shape === "checkbox" || shape === "radios";
+	const text = shape === "text";
+	const options = shape === "select";
+	return fc.record({
+		id: fc.constant(id),
+		checked: choice ? flag : fc.constant(null),
+		defaultChecked: choice ? flag : fc.constant(null),
+		value: text ? word : options ? fc.constant(id) : fc.constant(null),
+		defaultValue: text ? word : fc.constant(null),
+		selected: options ? flag : fc.constant(null),
+		defaultSelected: options ? flag : fc.constant(null),
+		text: fc.constant("t"),
+	});
+}
+
+const contractArb: fc.Arbitrary<ContractScenario> = fc
+	.constantFrom("checkbox" as const, "text" as const, "radios" as const, "select" as const)
+	.chain((shape) => {
+		const ids = shape === "radios" || shape === "select" ? ["a", "b"] : ["a"];
+		const controls = fc.tuple(
+			...ids.map((id) => contractControlArb(id, shape)),
+		) as fc.Arbitrary<ContractControl[]>;
+		const one = fc.record({
+			controls,
+			selectValue:
+				shape === "select"
+					? fc.option(fc.constantFrom("a", "b"), { nil: null })
+					: fc.constant(null),
+			composing: shape === "text" ? fc.boolean() : fc.constant(false),
+			acceptCharset: fc.constant(null),
+			acceptCharsetAttr: fc.constant(null),
+			action: fc.constant(null),
+			actionCased: fc.constant(null),
+			checkedAttr: fc.constant(null),
+		});
+		return fc
+			.array(one, { minLength: 2, maxLength: 3 })
+			.map((steps) => ({
+				shape,
+				steps: steps.map((item, index) => ({
+					...item,
+					composing: shape === "text" && index > 0 && item.composing,
+				})),
+			}));
+	});
+
+function sameSnap(left: unknown, right: unknown): boolean {
+	return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function droppedDefault(
+	scenario: ContractScenario,
+	index: number,
+): boolean {
+	const previous = scenario.steps[index - 1];
+	const next = scenario.steps[index];
+	if (!previous || !next) return false;
+	return previous.controls.some((control, controlIndex) => {
+		const current = next.controls[controlIndex];
+		if (!current) return true;
+		return (
+			(control.defaultValue != null && current.defaultValue == null) ||
+			(control.defaultChecked != null && current.defaultChecked == null) ||
+			(control.defaultSelected != null && current.defaultSelected == null)
+		);
+	});
+}
+
+function passedPropsMatchFresh(
+	scenario: ContractScenario,
+	step: ContractStep,
+	index: number,
+): boolean {
+	if (step.composing || scenario.shape === "form") return false;
+	if (scenario.shape === "select") {
+		if (step.selectValue != null) return false;
+		const previous = scenario.steps[index - 1];
+		if (previous?.selectValue != null) return false;
+		const droppedSelected = previous?.controls.some(
+			(control, controlIndex) =>
+				control.selected != null &&
+				step.controls[controlIndex]?.selected == null,
+		);
+		return !droppedSelected;
+	}
+	if (scenario.shape === "text") {
+		return step.controls.every((control) => control.value != null);
+	}
+	return step.controls.every((control) => control.checked != null);
+}
+
+function explainContract(
+	scenario: ContractScenario,
+	traces: ContractTrace[],
+): string | null {
+	for (let index = 0; index < traces.length; index++) {
+		const step = scenario.steps[index];
+		const trace = traces[index];
+		if (!step || !trace) return `missing step ${index}`;
+		if (scenario.shape === "form") {
+			const attr = trace.updated.attrs.find(
+				([name]) => name === "accept-charset",
+			);
+			const value = attr ? attr[1] : null;
+			const armed = [...trace.updated.attrs, ...trace.updated.values.map(
+				(item) => ["action", item] as [string, string],
+			)].filter(([, item]) => item.toLowerCase().includes("javascript:"));
+			if (armed.length > 0) {
+				return `step ${index} url ${armed.map((item) => item.join("=")).join(" ")}`;
+			}
+			const spellings = [step.acceptCharset, step.acceptCharsetAttr].filter(
+				(item): item is string => item != null,
+			);
+			if (
+				spellings.length === 1 &&
+				!spellings[0].toLowerCase().includes("javascript:")
+			) {
+				if (value !== spellings[0]) {
+					return `step ${index} charset ${value} wanted ${spellings[0]}`;
+				}
+				if (!sameSnap(trace.updated, trace.fresh)) {
+					return `step ${index} fresh charset`;
+				}
+			}
+			continue;
+		}
+		if (!sameSnap(trace.updated, trace.manual)) {
+			return `step ${index} renderer ${JSON.stringify(trace.updated)} manual ${JSON.stringify(trace.manual)}`;
+		}
+		const composingValue = step.controls[0];
+		const previousValue = scenario.steps[index - 1]?.controls[0];
+		if (
+			step.composing &&
+			scenario.shape === "text" &&
+			composingValue?.value != null &&
+			previousValue?.defaultValue === composingValue.defaultValue &&
+			trace.updated.values[0] !== trace.held.values[0]
+		) {
+			return `step ${index} composition ${trace.updated.values[0]} held ${trace.held.values[0]}`;
+		}
+		if (step.composing && scenario.shape === "text") continue;
+		const previousIds = scenario.steps[index - 1]?.controls
+			.map((control) => control.id)
+			.join("\0");
+		const currentIds = step.controls.map((control) => control.id).join("\0");
+		if (
+			index > 0 &&
+			passedPropsMatchFresh(scenario, step, index) &&
+			previousIds === currentIds &&
+			!droppedDefault(scenario, index) &&
+			!sameSnap(trace.updated, trace.fresh)
+		) {
+			return `step ${index} fresh ${JSON.stringify(trace.fresh)} updated ${JSON.stringify(trace.updated)}`;
+		}
+		const previous = scenario.steps[index - 1]?.controls[0];
+		const current = step.controls[0];
+		if (
+			index > 0 &&
+			previous &&
+			current &&
+			scenario.shape === "checkbox" &&
+			previous.checked != null &&
+			current.checked == null &&
+			previous.defaultChecked === current.defaultChecked &&
+			trace.updated.checked[0] !== trace.held.checked[0]
+		) {
+			return `step ${index} checked ${trace.updated.checked[0]} held ${trace.held.checked[0]}`;
+		}
+		if (
+			index > 0 &&
+			previous &&
+			current &&
+			scenario.shape === "text" &&
+			previous.value != null &&
+			current.value == null &&
+			previous.defaultValue === current.defaultValue &&
+			trace.updated.values[0] !== trace.held.values[0]
+		) {
+			return `step ${index} value ${trace.updated.values[0]} held ${trace.held.values[0]}`;
+		}
+	}
+	return null;
+}
+
 async function bundleHarness(): Promise<string> {
 	const entry = fileURLToPath(new URL("./harness.ts", import.meta.url));
 	const result = await build({
@@ -930,7 +1388,10 @@ describe("renderer properties in Chromium", () => {
 		}, scenario);
 	}
 
-	async function assertReset(arb: fc.Arbitrary<ResetScenario>) {
+	async function assertReset(
+		arb: fc.Arbitrary<ResetScenario>,
+		numRuns = NUM_RUNS,
+	) {
 		await fc.assert(
 			fc.asyncProperty(arb, async (scenario) => {
 				const problem = explainReset(scenario, await resetOf(scenario));
@@ -938,7 +1399,7 @@ describe("renderer properties in Chromium", () => {
 					throw new Error(`${problem}\n${JSON.stringify(scenario)}`);
 				}
 			}),
-			{ seed: SEED, numRuns: NUM_RUNS },
+			{ seed: SEED, numRuns },
 		);
 	}
 
@@ -966,7 +1427,7 @@ describe("renderer properties in Chromium", () => {
 
 	it("allowlisted drops match a fresh mount and other props stay", async () => {
 		expect(SEED).toBeGreaterThan(0);
-		await assertReset(resetArb);
+		await assertReset(resetArb, ALLOW_RUNS);
 	}, 120_000);
 
 	it("keeps a renamed attribute on the same normalized key", async () => {
@@ -1008,7 +1469,7 @@ describe("renderer properties in Chromium", () => {
 					).__igniteProperties;
 					return properties.runLive(input);
 				}, scenario);
-				const problem = explainLive(report);
+				const problem = explainLive(scenario, report);
 				if (problem) {
 					throw new Error(`${problem}\n${JSON.stringify(scenario)}`);
 				}
@@ -1021,7 +1482,7 @@ describe("renderer properties in Chromium", () => {
 		await assertReset(scrollOverrideArb);
 	}, 120_000);
 
-	it("reapplies a controlled radio after a defaultChecked reset", async () => {
+	it("leaves a dropped radio checked value untouched", async () => {
 		await fc.assert(
 			fc.asyncProperty(radioArb, async (scenario) => {
 				const report = await page.evaluate((input) => {
@@ -1093,8 +1554,34 @@ describe("renderer properties in Chromium", () => {
 		);
 	}, 120_000);
 
-	it("restores a single select default option by identity", async () => {
+	it("leaves a dropped select value selected", async () => {
 		await assertReset(duplicateOptionArb);
+	}, 120_000);
+
+	it("applies passed props and leaves dropped form state", async () => {
+		await fc.assert(
+			fc.asyncProperty(contractArb, async (scenario) => {
+				const traces = await page.evaluate((input) => {
+					const properties = (
+						window as unknown as {
+							__igniteProperties: {
+								runContract: (value: typeof input) => ContractTrace[];
+							};
+						}
+					).__igniteProperties;
+					return properties.runContract(input);
+				}, scenario);
+				const problem = explainContract(scenario, traces);
+				if (problem) {
+					throw new Error(`${problem}\n${JSON.stringify(scenario)}`);
+				}
+			}),
+			{
+				seed: SEED,
+				numRuns: ALLOW_RUNS,
+				examples: contractExamples.map((example) => [example]),
+			},
+		);
 	}, 120_000);
 
 	it("never lets an executable URL or handler reach the DOM", async () => {

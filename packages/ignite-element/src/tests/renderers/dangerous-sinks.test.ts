@@ -366,7 +366,7 @@ describe("URL scheme guard", () => {
 		);
 	});
 
-	it("clears a coerced checked property when the prop is removed", () => {
+	it("leaves a coerced checked property when the prop is removed", () => {
 		const { host, tree } = mount(
 			jsx("input", { type: "checkbox", checked: 1 }),
 		);
@@ -375,10 +375,10 @@ describe("URL scheme guard", () => {
 
 		renderIgniteJsx(host, jsx("input", { type: "checkbox" }), tree);
 
-		expect(input?.checked).toBe(false);
+		expect(input?.checked).toBe(true);
 	});
 
-	it("resets checked to false instead of undefined", () => {
+	it("does not assign checked when the prop is removed", () => {
 		const descriptor = Object.getOwnPropertyDescriptor(
 			HTMLInputElement.prototype,
 			"checked",
@@ -409,35 +409,35 @@ describe("URL scheme guard", () => {
 			assigned.length = 0;
 			renderIgniteJsx(host, jsx("input", { type: "checkbox" }), tree);
 
-			expect(assigned).toContain(false);
+			expect(assigned).not.toContain(false);
 			expect(assigned).not.toContain(undefined);
-			expect(host.querySelector("input")?.checked).toBe(false);
+			expect(host.querySelector("input")?.checked).toBe(true);
 		} finally {
 			Object.defineProperty(HTMLInputElement.prototype, "checked", descriptor);
 		}
 	});
 
-	it("resets a coerced value to an empty string", () => {
+	it("leaves a coerced value when the prop is removed", () => {
 		const { host, tree } = mount(jsx("input", { value: 1 }));
 		const input = host.querySelector("input");
 		expect(input?.value).toBe("1");
 
 		renderIgniteJsx(host, jsx("input", {}), tree);
 
-		expect(input?.value).toBe("");
+		expect(input?.value).toBe("1");
 	});
 
-	it("resets a string value to an empty string", () => {
+	it("leaves a string value when the prop is removed", () => {
 		const { host, tree } = mount(jsx("input", { value: "hello" }));
 		const input = host.querySelector("input");
 		expect(input?.value).toBe("hello");
 
 		renderIgniteJsx(host, jsx("input", {}), tree);
 
-		expect(input?.value).toBe("");
+		expect(input?.value).toBe("hello");
 	});
 
-	it("restores a dropped checked from defaultChecked and keeps the attribute", () => {
+	it("leaves a dropped checked untouched and keeps the attribute", () => {
 		for (const type of ["checkbox", "radio"] as const) {
 			const { host, tree } = mount(
 				jsx("input", { type, defaultChecked: true, checked: true }),
@@ -453,13 +453,13 @@ describe("URL scheme guard", () => {
 
 			renderIgniteJsx(host, jsx("input", { type, defaultChecked: true }), tree);
 
-			expect(input.checked).toBe(true);
+			expect(input.checked).toBe(false);
 			expect(input.defaultChecked).toBe(true);
 			expect(input.hasAttribute("checked")).toBe(true);
 		}
 	});
 
-	it("restores a dropped value from the defaultValue applied in the same render", () => {
+	it("keeps a dropped value when defaultValue changes in the same render", () => {
 		const { host, tree } = mount(
 			jsx("input", { defaultValue: "foo", value: "bar" }),
 		);
@@ -467,12 +467,12 @@ describe("URL scheme guard", () => {
 
 		renderIgniteJsx(host, jsx("input", { defaultValue: "baz" }), tree);
 
-		expect(input.value).toBe("baz");
+		expect(input.value).toBe("bar");
 		expect(input.defaultValue).toBe("baz");
 		expect(input.getAttribute("value")).toBe("baz");
 	});
 
-	it("resets a dropped value to the rendered defaultValue", () => {
+	it("leaves a dropped value on the rendered defaultValue", () => {
 		const { host, tree } = mount(
 			jsx("input", { defaultValue: "foo", value: "bar" }),
 		);
@@ -483,12 +483,12 @@ describe("URL scheme guard", () => {
 
 		renderIgniteJsx(host, jsx("input", { defaultValue: "foo" }), tree);
 
-		expect(input.value).toBe("foo");
+		expect(input.value).toBe("bar");
 		expect(input.defaultValue).toBe("foo");
 		expect(input.getAttribute("value")).toBe("foo");
 	});
 
-	it("resets a dropped textarea value to its defaultValue", () => {
+	it("leaves a dropped textarea value on its defaultValue", () => {
 		const { host, tree } = mount(
 			jsx("textarea", { defaultValue: "foo", value: "bar" }),
 		);
@@ -498,7 +498,7 @@ describe("URL scheme guard", () => {
 
 		renderIgniteJsx(host, jsx("textarea", { defaultValue: "foo" }), tree);
 
-		expect(area.value).toBe("foo");
+		expect(area.value).toBe("bar");
 		expect(area.defaultValue).toBe("foo");
 	});
 
@@ -593,7 +593,7 @@ describe("URL scheme guard", () => {
 		expect(option.value).toBe("b");
 	});
 
-	it("resets a dropped select value to the default-selected option", () => {
+	it("leaves a dropped select value selected", () => {
 		const options = () => [
 			jsx("option", { value: "a", children: "A" }),
 			jsx("option", { value: "b", defaultSelected: true, children: "B" }),
@@ -614,11 +614,11 @@ describe("URL scheme guard", () => {
 
 		renderIgniteJsx(host, jsx("select", { children: options() }), chosen);
 
-		expect(select.value).toBe("b");
+		expect(select.value).toBe("a");
 		expect(selected?.hasAttribute("selected")).toBe(true);
 	});
 
-	it("restores every default selection when a multiple select drops value", () => {
+	it("leaves a multiple select on the dropped value", () => {
 		const options = () => [
 			jsx("option", { value: "a", defaultSelected: true, children: "A" }),
 			jsx("option", { value: "b", defaultSelected: true, children: "B" }),
@@ -648,7 +648,7 @@ describe("URL scheme guard", () => {
 		);
 		expect(
 			Array.from(select.selectedOptions).map((option) => option.value),
-		).toEqual(["a", "b"]);
+		).toEqual(["c"]);
 	});
 
 	it("leaves option nodes untouched when length is dropped", () => {
@@ -863,8 +863,13 @@ describe("URL scheme guard", () => {
 					expect(element[prop], prop).toBe(true);
 					assigned.length = 0;
 					renderIgniteJsx(host, jsx(tag, { ...extra }), tree);
-					expect(element[prop], `${prop} ${String(value)}`).toBe(false);
-					expect(assigned, prop).toContain(false);
+					const live = prop === "checked" || prop === "selected";
+					expect(element[prop], `${prop} ${String(value)}`).toBe(live);
+					if (live) {
+						expect(assigned, prop).not.toContain(false);
+					} else {
+						expect(assigned, prop).toContain(false);
+					}
 					expect(assigned, prop).not.toContain(undefined);
 				});
 			}
@@ -890,8 +895,9 @@ describe("URL scheme guard", () => {
 		for (const value of ["hello", 1, ""] as const) {
 			const viewed = mount(jsx("input", { value }));
 			const input = read(viewed.host, "input");
+			const kept = input.value;
 			renderIgniteJsx(viewed.host, jsx("input", {}), viewed.tree);
-			expect(input.value, `value ${String(value)}`).toBe("");
+			expect(input.value, `value ${String(value)}`).toBe(kept);
 			expect(String(input.value)).not.toBe("undefined");
 		}
 
@@ -1408,7 +1414,7 @@ describe("URL scheme guard", () => {
 		}
 	});
 
-	it("still resets scrollTop and checked while width stays natural", () => {
+	it("still resets scrollTop while a dropped checked stays", () => {
 		const { host, tree } = mount(
 			jsx("div", {
 				scrollTop: 6,
@@ -1427,7 +1433,7 @@ describe("URL scheme guard", () => {
 		);
 
 		expect(box.scrollTop).toBe(0);
-		expect(input.checked).toBe(false);
+		expect(input.checked).toBe(true);
 	});
 
 	it("clears a later prop when a custom URL setter throws", () => {

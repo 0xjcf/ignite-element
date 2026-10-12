@@ -76,6 +76,25 @@ describe("Ignite JSX runtime", () => {
 		jsxs("div", { outerText: "no" });
 	});
 
+	it("rejects two spellings of one prop on an intrinsic tag", () => {
+		jsx("form", { acceptCharset: "utf-8" });
+		jsx("label", { htmlFor: "name" });
+		jsx("button", { onClick: () => undefined });
+		jsx("div", { "aria-label": "name" });
+		jsx("div", { className: "on" });
+
+		// @ts-expect-error acceptCharset and accept-charset are one prop
+		jsx("form", { acceptCharset: "utf-8", "accept-charset": "latin1" });
+		// @ts-expect-error htmlFor and for are one prop
+		jsx("label", { htmlFor: "name", for: "name" });
+		// @ts-expect-error onClick and onclick are one prop
+		jsx("button", { onClick: () => undefined, onclick: () => undefined });
+		// @ts-expect-error ariaLabel and aria-label are one prop
+		jsx("div", { ariaLabel: "name", "aria-label": "name" });
+		// @ts-expect-error className and class are one prop
+		jsx("div", { className: "on", class: "off" });
+	});
+
 	it("supports jsxDEV metadata parameters", () => {
 		const element = jsxDEV(
 			"button",

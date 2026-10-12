@@ -9,6 +9,11 @@ import {
 	type AliasScenario,
 	type ClassReport,
 	type ClassScenario,
+	type ContractControl,
+	type ContractScenario,
+	type ContractSnap,
+	type ContractStep,
+	type ContractTrace,
 	type ControlSnapshot,
 	type EventReport,
 	type EventSequence,
@@ -336,6 +341,7 @@ function runReset(scenario: ResetScenario): ResetReport {
 		if (!element) throw new Error("mount produced no element");
 		const offList = readOffList(element, scenario);
 		const before = optionNodes(element);
+		const held = snapshot(element);
 		renderIgniteJsx(host, view(scenario, true), tree);
 		const record = element as unknown as Record<string, unknown>;
 		const options = element as HTMLSelectElement;
@@ -359,6 +365,7 @@ function runReset(scenario: ResetScenario): ResetReport {
 		const fresh = freshHost.firstElementChild;
 		if (!fresh) throw new Error("fresh mount produced no element");
 		return {
+			held,
 			updated: snapshot(element),
 			fresh: snapshot(fresh),
 			offList,
@@ -601,6 +608,7 @@ function runLive(scenario: LiveScenario): LiveReport {
 			host,
 			jsx(scenario.tag, controlProps(scenario, scenario.fromKey, scenario.from)),
 		);
+		const held = readControl(host.firstElementChild);
 		renderIgniteJsx(
 			host,
 			jsx(scenario.tag, controlProps(scenario, scenario.toKey, scenario.to)),
@@ -613,6 +621,8 @@ function runLive(scenario: LiveScenario): LiveReport {
 		const updated = readControl(host.firstElementChild);
 		const fresh = readControl(freshHost.firstElementChild);
 		return {
+			heldValue: held.value,
+			heldChecked: held.checked,
 			updatedValue: updated.value,
 			freshValue: fresh.value,
 			updatedChecked: updated.checked,
@@ -656,10 +666,11 @@ function runRadio(scenario: RadioScenario): RadioReport {
 	document.body.append(host, freshHost);
 	try {
 		const tree = mountIgniteJsx(host, radioView(scenario, false));
+		const held = radioChecked(host);
 		renderIgniteJsx(host, radioView(scenario, true), tree);
 		const updated = radioChecked(host);
 		mountIgniteJsx(freshHost, radioView(scenario, true));
-		return { updated, fresh: radioChecked(freshHost) };
+		return { held, updated, fresh: radioChecked(freshHost) };
 	} finally {
 		host.remove();
 		freshHost.remove();
@@ -750,6 +761,245 @@ function runSink(scenario: SinkScenario): { armed: string[] } {
 	}
 }
 
+function contractView(scenario: ContractScenario, step: ContractStep) {
+	if (scenario.shape === "form") {
+		const props: Record<string, unknown> = {};
+		if (step.acceptCharset != null) props.acceptCharset = step.acceptCharset;
+		if (step.acceptCharsetAttr != null) {
+			props["accept-charset"] = step.acceptCharsetAttr;
+		}
+		if (step.action != null) props.action = step.action;
+		if (step.actionCased != null) props.ACTION = step.actionCased;
+		return jsx("form", props);
+	}
+	if (scenario.shape === "select") {
+		const props: Record<string, unknown> = {
+			children: step.controls.map((control) => {
+				const option: Record<string, unknown> = {
+					id: control.id,
+					value: control.value ?? control.id,
+					children: control.text,
+				};
+				if (control.defaultSelected != null) {
+					option.defaultSelected = control.defaultSelected;
+				}
+				if (control.selected != null) option.selected = control.selected;
+				return jsx("option", option, control.id);
+			}),
+		};
+		if (step.selectValue != null) props.value = step.selectValue;
+		return jsx("select", props);
+	}
+	const type = scenario.shape === "text" ? "text" : scenario.shape === "radios" ? "radio" : "checkbox";
+	return jsx("form", {
+		children: step.controls.map((control) => {
+			const props: Record<string, unknown> = { id: control.id, type };
+			if (scenario.shape === "radios") props.name = "g";
+			if (control.defaultChecked != null) {
+				props.defaultChecked = control.defaultChecked;
+			}
+			if (control.checked != null) props.checked = control.checked;
+			if (control.defaultValue != null) props.defaultValue = control.defaultValue;
+			if (control.value != null) props.value = control.value;
+			if (scenario.shape === "live" && step.checkedAttr != null) {
+				props.CHECKED = step.checkedAttr;
+			}
+			return jsx("input", props, control.id);
+		}),
+	});
+}
+
+function contractSnap(
+	root: ParentNode,
+	shape: ContractScenario["shape"],
+): ContractSnap {
+	if (shape === "form") {
+		const form = root.querySelector("form") as HTMLFormElement | null;
+		return {
+			checked: [],
+			values: form ? [form.action] : [],
+			selected: [],
+			attrs: form ? attrsOf(form) : [],
+		};
+	}
+	if (shape === "select") {
+		const select = root.querySelector("select") as HTMLSelectElement | null;
+		const options = select ? Array.from(select.options) : [];
+		return {
+			checked: [],
+			values: select ? [select.value] : [],
+			selected: options.map((option) => option.selected),
+			attrs: options.flatMap((option) => attrsOf(option)),
+		};
+	}
+	const inputs = Array.from(root.querySelectorAll("input"));
+	return {
+		checked: inputs.map((input) => (input as HTMLInputElement).checked),
+		values: inputs.map((input) => (input as HTMLInputElement).value),
+		selected: [],
+		attrs: inputs.flatMap((input) => attrsOf(input)),
+	};
+}
+
+function markComposing(root: ParentNode, on: boolean): void {
+	for (const input of root.querySelectorAll("input, textarea")) {
+		(input as HTMLElement & { isComposing?: boolean }).isComposing = on;
+	}
+}
+
+function applyManualControl(
+	element: HTMLInputElement,
+	control: ContractControl,
+	step: ContractStep,
+	shape: ContractScenario["shape"],
+): void {
+	(element as HTMLElement & { isComposing?: boolean }).isComposing =
+		step.composing;
+	if (control.defaultChecked != null) element.defaultChecked = control.defaultChecked;
+	if (control.defaultValue != null) element.defaultValue = control.defaultValue;
+	if (control.checked != null) element.checked = control.checked;
+	if (
+		control.value != null &&
+		!step.composing &&
+		element.value !== control.value
+	) {
+		element.value = control.value;
+	}
+	if (shape === "live" && step.checkedAttr === false) {
+		element.removeAttribute("checked");
+	} else if (shape === "live" && step.checkedAttr === true) {
+		element.setAttribute("checked", "");
+	}
+}
+
+function manualForm(
+	scenario: ContractScenario,
+	step: ContractStep,
+): HTMLFormElement {
+	const form = document.createElement("form");
+	if (scenario.shape === "select") {
+		const select = document.createElement("select");
+		form.append(select);
+		applyManualSelect(select, step);
+		return form;
+	}
+	if (scenario.shape === "form") return form;
+	for (const control of step.controls) {
+		const input = document.createElement("input");
+		input.id = control.id;
+		const inputType =
+			scenario.shape === "text"
+				? "text"
+				: scenario.shape === "radios"
+					? "radio"
+					: "checkbox";
+		if (input.type !== inputType) input.type = inputType;
+		if (scenario.shape === "radios") input.name = "g";
+		// Props run before the node is appended, matching the first mount.
+		applyManualControl(input, control, step, scenario.shape);
+		form.append(input);
+	}
+	return form;
+}
+
+function applyManualSelect(select: HTMLSelectElement, step: ContractStep): void {
+	if (step.selectValue != null && !step.composing && select.value !== step.selectValue) {
+		select.value = step.selectValue;
+	}
+	const existing = new Map<string, HTMLOptionElement>();
+	for (const option of Array.from(select.options)) existing.set(option.id, option);
+	const next: HTMLOptionElement[] = [];
+	for (const control of step.controls) {
+		let option = existing.get(control.id);
+		if (!option) {
+			option = document.createElement("option");
+			option.id = control.id;
+		}
+		option.value = control.value ?? control.id;
+		option.textContent = control.text;
+		if (control.defaultSelected != null) {
+			option.defaultSelected = control.defaultSelected;
+		}
+		if (control.selected != null) option.selected = control.selected;
+		next.push(option);
+	}
+	for (const option of Array.from(select.options)) {
+		if (!next.includes(option)) option.remove();
+	}
+	for (const option of next) select.append(option);
+}
+
+function applyManual(
+	form: HTMLFormElement,
+	scenario: ContractScenario,
+	step: ContractStep,
+): void {
+	if (scenario.shape === "form") return;
+	if (scenario.shape === "select") {
+		const select = form.querySelector("select");
+		if (select) applyManualSelect(select, step);
+		return;
+	}
+	const inputs = Array.from(form.querySelectorAll("input"));
+	step.controls.forEach((control, index) => {
+		const input = inputs[index] as HTMLInputElement | undefined;
+		if (input) applyManualControl(input, control, step, scenario.shape);
+	});
+}
+
+function runContract(scenario: ContractScenario): ContractTrace[] {
+	const host = document.createElement("div");
+	const manualHost = document.createElement("div");
+	document.body.append(host, manualHost);
+	const traces: ContractTrace[] = [];
+	try {
+		let tree: ReturnType<typeof mountIgniteJsx> | undefined;
+		let manual: HTMLFormElement | undefined;
+		for (const step of scenario.steps) {
+			const view = contractView(scenario, step);
+			const freshHost = document.createElement("div");
+			document.body.append(freshHost);
+			mountIgniteJsx(freshHost, view);
+			const fresh = contractSnap(freshHost, scenario.shape);
+			freshHost.remove();
+			if (!tree || !manual) {
+				tree = mountIgniteJsx(host, view);
+				manual = manualForm(scenario, step);
+				manualHost.append(manual);
+				const updated = contractSnap(host, scenario.shape);
+				traces.push({
+					held: updated,
+					updated,
+					fresh,
+					manual:
+						scenario.shape === "form"
+							? updated
+							: contractSnap(manualHost, scenario.shape),
+				});
+				continue;
+			}
+			markComposing(host, step.composing);
+			markComposing(manual, step.composing);
+			const held = contractSnap(host, scenario.shape);
+			tree = renderIgniteJsx(host, view, tree);
+			applyManual(manual, scenario, step);
+			traces.push({
+				held,
+				updated: contractSnap(host, scenario.shape),
+				fresh,
+				manual:
+					scenario.shape === "form"
+						? contractSnap(host, scenario.shape)
+						: contractSnap(manualHost, scenario.shape),
+			});
+		}
+		return traces;
+	} finally {
+		host.remove();
+		manualHost.remove();
+	}
+}
+
 window.__igniteProperties = {
 	runReset,
 	runSink,
@@ -758,6 +1008,7 @@ window.__igniteProperties = {
 	runRadio,
 	runEvents,
 	runClass,
+	runContract,
 };
 
 declare global {
@@ -770,6 +1021,7 @@ declare global {
 			runRadio: typeof runRadio;
 			runEvents: typeof runEvents;
 			runClass: typeof runClass;
+			runContract: typeof runContract;
 		};
 	}
 }

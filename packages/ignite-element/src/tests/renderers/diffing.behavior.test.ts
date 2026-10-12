@@ -42,6 +42,36 @@ describe("ignite-jsx diffing behavior", () => {
 		expect(input.value).toBe("a");
 	});
 
+	it("keeps an in-progress composition when onInput re-renders", () => {
+		const host = document.createElement("div");
+		let value = "he";
+		let tree: NormalizedNode[] | undefined;
+		const view = () =>
+			jsx("input", {
+				value,
+				onInput: (event: Event) => {
+					value = (event.currentTarget as HTMLInputElement).value;
+					tree = renderIgniteJsx(host, view(), tree);
+				},
+			});
+		tree = mountIgniteJsx(host, view());
+		const input = host.querySelector("input") as HTMLInputElement;
+		(input as unknown as { isComposing: boolean }).isComposing = true;
+		// The field already shows the composition. onInput copies it and re-renders.
+		input.value = "hel";
+		input.dispatchEvent(new Event("input"));
+		expect(value).toBe("hel");
+		expect(input.value).toBe("hel");
+
+		value = "he";
+		tree = renderIgniteJsx(host, view(), tree);
+		expect(input.value).toBe("hel");
+
+		(input as unknown as { isComposing: boolean }).isComposing = false;
+		tree = renderIgniteJsx(host, view(), tree);
+		expect(input.value).toBe("he");
+	});
+
 	it("updates event listeners without stacking", () => {
 		const host = document.createElement("div");
 		const handlerA = vi.fn();

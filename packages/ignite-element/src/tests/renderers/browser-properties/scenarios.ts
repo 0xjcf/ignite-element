@@ -81,6 +81,8 @@ export type LiveScenario = {
 };
 
 export type LiveReport = {
+	heldValue: string | null;
+	heldChecked: boolean | null;
 	updatedValue: string | null;
 	freshValue: string | null;
 	updatedChecked: boolean | null;
@@ -97,6 +99,7 @@ export type RadioScenario = {
 };
 
 export type RadioReport = {
+	held: boolean[];
 	updated: boolean[];
 	fresh: boolean[];
 };
@@ -179,6 +182,7 @@ export type OffListReading = {
 };
 
 export type ResetReport = {
+	held: ControlSnapshot;
 	updated: ControlSnapshot;
 	fresh: ControlSnapshot;
 	offList: OffListReading[];
@@ -187,4 +191,46 @@ export type ResetReport = {
 	optionCountBefore: number;
 	optionCountAfter: number;
 	sameOptionNodes: boolean;
+};
+
+// One controlled field. Null means the prop is omitted on that render.
+export type ContractControl = {
+	id: string;
+	checked: boolean | null;
+	defaultChecked: boolean | null;
+	value: string | null;
+	defaultValue: string | null;
+	selected: boolean | null;
+	defaultSelected: boolean | null;
+	text: string;
+};
+
+export type ContractStep = {
+	controls: ContractControl[];
+	selectValue: string | null;
+	composing: boolean;
+	acceptCharset: string | null;
+	acceptCharsetAttr: string | null;
+	action: string | null;
+	actionCased: string | null;
+	checkedAttr: boolean | null;
+};
+
+export type ContractScenario = {
+	shape: "checkbox" | "text" | "radios" | "select" | "form" | "live";
+	steps: ContractStep[];
+};
+
+export type ContractSnap = {
+	checked: boolean[];
+	values: string[];
+	selected: boolean[];
+	attrs: [string, string][];
+};
+
+export type ContractTrace = {
+	held: ContractSnap;
+	updated: ContractSnap;
+	fresh: ContractSnap;
+	manual: ContractSnap;
 };

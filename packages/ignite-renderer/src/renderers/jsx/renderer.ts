@@ -332,6 +332,38 @@ function warnBlockedUrl(element: Element, key: string): void {
 	);
 }
 
+function warnDroppedControl(element: Element, key: string): void {
+	if (!__IGNITE_DEV_WARNINGS__) return;
+	warnIgnoredProp(
+		element,
+		`drop:${key}`,
+		`[ignite-jsx] \`${key}\` dropped on a controlled ${element.localName}; pass it every render or use a catalog form component`,
+	);
+}
+
+function warnDuplicateProps(
+	element: Element,
+	props: IgniteJsxProps,
+	isSvg: boolean,
+): void {
+	if (!__IGNITE_DEV_WARNINGS__) return;
+	const seen: Record<string, string> = {};
+	for (const key of Object.keys(props)) {
+		if (key === "children" || key === "ref") continue;
+		const id = sinkKey(element, key, isSvg);
+		const prev = seen[id];
+		if (prev) {
+			warnIgnoredProp(
+				element,
+				`dup:${id}`,
+				`[ignite-jsx] \`${prev}\` and \`${key}\` are two spellings of one prop. Pass one. Production behavior is unspecified.`,
+			);
+			continue;
+		}
+		seen[id] = key;
+	}
+}
+
 function isBlockedMarkupProp(key: string): boolean {
 	const normalized = key.toLowerCase();
 	return (
@@ -1041,8 +1073,15 @@ function patchProps(
 	const isSvgElement = element instanceof SVGElement;
 	// One listener per event. The last spelling in prop order wins.
 	patchEventSlots(element, oldProps, newProps);
+	if (__IGNITE_DEV_WARNINGS__) {
+		warnDuplicateProps(element, newProps, isSvgElement);
+	}
 
+	// default* before checked, value, and selected, whatever the key order.
+	for (let pass = 0; pass < 2; pass++) {
 	for (const [key, next] of Object.entries(newProps)) {
+		const late = key === "checked" || key === "value" || key === "selected";
+		if (late !== (pass === 1)) continue;
 		if (hostRuntimeEnabled && key === "use") continue;
 		if (key === "children" || key === "ref") continue;
 		if (isBlockedMarkupProp(key)) {
@@ -1081,7 +1120,25 @@ function patchProps(
 			continue;
 		}
 
-		if (next === prev) {
+		// Passed checked, value, and selected are written every render,
+		// including explicit false. Null leaves the live property alone.
+		if (!isSvgElement && isLiveField(element, key)) {
+			if (next != null) assignControlled(element as HTMLElement, key, next);
+			continue;
+		}
+
+		// An unchanged spelling is still applied when its twin was dropped.
+		// Two spellings at once stay unspecified; one remaining spelling is not.
+		if (
+			next === prev &&
+			!droppedSiblingSpelling(
+				oldProps,
+				newProps,
+				element,
+				key,
+				isSvgElement,
+			)
+		) {
 			continue;
 		}
 
@@ -1118,19 +1175,8 @@ function patchProps(
 			element.setAttribute(attrName, nextString);
 		}
 	}
-
-	// A controlled radio can be skipped when its boolean did not change, so
-	// remember checked={true} after type is applied and before any group reset.
-	if (!isSvgElement && element.localName === "input") {
-		const input = element as HTMLInputElement;
-		if (input.type === "radio") {
-			if (newProps.checked === true) radioOn.set(input, true);
-			else radioOn.delete(input);
-		}
 	}
 
-	// Resets read the props applied above, so a dropped value sees the new
-	// defaultValue rather than the one from the previous render.
 	for (const key of Object.keys(oldProps)) {
 		if (hostRuntimeEnabled && key === "use") continue;
 		if (key === "children" || key === "ref" || isBlockedMarkupProp(key))
@@ -1290,6 +1336,21 @@ function sinkKey(element: Element, key: string, isSvg: boolean): string {
 	return propAttributeName(element, key, isSvg);
 }
 
+function droppedSiblingSpelling(
+	oldProps: IgniteJsxProps,
+	newProps: IgniteJsxProps,
+	element: Element,
+	key: string,
+	isSvg: boolean,
+): boolean {
+	const id = sinkKey(element, key, isSvg);
+	for (const other of Object.keys(oldProps)) {
+		if (other === key || other in newProps) continue;
+		if (sinkKey(element, other, isSvg) === id) return true;
+	}
+	return false;
+}
+
 function sinkMatch(
 	props: IgniteJsxProps,
 	element: Element,
@@ -1301,17 +1362,6 @@ function sinkMatch(
 		if (sinkKey(element, other, isSvg) === id) return other;
 	}
 	return undefined;
-}
-
-const radioOn = new WeakMap<HTMLInputElement, true>();
-
-function reapplyRadios(input: HTMLInputElement): void {
-	const root = input.form ?? input.ownerDocument;
-	const peers = root.querySelectorAll('input[type="radio"]');
-	for (const node of peers) {
-		const peer = node as HTMLInputElement;
-		if (peer.name === input.name && radioOn.has(peer)) peer.checked = true;
-	}
 }
 
 function removeProp(
@@ -1336,82 +1386,10 @@ function removeProp(
 		return;
 	}
 
-	// defaultValue owns the value attribute. Set the live value from it and
-	// leave that attribute in place. A file input never receives undefined.
-	if (
-		!isSvg &&
-		key === "value" &&
-		(element.localName === "input" ||
-			element.localName === "textarea" ||
-			element.localName === "select")
-	) {
-		const control = element as HTMLInputElement;
-		if (control.localName === "input" && control.type === "file") return;
-		try {
-			const select = control as unknown as HTMLSelectElement;
-			if (control.localName === "select" && select.multiple) {
-				const options = select.options;
-				for (let index = 0; index < options.length; index++) {
-					const option = options.item(index);
-					if (option) option.selected = option.defaultSelected;
-				}
-				return;
-			}
-			// select.value picks the first option with that string. A single
-			// select restores the defaultSelected option itself.
-			if (control.localName === "select") {
-				const options = select.options;
-				let chosen = options.item(0);
-				for (let index = 0; index < options.length; index++) {
-					const option = options.item(index);
-					if (option?.defaultSelected) {
-						chosen = option;
-						break;
-					}
-				}
-				if (chosen) chosen.selected = true;
-				return;
-			}
-			const next = control.defaultValue;
-			if (control.value !== next) control.value = next;
-		} catch {
-			// A throwing value setter stops here. File values never reach it.
-		}
-		return;
-	}
-
-	// defaultChecked owns the checked attribute. Restore the live state from
-	// it and leave that attribute in place. Checking a radio clears the rest
-	// of its group, so controlled peers are written again afterwards.
-	if (!isSvg && key === "checked" && element.localName === "input") {
-		const input = element as HTMLInputElement;
-		if (input.type === "checkbox" || input.type === "radio") {
-			try {
-				if (input.type === "radio") radioOn.delete(input);
-				if (input.checked !== input.defaultChecked) {
-					input.checked = input.defaultChecked;
-				}
-				if (input.type === "radio" && input.defaultChecked) {
-					reapplyRadios(input);
-				}
-			} catch {
-				// A throwing checked setter stops here.
-			}
-			return;
-		}
-	}
-
-	// defaultSelected owns the selected attribute. Restore the live state
-	// from it and leave that attribute in place.
-	if (!isSvg && key === "selected" && element.localName === "option") {
-		const option = element as HTMLOptionElement;
-		try {
-			if (option.selected !== option.defaultSelected) {
-				option.selected = option.defaultSelected;
-			}
-		} catch {
-			// A throwing selected setter stops here.
-		}
+	// Dropped checked, value, and selected stay as they are. Catalog form
+	// components own that state. A file input is included and is not cleared.
+	if (!isSvg && isLiveField(element, key)) {
+		if (__IGNITE_DEV_WARNINGS__) warnDroppedControl(element, key);
 		return;
 	}
 
@@ -1428,9 +1406,9 @@ function removeProp(
 		return;
 	}
 
-	// Absent native defaults stay so a later value, checked, or selected drop
-	// can still read them. Own custom setters, including these names, are
-	// cleared below. Explicit false is applied in the set path.
+	// Absent native defaults stay. A dropped checked, value, or selected does
+	// not read them. Own custom setters, including these names, are cleared
+	// below. Explicit false is applied in the set path.
 	if (
 		(key === "defaultValue" ||
 			key === "defaultChecked" ||
@@ -1465,6 +1443,26 @@ function removeProp(
 	}
 
 	if (hadAttribute) element.removeAttribute(attrName);
+}
+
+function assignControlled(
+	element: HTMLElement,
+	key: string,
+	value: unknown,
+): void {
+	// Composition is the exception to an exact value. The write waits for the
+	// next render after isComposing is false, so onInput can re-render without
+	// resetting the composition. An equal value is left alone so a textarea
+	// keeps its selection.
+	if (key === "value") {
+		if (isComposingInput(element)) return;
+		if (Reflect.get(element, key) === value) return;
+	}
+	try {
+		Reflect.set(element, key, value);
+	} catch {
+		// A throwing setter stops here. File values are not cleared.
+	}
 }
 
 function applyProperty(
