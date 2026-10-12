@@ -1,4 +1,5 @@
 import { isExecutableUri } from "../../../../../ignite-renderer/src/renderers/jsx/executableUri";
+import { isIgniteJsxElement } from "../../../../../ignite-renderer/src/renderers/jsx/types";
 import { jsx } from "../../../../../ignite-renderer/src/renderers/jsx/jsx-runtime";
 import {
 	mountIgniteJsx,
@@ -325,6 +326,62 @@ function readOffList(
 	return readings;
 }
 
+// The browser, rather than a fresh JSX render, owns option dirty flags here.
+function nativeSelection(scenario: ResetScenario) {
+	if (scenario.tag.kind !== "select") return null;
+	const select = document.createElement("select");
+	select.multiple = scenario.tag.multiple;
+	const options = scenario.options.map((option) => {
+		const element = document.createElement("option");
+		element.value = option.value;
+		element.textContent = option.text;
+		select.append(element);
+		return element;
+	});
+	const plans = (dropped: boolean) => {
+		const children = childNodes(scenario, dropped, false);
+		if (!Array.isArray(children)) throw new Error("select options missing");
+		return children.filter(isIgniteJsxElement).map((child) => child.props);
+	};
+	const defaults = (props: ReturnType<typeof plans>) =>
+		props.forEach((prop, index) => {
+			const option = options[index];
+			if (
+				prop.defaultSelected != null &&
+				option.defaultSelected !== Boolean(prop.defaultSelected)
+			)
+				option.defaultSelected = Boolean(prop.defaultSelected);
+		});
+	const live = (props: ReturnType<typeof plans>, dropped: boolean) => {
+		props.forEach((prop, index) => {
+			if (prop.selected != null)
+				options[index].selected = Boolean(prop.selected);
+		});
+		const parent = view(scenario, dropped).props;
+		if (parent.value != null) select.value = String(parent.value);
+	};
+	try {
+		const first = plans(scenario.control === true);
+		defaults(first);
+		document.body.append(select);
+		live(first, scenario.control === true);
+		if (scenario.control) {
+			const controlled = plans(false);
+			defaults(controlled);
+			live(controlled, false);
+		}
+		const next = plans(true);
+		defaults(next);
+		live(next, true);
+		return {
+			value: select.value,
+			selected: options.map((option) => option.selected),
+		};
+	} finally {
+		select.remove();
+	}
+}
+
 function runReset(scenario: ResetScenario): ResetReport {
 	mounts = 0;
 	unmounts = 0;
@@ -364,6 +421,7 @@ function runReset(scenario: ResetScenario): ResetReport {
 		const fresh = freshHost.firstElementChild;
 		if (!fresh) throw new Error("fresh mount produced no element");
 		return {
+			nativeSelection: nativeSelection(scenario),
 			held,
 			updated: snapshot(element),
 			fresh: snapshot(fresh),

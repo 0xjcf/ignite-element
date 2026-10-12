@@ -8,7 +8,7 @@ import path from "node:path";
 import vm from "node:vm";
 import fc from "fast-check";
 import ts from "typescript";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type {
 	IgniteToolsRuntime,
 	NeutralToolCall,
@@ -2444,33 +2444,47 @@ describe("listing checks grant liveness before advertising the command", () => {
 		);
 		fc.assert(
 			fc.property(reason, (kind) => {
-				const approval = loadGuideApproval();
-				expect(approval.canExecute("setLimit")).toBe(true);
-				if (kind === "expired") approval.granted.expiresAt = Date.now() - 1;
-				if (kind === "spent") {
-					approval.spent.set(approval.granted.id, Date.now() + 60_000);
+				const now = vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+				try {
+					const approval = loadGuideApproval();
+					expect(approval.canExecute("setLimit")).toBe(true);
+					if (kind === "expired") approval.granted.expiresAt = Date.now() - 1;
+					if (kind === "spent") {
+						approval.spent.set(approval.granted.id, Date.now() + 60_000);
+					}
+					if (kind === "previous-actor") approval.session.actor = "bob";
+					if (kind === "too-long") {
+						approval.granted.expiresAt = Date.now() + 24 * 60 * 60 * 1000 + 1;
+					}
+					expect(approval.canExecute("setLimit")).toBe(false);
+					expect(
+						approval.canExecute("setLimit", approval.granted.input, {
+							core: approval.component,
+						}),
+					).toBe(false);
+					if (kind === "too-long") {
+						approval.granted.expiresAt = Date.now() + 24 * 60 * 60 * 1000;
+						expect(approval.canExecute("setLimit")).toBe(true);
+						expect(
+							approval.canExecute("setLimit", approval.granted.input, {
+								core: approval.component,
+							}),
+						).toBe(true);
+					}
+					const live = loadGuideApproval();
+					expect(live.canExecute("setLimit")).toBe(true);
+					expect(live.canExecute("setLimit", 7, { core: live.component })).toBe(
+						false,
+					);
+					expect(
+						live.canExecute("setLimit", live.granted.input, {
+							core: live.component,
+						}),
+					).toBe(true);
+					return true;
+				} finally {
+					now.mockRestore();
 				}
-				if (kind === "previous-actor") approval.session.actor = "bob";
-				if (kind === "too-long") {
-					approval.granted.expiresAt = Date.now() + 24 * 60 * 60 * 1000 + 1;
-				}
-				expect(approval.canExecute("setLimit")).toBe(false);
-				expect(
-					approval.canExecute("setLimit", approval.granted.input, {
-						core: approval.component,
-					}),
-				).toBe(false);
-				const live = loadGuideApproval();
-				expect(live.canExecute("setLimit")).toBe(true);
-				expect(
-					live.canExecute("setLimit", 7, { core: live.component }),
-				).toBe(false);
-				expect(
-					live.canExecute("setLimit", live.granted.input, {
-						core: live.component,
-					}),
-				).toBe(true);
-				return true;
 			}),
 			{ seed: PROPERTY_SEED, numRuns: 4, endOnFailure: true },
 		);

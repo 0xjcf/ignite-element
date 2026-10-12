@@ -731,14 +731,6 @@ const sinkArb: fc.Arbitrary<SinkScenario> = fc.record({
 	),
 });
 
-function selectValuePassed(scenario: ResetScenario): boolean {
-	return (
-		scenario.tag.kind === "select" &&
-		!scenario.drop.includes("value") &&
-		"value" in scenario.props
-	);
-}
-
 function expectedReset(
 	scenario: ResetScenario,
 	report: ResetReport,
@@ -747,33 +739,33 @@ function expectedReset(
 	const kind = scenario.tag.kind;
 	const dropValue = scenario.drop.includes("value");
 	const dropChecked = scenario.drop.includes("checked");
-	const dropSelected = scenario.drop.includes("selected");
 	if (dropChecked && kind === "input") expected.checked = report.held.checked;
 	if (dropValue && (kind === "input" || kind === "textarea")) {
 		expected.value = report.held.value;
+		if (
+			kind === "input" &&
+			(scenario.tag.type === "radio" || scenario.tag.type === "checkbox")
+		) {
+			// Native default/on value mode reflects controlled writes to value/defaultValue.
+			expected.defaultValue = String(scenario.props.value);
+			expected.attrs = expected.attrs.filter(([name]) => name !== "value");
+			const valueAttribute = report.held.attrs.find(
+				([name]) => name === "value",
+			);
+			if (valueAttribute) expected.attrs.push(valueAttribute);
+			expected.attrs.sort(([left], [right]) => left.localeCompare(right));
+		}
 	}
-	const optionSelectedPassed = scenario.options.some(
-		(option) => option.selected != null && !dropSelected,
-	);
-	if (
-		kind === "select" &&
-		(dropValue || dropSelected) &&
-		!selectValuePassed(scenario) &&
-		!(dropValue && optionSelectedPassed)
-	) {
-		expected.value = report.held.value;
+	if (kind === "select") {
+		const native = report.nativeSelection;
+		if (!native) throw new Error("native selection oracle missing");
+		expected.value = native.value;
 		expected.options = expected.options.map((option, index) => ({
 			...option,
-			selected: report.held.options[index]?.selected ?? option.selected,
+			selected: native.selected[index],
 		}));
 	}
-	if (selectValuePassed(scenario)) {
-		expected.value = report.updated.value;
-		expected.options = expected.options.map((option, index) => ({
-			...option,
-			selected: report.updated.options[index]?.selected ?? option.selected,
-		}));
-	}
+
 	return expected;
 }
 
@@ -1371,7 +1363,18 @@ function explainContract(
 			passedPropsMatchFresh(scenario, step, index) &&
 			previousIds === currentIds &&
 			!droppedDefault(scenario, index) &&
-			!sameSnap(trace.updated, trace.fresh)
+			!sameSnap(
+				scenario.shape === "text"
+					? trace.updated.values
+					: scenario.shape === "select"
+						? trace.updated.selected
+						: trace.updated.checked,
+				scenario.shape === "text"
+					? trace.fresh.values
+					: scenario.shape === "select"
+						? trace.fresh.selected
+						: trace.fresh.checked,
+			)
 		) {
 			return `step ${index} fresh ${JSON.stringify(trace.fresh)} updated ${JSON.stringify(trace.updated)}`;
 		}

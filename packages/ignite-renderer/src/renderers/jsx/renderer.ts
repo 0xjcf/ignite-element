@@ -61,18 +61,18 @@ export function createDomNode(
 	node: IgniteJsxChild,
 	namespace?: string,
 ): Node | DocumentFragment {
-	const normalized = normalizeChild(node, namespace);
-	if (normalized.length === 1) {
-		const result = createDomFromNormalized(normalized[0]);
-		flushControlled();
-		return result;
-	}
-	const fragment = document.createDocumentFragment();
-	for (const child of normalized) {
-		fragment.appendChild(createDomFromNormalized(child));
-	}
-	flushControlled();
-	return fragment;
+	return commitRender(() => {
+		const normalized = normalizeChild(node, namespace);
+		if (normalized.length === 1) {
+			const result = createDomFromNormalized(normalized[0]);
+			return result;
+		}
+		const fragment = document.createDocumentFragment();
+		for (const child of normalized) {
+			fragment.appendChild(createDomFromNormalized(child));
+		}
+		return fragment;
+	});
 }
 
 export function mountIgniteJsx(
@@ -80,14 +80,7 @@ export function mountIgniteJsx(
 	view: IgniteJsxChild,
 	options: RenderOptions = {},
 ): NormalizedNode[] {
-	const mount = () => {
-		const normalized = normalizeRoot(view);
-		replaceAll(host, normalized);
-		flushControlled();
-		return normalized;
-	};
-	if (hostRuntimeEnabled) return withIgniteHostRuntime(options.hosts, mount);
-	return mount();
+	return renderIgniteJsx(host, view, undefined, options);
 }
 
 type RenderOptions = {
@@ -116,15 +109,22 @@ function renderIgniteJsxNow(
 	previous: NormalizedNode[] | undefined,
 	options: RenderOptions,
 ): NormalizedNode[] {
-	const next = normalizeRoot(view);
+	return commitRender(() => {
+		const next = normalizeRoot(view);
 
-	if (options.mode === "replace" || !previous || host.childNodes.length === 0) {
-		replaceAll(host, next);
-	} else if (!patchChildren(host, previous, next, options.onFallbackReplace)) {
-		replaceAll(host, next);
-	}
-	flushControlled();
-	return next;
+		if (
+			options.mode === "replace" ||
+			!previous ||
+			host.childNodes.length === 0
+		) {
+			replaceAll(host, next);
+		} else if (
+			!patchChildren(host, previous, next, options.onFallbackReplace)
+		) {
+			replaceAll(host, next);
+		}
+		return next;
+	});
 }
 
 function normalizeRoot(view: IgniteJsxChild): NormalizedNode[] {
@@ -207,6 +207,8 @@ type RefCallback = (
 ) => void | RefDisposer | PromiseLike<void>;
 
 interface ElementMount {
+	pending?: () => void;
+	binding?: () => void;
 	ref: RefCallback | null;
 	/** Disposer returned by the current ref. Absent when the ref returns nothing. */
 	cleanup: RefDisposer | null;
@@ -595,37 +597,35 @@ export function unmountIgniteSubtree(node: Node): void {
 	elementMounts.delete(node);
 }
 
-// Acquire refs only after placement, child reconciliation and controlled writes.
-const refQueue: (() => void)[] = [];
+// Each commit has two ordered phases: controlled writes, then ref acquisition.
+let commitQueue: [(() => void)[], (() => void)[]] = [[], []];
 function assignRef(element: Element, ref: unknown): void {
 	const mount = ensureMount(element);
-	refQueue.push(() => {
-		if (mount.unmounted) return;
+	const acquire = () => {
+		const current = () => !mount.unmounted && mount.pending === acquire;
+		if (!current()) return;
 		const next = typeof ref === "function" ? (ref as RefCallback) : null;
 		if (mount.ref === next && !mount.released) return;
-		if (mount.ref && !mount.released) {
-			const previous = mount.ref;
-			const cleanup = mount.cleanup;
-			mount.ref = null;
-			mount.cleanup = null;
-			releaseRefBinding(element, previous, cleanup);
-		}
+		if (mount.ref && !mount.released) releaseStoredRef(element, mount);
+		if (!current()) return;
 		mount.ref = next;
 		mount.cleanup = null;
 		mount.released = false;
+		mount.binding = acquire;
 		if (!next) return;
-		try {
+		invokeContained(element, () => {
 			const result = next(element);
 			if (typeof result === "function") {
-				mount.cleanup = result;
+				if (!mount.unmounted && !mount.released && mount.binding === acquire)
+					mount.cleanup = result;
+				else invokeContained(element, result);
 				return;
 			}
-			observeRejection(element, result);
-		} catch (error) {
-			mount.cleanup = null;
-			reportRendererError(element, error);
-		}
-	});
+			return result;
+		});
+	};
+	mount.pending = acquire;
+	commitQueue[1].push(acquire);
 }
 
 function releaseNodeRefs(node: Node): void {
@@ -650,17 +650,7 @@ function reacquireNodeRefs(node: Node): void {
 	if (node instanceof Element) {
 		const mount = elementMounts.get(node);
 		if (mount && !mount.unmounted && mount.released && mount.ref) {
-			const ref = mount.ref;
-			mount.released = false;
-			mount.cleanup = null;
-			try {
-				const result = ref(node);
-				if (typeof result === "function") mount.cleanup = result;
-				else observeRejection(node, result);
-			} catch (error) {
-				mount.cleanup = null;
-				reportRendererError(node, error);
-			}
+			assignRef(node, mount.ref);
 		}
 	}
 	if (
@@ -682,9 +672,11 @@ export function releaseMountedView(root: ParentNode): void {
 
 /** Acquire one-shot refs again after a later reconnect. */
 export function reacquireMountedView(root: ParentNode): void {
-	for (const child of Array.from(root.childNodes)) {
-		reacquireNodeRefs(child);
-	}
+	commitRender(() => {
+		for (const child of Array.from(root.childNodes)) {
+			reacquireNodeRefs(child);
+		}
+	});
 }
 
 function detachChild(parent: ParentNode, child: ChildNode): void {
@@ -1467,7 +1459,6 @@ function removeProp(
 }
 
 const composing = new WeakMap<Node, boolean>();
-const controlledQueue: (() => void)[] = [];
 
 function watchComposition(element: HTMLElement): void {
 	if (composing.has(element)) return;
@@ -1486,12 +1477,21 @@ function queueControlled(
 	key: string,
 	value: unknown,
 ): void {
-	controlledQueue.push(() => assignControlled(element, key, value));
+	commitQueue[0].push(() => assignControlled(element, key, value));
 }
 
-function flushControlled(): void {
-	for (const assign of controlledQueue.splice(0)) assign();
-	for (const acquire of refQueue.splice(0)) acquire();
+// A render owns its queues; nested or failed renders cannot drain its work.
+function commitRender<T>(render: () => T): T {
+	const parent = commitQueue;
+	const queues: typeof commitQueue = [[], []];
+	commitQueue = queues;
+	try {
+		const result = render();
+		for (const phase of queues) for (const commit of phase) commit();
+		return result;
+	} finally {
+		commitQueue = parent;
+	}
 }
 
 function assignControlled(

@@ -182,6 +182,7 @@ export type OffListReading = {
 };
 
 export type ResetReport = {
+	nativeSelection: { value: string; selected: boolean[] } | null;
 	held: ControlSnapshot;
 	updated: ControlSnapshot;
 	fresh: ControlSnapshot;
