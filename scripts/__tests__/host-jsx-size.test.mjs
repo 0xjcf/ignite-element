@@ -70,9 +70,10 @@ describe("JSX host runtime size", () => {
 		assert.equal(code.includes("prefers-reduced-motion"), false);
 		assert.equal(code.includes("Host mount failed"), false);
 		assert.ok(gzip > 0);
-		// Source-bundle gzip, not TODAY_CONSUMER_GZIP. The allowlist reset
-		// measures 4130 here. The host runtime stays out via the strings above.
-		assert.ok(gzip <= 4130, `no-host JSX gzip ${gzip} is above 4130`);
+		// Existing default gzip (level 6), not the consumer's level 9 method.
+		// Jose approved the exact 4173 B cost of committed refs and native
+		// select correctness. Host exclusion and build settings stay the same.
+		assert.ok(gzip <= 4173, `no-host JSX gzip ${gzip} is above 4173`);
 	});
 
 	it("includes the host runtime when the internal module is imported", async () => {
@@ -91,6 +92,6 @@ describe("JSX host runtime size", () => {
 		const gzip = gzipSync(code).byteLength;
 		assert.equal(code.includes("Host mount failed"), true);
 		assert.equal(code.includes("Unknown host"), false);
-		assert.ok(gzip > 4130, `host JSX gzip ${gzip} dropped the host runtime`);
+		assert.ok(gzip > 4173, `host JSX gzip ${gzip} dropped the host runtime`);
 	});
 });
