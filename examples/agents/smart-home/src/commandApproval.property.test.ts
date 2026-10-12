@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 import {
 	canonicalCall,
 	createCommandApprovalAuthority,
+	MAX_GRANT_LIFETIME_MS,
 } from "./commandApproval";
 
 const PROPERTY_SEED = 20261011;
@@ -490,4 +491,57 @@ describe(`command approval properties (seed ${PROPERTY_SEED}, runs ${PROPERTY_RU
 			{ seed: PROPERTY_SEED, numRuns: PROPERTY_RUNS, endOnFailure: true },
 		);
 	}, 60_000);
+});
+
+describe("listing checks grant liveness before advertising the command", () => {
+	it("does not advertise a command when the grant is expired, spent, or for another actor", () => {
+		const target = {};
+		const input = { v: 1 };
+		const reason = fc.constantFrom(
+			"expired" as const,
+			"spent" as const,
+			"previous-actor" as const,
+			"too-long" as const,
+		);
+		fc.assert(
+			fc.property(reason, (kind) => {
+				let clock = CLOCK;
+				const authority = createCommandApprovalAuthority("ada", () => clock);
+				const expiresAt =
+					kind === "too-long"
+						? clock + MAX_GRANT_LIFETIME_MS + 1
+						: clock + 60_000;
+				authority.grant({
+					actor: kind === "previous-actor" ? "bob" : "ada",
+					name: "act",
+					input,
+					target,
+					id: "approval-1",
+					expiresAt,
+				});
+				if (kind === "expired") clock = expiresAt;
+				if (kind === "spent") {
+					expect(
+						authority.canExecute("act", input, { core: target, execute: true }),
+					).toBe(true);
+				}
+				expect(authority.canExecute("act")).toBe(false);
+				expect(authority.canExecute("act", input, { core: target })).toBe(false);
+				const live = createCommandApprovalAuthority("ada", () => CLOCK);
+				live.grant({
+					actor: "ada",
+					name: "act",
+					input,
+					target,
+					id: "live",
+					expiresAt: CLOCK + 60_000,
+				});
+				expect(live.canExecute("act")).toBe(true);
+				expect(live.canExecute("act", { v: 2 }, { core: target })).toBe(false);
+				expect(live.canExecute("act", input, { core: target })).toBe(true);
+				return true;
+			}),
+			{ seed: PROPERTY_SEED, numRuns: 4, endOnFailure: true },
+		);
+	});
 });

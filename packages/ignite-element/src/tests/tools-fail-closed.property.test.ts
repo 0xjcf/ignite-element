@@ -2349,3 +2349,91 @@ describe(`a grant never authorizes a non-plain input (seed ${PROPERTY_SEED}, run
 		);
 	}, 60_000);
 });
+
+function loadGuideApproval(): {
+	canExecute: (
+		name: string,
+		input?: unknown,
+		context?: { core: object; execute?: boolean },
+	) => boolean;
+	granted: {
+		actor: string;
+		id: string;
+		expiresAt: number;
+		target: object;
+		input: unknown;
+	};
+	session: { actor: string };
+	spent: Map<string, number>;
+	component: object;
+} {
+	const source = readFileSync(publishedToolsGuide(), "utf8");
+	const fence = [...source.matchAll(/```ts\n([\s\S]*?)```/g)].find((match) =>
+		match[1]?.includes("function canExecute"),
+	);
+	const block = fence?.[1];
+	if (!block) throw new Error("published approval predicate missing");
+	const start = block.indexOf("const session");
+	const end = block.indexOf("const { resolveCall, run }");
+	if (start < 0 || end < start) {
+		throw new Error("published approval predicate shape changed");
+	}
+	const compiled = ts.transpileModule(
+		`const component = {};\n${block.slice(start, end)}`,
+		{
+			compilerOptions: {
+				module: ts.ModuleKind.None,
+				target: ts.ScriptTarget.ES2022,
+			},
+		},
+	).outputText;
+	return new Function(
+		`${compiled}\nreturn { canExecute, granted, session, spent, component };`,
+	)() as ReturnType<typeof loadGuideApproval>;
+}
+
+describe("listing checks grant liveness before advertising the command", () => {
+	it("does not advertise setLimit when the grant is expired, spent, or for another actor", () => {
+		// Rebinding the provider list calls canExecute(name) with no context.
+		// Actor, lifetime, and the spent tombstone decide that listing. The
+		// exact input is compared only when a call supplies context.
+		const reason = fc.constantFrom(
+			"expired" as const,
+			"spent" as const,
+			"previous-actor" as const,
+			"too-long" as const,
+		);
+		fc.assert(
+			fc.property(reason, (kind) => {
+				const approval = loadGuideApproval();
+				expect(approval.canExecute("setLimit")).toBe(true);
+				if (kind === "expired") approval.granted.expiresAt = Date.now() - 1;
+				if (kind === "spent") {
+					approval.spent.set(approval.granted.id, Date.now() + 60_000);
+				}
+				if (kind === "previous-actor") approval.session.actor = "bob";
+				if (kind === "too-long") {
+					approval.granted.expiresAt = Date.now() + 24 * 60 * 60 * 1000 + 1;
+				}
+				expect(approval.canExecute("setLimit")).toBe(false);
+				expect(
+					approval.canExecute("setLimit", approval.granted.input, {
+						core: approval.component,
+					}),
+				).toBe(false);
+				const live = loadGuideApproval();
+				expect(live.canExecute("setLimit")).toBe(true);
+				expect(
+					live.canExecute("setLimit", 7, { core: live.component }),
+				).toBe(false);
+				expect(
+					live.canExecute("setLimit", live.granted.input, {
+						core: live.component,
+					}),
+				).toBe(true);
+				return true;
+			}),
+			{ seed: PROPERTY_SEED, numRuns: 4, endOnFailure: true },
+		);
+	});
+});

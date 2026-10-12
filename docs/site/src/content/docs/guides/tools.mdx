@@ -365,12 +365,13 @@ function canExecute(
   context?: { core: object; execute?: boolean },
 ): boolean {
   if (name !== 'setLimit') return false;
-  if (!context) return true;
-  if (context.core !== granted.target || granted.actor !== session.actor) return false;
+  if (granted.actor !== session.actor) return false;
   const lifetime = granted.expiresAt - Date.now();
   if (lifetime <= 0 || lifetime > maxGrantLifetimeMs) return false;
   const retainUntil = spent.get(granted.id);
   if (retainUntil !== undefined && retainUntil > Date.now()) return false;
+  if (!context) return true;
+  if (context.core !== granted.target) return false;
   if (canonicalCall(name, input) !== grantedCall) return false;
   if (context.execute) {
     spent.set(granted.id, granted.expiresAt + maxGrantLifetimeMs);
