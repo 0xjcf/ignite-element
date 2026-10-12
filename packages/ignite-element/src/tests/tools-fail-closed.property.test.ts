@@ -1586,3 +1586,138 @@ describe(`published approval guide keeps distinct depth-boundary keys (seed ${PR
 		);
 	}, 60_000);
 });
+
+describe(`toStringTag getters stay unread (seed ${PROPERTY_SEED}, runs ${PROPERTY_RUNS})`, () => {
+	it("does not invoke a Symbol.toStringTag getter while rejecting the input", async () => {
+		// A Symbol.toStringTag getter must not be invoked while snapshotting
+		// or validating an input that is rejected. That includes a getter that
+		// rewrites a field and deletes itself.
+		const objectSchema = {
+			type: "object" as const,
+			properties: {
+				a: { type: "number" as const },
+				n: { type: "number" as const },
+			},
+		};
+		const nestedSchema = {
+			type: "object" as const,
+			properties: { hold: objectSchema },
+		};
+		const mutation = fc.oneof(
+			{
+				weight: 2,
+				arbitrary: fc.constant({
+					field: "a" as const,
+					from: 1,
+					to: 999,
+					where: "top" as const,
+				}),
+			},
+			{
+				weight: 3,
+				arbitrary: fc.record({
+					field: fc.constantFrom("a" as const, "n" as const),
+					from: fc.integer({ min: -30, max: 30 }),
+					to: fc.integer({ min: 100, max: 999 }),
+					where: fc.constantFrom("top" as const, "nested" as const),
+				}),
+			},
+		);
+		const side = fc.constantFrom(
+			"observe" as const,
+			"throw" as const,
+			"none" as const,
+		);
+
+		await fc.assert(
+			fc.asyncProperty(
+				mutation,
+				side,
+				fc.oneof(fc.constant("Object"), fc.string({ maxLength: 8 })),
+				async (sample, sideKind, brand) => {
+					fc.pre(sample.from !== sample.to);
+					const attempt = async (
+						kind: "rewrite-and-delete" | "observe" | "throw",
+						field: "a" | "n",
+						from: number,
+						to: number,
+						where: "top" | "nested",
+					) => {
+						let reads = 0;
+						const host: { a?: number; n?: number } = { [field]: from };
+						Object.defineProperty(host, Symbol.toStringTag, {
+							configurable: true,
+							enumerable: false,
+							get() {
+								reads += 1;
+								if (kind === "throw") throw new Error("toStringTag");
+								if (kind === "rewrite-and-delete") {
+									host[field] = to;
+									delete host[Symbol.toStringTag];
+									return "Object";
+								}
+								return brand;
+							},
+						});
+						const input = where === "top" ? host : { hold: host };
+						const schema = where === "top" ? objectSchema : nestedSchema;
+						const manifest = buildManifest(
+							defineToolSchema({
+								act: {
+									description: "Payload.",
+									input: schema,
+									consequential: true,
+								},
+							}),
+							() => true,
+						);
+						const snap = snapshotPlainJson(input, "input", schema);
+						validateToolInputValue(schema, input, "input");
+						const routed = resolveCall(manifest, "act", input, () => true);
+						const runtime = createRuntime();
+						const tools = igniteTools({
+							core: runtime as unknown as IgniteToolsRuntime,
+							schema: defineToolSchema({
+								act: {
+									description: "Payload.",
+									input: schema,
+									consequential: true,
+								},
+							}),
+							canExecute: () => true,
+						});
+						const ran = await tools.run({ name: "act", input });
+						expect(snap.ok).toBe(false);
+						expect(routed.ok).toBe(false);
+						expect(ran.ok).toBe(false);
+						expect(runtime.calls).toEqual([]);
+						expect(host[field]).toBe(from);
+						expect(reads).toBe(0);
+						expect(
+							typeof Object.getOwnPropertyDescriptor(host, Symbol.toStringTag)
+								?.get,
+						).toBe("function");
+					};
+					await attempt(
+						"rewrite-and-delete",
+						sample.field,
+						sample.from,
+						sample.to,
+						sample.where,
+					);
+					if (sideKind !== "none") {
+						await attempt(
+							sideKind,
+							sample.field,
+							sample.from,
+							sample.to,
+							sample.where,
+						);
+					}
+					return true;
+				},
+			),
+			{ seed: PROPERTY_SEED, numRuns: PROPERTY_RUNS, endOnFailure: true },
+		);
+	}, 60_000);
+});

@@ -7,6 +7,12 @@ export function isPlainObject(
 		if (typeof value !== "object" || value === null || Array.isArray(value)) {
 			return false;
 		}
+		// Object.prototype.toString reads Symbol.toStringTag and would run an
+		// own accessor before the snapshot can reject that symbol key. A getter
+		// can rewrite fields and delete itself, so the later walk would copy
+		// the mutated object. Inspect the descriptor and do not call it.
+		const tag = Object.getOwnPropertyDescriptor(value, Symbol.toStringTag);
+		if (tag && !("value" in tag)) return false;
 		// Brand rejects Date, Map, and Set from this realm or another. A plain
 		// object from another realm has that realm's Object.prototype, so the
 		// prototype check cannot require this realm's Object.prototype.
