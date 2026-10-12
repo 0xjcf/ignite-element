@@ -112,6 +112,9 @@ function sealArray(
 			length = reported;
 			continue;
 		}
+		if (descriptor.enumerable !== true) {
+			return { ok: false, reason: "invalid:array" };
+		}
 		if (!/^(?:0|[1-9]\d*)$/.test(key)) {
 			return { ok: false, reason: "invalid:array" };
 		}
@@ -130,7 +133,9 @@ function sealArray(
 		if (!item.ok) return item;
 		output.push(item.value);
 	}
-	return { ok: true, value: Object.freeze(output) };
+	const sealed = Object.freeze(output);
+	if (!plainShape(value)) return { ok: false, reason: "invalid:prototype" };
+	return { ok: true, value: sealed };
 }
 
 function sealObject(
@@ -155,7 +160,9 @@ function sealObject(
 			configurable: true,
 		});
 	}
-	return { ok: true, value: Object.freeze(output) };
+	const sealed = Object.freeze(output);
+	if (!plainShape(value)) return { ok: false, reason: "invalid:prototype" };
+	return { ok: true, value: sealed };
 }
 
 function encode(value: unknown, depth: number): string {

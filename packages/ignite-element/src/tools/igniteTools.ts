@@ -238,9 +238,22 @@ export function igniteTools<
 			ToolError
 		>
 	> => {
-		// Validate and snapshot without the application's predicate. The
-		// consuming call happens only after observation setup succeeds.
-		const routed = resolveCall(manifest, call.name, call.input, () => true);
+		// Read the call envelope here. A throwing getter is evaluated before
+		// resolveCall's snapshot, so it must become InvalidInput inside this
+		// guard. The consuming call happens only after observation setup.
+		let name = "";
+		let input: unknown;
+		try {
+			name = call.name;
+			input = call.input;
+		} catch {
+			return err({
+				kind: "InvalidInput",
+				name,
+				issues: ["input: unable to read value"],
+			});
+		}
+		const routed = resolveCall(manifest, name, input, () => true);
 		if (!routed.ok) {
 			return routed;
 		}
@@ -292,7 +305,7 @@ export function igniteTools<
 		} catch (cause) {
 			return err({
 				kind: "ExecuteFailed",
-				name: call.name,
+				name,
 				message: cause instanceof Error ? cause.message : String(cause),
 				cause,
 			});

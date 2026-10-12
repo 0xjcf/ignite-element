@@ -1,5 +1,15 @@
 import type { ToolInputSchema } from "./types";
 
+function constructorOwns(prototype: object): boolean {
+	const ctor = Object.getOwnPropertyDescriptor(prototype, "constructor");
+	if (!ctor || !("value" in ctor)) return false;
+	const constructorValue: unknown = ctor.value;
+	return (
+		typeof constructorValue === "function" &&
+		(constructorValue as { prototype?: unknown }).prototype === prototype
+	);
+}
+
 export function isPlainObject(
 	value: unknown,
 ): value is Record<string, unknown> {
@@ -8,21 +18,27 @@ export function isPlainObject(
 			return false;
 		}
 		// Descriptors only. Object.prototype.toString and a constructor get
-		// would run caller accessors. Date, Map, and Set fail this walk when
-		// the value itself is passed in. The snapshot applies this to the
-		// frozen copy, which is an object the snapshot allocated.
+		// would run caller accessors. Date, Map, Set, and class instances fail
+		// this walk, including the same values from another realm.
 		const tag = Object.getOwnPropertyDescriptor(value, Symbol.toStringTag);
 		if (tag && !("value" in tag)) return false;
 		const prototype = Object.getPrototypeOf(value);
 		if (prototype === null) return true;
 		if (Object.getPrototypeOf(prototype) !== null) return false;
-		const ctor = Object.getOwnPropertyDescriptor(prototype, "constructor");
-		if (!ctor || !("value" in ctor)) return false;
-		const constructorValue: unknown = ctor.value;
-		return (
-			typeof constructorValue === "function" &&
-			(constructorValue as { prototype?: unknown }).prototype === prototype
-		);
+		return constructorOwns(prototype);
+	} catch {
+		return false;
+	}
+}
+
+export function isPlainArray(value: unknown): value is unknown[] {
+	try {
+		if (!Array.isArray(value)) return false;
+		const prototype = Object.getPrototypeOf(value);
+		if (prototype === null) return false;
+		const parent = Object.getPrototypeOf(prototype);
+		if (parent === null || Object.getPrototypeOf(parent) !== null) return false;
+		return constructorOwns(prototype);
 	} catch {
 		return false;
 	}

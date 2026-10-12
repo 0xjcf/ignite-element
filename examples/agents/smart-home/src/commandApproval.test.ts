@@ -117,14 +117,19 @@ describe("app-owned command approvals", () => {
 		expect((await run({ name: "setBlinds", input: signed })).ok).toBe(true);
 	});
 
-	it("canonicalizes own data and keeps non-JSON leaves distinct", () => {
+	it("rejects non-plain prototypes and keeps non-JSON leaves distinct", () => {
 		expect(canonicalCall("n", 0)).toBe(canonicalCall("n", -0));
 		expect(canonicalCall("n", Number.POSITIVE_INFINITY)).not.toBe(
 			canonicalCall("n", Number.NEGATIVE_INFINITY),
 		);
-		expect(canonicalCall("n", new Date(0))).toBe(canonicalCall("n", {}));
-		expect(canonicalCall("n", new Map())).toBe(canonicalCall("n", {}));
-		expect(canonicalCall("n", new Set())).toBe(canonicalCall("n", {}));
+		expect(canonicalCall("n", new Date(0))).not.toBe(canonicalCall("n", {}));
+		expect(canonicalCall("n", new Date(1))).not.toBe(canonicalCall("n", {}));
+		expect(canonicalCall("n", new Map())).not.toBe(canonicalCall("n", {}));
+		expect(canonicalCall("n", new Map([["k", 1]]))).not.toBe(
+			canonicalCall("n", {}),
+		);
+		expect(canonicalCall("n", new Set())).not.toBe(canonicalCall("n", {}));
+		expect(canonicalCall("n", new Date(0))).toContain("invalid:");
 		expect(canonicalCall("n", [1n])).not.toBe(canonicalCall("n", [2n]));
 		expect(canonicalCall("n", { v: 1n })).not.toBe(
 			canonicalCall("n", { v: 2n }),
@@ -135,7 +140,7 @@ describe("app-owned command approvals", () => {
 		class Box {
 			a = 1;
 		}
-		expect(canonicalCall("n", new Box())).toBe(canonicalCall("n", { a: 1 }));
+		expect(canonicalCall("n", new Box())).not.toBe(canonicalCall("n", { a: 1 }));
 		const keyed: { a: number; [key: symbol]: string } = { a: 1 };
 		keyed[Symbol("id")] = "x";
 		expect(canonicalCall("n", keyed)).not.toBe(canonicalCall("n", { a: 1 }));

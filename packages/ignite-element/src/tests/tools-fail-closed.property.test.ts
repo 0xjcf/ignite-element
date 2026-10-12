@@ -718,40 +718,13 @@ describe(`igniteTools fail-closed properties (seed ${PROPERTY_SEED}, runs ${PROP
 		);
 
 		await assertProperty(fc.constant(null), async () => {
-			const input = { v: new Date(0) };
-			assertAccepted(
-				await exercise(input),
-				input,
-				{ v: {} },
-				() => 0,
-				() => {
-					input.v = new Date(1);
-				},
-			);
+			assertRejected(await exercise({ v: new Date(0) }), () => 0);
 		});
 		await assertProperty(fc.constant(null), async () => {
-			const input = { v: new Map() };
-			assertAccepted(
-				await exercise(input),
-				input,
-				{ v: {} },
-				() => 0,
-				() => {
-					input.v = new Map([["a", 1]]);
-				},
-			);
+			assertRejected(await exercise({ v: new Map() }), () => 0);
 		});
 		await assertProperty(fc.constant(null), async () => {
-			const input = { v: new Set() };
-			assertAccepted(
-				await exercise(input),
-				input,
-				{ v: {} },
-				() => 0,
-				() => {
-					input.v = new Set([1]);
-				},
-			);
+			assertRejected(await exercise({ v: new Set() }), () => 0);
 		});
 
 		await assertProperty(jsonValue, async (value) => {
@@ -1413,12 +1386,9 @@ describe(`non-allowlisted commands are denied (seed ${PROPERTY_SEED}, runs ${PRO
 						});
 						continue;
 					}
-					if (sample.tag === "object" || sample.tag === "date") {
+					if (sample.tag === "object") {
 						expect(resolved?.ok).toBe(true);
 						expect(ran?.ok).toBe(true);
-						if (sample.tag === "date" && resolved?.ok) {
-							expect(resolved.value.input).toEqual({});
-						}
 						continue;
 					}
 					expect(resolved).toMatchObject({
@@ -1432,7 +1402,7 @@ describe(`non-allowlisted commands are denied (seed ${PROPERTY_SEED}, runs ${PRO
 				}
 				const executed = runtime.calls.map((call) => call.command);
 				expect(executed.every((name) => allow.has(name))).toBe(true);
-				if (sample.tag !== "object" && sample.tag !== "date") {
+				if (sample.tag !== "object") {
 					expect(runtime.calls).toEqual([]);
 				} else expect(runtime.calls).toHaveLength(sample.allow.length);
 				return true;
@@ -2032,58 +2002,89 @@ describe(`caller input is sealed before brand checks (seed ${PROPERTY_SEED}, run
 			"array-proxy-traps" as const,
 		);
 
+		function makeHostile(
+			sample:
+				| "inherited-tag"
+				| "own-tag"
+				| "proxy-get"
+				| "proxy-prototype"
+				| "proxy-traps"
+				| "constructor-accessor"
+				| "cross-realm-constructor"
+				| "array-inherited-tag"
+				| "array-proxy-get"
+				| "array-proxy-prototype"
+				| "array-proxy-traps",
+		) {
+			if (sample === "inherited-tag") return inheritedTag(false);
+			if (sample === "own-tag") return ownTag();
+			if (sample === "proxy-get") return proxyOn(false, "get");
+			if (sample === "proxy-prototype") return proxyOn(false, "prototype");
+			if (sample === "proxy-traps") return proxyOn(false, "every");
+			if (sample === "constructor-accessor") return constructorAccessor();
+			if (sample === "cross-realm-constructor") return crossRealmConstructor();
+			if (sample === "array-inherited-tag") return inheritedTag(true);
+			if (sample === "array-proxy-get") return proxyOn(true, "get");
+			if (sample === "array-proxy-prototype") return proxyOn(true, "prototype");
+			return proxyOn(true, "every");
+		}
+
+		async function readHostile<T>(
+			kind: Parameters<typeof makeHostile>[0],
+			read: (host: HostileInput) => Promise<T> | T,
+		): Promise<T> {
+			const host = makeHostile(kind);
+			try {
+				const value = await read(host);
+				expect(host.getReads()).toBe(0);
+				expect(host.ctorReads()).toBe(0);
+				return value;
+			} finally {
+				host.restore();
+			}
+		}
+
 		await fc.assert(
 			fc.asyncProperty(attack, async (kind) => {
-				const hostile =
-					kind === "inherited-tag"
-						? inheritedTag(false)
-						: kind === "own-tag"
-							? ownTag()
-							: kind === "proxy-get"
-								? proxyOn(false, "get")
-								: kind === "proxy-prototype"
-									? proxyOn(false, "prototype")
-									: kind === "proxy-traps"
-										? proxyOn(false, "every")
-										: kind === "constructor-accessor"
-											? constructorAccessor()
-											: kind === "cross-realm-constructor"
-												? crossRealmConstructor()
-												: kind === "array-inherited-tag"
-													? inheritedTag(true)
-													: kind === "array-proxy-get"
-														? proxyOn(true, "get")
-														: kind === "array-proxy-prototype"
-															? proxyOn(true, "prototype")
-															: proxyOn(true, "every");
-				try {
-					const array = Array.isArray(hostile.planted);
-					const schema = array
-						? {
-								type: "array" as const,
-								items: { type: "number" as const },
-							}
-						: {
-								type: "object" as const,
-								properties: { a: { type: "number" as const } },
-							};
-					const manifest = buildManifest(
-						defineToolSchema({
-							act: {
-								description: "Payload.",
-								input: schema,
-								consequential: true,
-							},
-						}),
-						() => true,
-					);
-					const snap = snapshotPlainJson(hostile.input, "input", schema);
-					const routed = resolveCall(
-						manifest,
-						"act",
-						hostile.input,
-						() => true,
-					);
+				// A prototype trap can change the object after one read. Each
+				// copy therefore sees its own input, and that read's result is
+				// the own-data snapshot taken before the trap, or a rejection.
+				const schema = kind.startsWith("array-")
+					? {
+							type: "array" as const,
+							items: { type: "number" as const },
+						}
+					: {
+							type: "object" as const,
+							properties: { a: { type: "number" as const } },
+						};
+				const manifest = buildManifest(
+					defineToolSchema({
+						act: {
+							description: "Payload.",
+							input: schema,
+							consequential: true,
+						},
+					}),
+					() => true,
+				);
+				const snap = await readHostile(kind, (host) => {
+					const result = snapshotPlainJson(host.input, "input", schema);
+					return {
+						ok: result.ok,
+						value: result.ok ? result.value : undefined,
+						planted: host.planted,
+					};
+				});
+				const routed = await readHostile(kind, (host) => {
+					const result = resolveCall(manifest, "act", host.input, () => true);
+					return {
+						ok: result.ok,
+						input: result.ok ? result.value.input : undefined,
+						planted: host.planted,
+					};
+				});
+				const ran = await readHostile(kind, async (host) => {
 					const runtime = createRuntime();
 					const tools = igniteTools({
 						core: runtime as unknown as IgniteToolsRuntime,
@@ -2096,50 +2097,250 @@ describe(`caller input is sealed before brand checks (seed ${PROPERTY_SEED}, run
 						}),
 						canExecute: () => true,
 					});
-					const ran = await tools.run({ name: "act", input: hostile.input });
-					const authorityKey = authorityCanonical("act", hostile.input);
-					const guideKey = guideCanonical("act", hostile.input);
-					const mutatedKey = authorityCanonical("act", hostile.mutated);
-					expect(hostile.getReads()).toBe(0);
-					expect(hostile.ctorReads()).toBe(0);
-					expect(authorityKey).toBe(guideKey);
-					expect(authorityKey).not.toBe(mutatedKey);
-					if (routed.ok) {
-						expect(snap.ok).toBe(true);
-						expect(routed.value.input).toEqual(hostile.planted);
-						expect(routed.value.input).toEqual(snap.ok ? snap.value : null);
-						expect(ran.ok).toBe(true);
-						expect(runtime.calls.map((call) => call.input)).toEqual([
-							routed.value.input,
-						]);
-						expect(authorityKey).toBe(
-							authorityCanonical("act", routed.value.input),
-						);
-					} else {
-						expect(ran.ok).toBe(false);
-						expect(runtime.calls).toEqual([]);
-						expect(authorityKey).not.toBe(
-							authorityCanonical("act", hostile.planted),
-						);
-					}
-					let scalarReads = 0;
-					const envelope: { value?: number } = {};
-					Object.defineProperty(envelope, "value", {
+					const result = await tools.run({ name: "act", input: host.input });
+					return {
+						ok: result.ok,
+						executed: runtime.calls.map((call) => call.input),
+						planted: host.planted,
+					};
+				});
+				const authorityKey = await readHostile(kind, (host) =>
+					authorityCanonical("act", host.input),
+				);
+				const guideKey = await readHostile(kind, (host) =>
+					guideCanonical("act", host.input),
+				);
+				const plantedKey = authorityCanonical(
+					"act",
+					kind.startsWith("array-") ? [1] : { a: 1 },
+				);
+				const mutatedKey = authorityCanonical(
+					"act",
+					kind.startsWith("array-") ? [999] : { a: 999 },
+				);
+				expect(authorityKey).toBe(guideKey);
+				expect(authorityKey).not.toBe(mutatedKey);
+				if (routed.ok) {
+					expect(snap.ok).toBe(true);
+					expect(routed.input).toEqual(routed.planted);
+					expect(snap.value).toEqual(snap.planted);
+					expect(ran.ok).toBe(true);
+					expect(ran.executed).toEqual([ran.planted]);
+					expect(authorityKey).toBe(authorityCanonical("act", routed.input));
+				} else {
+					expect(snap.ok).toBe(false);
+					expect(ran.ok).toBe(false);
+					expect(ran.executed).toEqual([]);
+					expect(authorityKey).not.toBe(plantedKey);
+				}
+				let scalarReads = 0;
+				const envelope: { value?: number } = {};
+				Object.defineProperty(envelope, "value", {
+					enumerable: true,
+					configurable: true,
+					get() {
+						scalarReads += 1;
+						return 999;
+					},
+				});
+				expect(fromProviderInput(envelope, { type: "number" })).toBe(envelope);
+				expect(scalarReads).toBe(0);
+				return true;
+			}),
+			{ seed: PROPERTY_SEED, numRuns: PROPERTY_RUNS, endOnFailure: true },
+		);
+	}, 60_000);
+});
+
+describe(`non-enumerable array indexes are not granted calls (seed ${PROPERTY_SEED}, runs ${PROPERTY_RUNS})`, () => {
+	it("rejects a non-enumerable index in the library, the authority, and the guide", async () => {
+		// An array element whose data descriptor is not enumerable is not a
+		// plain-JSON snapshot. The library already rejects it. The application
+		// authority and the published guide must reject that same shape, so a
+		// grant of the exotic array cannot authorize the ordinary array.
+		const authorityCanonical = loadAuthorityCanonical();
+		const guideCanonical = loadGuideCanonical();
+		const schema = {
+			type: "array" as const,
+			items: { type: "number" as const },
+		};
+
+		await fc.assert(
+			fc.asyncProperty(
+				fc.integer({ min: -30, max: 30 }),
+				async (element) => {
+					const exotic: number[] = [];
+					Object.defineProperty(exotic, "0", {
+						value: element,
+						writable: true,
+						configurable: true,
+						enumerable: false,
+					});
+					const plain = [element];
+					const snap = snapshotPlainJson(exotic, "input", schema);
+					const authorityExotic = authorityCanonical("act", exotic);
+					const guideExotic = guideCanonical("act", exotic);
+					const authorityPlain = authorityCanonical("act", plain);
+					const guidePlain = guideCanonical("act", plain);
+					expect(snap.ok).toBe(false);
+					expect(authorityExotic).toBe(guideExotic);
+					expect(authorityPlain).toBe(guidePlain);
+					expect(authorityExotic).not.toBe(authorityPlain);
+					expect(guideExotic).not.toBe(guidePlain);
+					expect(authorityExotic.includes("invalid:")).toBe(true);
+					expect(guideExotic.includes("invalid:")).toBe(true);
+					return true;
+				},
+			),
+			{ seed: PROPERTY_SEED, numRuns: PROPERTY_RUNS, endOnFailure: true },
+		);
+	}, 60_000);
+});
+
+describe(`unreadable tool-call fields resolve to InvalidInput (seed ${PROPERTY_SEED}, runs ${PROPERTY_RUNS})`, () => {
+	it("does not reject the promise when the call input getter throws", async () => {
+		// The call envelope is read before resolveCall's snapshot. A throwing
+		// getter on input must become InvalidInput. The promise must resolve.
+		const schema = defineToolSchema({
+			act: {
+				description: "Submit a payload.",
+				input: { type: "number" },
+				consequential: true,
+			},
+		});
+
+		await fc.assert(
+			fc.asyncProperty(
+				fc.string({ minLength: 1, maxLength: 12 }),
+				async (message) => {
+					const runtime = createRuntime();
+					const tools = igniteTools({
+						core: runtime as unknown as IgniteToolsRuntime,
+						schema,
+						canExecute: () => true,
+					});
+					const call: { name: string; input?: unknown } = { name: "act" };
+					Object.defineProperty(call, "input", {
 						enumerable: true,
 						configurable: true,
 						get() {
-							scalarReads += 1;
-							return 999;
+							throw new Error(message);
 						},
 					});
-					expect(fromProviderInput(envelope, { type: "number" })).toBe(
-						envelope,
-					);
-					expect(scalarReads).toBe(0);
+					const result = await tools.run(call);
+					expect(result).toEqual({
+						ok: false,
+						error: {
+							kind: "InvalidInput",
+							name: "act",
+							issues: ["input: unable to read value"],
+						},
+					});
+					expect(runtime.calls).toEqual([]);
 					return true;
-				} finally {
-					hostile.restore();
+				},
+			),
+			{ seed: PROPERTY_SEED, numRuns: PROPERTY_RUNS, endOnFailure: true },
+		);
+	}, 60_000);
+});
+
+describe(`a grant never authorizes a non-plain input (seed ${PROPERTY_SEED}, runs ${PROPERTY_RUNS})`, () => {
+	it("rejects Date, Map, Set, and class instances in every copy", async () => {
+		// A non-plain prototype is not a plain-JSON snapshot. An empty Date,
+		// Map, or Set is not {}. A class instance does not share a plain
+		// object's approval key. The library, the application authority, and
+		// the published guide see the same input.
+		const authorityCanonical = loadAuthorityCanonical();
+		const guideCanonical = loadGuideCanonical();
+		const schema = defineToolSchema({
+			act: {
+				description: "Payload.",
+				input: { type: "object", properties: { a: {}, k: {} } },
+				consequential: true,
+			},
+		});
+		const kind = fc.constantFrom(
+			"date" as const,
+			"date-valued" as const,
+			"map" as const,
+			"map-entry" as const,
+			"set" as const,
+			"set-entry" as const,
+			"class" as const,
+			"class-empty" as const,
+			"cross-date" as const,
+			"cross-map" as const,
+			"cross-set" as const,
+			"cross-class" as const,
+		);
+
+		function crossRealm(source: string): unknown {
+			return vm.runInNewContext(source);
+		}
+
+		await fc.assert(
+			fc.asyncProperty(kind, async (sampleKind) => {
+				class Box {
+					a = 1;
 				}
+				class Empty {}
+				const table = {
+					date: { input: new Date(0), plain: {} },
+					"date-valued": { input: new Date(1), plain: {} },
+					map: { input: new Map(), plain: {} },
+					"map-entry": { input: new Map([["k", 1]]), plain: {} },
+					set: { input: new Set(), plain: {} },
+					"set-entry": { input: new Set([1]), plain: {} },
+					class: { input: new Box(), plain: { a: 1 } },
+					"class-empty": { input: new Empty(), plain: {} },
+					"cross-date": { input: crossRealm("new Date(1)"), plain: {} },
+					"cross-map": {
+						input: crossRealm("new Map([['k', 1]])"),
+						plain: {},
+					},
+					"cross-set": { input: crossRealm("new Set([1])"), plain: {} },
+					"cross-class": {
+						input: crossRealm(
+							"class C { constructor() { this.a = 1 } }; new C()",
+						),
+						plain: { a: 1 },
+					},
+				} as const;
+				const sample = table[sampleKind];
+				const snap = snapshotPlainJson(sample.input, "input", {
+					type: "object",
+					properties: { a: {}, k: {} },
+				});
+				const authorityInput = authorityCanonical("act", sample.input);
+				const authorityPlain = authorityCanonical("act", sample.plain);
+				const guideInput = guideCanonical("act", sample.input);
+				const guidePlain = guideCanonical("act", sample.plain);
+				expect(snap.ok).toBe(false);
+				expect(authorityInput).toBe(guideInput);
+				expect(authorityPlain).toBe(guidePlain);
+				expect(authorityInput).not.toBe(authorityPlain);
+				expect(guideInput).not.toBe(guidePlain);
+				expect(authorityInput.includes("invalid:")).toBe(true);
+				expect(guideInput.includes("invalid:")).toBe(true);
+
+				const runtime = createRuntime();
+				let allowed = false;
+				const tools = igniteTools({
+					core: runtime as unknown as IgniteToolsRuntime,
+					schema,
+					canExecute: (_name, input) => {
+						allowed =
+							authorityCanonical("act", input) ===
+							authorityCanonical("act", sample.plain);
+						return allowed;
+					},
+				});
+				const ran = await tools.run({ name: "act", input: sample.input });
+				expect(ran.ok).toBe(false);
+				expect(allowed).toBe(false);
+				expect(runtime.calls).toEqual([]);
+				return true;
 			}),
 			{ seed: PROPERTY_SEED, numRuns: PROPERTY_RUNS, endOnFailure: true },
 		);

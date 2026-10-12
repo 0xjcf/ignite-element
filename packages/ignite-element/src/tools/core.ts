@@ -216,13 +216,14 @@ function schemaWithoutOwnDefault(schema: ToolInputSchema): ToolInputSchema {
  * the same default is not validated and is not routed. Only finite numbers
  * (with `-0` normalized to `0`), strings, booleans, null, arrays, and plain
  * objects are copied.
- * Accessors, bigint, symbols, functions, cycles, and values past the nesting
- * limit are `InvalidInput`. A `Date`, `Map`, `Set`, or class instance
- * contributes only its own enumerable data, so one with no such fields is an
- * empty object. Signed zero is collapsed to `0` on purpose. One pass reads
- * `ownKeys` and one data descriptor per key. Brand, prototype, and depth
- * checks, then validation, `canExecute`, and `execute`, use that frozen copy
- * and do not read the caller object again. Array length comes from that
+ * Accessors, bigint, symbols, functions, cycles, values past the nesting
+ * limit, and any non-plain prototype are `InvalidInput`. A `Date`, `Map`,
+ * `Set`, or class instance is `InvalidInput`, including one from another
+ * realm. An empty instance is not an empty object. Signed zero is collapsed
+ * to `0` on purpose. One pass reads `ownKeys` and one data descriptor per
+ * key, then the caller's prototype shape. A non-plain result discards the
+ * copy. Validation, `canExecute`, and `execute` use that frozen copy and do
+ * not read the caller object again. Array length comes from that
  * descriptor or the copied indexes, never from `[[Get]]` of `length`. This
  * function
  * forwards `context` and does not set `execute`. `run` calls it without

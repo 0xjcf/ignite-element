@@ -198,7 +198,7 @@ The mark is not a side-effect-free read. The command stays denied unless `canExe
 
 Ignite does not validate or consume the approval. `canExecute` is application preflight, not authentication. A caller can fabricate a structurally valid record, so the library cannot prove a person approved the call.
 
-Keep the single-use record in the application. Compare the canonical call, the command name plus the validated snapshot, with the granted call. The library reads the call once into a plain-JSON snapshot and validates that copy. Finite numbers are copied, and signed zero is collapsed to `0` on purpose, so a grant of `0` and a call of `-0` are the same snapshot. Strings, booleans, null, arrays, and plain objects are copied. The walk is `ownKeys` and one data descriptor per key. Array length comes from that descriptor or the copied indexes. A proxy is not forwarded live, and the library does not detect proxies with a Node-only check. The snapshot is one pass over own enumerable data. bigint, symbols, functions, and accessors are not that snapshot. A `Date`, `Map`, `Set`, or class instance contributes only those own fields, so one with no own enumerable data is an empty object. Compare `granted.actor` with the live session actor. Track consumption by approval id. Keep a spent id tombstoned until the grant's maximum lifetime has passed, and refuse a grant older than that window, so an expired id cannot come back. `run` calls `canExecute` once and sets `context.execute` only on that call, after observation setup succeeds and immediately before `execute`. `resolveCall` does not set it. Listing calls `canExecute(name)` with no context. A schema default is checked before it is routed. A plain object from another JavaScript realm is accepted. Brand, prototype, and depth checks, the approval key, `canExecute`, and `execute` run on that frozen copy only. The caller object is not read again, so an inherited `Symbol.toStringTag` getter, a proxy `get` or `getPrototypeOf` trap, and a constructor getter are not called. Deny every command that is not explicitly allowed.
+Keep the single-use record in the application. Compare the canonical call, the command name plus the validated snapshot, with the granted call. The library reads the call once into a plain-JSON snapshot and validates that copy. Finite numbers are copied, and signed zero is collapsed to `0` on purpose, so a grant of `0` and a call of `-0` are the same snapshot. Strings, booleans, null, arrays, and plain objects are copied. The walk is `ownKeys` and one data descriptor per key. Array length comes from that descriptor or the copied indexes. A proxy is not forwarded live, and the library does not detect proxies with a Node-only check. The snapshot is one pass over own enumerable data. bigint, symbols, functions, and accessors are not that snapshot. A `Date`, `Map`, `Set`, or class instance is `InvalidInput`, including one from another JavaScript realm. An empty instance is not an empty object. Any other non-plain prototype is `InvalidInput` too. Compare `granted.actor` with the live session actor. Track consumption by approval id. Keep a spent id tombstoned until the grant's maximum lifetime has passed, and refuse a grant older than that window, so an expired id cannot come back. `run` calls `canExecute` once and sets `context.execute` only on that call, after observation setup succeeds and immediately before `execute`. `resolveCall` does not set it. Listing calls `canExecute(name)` with no context. A schema default is checked before it is routed. A plain object from another JavaScript realm is accepted. The own-data pass does not call an inherited `Symbol.toStringTag` getter, a proxy `get` trap, or a constructor getter. The caller's prototype shape is checked after that pass, and a non-plain result discards the copy. The approval key, `canExecute`, and `execute` then use that frozen copy. Deny every command that is not explicitly allowed.
 
 ```ts
 const session = { actor: 'ada' };
@@ -261,6 +261,7 @@ function seal(value: unknown, depth: number, active: WeakSet<object>): Sealed {
             length = reported;
             continue;
           }
+          if (descriptor.enumerable !== true) return { ok: false, reason: 'invalid:array' };
           if (!/^(?:0|[1-9]\d*)$/.test(key)) return { ok: false, reason: 'invalid:array' };
           indexed.set(Number(key), descriptor.value);
         }
@@ -275,7 +276,9 @@ function seal(value: unknown, depth: number, active: WeakSet<object>): Sealed {
           if (!item.ok) return item;
           output.push(item.value);
         }
-        return { ok: true, value: Object.freeze(output) };
+        const sealed = Object.freeze(output);
+        if (!plainSnapshotShape(value)) return { ok: false, reason: 'invalid:prototype' };
+        return { ok: true, value: sealed };
       }
       const record = value as Record<string, unknown>;
       const output: Record<string, unknown> = {};
@@ -293,7 +296,9 @@ function seal(value: unknown, depth: number, active: WeakSet<object>): Sealed {
           configurable: true,
         });
       }
-      return { ok: true, value: Object.freeze(output) };
+      const sealed = Object.freeze(output);
+      if (!plainSnapshotShape(record)) return { ok: false, reason: 'invalid:prototype' };
+      return { ok: true, value: sealed };
     } finally {
       active.delete(value);
     }

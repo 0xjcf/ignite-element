@@ -1,4 +1,4 @@
-import { isNoArgSchema, isPlainObject } from "./toolInput";
+import { isNoArgSchema, isPlainArray, isPlainObject } from "./toolInput";
 import type { ToolInputSchema } from "./types";
 
 /** Nesting limit for one plain-JSON tool input. Deeper values are InvalidInput. */
@@ -81,8 +81,8 @@ function snapshotJsonValue(
 		if (active.has(value)) {
 			return snapshotIssue(path, "cyclic data is not allowed");
 		}
-		// One pass over own data descriptors. Brand and prototype checks run
-		// on the frozen copy this returns, not on the caller object.
+		// One pass over own data descriptors, then the caller's prototype.
+		// A non-plain prototype discards the copy.
 		if (Array.isArray(value)) {
 			return snapshotJsonArray(value, path, depth, active, schema);
 		}
@@ -166,7 +166,10 @@ function snapshotJsonArray(
 			output.push(item.value);
 		}
 		const sealed = Object.freeze(output);
-		if (Object.getPrototypeOf(sealed) !== Array.prototype) {
+		if (
+			!isPlainArray(value) ||
+			Object.getPrototypeOf(sealed) !== Array.prototype
+		) {
 			return snapshotIssue(path, "expected array");
 		}
 		return { ok: true, value: sealed };
@@ -215,7 +218,7 @@ function snapshotJsonObject(
 			});
 		}
 		const sealed = Object.freeze(output);
-		if (!isPlainObject(sealed)) {
+		if (!isPlainObject(value) || !isPlainObject(sealed)) {
 			return snapshotIssue(path, "expected a JSON value");
 		}
 		return { ok: true, value: sealed };

@@ -52,9 +52,10 @@ succeeds and immediately before `execute`. The predicate and `execute` share
 one detached plain-JSON snapshot. Signed zero is collapsed to `0` on
 purpose. The library reads the call once and validates that copy. A proxy is not forwarded live, and the check
 does not use a Node-only proxy detector. Accessors, bigint, symbols,
-functions, cycles, and non-finite defaults are `InvalidInput`. A `Date`,
-`Map`, `Set`, or class instance contributes only its own enumerable data.
-Brand and prototype checks run on the frozen copy, not the caller object. `resolveCall` does not set the
+functions, cycles, non-finite defaults, and any non-plain prototype are
+`InvalidInput`. A `Date`, `Map`, `Set`, or class instance is `InvalidInput`,
+including one from another JavaScript realm. An empty instance is not `{}`.
+A plain object or array from another realm is accepted. `resolveCall` does not set the
 flag. A new id can approve the same call again. A spent id stays tombstoned
 until the grant's maximum lifetime has passed. A grant older than that
 window is refused, so an expired id cannot come back.
