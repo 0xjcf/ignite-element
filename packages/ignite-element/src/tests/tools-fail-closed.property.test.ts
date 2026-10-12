@@ -9,7 +9,12 @@ import vm from "node:vm";
 import fc from "fast-check";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
-import type { IgniteToolsRuntime, ToolInputSchema, ToolSchema } from "../tools";
+import type {
+	IgniteToolsRuntime,
+	NeutralToolCall,
+	ToolInputSchema,
+	ToolSchema,
+} from "../tools";
 import {
 	buildManifest,
 	defineToolSchema,
@@ -2219,14 +2224,12 @@ describe(`unreadable tool-call fields resolve to InvalidInput (seed ${PROPERTY_S
 						schema,
 						canExecute: () => true,
 					});
-					const call: { name: string; input?: unknown } = { name: "act" };
-					Object.defineProperty(call, "input", {
-						enumerable: true,
-						configurable: true,
-						get() {
+					const call: NeutralToolCall = {
+						name: "act",
+						get input() {
 							throw new Error(message);
 						},
-					});
+					};
 					const result = await tools.run(call);
 					expect(result).toEqual({
 						ok: false,
