@@ -1745,7 +1745,23 @@ type HostileInput = {
 	restore: () => void;
 };
 
-function loadAuthorityCanonical(): (name: string, input: unknown) => string {
+type ApprovalAuthority = {
+	grant(approval: {
+		actor: string;
+		name: string;
+		input: unknown;
+		target: object;
+		id: string;
+		expiresAt: number;
+	}): void;
+	canExecute(
+		name: string,
+		input?: unknown,
+		context?: { core: object; execute?: boolean },
+	): boolean;
+};
+
+function loadCommandApprovalSource(): string {
 	let dir = path.dirname(publishedToolsGuide());
 	let source: string | undefined;
 	for (let hop = 0; hop < 8; hop += 1) {
@@ -1762,16 +1778,39 @@ function loadAuthorityCanonical(): (name: string, input: unknown) => string {
 		dir = parent;
 	}
 	if (!source) throw new Error("command approval canonicalizer missing");
-	const compiled = ts.transpileModule(source.replace(/^export /gm, ""), {
+	return ts.transpileModule(source.replace(/^export /gm, ""), {
 		compilerOptions: {
 			module: ts.ModuleKind.None,
 			target: ts.ScriptTarget.ES2022,
 		},
 	}).outputText;
+}
+
+function loadAuthorityCanonical(): (name: string, input: unknown) => string {
+	const compiled = loadCommandApprovalSource();
 	return new Function(`${compiled}\nreturn canonicalCall;`)() as (
 		name: string,
 		input: unknown,
 	) => string;
+}
+
+function loadAuthorityModule(): {
+	canonicalCall: (name: string, input: unknown) => string;
+	createCommandApprovalAuthority: (
+		actor: string,
+		now?: () => number,
+	) => ApprovalAuthority;
+} {
+	const compiled = loadCommandApprovalSource();
+	return new Function(
+		`${compiled}\nreturn { canonicalCall, createCommandApprovalAuthority };`,
+	)() as {
+		canonicalCall: (name: string, input: unknown) => string;
+		createCommandApprovalAuthority: (
+			actor: string,
+			now?: () => number,
+		) => ApprovalAuthority;
+	};
 }
 
 function loadGuideCanonical(): (name: string, input: unknown) => string {
@@ -2436,4 +2475,316 @@ describe("listing checks grant liveness before advertising the command", () => {
 			{ seed: PROPERTY_SEED, numRuns: 4, endOnFailure: true },
 		);
 	});
+});
+
+type ShiftMode = "stable" | "keys" | "proto" | "both";
+
+type ShiftEvent =
+	| { readonly type: "ownKeys"; readonly shape: unknown }
+	| { readonly type: "proto"; readonly plain: boolean };
+
+const exoticObjectPrototype = (() => {
+	class ExoticApprovalProbe {}
+	return ExoticApprovalProbe.prototype;
+})();
+
+function shiftingProxy(
+	left: unknown,
+	right: unknown,
+	mode: ShiftMode,
+	array: boolean,
+): { proxy: object; events: ShiftEvent[] } {
+	const events: ShiftEvent[] = [];
+	let ownReads = 0;
+	let protoReads = 0;
+	const plainProto = array ? Array.prototype : Object.prototype;
+	const exoticProto = array ? Object.prototype : exoticObjectPrototype;
+	const target = array ? [] : {};
+	const proxy = new Proxy(target, {
+		ownKeys() {
+			const useLeft =
+				mode === "stable" || mode === "proto" || ownReads % 2 === 0;
+			const shape = useLeft ? left : right;
+			ownReads += 1;
+			events.push({ type: "ownKeys", shape });
+			if (Array.isArray(shape)) {
+				return [...shape.map((_, index) => String(index)), "length"];
+			}
+			return Object.keys(shape as object);
+		},
+		getOwnPropertyDescriptor(_current, key) {
+			let latest: ShiftEvent | undefined;
+			for (let index = events.length - 1; index >= 0; index -= 1) {
+				const event = events[index];
+				if (event?.type === "ownKeys") {
+					latest = event;
+					break;
+				}
+			}
+			if (!latest || latest.type !== "ownKeys" || typeof key === "symbol") {
+				return undefined;
+			}
+			if (Array.isArray(latest.shape)) {
+				if (key === "length") {
+					return {
+						value: latest.shape.length,
+						writable: true,
+						enumerable: false,
+						configurable: false,
+					};
+				}
+				if (typeof key !== "string" || !/^(?:0|[1-9]\d*)$/.test(key)) {
+					return undefined;
+				}
+				const index = Number(key);
+				if (index >= latest.shape.length) return undefined;
+				return {
+					value: latest.shape[index],
+					writable: true,
+					enumerable: true,
+					configurable: true,
+				};
+			}
+			const record = latest.shape as Record<string, unknown>;
+			if (typeof key !== "string" || !Object.keys(record).includes(key)) {
+				return undefined;
+			}
+			return {
+				value: record[key],
+				writable: true,
+				enumerable: true,
+				configurable: true,
+			};
+		},
+		getPrototypeOf() {
+			const plain =
+				mode === "stable" || mode === "keys" || protoReads % 2 === 0;
+			protoReads += 1;
+			events.push({ type: "proto", plain });
+			return plain ? plainProto : exoticProto;
+		},
+	});
+	return { proxy, events };
+}
+
+function readSince(
+	events: readonly ShiftEvent[],
+	start: number,
+): { shape: unknown; plain: boolean } {
+	const slice = events.slice(start);
+	const own = slice.filter((event) => event.type === "ownKeys");
+	const proto = slice.filter((event) => event.type === "proto");
+	expect(own).toHaveLength(1);
+	expect(proto).toHaveLength(1);
+	const ownEvent = own[0];
+	const protoEvent = proto[0];
+	if (
+		!ownEvent ||
+		ownEvent.type !== "ownKeys" ||
+		!protoEvent ||
+		protoEvent.type !== "proto"
+	) {
+		throw new Error("missing trap read");
+	}
+	return { shape: ownEvent.shape, plain: protoEvent.plain };
+}
+
+describe(`approval key stays on the snapshot that executes (seed ${PROPERTY_SEED}, runs ${PROPERTY_RUNS})`, () => {
+	it("does not let one proxy read authorize a different read", async () => {
+		// getPrototypeOf and ownKeys may change on every read. The key that
+		// authorizes a call is the canonical key of the snapshot run passes
+		// to canExecute and execute. A key from any other read does not
+		// authorize that snapshot. The library, the application authority,
+		// and the published guide each bind the key to the read they just took.
+		const authorityCanonical = loadAuthorityCanonical();
+		const { createCommandApprovalAuthority } = loadAuthorityModule();
+		const guideCanonical = loadGuideCanonical();
+		const clock = 1_700_000_000_000;
+		const modeArb = fc.constantFrom(
+			"stable" as const,
+			"keys" as const,
+			"proto" as const,
+			"both" as const,
+		);
+		const kindArb = fc.constantFrom("object" as const, "array" as const);
+		const objectShape = fc.dictionary(jsonKey, plainJson(1), {
+			maxKeys: 3,
+			noNullPrototype: true,
+		});
+		const arrayShape = fc.array(plainJson(1), { maxLength: 3 });
+
+		await fc.assert(
+			fc.asyncProperty(
+				modeArb,
+				kindArb,
+				objectShape,
+				objectShape,
+				arrayShape,
+				arrayShape,
+				async (mode, kind, objectLeft, objectRight, arrayLeft, arrayRight) => {
+					const array = kind === "array";
+					const left = cloneJson(array ? arrayLeft : objectLeft);
+					let right = cloneJson(array ? arrayRight : objectRight);
+					if (mode === "stable") right = cloneJson(left);
+					if ((mode === "keys" || mode === "both") && sameJson(left, right)) {
+						right = array ? [left, "shift"] : { ...left, zz: "shift" };
+					}
+					const schema = array
+						? { type: "array" as const }
+						: { type: "object" as const, properties: { v: {} } };
+
+					const grantedProbe = shiftingProxy(left, right, mode, array);
+					const grantedStart = grantedProbe.events.length;
+					const grantedSnap = snapshotPlainJson(
+						grantedProbe.proxy,
+						"input",
+						schema,
+					);
+					const grantedRead = readSince(grantedProbe.events, grantedStart);
+					expect(grantedRead.plain).toBe(true);
+					expect(grantedSnap.ok).toBe(true);
+					if (!grantedSnap.ok) return true;
+					expect(sameJson(grantedSnap.value, grantedRead.shape)).toBe(true);
+					const grantKey = authorityCanonical("act", grantedSnap.value);
+					expect(grantKey).toBe(guideCanonical("act", grantedSnap.value));
+					expect(grantKey).toBe(authorityCanonical("act", grantedRead.shape));
+					expect(grantKey).toBe(guideCanonical("act", grantedRead.shape));
+
+					const authorityProbe = shiftingProxy(left, right, mode, array);
+					const authorityStart = authorityProbe.events.length;
+					const authorityKey = authorityCanonical("act", authorityProbe.proxy);
+					const authorityRead = readSince(
+						authorityProbe.events,
+						authorityStart,
+					);
+					const authorityNext = authorityProbe.events.length;
+					const authorityKeyNext = authorityCanonical(
+						"act",
+						authorityProbe.proxy,
+					);
+					const authorityReadNext = readSince(
+						authorityProbe.events,
+						authorityNext,
+					);
+					if (authorityRead.plain) {
+						expect(authorityKey).toBe(
+							authorityCanonical("act", authorityRead.shape),
+						);
+					} else {
+						expect(authorityKey.includes("invalid:")).toBe(true);
+						expect(authorityKey).not.toBe(
+							authorityCanonical("act", authorityRead.shape),
+						);
+					}
+					if (authorityReadNext.plain) {
+						expect(authorityKeyNext).toBe(
+							guideCanonical("act", authorityReadNext.shape),
+						);
+					} else {
+						expect(authorityKeyNext.includes("invalid:")).toBe(true);
+						expect(authorityKeyNext).not.toBe(
+							guideCanonical("act", authorityReadNext.shape),
+						);
+					}
+					if (
+						!authorityReadNext.plain ||
+						!sameJson(authorityRead.shape, authorityReadNext.shape)
+					) {
+						expect(authorityKeyNext).not.toBe(authorityKey);
+					} else {
+						expect(authorityKeyNext).toBe(authorityKey);
+					}
+
+					const guideProbe = shiftingProxy(left, right, mode, array);
+					const guideStart = guideProbe.events.length;
+					const guideKey = guideCanonical("act", guideProbe.proxy);
+					const guideRead = readSince(guideProbe.events, guideStart);
+					const guideNext = guideProbe.events.length;
+					const guideKeyNext = guideCanonical("act", guideProbe.proxy);
+					const guideReadNext = readSince(guideProbe.events, guideNext);
+					expect(guideKey).toBe(authorityKey);
+					expect(sameJson(guideRead.shape, authorityRead.shape)).toBe(true);
+					if (guideReadNext.plain) {
+						expect(guideKeyNext).toBe(
+							authorityCanonical("act", guideReadNext.shape),
+						);
+					} else {
+						expect(guideKeyNext.includes("invalid:")).toBe(true);
+						expect(guideKeyNext).not.toBe(
+							authorityCanonical("act", guideReadNext.shape),
+						);
+					}
+					if (
+						!guideReadNext.plain ||
+						!sameJson(guideRead.shape, guideReadNext.shape)
+					) {
+						expect(guideKeyNext).not.toBe(guideKey);
+					}
+
+					const runtime = createRuntime();
+					const gate = createCommandApprovalAuthority("ada", () => clock);
+					gate.grant({
+						actor: "ada",
+						name: "act",
+						input: grantedSnap.value,
+						target: runtime,
+						id: "shift",
+						expiresAt: clock + 60_000,
+					});
+					let approvedInput: unknown;
+					const tools = igniteTools({
+						core: runtime as unknown as IgniteToolsRuntime,
+						schema: defineToolSchema({
+							act: {
+								description: "Payload.",
+								input: schema,
+								consequential: true,
+							},
+						}),
+						canExecute: (name, input, context) => {
+							if (context?.execute === true) approvedInput = input;
+							return gate.canExecute(name, input, context);
+						},
+					});
+					const runStart = grantedProbe.events.length;
+					const ran = await tools.run({
+						name: "act",
+						input: grantedProbe.proxy,
+					});
+					const runRead = readSince(grantedProbe.events, runStart);
+					const sameAsGrant =
+						runRead.plain && sameJson(runRead.shape, grantedSnap.value);
+					if (!sameAsGrant) {
+						expect(ran.ok).toBe(false);
+						expect(runtime.calls).toEqual([]);
+						if (approvedInput !== undefined) {
+							expect(approvedInput).not.toBe(grantedProbe.proxy);
+							expect(isDeepFrozenPlainJson(approvedInput)).toBe(true);
+							expect(sameJson(approvedInput, runRead.shape)).toBe(true);
+							expect(authorityCanonical("act", approvedInput)).not.toBe(
+								grantKey,
+							);
+							expect(guideCanonical("act", approvedInput)).not.toBe(grantKey);
+						}
+						return true;
+					}
+					expect(ran.ok).toBe(true);
+					expect(runtime.calls).toHaveLength(1);
+					const executed = runtime.calls[0]?.input;
+					expect(approvedInput).toBe(executed);
+					expect(approvedInput).not.toBe(grantedProbe.proxy);
+					expect(isDeepFrozenPlainJson(executed)).toBe(true);
+					expect(sameJson(executed, runRead.shape)).toBe(true);
+					expect(sameJson(executed, grantedSnap.value)).toBe(true);
+					expect(authorityCanonical("act", executed)).toBe(grantKey);
+					expect(guideCanonical("act", executed)).toBe(grantKey);
+					expect(gate.canExecute("act", executed, { core: runtime })).toBe(
+						false,
+					);
+					return true;
+				},
+			),
+			{ seed: PROPERTY_SEED, numRuns: PROPERTY_RUNS, endOnFailure: true },
+		);
+	}, 60_000);
 });

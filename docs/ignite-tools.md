@@ -49,8 +49,10 @@ application owns the single-use approval
 the name plus the validated input. Consume the approval id only when
 `context.execute` is true. `run` sets that flag after observation setup
 succeeds and immediately before `execute`. The predicate and `execute` share
-one detached plain-JSON snapshot. Signed zero is collapsed to `0` on
-purpose. The library reads the call once and validates that copy. A proxy is not forwarded live, and the check
+one detached plain-JSON snapshot. A proxy whose `getPrototypeOf` or `ownKeys`
+trap returns different data on a later read cannot spend this read's approval
+on that other input. The approval key is the key of the snapshot that executes.
+Signed zero is collapsed to `0` on purpose. The library reads the call once and validates that copy. A proxy is not forwarded live, and the check
 does not use a Node-only proxy detector. Accessors, bigint, symbols,
 functions, cycles, non-finite defaults, and any non-plain prototype are
 `InvalidInput`. A `Date`, `Map`, `Set`, or class instance is `InvalidInput`,
