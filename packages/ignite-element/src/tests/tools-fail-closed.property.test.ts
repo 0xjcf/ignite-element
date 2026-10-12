@@ -3,7 +3,10 @@
  * The CI seed and run count are fixed so a failure replays the same sequence.
  * Seed: 20261011. Runs: 200 per case.
  */
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import fc from "fast-check";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import type { IgniteToolsRuntime, ToolInputSchema, ToolSchema } from "../tools";
 import {
@@ -1465,6 +1468,117 @@ describe(`no-arg snapshot is the routed input (seed ${PROPERTY_SEED}, runs ${PRO
 					expect(executed).toEqual({});
 					expect(Object.isFrozen(executed)).toBe(true);
 					expect(consuming[consuming.length - 1]).toBe(executed);
+					return true;
+				},
+			),
+			{ seed: PROPERTY_SEED, numRuns: PROPERTY_RUNS, endOnFailure: true },
+		);
+	}, 60_000);
+});
+
+function publishedToolsGuide(): string {
+	let dir = process.cwd();
+	for (let hop = 0; hop < 6; hop += 1) {
+		const candidate = path.join(
+			dir,
+			"docs/site/src/content/docs/guides/tools.mdx",
+		);
+		if (existsSync(candidate)) return candidate;
+		const parent = path.dirname(dir);
+		if (parent === dir) break;
+		dir = parent;
+	}
+	throw new Error("published tools guide missing");
+}
+
+describe(`published approval guide keeps distinct depth-boundary keys (seed ${PROPERTY_SEED}, runs ${PROPERTY_RUNS})`, () => {
+	it("does not share an approval key for accepted values that differ at the depth boundary", async () => {
+		// Two values that snapshot accepts and that differ only at the
+		// depth-boundary leaf must not share an approval key when canonicalized
+		// the way the published guide specifies.
+		const guidePath = publishedToolsGuide();
+		const source = readFileSync(guidePath, "utf8");
+		const fence = [...source.matchAll(/```ts\n([\s\S]*?)```/g)].find((match) =>
+			match[1]?.includes("function canonicalValue"),
+		);
+		const block = fence?.[1];
+		if (!block) throw new Error("published canonicalizer missing");
+		const start = block.indexOf("function plainSnapshotShape");
+		const end = block.indexOf("const granted");
+		if (start < 0 || end < start) {
+			throw new Error("published canonicalizer shape changed");
+		}
+		const compiled = ts.transpileModule(block.slice(start, end), {
+			compilerOptions: {
+				module: ts.ModuleKind.None,
+				target: ts.ScriptTarget.ES2022,
+			},
+		}).outputText;
+		const canonicalCall = new Function(
+			`${compiled}\nreturn canonicalCall;`,
+		)() as (name: string, input: unknown) => string;
+
+		const boundaryContainers = 33;
+		const leaf = fc.oneof(
+			fc.integer({ min: -30, max: 30 }),
+			fc.stringMatching(/^[a-z0-9]{0,4}$/),
+			fc.boolean(),
+			fc.constant(null),
+		);
+		const innerKind = fc.constantFrom("object" as const, "array" as const);
+		const manifest = buildManifest(
+			defineToolSchema({
+				act: {
+					description: "Nested payload.",
+					input: { type: "object", properties: { hold: {} } },
+					consequential: true,
+				},
+			}),
+			() => true,
+		);
+
+		function bury(
+			value: unknown,
+			kinds: ReadonlyArray<"object" | "array">,
+			key: string,
+		): unknown {
+			let current = value;
+			for (let index = kinds.length - 1; index >= 0; index -= 1) {
+				current = kinds[index] === "array" ? [current] : { [key]: current };
+			}
+			return current;
+		}
+
+		await fc.assert(
+			fc.asyncProperty(
+				leaf,
+				leaf,
+				fc.array(innerKind, {
+					minLength: boundaryContainers - 1,
+					maxLength: boundaryContainers - 1,
+				}),
+				fc.stringMatching(/^[a-z]$/),
+				async (leftLeaf, rightLeaf, inner, key) => {
+					fc.pre(JSON.stringify(leftLeaf) !== JSON.stringify(rightLeaf));
+					const kinds = ["object" as const, ...inner];
+					const left = resolveCall(
+						manifest,
+						"act",
+						bury(leftLeaf, kinds, key),
+						() => true,
+					);
+					const right = resolveCall(
+						manifest,
+						"act",
+						bury(rightLeaf, kinds, key),
+						() => true,
+					);
+					expect(left.ok).toBe(true);
+					expect(right.ok).toBe(true);
+					if (!left.ok || !right.ok) return false;
+					expect(canonicalCall("act", left.value.input)).not.toBe(
+						canonicalCall("act", right.value.input),
+					);
 					return true;
 				},
 			),
