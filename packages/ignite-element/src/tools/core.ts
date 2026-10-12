@@ -265,8 +265,9 @@ export function resolveCall(
 			if (issues.length > 0) {
 				return err({ kind: "InvalidInput", name, issues });
 			}
-			// An omitted optional object stays omitted. A no-arg command drops the
-			// input field. Neither one is a JSON value to snapshot.
+			// An omitted optional object stays omitted. A no-arg command with no
+			// caller value drops the input field. Neither one is a JSON value
+			// to snapshot.
 			route = noArg ? { command: name } : { command: name, input: undefined };
 		} else {
 			const snapshot = snapshotPlainJson(
@@ -285,9 +286,9 @@ export function resolveCall(
 			if (issues.length > 0) {
 				return err({ kind: "InvalidInput", name, issues });
 			}
-			route = noArg
-				? { command: name }
-				: { command: name, input: snapshot.value };
+			// The snapshot that passed validation is the routed input, including
+			// provider {} on a no-arg command. canExecute and execute share it.
+			route = { command: name, input: snapshot.value };
 		}
 	} catch {
 		return err({

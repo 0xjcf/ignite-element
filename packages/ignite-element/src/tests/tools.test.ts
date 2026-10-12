@@ -345,16 +345,22 @@ describe("resolveCall", () => {
 		});
 	});
 
-	it.each([undefined, {}])(
-		"routes a no-arg command without an input field for input %j",
-		(input) => {
-			const result = resolveAllowed(manifest, "increment", input);
-			expect(result).toEqual({
-				ok: true,
-				value: { command: "increment" },
-			});
-		},
-	);
+	it("routes an omitted no-arg command without an input field", () => {
+		const result = resolveAllowed(manifest, "increment", undefined);
+		expect(result).toEqual({
+			ok: true,
+			value: { command: "increment" },
+		});
+	});
+
+	it("routes provider {} for a no-arg command as the validated snapshot", () => {
+		const result = resolveAllowed(manifest, "increment", {});
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(result.value.command).toBe("increment");
+		expect(result.value.input).toEqual({});
+		expect(Object.isFrozen(result.value.input)).toBe(true);
+	});
 
 	it.each([
 		[{ garbage: true }, "input.garbage: unexpected"],
@@ -1296,9 +1302,7 @@ describe("igniteTools (with a ToolDialect)", () => {
 
 		const [emptyCall] = tools.toolCalls(response({}));
 		expect(await tools.run(emptyCall)).toMatchObject({ ok: true });
-		expect(component.calls).toEqual([
-			{ name: "increment", payload: undefined },
-		]);
+		expect(component.calls).toEqual([{ name: "increment", payload: {} }]);
 
 		const [invalidCall] = tools.toolCalls(response({ garbage: true }));
 		expect(await tools.run(invalidCall)).toMatchObject({

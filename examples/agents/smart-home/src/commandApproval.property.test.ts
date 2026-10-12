@@ -5,9 +5,11 @@
  */
 import fc from "fast-check";
 import {
+	buildManifest,
 	defineToolSchema,
 	type IgniteToolsRuntime,
 	igniteTools,
+	resolveCall,
 } from "ignite-element/tools";
 import { describe, expect, it } from "vitest";
 import {
@@ -414,6 +416,77 @@ describe(`command approval properties (seed ${PROPERTY_SEED}, runs ${PROPERTY_RU
 				}
 				return true;
 			}),
+			{ seed: PROPERTY_SEED, numRuns: PROPERTY_RUNS, endOnFailure: true },
+		);
+	}, 60_000);
+
+	it("keeps distinct approval keys for accepted values that differ at the depth boundary", async () => {
+		// Snapshot accepts a primitive at container depth 33. Two such values
+		// that differ only in that leaf must not share an approval key.
+		const boundaryContainers = 33;
+		const leaf = fc.oneof(
+			fc.integer({ min: -30, max: 30 }),
+			fc.stringMatching(/^[a-z0-9]{0,4}$/),
+			fc.boolean(),
+			fc.constant(null),
+		);
+		const innerKind = fc.constantFrom("object" as const, "array" as const);
+		const manifest = buildManifest(
+			defineToolSchema({
+				act: {
+					description: "Nested payload.",
+					input: { type: "object", properties: { hold: {} } },
+					consequential: true,
+				},
+			}),
+			() => true,
+		);
+
+		function bury(
+			value: unknown,
+			kinds: ReadonlyArray<"object" | "array">,
+			key: string,
+		): unknown {
+			let current = value;
+			for (let index = kinds.length - 1; index >= 0; index -= 1) {
+				current = kinds[index] === "array" ? [current] : { [key]: current };
+			}
+			return current;
+		}
+
+		await fc.assert(
+			fc.asyncProperty(
+				leaf,
+				leaf,
+				fc.array(innerKind, {
+					minLength: boundaryContainers - 1,
+					maxLength: boundaryContainers - 1,
+				}),
+				fc.stringMatching(/^[a-z]$/),
+				async (leftLeaf, rightLeaf, inner, key) => {
+					fc.pre(JSON.stringify(leftLeaf) !== JSON.stringify(rightLeaf));
+					const kinds = ["object" as const, ...inner];
+					const left = resolveCall(
+						manifest,
+						"act",
+						bury(leftLeaf, kinds, key),
+						() => true,
+					);
+					const right = resolveCall(
+						manifest,
+						"act",
+						bury(rightLeaf, kinds, key),
+						() => true,
+					);
+					expect(left.ok).toBe(true);
+					expect(right.ok).toBe(true);
+					if (!left.ok || !right.ok) return false;
+					expect(canonicalCall("act", left.value.input)).not.toBe(
+						canonicalCall("act", right.value.input),
+					);
+					return true;
+				},
+			),
 			{ seed: PROPERTY_SEED, numRuns: PROPERTY_RUNS, endOnFailure: true },
 		);
 	}, 60_000);

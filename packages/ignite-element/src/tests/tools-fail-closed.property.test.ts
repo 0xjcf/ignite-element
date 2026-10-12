@@ -1409,3 +1409,66 @@ describe(`non-allowlisted commands are denied (seed ${PROPERTY_SEED}, runs ${PRO
 		);
 	}, 60_000);
 });
+
+describe(`no-arg snapshot is the routed input (seed ${PROPERTY_SEED}, runs ${PROPERTY_RUNS})`, () => {
+	it("routes the validated {} snapshot to canExecute and execute", async () => {
+		// The input value that passes validation is exactly the value routed
+		// to canExecute and execute, including {}.
+		const empty = fc.constantFrom(
+			"plain" as const,
+			"null-proto" as const,
+			"parsed" as const,
+			"frozen" as const,
+		);
+
+		function providerEmpty(kind: "plain" | "null-proto" | "parsed" | "frozen") {
+			if (kind === "null-proto") return Object.create(null) as object;
+			if (kind === "parsed") return JSON.parse("{}") as object;
+			if (kind === "frozen") return Object.freeze({});
+			return {};
+		}
+
+		await fc.assert(
+			fc.asyncProperty(
+				empty,
+				fc.stringMatching(/^[a-z][a-z0-9]{0,5}$/),
+				async (kind, name) => {
+					const input = providerEmpty(kind);
+					const preflight: unknown[] = [];
+					const consuming: unknown[] = [];
+					const runtime = createRuntime();
+					const tools = igniteTools({
+						core: runtime as unknown as IgniteToolsRuntime,
+						schema: defineToolSchema({
+							[name]: {
+								description: "No arguments.",
+								input: { type: "object", properties: {} },
+								consequential: true,
+							},
+						}),
+						canExecute: (_command, value, context) => {
+							if (context?.execute) consuming.push(value);
+							else if (context) preflight.push(value);
+							return true;
+						},
+					});
+					const resolved = tools.resolveCall(name, input);
+					expect(resolved.ok).toBe(true);
+					if (!resolved.ok) return false;
+					const snapshot = resolved.value.input;
+					expect(snapshot).toEqual({});
+					expect(Object.isFrozen(snapshot)).toBe(true);
+					expect(preflight[preflight.length - 1]).toBe(snapshot);
+					const ran = await tools.run({ name, input });
+					expect(ran.ok).toBe(true);
+					const executed = runtime.calls[runtime.calls.length - 1]?.input;
+					expect(executed).toEqual({});
+					expect(Object.isFrozen(executed)).toBe(true);
+					expect(consuming[consuming.length - 1]).toBe(executed);
+					return true;
+				},
+			),
+			{ seed: PROPERTY_SEED, numRuns: PROPERTY_RUNS, endOnFailure: true },
+		);
+	}, 60_000);
+});

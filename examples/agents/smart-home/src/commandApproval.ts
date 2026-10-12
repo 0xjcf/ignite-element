@@ -50,7 +50,9 @@ function plainShape(value: object): boolean {
 
 function stable(value: unknown, depth = 0, seen?: WeakSet<object>): string {
 	try {
-		if (depth > MAX_CANONICAL_DEPTH) return "invalid:depth";
+		// Snapshot accepts a JSON leaf before the depth limit. Encode that leaf
+		// before returning the shared depth marker, or two accepted calls that
+		// differ only there share one approval key.
 		if (typeof value === "number") {
 			if (!Number.isFinite(value)) return `invalid:number:${String(value)}`;
 			return `number:${value === 0 ? 0 : value}`;
@@ -58,6 +60,7 @@ function stable(value: unknown, depth = 0, seen?: WeakSet<object>): string {
 		if (typeof value === "string") return `string:${JSON.stringify(value)}`;
 		if (typeof value === "boolean") return `boolean:${value}`;
 		if (value === null) return "null";
+		if (depth > MAX_CANONICAL_DEPTH) return "invalid:depth";
 		if (typeof value === "bigint") return `bigint:${value.toString()}`;
 		if (typeof value === "symbol") return `symbol:${String(value)}`;
 		if (typeof value !== "object") return `invalid:${typeof value}`;
