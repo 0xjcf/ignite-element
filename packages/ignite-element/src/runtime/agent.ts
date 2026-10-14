@@ -193,6 +193,7 @@ export function createAgentRuntime<
 			// MobX delivers this listener from inside autorun, which catches
 			// projection errors. Keep the first failure and rethrow it after the
 			// subscription returns, before the runtime is marked prepared.
+			let firstDeliveryFailed = false;
 			let firstDeliveryError: unknown;
 			let acceptedDelivery = inspect;
 			const subscription = adapter.subscribeSnapshots((value) => {
@@ -202,7 +203,10 @@ export function createAgentRuntime<
 						update(derive(value));
 						acceptedDelivery = true;
 					} catch (error) {
-						firstDeliveryError ??= error;
+						if (!firstDeliveryFailed) {
+							firstDeliveryFailed = true;
+							firstDeliveryError = error;
+						}
 						return;
 					}
 				} else {
@@ -218,7 +222,7 @@ export function createAgentRuntime<
 				subscription.unsubscribe();
 			});
 			lifetime.assertActive();
-			if (firstDeliveryError) throw firstDeliveryError;
+			if (firstDeliveryFailed) throw firstDeliveryError;
 			publishCatalogue(additionalArgs);
 			prepared = true;
 			preparedHost = resources.host;
@@ -426,14 +430,32 @@ export function createAgentRuntime<
 		);
 		const command: unknown =
 			descriptor && "value" in descriptor ? descriptor.value : undefined;
-		if (typeof command !== "function")
+		if (typeof command !== "function") {
+			// Nothing will run; discard an acquisition this call made.
+			if (!prepared && externalSubscriptions === 0) resources.rollback?.();
 			throw new Error(`[igniteCore] Unknown command "${call.command}".`);
+		}
 		// Subscribe only after the command is real. A live watch already observes;
 		// hold a quiet lease so that watch can unsubscribe while this command is
 		// still awaiting without dropping Redux or MobX observation to zero.
 		let releaseLease: (() => void) | undefined;
-		if (!preparing && externalSubscriptions === 0) prepare(true, false);
-		else if (!preparing && !prepared && externalSubscriptions > 0) {
+		if (!preparing && externalSubscriptions === 0) {
+			// prepare re-acquires and gets a no-op rollback; undo this first
+			// acquisition so a failed preparation does not leave the actor running.
+			try {
+				prepare(true, false);
+			} catch (error) {
+				try {
+					resources.rollback?.();
+				} catch (cleanupError) {
+					console.error(
+						"[igniteCore] Preparation rollback failed.",
+						cleanupError,
+					);
+				}
+				throw error;
+			}
+		} else if (!preparing && !prepared && externalSubscriptions > 0) {
 			const subscription = adapter.subscribeSnapshots(() => undefined);
 			releaseLease = () => subscription.unsubscribe();
 		}
@@ -443,7 +465,15 @@ export function createAgentRuntime<
 			lifetime.assertActive();
 			return result;
 		} finally {
-			releaseLease?.();
+			try {
+				releaseLease?.();
+			} catch (cleanupError) {
+				// Keep the command's own outcome; report the lease failure.
+				console.error(
+					"[igniteCore] Command lease release failed.",
+					cleanupError,
+				);
+			}
 		}
 	};
 	const runtime = {
