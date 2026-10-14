@@ -6,7 +6,6 @@ import {
 	assertGalleryCoversStates,
 } from "../testing/contract-check";
 import { expectCloneable } from "../testing/host-seal";
-import { startHeadless } from "../testing/start-headless";
 import { emptyStateContract } from "./empty-state.contract";
 import { createEmptyStateCore } from "./empty-state.core";
 import {
@@ -16,7 +15,6 @@ import {
 
 async function show(input: EmptyStateFixtureInput) {
 	const core = createEmptyStateCore();
-	startHeadless(core);
 	await core.execute({ command: "setKind", input: input.kind });
 	await core.execute({ command: "setTitle", input: input.title });
 	await core.execute({ command: "setMessage", input: input.message });

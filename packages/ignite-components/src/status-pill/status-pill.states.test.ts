@@ -7,7 +7,6 @@ import {
 	assertGalleryCoversStates,
 } from "../testing/contract-check";
 import { expectCloneable } from "../testing/host-seal";
-import { startHeadless } from "../testing/start-headless";
 import { statusPillContract } from "./status-pill.contract";
 import { createStatusPillCore, statusPillProjection } from "./status-pill.core";
 import {
@@ -21,7 +20,6 @@ import {
 
 async function show(input: StatusPillFixtureInput) {
 	const core = createStatusPillCore();
-	startHeadless(core);
 	await core.execute({ command: "setValue", input: input.value });
 	await core.execute({ command: "setTone", input: input.tone });
 	await core.execute({ command: "setReason", input: input.reason });
@@ -60,7 +58,6 @@ describe("StatusPill states", () => {
 	it("keeps an unknown tone from becoming the label", async () => {
 		const core = createStatusPillCore();
 		try {
-			startHeadless(core);
 			await core.execute({ command: "setValue", input: "Saved" });
 			await core.execute({ command: "setTone", input: "purple" });
 			expect(core.get("states")).toMatchObject({
@@ -102,7 +99,6 @@ describe("StatusPill states", () => {
 	it("treats a whitespace-only reason as no reason", async () => {
 		const core = createStatusPillCore();
 		try {
-			startHeadless(core);
 			await core.execute({ command: "setValue", input: "Paused" });
 			await core.execute({ command: "setReason", input: " \n\t " });
 			expect(core.get("states")).toMatchObject({
@@ -139,7 +135,6 @@ describe("StatusPill states", () => {
 	it("announces on change only after the host opts in", async () => {
 		const core = createStatusPillCore();
 		try {
-			startHeadless(core);
 			await core.execute({ command: "setValue", input: "Paused" });
 			await core.execute({ command: "setTone", input: "warning" });
 			await core.execute({

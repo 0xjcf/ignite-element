@@ -7,7 +7,6 @@ import {
 	assertGalleryCoversStates,
 } from "../testing/contract-check";
 import { expectCloneable } from "../testing/host-seal";
-import { startHeadless } from "../testing/start-headless";
 import { actionButtonContract } from "./action-button.contract";
 import { createActionButtonCore } from "./action-button.core";
 import {
@@ -18,7 +17,6 @@ import { actionButtonMachine, PENDING_REASON } from "./action-button.source";
 
 async function show(input: ActionButtonFixtureInput) {
 	const core = createActionButtonCore();
-	startHeadless(core);
 	await core.execute({ command: "setLabel", input: input.label });
 	await core.execute({ command: "setPendingLabel", input: input.pendingLabel });
 	if (input.phase === "pending") {
@@ -124,7 +122,6 @@ describe("ActionButton states", () => {
 	it("uses the visible fallback when refuse is only whitespace", async () => {
 		const core = createActionButtonCore();
 		try {
-			startHeadless(core);
 			await core.execute({ command: "refuse", input: "   " });
 			expect(core.get("states")).toMatchObject({
 				state: "unavailable",
