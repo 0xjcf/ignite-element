@@ -448,7 +448,13 @@ export function createAgentRuntime<
 			descriptor && "value" in descriptor ? descriptor.value : undefined;
 		if (typeof command !== "function") {
 			// Nothing will run; discard an acquisition this call made.
-			if (!prepared && externalSubscriptions === 0) resources.rollback?.();
+			if (!prepared && externalSubscriptions === 0) {
+				try {
+					resources.rollback?.();
+				} catch (cleanupError) {
+					console.error("[igniteCore] Command rollback failed.", cleanupError);
+				}
+			}
 			throw new Error(`[igniteCore] Unknown command "${call.command}".`);
 		}
 		// Subscribe only after the command is real. A live watch already observes;

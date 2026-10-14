@@ -1,7 +1,10 @@
+import type { IgniteAdapter } from "@ignite-element/core";
 import { configureStore, createSlice } from "@reduxjs/toolkit";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMachine, fromCallback } from "xstate";
 import { igniteCore as reduxCore } from "../redux";
+import { createAgentRuntime } from "../runtime/agent";
+import { createLifetime } from "../runtime/lifetime";
 import { igniteCore } from "../xstate";
 
 const slice = createSlice({
@@ -125,5 +128,36 @@ describe("independent core first-use failures", () => {
 		).rejects.toThrow(/unknown command/i);
 		expect(invoked.mock.calls.length).toBe(released.mock.calls.length);
 		core.dispose();
+	});
+
+	it("keeps the unknown-command error when the runtime rollback throws", async () => {
+		const adapter: IgniteAdapter<null, never> = {
+			getSnapshot: () => null,
+			send: () => {},
+			stop: () => {},
+			subscribeSnapshots: () => ({ unsubscribe() {} }),
+		};
+		const lifetime = createLifetime();
+		const { runtime } = createAgentRuntime({
+			lifetime,
+			dispose: () => lifetime.dispose(),
+			eventTypes: [],
+			resolveStates: () => ({}),
+			resolveRuntime: () => ({
+				adapter,
+				host: new EventTarget(),
+				additionalArgs: { noop: () => undefined },
+				rollback: () => {
+					throw new Error("cleanup failed");
+				},
+			}),
+		});
+		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+		await expect(
+			runtime.execute({ command: "missing" as "noop" }),
+		).rejects.toThrow(/unknown command/i);
+		expect(error).toHaveBeenCalled();
+		error.mockRestore();
+		runtime.dispose();
 	});
 });
