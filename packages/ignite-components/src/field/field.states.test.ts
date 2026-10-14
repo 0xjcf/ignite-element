@@ -7,7 +7,6 @@ import {
 	assertGalleryCoversStates,
 } from "../testing/contract-check";
 import { expectCloneable } from "../testing/host-seal";
-import { startHeadless } from "../testing/start-headless";
 import { fieldContract } from "./field.contract";
 import { createFieldCore, fieldProjection } from "./field.core";
 import { type FieldFixtureInput, fieldGallery } from "./field.gallery";
@@ -15,7 +14,6 @@ import { type FieldContext, fieldMachine } from "./field.source";
 
 async function show(input: FieldFixtureInput) {
 	const core = createFieldCore();
-	startHeadless(core);
 	await core.execute({ command: "setLabel", input: input.label });
 	await core.execute({ command: "setValue", input: input.value });
 	await core.execute({ command: "setHint", input: input.hint });
@@ -133,7 +131,6 @@ describe("Field states", () => {
 			touches.push(event.value);
 		});
 		try {
-			startHeadless(core);
 			await core.execute({ command: "setError", input: "Title is required." });
 			await core.execute({ command: "setValue", input: "  Buy milk  " });
 			await core.execute({ command: "setValue", input: "  Buy milk  " });
@@ -159,7 +156,6 @@ describe("Field states", () => {
 	it("announces an error when it is set and when it is cleared", async () => {
 		const core = createFieldCore();
 		try {
-			startHeadless(core);
 			await core.execute({ command: "setLabel", input: "Title" });
 			await core.execute({ command: "setHint", input: "   " });
 			expect(core.get("states")).toMatchObject({
@@ -212,7 +208,6 @@ describe("Field states", () => {
 	it("repeats the same error after the draft changes", async () => {
 		const core = createFieldCore();
 		try {
-			startHeadless(core);
 			await core.execute({ command: "setError", input: "Title is required." });
 			await core.execute({ command: "setValue", input: "Buy milk" });
 			await core.execute({ command: "setError", input: "Title is required." });

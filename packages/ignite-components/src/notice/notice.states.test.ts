@@ -7,7 +7,6 @@ import {
 	assertGalleryCoversStates,
 } from "../testing/contract-check";
 import { expectCloneable } from "../testing/host-seal";
-import { startHeadless } from "../testing/start-headless";
 import { noticeContract } from "./notice.contract";
 import { createNoticeCore } from "./notice.core";
 import { type NoticeFixtureInput, noticeGallery } from "./notice.gallery";
@@ -15,7 +14,6 @@ import { noticeMachine } from "./notice.source";
 
 async function show(input: NoticeFixtureInput) {
 	const core = createNoticeCore();
-	startHeadless(core);
 	await core.execute({ command: "setTone", input: input.tone });
 	await core.execute({ command: "setMessage", input: input.message });
 	await core.execute({
