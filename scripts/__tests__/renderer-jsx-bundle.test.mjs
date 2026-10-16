@@ -68,7 +68,7 @@ const EVENT_ORIGIN_WARNING = "observed from both native and effect";
 // Explicit false for the last two is a set. Own custom setters get undefined
 // and stay case-sensitive. There is no cached built-in element and no
 // fresh-element default reset.
-const TODAY_CONSUMER_GZIP = 5804;
+const TODAY_CONSUMER_GZIP = 5812;
 
 function consumerEntry() {
 	return `import { jsx, mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";
