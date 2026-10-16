@@ -1,0 +1,24 @@
+{
+	"$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker/master/packages/core/schema/stryker-schema.json",
+	"testRunner": "vitest",
+	"plugins": ["@stryker-mutator/vitest-runner"],
+	"vitest": {
+		"configFile": "packages/ignite-element/vitest.stryker.config.ts",
+		"dir": "packages/ignite-element",
+		"related": false
+	},
+	"mutate": [
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts",
+		"packages/ignite-renderer/src/renderers/jsx/IgniteJsxRenderStrategy.ts"
+	],
+	"coverageAnalysis": "perTest",
+	"incremental": true,
+	"incrementalFile": "reports/stryker-incremental.json",
+	"reporters": ["clear-text", "html", "json"],
+	"htmlReporter": { "fileName": "reports/mutation/index.html" },
+	"jsonReporter": { "fileName": "reports/mutation/mutation.json" },
+	"thresholds": { "high": 85, "low": 70, "break": null },
+	"concurrency": 4,
+	"timeoutMS": 10000,
+	"ignoreStatic": true
+}

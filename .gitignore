@@ -81,3 +81,7 @@ docs/site/.doc-typecheck/
 
 # Transient release plan written by scripts/release-beta.mjs (auto-deleted)
 .release-beta-plan.json
+
+# Stryker mutation testing output
+reports/
+.stryker-tmp/
