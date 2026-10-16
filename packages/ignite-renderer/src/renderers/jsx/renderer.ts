@@ -87,6 +87,8 @@ type RenderOptions = {
 	mode?: "diff" | "replace";
 	onFallbackReplace?: (reason: string) => void;
 	hosts?: IgniteHostRuntime;
+	/** Called once the DOM matches the tree, before refs and controlled writes. */
+	onTreePublished?: (tree: NormalizedNode[]) => void;
 };
 
 export function renderIgniteJsx(
@@ -123,6 +125,7 @@ function renderIgniteJsxNow(
 		) {
 			replaceAll(host, next);
 		}
+		options.onTreePublished?.(next);
 		return next;
 	});
 }
@@ -1335,15 +1338,34 @@ function isLiveField(element: Element, key: string): boolean {
 	);
 }
 
-// Events and HTML attributes compare case-insensitively. An own custom
-// setter keeps its spelling, so foo and FOO are different keys.
+// These properties have no attribute counterpart. The set path writes them
+// only in this exact spelling; SCROLLTOP is an unrelated attribute.
+// The value is the default a drop restores.
+const UNREFLECTED_PROPERTIES = new Map<string, number | boolean>([
+	["scrollTop", 0],
+	["scrollLeft", 0],
+	["indeterminate", false],
+	["muted", false],
+]);
+
+function isUnreflectedProperty(
+	element: Element,
+	key: string,
+	isSvg: boolean,
+): boolean {
+	return !isSvg && UNREFLECTED_PROPERTIES.has(key) && key in element;
+}
+
+// Events and HTML attributes compare case-insensitively. Exact-name property
+// sinks keep their spelling, so foo and FOO are different keys.
 function sinkKey(element: Element, key: string, isSvg: boolean): string {
 	if (isEventHandlerKey(key)) {
 		return `*${normalizeEventName(key.slice(2))}`;
 	}
 	if (
 		hasOwnCustomSetter(element as HTMLElement, key) ||
-		isLiveField(element, key)
+		isLiveField(element, key) ||
+		isUnreflectedProperty(element, key, isSvg)
 	) {
 		return `\0${key}`;
 	}
@@ -1407,15 +1429,19 @@ function removeProp(
 		return;
 	}
 
+	// An unreflected property is dropped by itself. Its lower-case attribute
+	// spelling is another sink and stays.
 	if (
-		(key === "scrollTop" || key === "scrollLeft") &&
+		isUnreflectedProperty(element, key, isSvg) &&
 		!hasOwnCustomSetter(element as HTMLElement, key)
 	) {
-		const scrolling = element as HTMLElement;
+		const fallback = UNREFLECTED_PROPERTIES.get(key);
 		try {
-			if (scrolling[key] !== 0) scrolling[key] = 0;
+			if (Reflect.get(element, key) !== fallback) {
+				Reflect.set(element, key, fallback);
+			}
 		} catch {
-			// A throwing scroll setter stops here.
+			// A throwing setter stops here.
 		}
 		return;
 	}

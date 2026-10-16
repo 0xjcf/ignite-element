@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { defineConfig, mergeConfig } from "vitest/config";
+import { configDefaults, defineConfig, mergeConfig } from "vitest/config";
 import { igniteDevWarningsDefine } from "../../configs/vite/devWarnings";
 import viteConfig from "./vite.config";
 
@@ -94,6 +94,8 @@ export default defineConfig((configEnv) =>
 				// The detached-style-root test collects with global.gc().
 				execArgv: ["--expose-gc"],
 				include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+				// Chromium suites run through vitest.browser.config.ts.
+				exclude: [...configDefaults.exclude, "**/*.browser.test.ts"],
 				setupFiles: "./vitest.setup.ts",
 				coverage: {
 					// Sources under sibling packages are imported by these tests.

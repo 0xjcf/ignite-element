@@ -56,6 +56,7 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 	private readonly mode: "diff" | "replace";
 	private readonly diffEnabled: boolean;
 	private forceReplace = false;
+	private publishedCount = 0;
 
 	constructor() {
 		const { strategy, logging } = getIgniteConfig() ?? {};
@@ -114,6 +115,11 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 		}
 	}
 
+	/** Number of trees published as the DOM's current shape. Only increases. */
+	get renderGeneration(): number {
+		return this.publishedCount;
+	}
+
 	render(view: IgniteJsxChild): void {
 		const contentRoot = this.contentRoot;
 		if (!contentRoot) {
@@ -123,11 +129,19 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 		}
 
 		const mode = this.forceReplace || !this.diffEnabled ? "replace" : this.mode;
+		// Refs run after the DOM is patched and may render again. The tree is
+		// published first, so a nested render diffs against the DOM it finds and
+		// the outer render never writes a stale tree back.
+		const onTreePublished = (tree: NormalizedNode[]) => {
+			this.previousTree = tree;
+			this.publishedCount++;
+		};
 		const render = () =>
 			this.previousTree === null
-				? mountIgniteJsx(contentRoot, view)
-				: renderIgniteJsx(contentRoot, view, this.previousTree ?? undefined, {
+				? mountIgniteJsx(contentRoot, view, { onTreePublished })
+				: renderIgniteJsx(contentRoot, view, this.previousTree, {
 						mode,
+						onTreePublished,
 						onFallbackReplace: __IGNITE_DEV_WARNINGS__
 							? (reason) =>
 									logJsxFallback(
@@ -142,9 +156,9 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 			const runtime = readBoundHostRuntime(
 				rootNode instanceof ShadowRoot ? rootNode.host : undefined,
 			);
-			this.previousTree = withIgniteHostRuntime(runtime, render);
+			withIgniteHostRuntime(runtime, render);
 		} else {
-			this.previousTree = render();
+			render();
 		}
 
 		if (__IGNITE_DEV_WARNINGS__) {
