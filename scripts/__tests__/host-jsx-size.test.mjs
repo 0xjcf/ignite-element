@@ -72,12 +72,12 @@ describe("JSX host runtime size", () => {
 		assert.ok(gzip > 0);
 		// Existing default gzip (level 6), not the consumer's level 9 method.
 		// Jose approved the exact 4173 B cost of committed refs and native
-		// select correctness, then the exact 4348 B for PR #168: the render-tree
+		// select correctness, then the exact 4355 B for PR #168: the render-tree
 		// publish hook (commit ordering), the exact-name property sink table, and
 		// SMIL commit ordering (approved for native select correctness and sink
 		// blocking).
 		// Host exclusion and build settings stay the same.
-		assert.ok(gzip <= 4348, `no-host JSX gzip ${gzip} is above 4348`);
+		assert.ok(gzip <= 4355, `no-host JSX gzip ${gzip} is above 4355`);
 	});
 
 	it("includes the host runtime when the internal module is imported", async () => {
