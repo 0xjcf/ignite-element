@@ -410,6 +410,40 @@ function smilHrefTarget(value: unknown): boolean {
 		: value != null;
 }
 
+const smilKeys = /^(attributeName|from|to|by|values)$/i;
+
+function isSmil(element: Element): boolean {
+	const tag = element.localName.toLowerCase();
+	return tag === "animate" || tag === "set" || tag === "animatemotion";
+}
+
+// A SMIL value is only safe or unsafe relative to the attribute it animates,
+// so the DOM must never hold a value next to a target that makes it
+// executable. The guard reads the next props, so it describes the DOM only
+// once the target is committed. Retract first instead: every SMIL prop that is
+// dropped, changed, or blocked for the next props is removed before the main
+// loop writes anything. The DOM then holds only values that are unchanged and
+// safe under any target, and the rewrite of a changed attributeName or value
+// never sits next to a stale partner, whatever the key order.
+function settleSmil(
+	element: Element,
+	oldProps: IgniteJsxProps,
+	newProps: IgniteJsxProps,
+): void {
+	if (!isSmil(element)) return;
+	for (const key of Object.keys(oldProps)) {
+		if (!smilKeys.test(key)) continue;
+		const kept = sinkMatch(newProps, element, key, true);
+		if (
+			!kept ||
+			newProps[kept] !== oldProps[key] ||
+			isBlockedUrlValue(element, kept, newProps[kept], newProps)
+		) {
+			removeProp(element, key, oldProps[key], true);
+		}
+	}
+}
+
 function isBlockedUrlValue(
 	element: Element,
 	key: string,
@@ -426,7 +460,7 @@ function isBlockedUrlValue(
 	// are removed, then any Clark or namespace prefix is removed. href,
 	// and any non-string attributeName, drops from, to, by, and values.
 	if (
-		(tag === "animate" || tag === "set" || tag === "animatemotion") &&
+		isSmil(element) &&
 		(name === "from" || name === "to" || name === "by" || name === "values") &&
 		smilHrefTarget(props?.attributeName)
 	) {
@@ -1077,6 +1111,8 @@ function patchProps(
 	if (__IGNITE_DEV_WARNINGS__) {
 		warnDuplicateProps(element, newProps, isSvgElement);
 	}
+
+	settleSmil(element, oldProps, newProps);
 
 	// default* before checked, value, and selected, whatever the key order.
 	for (let pass = 0; pass < 2; pass++) {
