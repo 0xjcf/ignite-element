@@ -242,6 +242,48 @@ order:
 Do not defer declaration or packed-consumer failures until the end of a long
 suite.
 
+## Mine-test-fix-verify
+
+For behavioral work with non-trivial invariants (ordering, lifetime, or scope
+rules), run the steps below in order on the scope about to be touched. The goal
+is to replace the fix-review-fix-review cycle: find violations before the fix,
+not through repeated review rounds.
+
+1. **Mine invariants.** Run the invariant miner
+   (`/home/box/agent-data/workflows/invariant-miner/SKILL.md`; OpenAI generator
+   and Jev judge by default) on the touched scope to generate new `never` and
+   `always` rules. A human approves or rejects every rule before any code moves.
+2. **Property-test the current code.** Write `fast-check` properties for the
+   approved rules and run them against the current, unfixed code to surface
+   violations early. Follow the test-first flow above: failing tests first,
+   property tests for invariants, root-cause fixes. Pin the seed and run count.
+3. **Mutate as the adversarial pass.** Run Stryker mutation testing on the
+   touched scope, locally or via the scheduled job. Do not add Stryker to PR CI;
+   it is too slow for a per-PR gate. Treat surviving mutants as missing
+   assertions and strengthen the tests.
+4. **Write the fix.** Only now implement the smallest complete root-cause
+   correction and prove focused green.
+5. **Codex review last.** Codex review is the final gate, not the first
+   discovery tool. A finding it raises that steps 1-3 should have caught means
+   the rule set or properties need extending, not just a patch.
+
+Lessons that apply to steps 1-2:
+
+- **Write-log oracle.** When the invariant is "no write from a superseded
+  operation", record writes (for example a Proxy or instrumented setter on the
+  controlled field) and assert the write log, not only the final state. A
+  final-state check passes when a stale write happens to be overwritten.
+- **Phase-interleaving generators.** For re-entrancy and commit-phase rules,
+  generate action lists (render, detach, throw, mount elsewhere) per hook or
+  phase against a single `lastRequested` oracle. Assert both that the result
+  equals a fresh render of the last request and that the next render converges.
+  Prefer small closed domains (`constantFrom`) so counterexamples shrink to a
+  readable phase pair.
+- **Feed the miner the phase model.** Give the generator the phase table (who
+  may call in each phase, which flags and queues exist and their lifetimes) and
+  ask for ordering, lifetime, and scope invariants. Do not trust the judge's
+  `holds_without_exceptions` score for code-behavior rules.
+
 ## Content-addressed validation reuse
 
 A reusable validation receipt should identify all inputs relevant to the result:

@@ -74,6 +74,8 @@ Add or update tests for your changes. Run the test suite locally to ensure all t
 
 Every new invariant gets a property test when that invariant can be stated as a property. Use `fast-check` as a devDependency only, with a fixed seed and run count recorded in the test so CI replays the same sequence. DOM behavior stays on the browser runner (`pnpm --filter ignite-element test:e2e`).
 
+For behavioral work with non-trivial invariants, follow the mine-test-fix-verify order (mine invariants, property-test current code, Stryker on the touched scope without adding it to PR CI, then fix, then Codex review last) documented in [`AGENTS.md`](AGENTS.md#mine-test-fix-verify).
+
 #### Code Coverage
 
 Maintain a minimum of **80% test coverage** for all contributions. Run the coverage report:
