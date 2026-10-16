@@ -1170,6 +1170,18 @@ function patchProps(
 				continue;
 			}
 
+			// An own setter may have side effects its getter does not show, so a
+			// present value is assigned exactly once per render, here, before any
+			// equality skip and without the default*/live reapply below.
+			if (
+				!isSvgElement &&
+				next != null &&
+				hasOwnCustomSetter(element as HTMLElement, key)
+			) {
+				applyProperty(element as HTMLElement, key, next);
+				continue;
+			}
+
 			// An unchanged spelling is still applied when its twin was dropped.
 			// Two spellings at once stay unspecified; one remaining spelling is not.
 			// Unchanged also means committed: a value the previous props blocked
@@ -1182,32 +1194,20 @@ function patchProps(
 				continue;
 			}
 
-			// Explicit false is a set for these defaults, not a drop. Applying it
-			// can clear a still-controlled checked or selected value. Reapply
-			// custom fields here; native live fields also have a final flush.
+			// Explicit false is a set for these defaults, not a drop. The live
+			// checked or selected value is written by its own pass afterwards.
 			if (
 				next === false &&
 				!isSvgElement &&
 				(key === "defaultChecked" || key === "defaultSelected")
 			) {
-				const host = element as HTMLElement;
-				applyProperty(host, key, false);
-				const live = key === "defaultChecked" ? "checked" : "selected";
-				if (typeof newProps[live] === "boolean") {
-					applyProperty(host, live, newProps[live]);
-				}
+				applyProperty(element as HTMLElement, key, false);
 				continue;
 			}
 
 			if (next === false || next === null || next === undefined) {
 				// A present false is a value. undefined is only for a later drop.
 				if (
-					next === false &&
-					!isSvgElement &&
-					hasOwnCustomSetter(element as HTMLElement, key)
-				) {
-					applyProperty(element as HTMLElement, key, false);
-				} else if (
 					next === false &&
 					!isSvgElement &&
 					/^(translate|spellcheck|draggable)$/i.test(key)
