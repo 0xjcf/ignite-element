@@ -60,7 +60,7 @@ const EVENT_ORIGIN_WARNING = "observed from both native and effect";
 // Gzip level 9 of this production consumer entry before dev warnings were
 // left for a consumer bundler to strip. Previous target was 4634.
 // renderer security guard: SVG animate/set + meta refresh
-// The exact approved no-host ceiling is 5,804 B (gzip level 9), raised from
+// The exact approved no-host ceiling is 5,812 B (gzip level 9), raised from
 // 5,730 B for PR #168: SMIL retraction ordering, on top of the render-tree
 // publish hook (commit ordering) and the exact-name property sink table. No extra headroom is included.
 // Dropped checked, value, and selected stay.

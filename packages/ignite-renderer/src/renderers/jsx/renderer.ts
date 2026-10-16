@@ -1172,8 +1172,11 @@ function patchProps(
 
 			// An unchanged spelling is still applied when its twin was dropped.
 			// Two spellings at once stay unspecified; one remaining spelling is not.
+			// Unchanged also means committed: a value the previous props blocked
+			// (for example a SMIL `to` beside an href target) was never written.
 			if (
 				next === prev &&
+				!isBlockedUrlValue(element, key, prev, oldProps) &&
 				!droppedSiblingSpelling(oldProps, newProps, element, key, isSvgElement)
 			) {
 				continue;
@@ -1581,8 +1584,11 @@ function applyProperty(
 	key: string,
 	value: unknown,
 ): void {
-	const current = Reflect.get(element, key);
-	if (current !== value) setContained(element, key, value);
+	// An own setter may have side effects its getter does not show, so it is
+	// always assigned. Native properties skip a value they already hold.
+	if (hasOwnCustomSetter(element, key) || Reflect.get(element, key) !== value) {
+		setContained(element, key, value);
+	}
 }
 
 function flushSelectValue(element: Element, props: IgniteJsxProps): void {
