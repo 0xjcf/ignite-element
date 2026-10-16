@@ -127,7 +127,7 @@ function renderIgniteJsxNow(
 		}
 		options.onTreePublished?.(next);
 		return next;
-	});
+	}, host);
 }
 
 function normalizeRoot(view: IgniteJsxChild): NormalizedNode[] {
@@ -1535,13 +1535,21 @@ function queueControlled(
 }
 
 // A render owns its queues; nested or failed renders cannot drain its work.
-function commitRender<T>(render: () => T): T {
+// Controlled writes also stop once a newer render began on the same host: a
+// setter or flush that renders again has already written the newer view.
+const renderEpochs = new WeakMap<object, object>();
+
+function commitRender<T>(render: () => T, host?: object): T {
 	const parent = commitQueue;
 	const queues: typeof commitQueue = [[], []];
 	commitQueue = queues;
+	const epoch = {};
+	if (host) renderEpochs.set(host, epoch);
 	try {
 		const result = render();
-		for (const phase of queues) for (const commit of phase) commit();
+		for (const commit of queues[0])
+			if (!host || renderEpochs.get(host) === epoch) commit();
+		for (const commit of queues[1]) commit();
 		return result;
 	} finally {
 		commitQueue = parent;

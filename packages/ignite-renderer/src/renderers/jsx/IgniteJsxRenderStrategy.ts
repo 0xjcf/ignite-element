@@ -119,8 +119,11 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 	// A custom setter can call render() while the commit is still writing the
 	// DOM, before the tree is published. A nested render would diff a stale
 	// tree over a half-patched DOM, so it waits for the outer commit and the
-	// newest request runs after it. Once the tree is published (refs, cleanups)
-	// a nested render runs at once and supersedes anything still waiting.
+	// newest request runs after it, even when the outer render throws. A render
+	// that throws before publishing leaves a DOM that no tree describes, so the
+	// next render rebuilds. Once the tree is published (controlled flush, refs,
+	// cleanups) a nested render runs at once; the renderer stops the outer
+	// controlled writes it superseded.
 	render(view: IgniteJsxChild): void {
 		if (this.writing) {
 			this.next = [view];
@@ -131,11 +134,10 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 		try {
 			this.renderNow(view);
 		} finally {
+			if (this.writing) this.previousTree = null;
 			this.writing = false;
+			if (this.next) this.render(this.next[0]);
 		}
-		const queued = this.next;
-		this.next = undefined;
-		if (queued) this.render(queued[0]);
 	}
 
 	private renderNow(view: IgniteJsxChild): void {
