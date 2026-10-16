@@ -242,6 +242,57 @@ order:
 Do not defer declaration or packed-consumer failures until the end of a long
 suite.
 
+## Mine-test-fix-verify
+
+For behavioral work with non-trivial invariants (ordering, lifetime, or scope
+rules), run the steps below in order on the scope about to be touched. The goal
+is to replace the fix-review-fix-review cycle: find violations before the fix,
+not through repeated review rounds.
+
+1. **Mine invariants.** Where the invariant miner is available (an OpenAI
+   generator with a Jev judge by default), run it on the touched scope to
+   generate new `never` and `always` rules. Until the miner is checked into this
+   repository, the portable fallback is a manually written `never`/`always` list
+   for the scope. Either way, a human reviews every rule before any code moves.
+2. **Property-test the current code.** Write `fast-check` properties for the
+   approved rules and run them against the current, unfixed code. Red is
+   expected: confirm the violations are real and preserve the failing evidence.
+   Follow the test-first flow above: failing tests first, property tests for
+   invariants. Pin the seed and run count.
+3. **Write the fix.** Implement the smallest complete root-cause correction and
+   prove focused green.
+4. **Mutate as the adversarial pass.** Where Stryker is available, run it on the
+   touched scope now that the tests are green, locally or via a scheduled job.
+   Do not add Stryker to PR CI; it is too slow for a per-PR gate. Triage
+   survivors first: note and ignore equivalent mutants (no test can kill them),
+   and add new tests only for real survivors. Until Stryker is configured in
+   this repository, this step is skipped or done manually.
+5. **Codex review last.** Codex review is the final gate, not the first
+   discovery tool. A finding it raises that the earlier steps should have
+   caught means the rules or properties need extending, not just a patch.
+
+**Bundle budget.** The ignite-element consumer bundle ceiling is a fixed hard
+budget of 6,000 B gzip (6K), not a moving target. Any change that would exceed
+it must reduce size elsewhere in the same change. Do not bump the ceiling and do
+not open follow-up PRs to raise it.
+
+Lessons that apply to steps 1-2:
+
+- **Write-log oracle.** When the invariant is "no write from a superseded
+  operation", record writes (for example a Proxy or instrumented setter on the
+  controlled field) and assert the write log, not only the final state. A
+  final-state check passes when a stale write happens to be overwritten.
+- **Phase-interleaving generators.** For re-entrancy and commit-phase rules,
+  generate action lists (render, detach, throw, mount elsewhere) per hook or
+  phase against a single `lastRequested` oracle. Assert both that the result
+  equals a fresh render of the last request and that the next render converges.
+  Prefer small closed domains (`constantFrom`) so counterexamples shrink to a
+  readable phase pair.
+- **Feed the miner the phase model.** Give the generator the phase table (who
+  may call in each phase, which flags and queues exist and their lifetimes) and
+  ask for ordering, lifetime, and scope invariants. Do not trust the judge's
+  `holds_without_exceptions` score for code-behavior rules.
+
 ## Content-addressed validation reuse
 
 A reusable validation receipt should identify all inputs relevant to the result:
