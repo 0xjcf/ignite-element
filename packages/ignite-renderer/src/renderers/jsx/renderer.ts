@@ -1539,16 +1539,16 @@ function queueControlled(
 // setter or flush that renders again has already written the newer view.
 const renderEpochs = new WeakMap<object, object>();
 
-function commitRender<T>(render: () => T, host?: object): T {
+function commitRender<T>(render: () => T, host: object = {}): T {
 	const parent = commitQueue;
 	const queues: typeof commitQueue = [[], []];
 	commitQueue = queues;
 	const epoch = {};
-	if (host) renderEpochs.set(host, epoch);
+	renderEpochs.set(host, epoch);
 	try {
 		const result = render();
 		for (const commit of queues[0])
-			if (!host || renderEpochs.get(host) === epoch) commit();
+			if (renderEpochs.get(host) === epoch) commit();
 		for (const commit of queues[1]) commit();
 		return result;
 	} finally {

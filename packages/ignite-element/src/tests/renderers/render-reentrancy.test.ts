@@ -50,6 +50,7 @@ const snapshot = (shadow: ShadowRoot) => {
 	const root = shadow.querySelector("ignite-jsx-root");
 	return root ? describeNode(root) : "";
 };
+const describeRoot = (view: IgniteJsxChild) => fresh(view);
 function fresh(view: IgniteJsxChild): string {
 	const { shadow, strategy } = attach();
 	strategy.render(view);
@@ -74,6 +75,12 @@ const nativeValue = Object.getOwnPropertyDescriptor(
 ) as PropertyDescriptor;
 
 describe("render re-entrancy", () => {
+	const specArb = fc.record({
+		id: fc.constantFrom("a", "b", "c"),
+		a: fc.constantFrom("1", "2", "3"),
+		v1: fc.constantFrom("p", "q", "r"),
+		v2: fc.constantFrom("s", "t", "u"),
+	});
 	it("a setter on a controlled field that renders again is not overwritten by the outer flush", () => {
 		const { shadow, strategy } = attach();
 		strategy.render(base({ id: "0", a: "0", v1: "x", v2: "y" }));
@@ -162,16 +169,165 @@ describe("render re-entrancy", () => {
 		expect(snapshot(shadow)).toBe(fresh(outer));
 	});
 
+	const throwingView = (message: string) =>
+		jsx("div", {
+			style: {
+				get color(): string {
+					throw new Error(message);
+				},
+			},
+		});
+
+	// Known gap (R08): the queued render's error replaces the outer one. The fix
+	// (keep the first error) did not fit the consumer size ceiling. it.fails
+	// flips to a failure, and so demands removing this marker, once it is fixed.
+	it.fails(
+		"keeps the first error when the outer and the queued render both throw",
+		() => {
+			const { strategy } = attach();
+			strategy.render(base({ id: "0", a: "0", v1: "x", v2: "y" }));
+			let fired = false;
+			ReenterElement.hook = () => {
+				if (fired) return;
+				fired = true;
+				strategy.render(throwingView("queued"));
+			};
+			expect(() =>
+				strategy.render(
+					base({ id: "o", a: "o", v1: "x2", v2: "y2" }, [
+						jsx("x-rp", { trigger: 1 }),
+						throwingView("outer"),
+					]),
+				),
+			).toThrow("outer");
+		},
+	);
+
+	it("surfaces a queued render's error when the outer render succeeds", () => {
+		const { strategy } = attach();
+		let fired = false;
+		ReenterElement.hook = () => {
+			if (fired) return;
+			fired = true;
+			strategy.render(throwingView("queued"));
+		};
+		expect(() => strategy.render(jsx("x-rp", { trigger: 1 }))).toThrow(
+			"queued",
+		);
+	});
+
+	it("a render queued before detach() never runs after it", () => {
+		const { shadow, strategy } = attach();
+		strategy.render(base({ id: "0", a: "0", v1: "x", v2: "y" }));
+		ReenterElement.hook = () => {
+			strategy.render(base({ id: "n", a: "n", v1: "p", v2: "q" }));
+			strategy.detach();
+		};
+		expect(() =>
+			strategy.render(
+				base({ id: "o", a: "o", v1: "x2", v2: "y2" }, [
+					jsx("x-rp", { trigger: 1 }),
+				]),
+			),
+		).not.toThrow();
+		expect(shadow.querySelector("ignite-jsx-root")).toBeNull();
+	});
+
+	it("mounting once into the strategy's own root cancels the superseded controlled writes", () => {
+		const { shadow, strategy } = attach();
+		strategy.render(base({ id: "0", a: "0", v1: "x", v2: "y" }));
+		const first = shadow.querySelector("input") as HTMLInputElement;
+		const mounted = jsx("p", { children: "mounted" });
+		let fired = false;
+		Object.defineProperty(first, "value", {
+			configurable: true,
+			get() {
+				return nativeValue.get?.call(this);
+			},
+			set(value: string) {
+				nativeValue.set?.call(this, value);
+				if (value === "x2" && !fired) {
+					fired = true;
+					mountIgniteJsxOnce(
+						shadow.querySelector("ignite-jsx-root") as HTMLElement,
+						mounted,
+					);
+				}
+			},
+		});
+		strategy.render(base({ id: "o", a: "o", v1: "x2", v2: "y2" }));
+		expect(snapshot(shadow)).toBe(
+			describeRoot(jsx("p", { children: "mounted" })),
+		);
+	});
+
+	// Actions a setter can take mid-patch. Model: render() queues the newest
+	// view, detach() drops the queue, a thrown error is contained by the setter
+	// write. A render requested after detach() surfaces the usual attach error.
+	type Action =
+		| { kind: "render"; spec: Spec }
+		| { kind: "detach" }
+		| { kind: "throw" };
+	const actionArb: fc.Arbitrary<Action> = fc.oneof(
+		specArb.map((spec) => ({ kind: "render" as const, spec })),
+		fc.constant({ kind: "detach" as const }),
+		fc.constant({ kind: "throw" as const }),
+	);
+
+	it("setter actions (render, detach, throw) follow the queue model", () => {
+		fc.assert(
+			fc.property(fc.array(actionArb, { maxLength: 6 }), (actions) => {
+				document.body.replaceChildren();
+				const { shadow, strategy } = attach();
+				strategy.render(base({ id: "0", a: "0", v1: "x", v2: "y" }));
+				let fired = false;
+				ReenterElement.hook = () => {
+					if (fired) return;
+					fired = true;
+					for (const action of actions) {
+						if (action.kind === "render") strategy.render(base(action.spec));
+						else if (action.kind === "detach") strategy.detach();
+						else throw new Error("setter failed");
+					}
+				};
+				let queued: Spec | null = null;
+				let detached = false;
+				for (const action of actions) {
+					if (action.kind === "render") queued = action.spec;
+					else if (action.kind === "detach") {
+						queued = null;
+						detached = true;
+					} else break;
+				}
+				const run = () =>
+					strategy.render(
+						jsx("div", {
+							children: [
+								base(
+									actions.length
+										? { id: "o", a: "o", v1: "x2", v2: "y2" }
+										: { id: "o", a: "o", v1: "x2", v2: "y2" },
+								),
+								jsx("x-rp", { trigger: 1 }),
+							],
+						}),
+					);
+				if (queued && detached) expect(run).toThrow();
+				else {
+					expect(run).not.toThrow();
+					if (queued) expect(snapshot(shadow)).toBe(fresh(base(queued)));
+					else if (detached)
+						expect(shadow.querySelector("ignite-jsx-root")).toBeNull();
+				}
+			}),
+			{ seed: 168505, numRuns: 300 },
+		);
+	});
+
 	// Phases that can call render(): custom setter (before publish), controlled
 	// flush (after publish), ref and cleanup (after publish), and an outer throw.
 	const phases = ["setter", "controlled", "ref", "cleanup", "throw"] as const;
 	type Phase = (typeof phases)[number];
-	const specArb = fc.record({
-		id: fc.constantFrom("a", "b", "c"),
-		a: fc.constantFrom("1", "2", "3"),
-		v1: fc.constantFrom("p", "q", "r"),
-		v2: fc.constantFrom("s", "t", "u"),
-	});
 
 	it("interleaved nested renders at any phase converge on the last requested view", () => {
 		fc.assert(
