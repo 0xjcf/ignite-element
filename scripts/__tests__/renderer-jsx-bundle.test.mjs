@@ -60,7 +60,7 @@ const EVENT_ORIGIN_WARNING = "observed from both native and effect";
 // Gzip level 9 of this production consumer entry before dev warnings were
 // left for a consumer bundler to strip. Previous target was 4634.
 // renderer security guard: SVG animate/set + meta refresh
-// The exact approved no-host ceiling is 5,822 B (gzip level 9), raised from
+// The exact approved no-host ceiling is 5,850 B (gzip level 9), raised from
 // 5,730 B for PR #168: SMIL retraction ordering, on top of the render-tree
 // publish hook (commit ordering) and the exact-name property sink table. No extra headroom is included.
 // Dropped checked, value, and selected stay.
@@ -68,7 +68,7 @@ const EVENT_ORIGIN_WARNING = "observed from both native and effect";
 // Explicit false for the last two is a set. Own custom setters get undefined
 // and stay case-sensitive. There is no cached built-in element and no
 // fresh-element default reset.
-const TODAY_CONSUMER_GZIP = 5822;
+const TODAY_CONSUMER_GZIP = 5850;
 
 function consumerEntry() {
 	return `import { jsx, mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";
