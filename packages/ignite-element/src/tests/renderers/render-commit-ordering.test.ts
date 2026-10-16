@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "vitest";
+import * as fc from "fast-check";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createIgniteJsxRenderStrategy } from "../../renderers/jsx/IgniteJsxRenderStrategy";
 import { jsx } from "../../renderers/jsx/jsx-runtime";
 import type { IgniteJsxChild } from "../../renderers/jsx/types";
@@ -80,5 +81,98 @@ describe("render commit ordering", () => {
 		const final = jsx("div", { "data-a": "1", "data-b": "2", "data-c": "3" });
 		strategy.render(final);
 		expect(snapshot(shadow)).toBe(freshSnapshot(final));
+	});
+
+	describe("a custom setter that renders again", () => {
+		class ReenterElement extends HTMLElement {
+			static onSet: ((value: unknown) => void) | null = null;
+			set trigger(value: unknown) {
+				ReenterElement.onSet?.(value);
+			}
+		}
+		beforeAll(() => {
+			if (!customElements.get("x-reenter")) {
+				customElements.define("x-reenter", ReenterElement);
+			}
+		});
+		afterEach(() => {
+			ReenterElement.onSet = null;
+		});
+
+		function renderWithReentrantSetter(
+			strategy: ReturnType<typeof attachStrategy>["strategy"],
+			outer: IgniteJsxChild,
+			inner: IgniteJsxChild,
+		): void {
+			let reentered = false;
+			ReenterElement.onSet = () => {
+				if (reentered) return;
+				reentered = true;
+				strategy.render(inner);
+			};
+			strategy.render(outer);
+		}
+
+		it("does not patch the DOM from a stale tree while the outer render is still writing", () => {
+			const { strategy, shadow } = attachStrategy();
+			strategy.render(jsx("div", { "data-a": "1" }));
+			const inner = jsx("div", { "data-c": "3" });
+			renderWithReentrantSetter(
+				strategy,
+				jsx("div", {
+					"data-a": "1",
+					children: jsx("x-reenter", { trigger: true, "data-b": "2" }),
+				}),
+				inner,
+			);
+			expect(snapshot(shadow)).toBe(freshSnapshot(inner));
+			const final = jsx("div", { "data-a": "1", "data-c": "3" });
+			strategy.render(final);
+			expect(snapshot(shadow)).toBe(freshSnapshot(final));
+		});
+
+		it("a first mount whose setter renders again converges on the newest view", () => {
+			const { strategy, shadow } = attachStrategy();
+			const inner = jsx("section", { title: "inner" });
+			renderWithReentrantSetter(
+				strategy,
+				jsx("x-reenter", { trigger: true, "data-b": "2" }),
+				inner,
+			);
+			expect(snapshot(shadow)).toBe(freshSnapshot(inner));
+		});
+
+		it("converges on the newest view for any outer and inner props", () => {
+			const propsArb = fc.dictionary(
+				fc.constantFrom("data-a", "data-b", "data-c", "title"),
+				fc.constantFrom("1", "2", "3"),
+			);
+			fc.assert(
+				fc.property(
+					fc.option(propsArb, { nil: null }),
+					propsArb,
+					propsArb,
+					(first, outerProps, innerProps) => {
+						document.body.replaceChildren();
+						const { strategy, shadow } = attachStrategy();
+						if (first) strategy.render(jsx("div", first));
+						const inner = jsx("div", innerProps);
+						renderWithReentrantSetter(
+							strategy,
+							jsx("div", {
+								...outerProps,
+								children: jsx("x-reenter", { trigger: true }),
+							}),
+							inner,
+						);
+						expect(snapshot(shadow)).toBe(freshSnapshot(inner));
+						const final = jsx("div", { ...outerProps, ...innerProps });
+						strategy.render(final);
+						expect(snapshot(shadow)).toBe(freshSnapshot(final));
+					},
+				),
+				{ seed: 168502, numRuns: 200 },
+			);
+		});
 	});
 });

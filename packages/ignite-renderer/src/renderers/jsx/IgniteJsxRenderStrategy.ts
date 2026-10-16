@@ -56,7 +56,8 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 	private readonly mode: "diff" | "replace";
 	private readonly diffEnabled: boolean;
 	private forceReplace = false;
-	private publishedCount = 0;
+	private writing = false;
+	private next: [IgniteJsxChild] | undefined;
 
 	constructor() {
 		const { strategy, logging } = getIgniteConfig() ?? {};
@@ -115,12 +116,29 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 		}
 	}
 
-	/** Number of trees published as the DOM's current shape. Only increases. */
-	get renderGeneration(): number {
-		return this.publishedCount;
+	// A custom setter can call render() while the commit is still writing the
+	// DOM, before the tree is published. A nested render would diff a stale
+	// tree over a half-patched DOM, so it waits for the outer commit and the
+	// newest request runs after it. Once the tree is published (refs, cleanups)
+	// a nested render runs at once and supersedes anything still waiting.
+	render(view: IgniteJsxChild): void {
+		if (this.writing) {
+			this.next = [view];
+			return;
+		}
+		this.next = undefined;
+		this.writing = true;
+		try {
+			this.renderNow(view);
+		} finally {
+			this.writing = false;
+		}
+		const queued = this.next;
+		this.next = undefined;
+		if (queued) this.render(queued[0]);
 	}
 
-	render(view: IgniteJsxChild): void {
+	private renderNow(view: IgniteJsxChild): void {
 		const contentRoot = this.contentRoot;
 		if (!contentRoot) {
 			throw new Error(
@@ -129,12 +147,9 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 		}
 
 		const mode = this.forceReplace || !this.diffEnabled ? "replace" : this.mode;
-		// Refs run after the DOM is patched and may render again. The tree is
-		// published first, so a nested render diffs against the DOM it finds and
-		// the outer render never writes a stale tree back.
 		const onTreePublished = (tree: NormalizedNode[]) => {
 			this.previousTree = tree;
-			this.publishedCount++;
+			this.writing = false;
 		};
 		const render = () =>
 			this.previousTree === null

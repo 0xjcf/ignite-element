@@ -217,9 +217,7 @@ describe("renderer invariants", () => {
 		type Real = {
 			tag: Tag;
 			shadow: ShadowRoot;
-			strategy: ReturnType<typeof createIgniteJsxRenderStrategy> & {
-				renderGeneration: number;
-			};
+			strategy: ReturnType<typeof createIgniteJsxRenderStrategy>;
 			view: (props: Props, extra?: Props) => IgniteJsxChild;
 		};
 		class RenderCommand implements fc.Command<Model, Real> {
@@ -270,41 +268,15 @@ describe("renderer invariants", () => {
 				const real: Real = {
 					tag,
 					shadow,
-					strategy: strategy as Real["strategy"],
+					strategy,
 					view,
 				};
 				const model: Model = { expected: {}, renders: 0 };
 				fc.modelRun(() => ({ model, real }), cmds);
-				// Each command publishes at least one tree.
-				expect(real.strategy.renderGeneration).toBeGreaterThanOrEqual(
-					model.renders,
-				);
 				if (model.renders > 0) {
 					expect(observe(shadow)).toBe(fresh(tag, model.expected));
 				}
 			}),
-			{ seed, numRuns },
-		);
-	});
-
-	it("render generation never decreases and grows with every render", () => {
-		fc.assert(
-			fc.property(
-				tagArb,
-				fc.array(propsArb, { minLength: 1, maxLength: 8 }),
-				(tag, seq) => {
-					const { strategy, view } = attach(tag);
-					const counter = strategy as typeof strategy & {
-						renderGeneration: number;
-					};
-					let last = counter.renderGeneration;
-					for (const props of seq) {
-						strategy.render(view(props));
-						expect(counter.renderGeneration).toBeGreaterThan(last);
-						last = counter.renderGeneration;
-					}
-				},
-			),
 			{ seed, numRuns },
 		);
 	});
