@@ -47,6 +47,8 @@ function logJsxFallback(
 	}
 }
 
+// A rootless mount into a strategy's own root leaves its cached tree stale.
+const mountedRoots = new WeakSet<object>();
 const strategyLogging = new WeakMap<object, FallbackLogging>();
 const strategyFallbackReason = new WeakMap<object, string>();
 
@@ -158,6 +160,7 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 			);
 		}
 
+		if (mountedRoots.delete(contentRoot)) this.previousTree = null;
 		const mode = this.forceReplace || !this.diffEnabled ? "replace" : this.mode;
 		const onTreePublished = (tree: NormalizedNode[]) => {
 			this.previousTree = tree;
@@ -234,6 +237,7 @@ export function mountIgniteJsxOnce(
 	host: (Node & ParentNode) | ShadowRoot,
 	view: IgniteJsxChild,
 ): void {
+	mountedRoots.add(host);
 	mountIgniteJsx(host, view);
 }
 

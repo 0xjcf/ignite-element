@@ -125,6 +125,7 @@ function renderIgniteJsxNow(
 		) {
 			replaceAll(host, next);
 		}
+		renderEpochs.set(host, commitQueue);
 		options.onTreePublished?.(next);
 		return next;
 	}, host);
@@ -1537,20 +1538,20 @@ function queueControlled(
 }
 
 // A render owns its queues; nested or failed renders cannot drain its work.
-// Controlled writes also stop once a newer render began on the same host: a
-// setter or flush that renders again has already written the newer view.
+// Controlled writes also stop once a newer render committed on the same host:
+// a setter or flush that renders again has already written the newer view. A
+// render claims the host when it publishes, so one that throws first
+// supersedes nothing.
 const renderEpochs = new WeakMap<object, object>();
 
-function commitRender<T>(render: () => T, host: object = {}): T {
+function commitRender<T>(render: () => T, host?: object): T {
 	const parent = commitQueue;
 	const queues: typeof commitQueue = [[], []];
 	commitQueue = queues;
-	const epoch = {};
-	renderEpochs.set(host, epoch);
 	try {
 		const result = render();
 		for (const commit of queues[0])
-			if (renderEpochs.get(host) === epoch) commit();
+			if ((renderEpochs.get(host as object) ?? queues) === queues) commit();
 		for (const commit of queues[1]) commit();
 		return result;
 	} finally {

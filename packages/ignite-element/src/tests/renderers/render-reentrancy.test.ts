@@ -318,6 +318,154 @@ describe("render re-entrancy", () => {
 		);
 	});
 
+	// Supersession (see .invariant-review/supersession.md): an older render's
+	// remaining controlled writes stop only when a newer render committed on the
+	// same host. A newer render that failed before publishing commits nothing.
+	function instrument(input: HTMLInputElement, log: string[], tag: string) {
+		Object.defineProperty(input, "value", {
+			configurable: true,
+			get() {
+				return nativeValue.get?.call(this);
+			},
+			set(value: string) {
+				log.push(`${tag}:${value}`);
+				nativeValue.set?.call(this, value);
+			},
+		});
+	}
+
+	it("a nested render that throws before publishing does not cancel the outer controlled writes", () => {
+		const { shadow, strategy } = attach();
+		strategy.render(base({ id: "0", a: "0", v1: "x", v2: "y" }));
+		const [first, second] = Array.from(
+			shadow.querySelectorAll("input"),
+		) as HTMLInputElement[];
+		let fired = false;
+		Object.defineProperty(first, "value", {
+			configurable: true,
+			get() {
+				return nativeValue.get?.call(this);
+			},
+			set(value: string) {
+				nativeValue.set?.call(this, value);
+				if (value === "x2" && !fired) {
+					fired = true;
+					strategy.render(throwingView("nested"));
+				}
+			},
+		});
+		strategy.render(base({ id: "o", a: "o", v1: "x2", v2: "OUTER2" }));
+		expect(second.value).toBe("OUTER2");
+		const final = base({ id: "f", a: "f", v1: "x9", v2: "y9" });
+		strategy.render(final);
+		expect(snapshot(shadow)).toBe(fresh(final));
+	});
+
+	it("a rootless mount into the strategy's own root invalidates its cached tree", () => {
+		const { shadow, strategy } = attach();
+		strategy.render(base({ id: "0", a: "0", v1: "x", v2: "y" }));
+		const first = shadow.querySelector("input") as HTMLInputElement;
+		let fired = false;
+		Object.defineProperty(first, "value", {
+			configurable: true,
+			get() {
+				return nativeValue.get?.call(this);
+			},
+			set(value: string) {
+				nativeValue.set?.call(this, value);
+				if (value === "x2" && !fired) {
+					fired = true;
+					mountIgniteJsxOnce(
+						shadow.querySelector("ignite-jsx-root") as HTMLElement,
+						jsx("div", { "data-extra": "1", children: "mounted" }),
+					);
+				}
+			},
+		});
+		strategy.render(base({ id: "o", a: "o", v1: "x2", v2: "y2" }));
+		const final = base({ id: "f", a: "f", v1: "x9", v2: "y9" });
+		strategy.render(final);
+		expect(snapshot(shadow)).toBe(fresh(final));
+	});
+
+	type Flush =
+		| { kind: "render"; spec: Spec }
+		| { kind: "fail" }
+		| { kind: "mount"; spec: Spec };
+	const flushArb: fc.Arbitrary<Flush> = fc.oneof(
+		specArb.map((spec) => ({ kind: "render" as const, spec })),
+		fc.constant({ kind: "fail" as const }),
+		specArb.map((spec) => ({ kind: "mount" as const, spec })),
+	);
+
+	it("controlled-flush actions (render, failing render, same-root mount) supersede only when committed", () => {
+		fc.assert(
+			fc.property(
+				fc.array(flushArb, { maxLength: 4 }),
+				specArb,
+				(actions, finalSpec) => {
+					document.body.replaceChildren();
+					const { shadow, strategy } = attach();
+					strategy.render(base({ id: "0", a: "0", v1: "x", v2: "y" }));
+					const [first, second] = Array.from(
+						shadow.querySelectorAll("input"),
+					) as HTMLInputElement[];
+					const log: string[] = [];
+					instrument(second, log, "second");
+					let committedAt = -1;
+					let lastCommitted: IgniteJsxChild | null = null;
+					let failedAfterCommit = false;
+					let fired = false;
+					Object.defineProperty(first, "value", {
+						configurable: true,
+						get() {
+							return nativeValue.get?.call(this);
+						},
+						set(value: string) {
+							nativeValue.set?.call(this, value);
+							if (value !== "x2" || fired) return;
+							fired = true;
+							for (const action of actions) {
+								if (action.kind === "fail") {
+									try {
+										strategy.render(throwingView("nested"));
+									} catch {}
+									failedAfterCommit = true;
+									continue;
+								}
+								const view = base(action.spec);
+								if (action.kind === "render") strategy.render(view);
+								else
+									mountIgniteJsxOnce(
+										shadow.querySelector("ignite-jsx-root") as HTMLElement,
+										view,
+									);
+								committedAt = log.length;
+								lastCommitted = view;
+								failedAfterCommit = false;
+							}
+						},
+					});
+					strategy.render(base({ id: "o", a: "o", v1: "x2", v2: "OUTER2" }));
+					const outerWrites = log.filter((entry) => entry === "second:OUTER2");
+					if (lastCommitted) {
+						// No write of the superseded render lands after the newer commit.
+						expect(log.slice(committedAt)).not.toContain("second:OUTER2");
+						// A failing render may leave its own half-patched DOM behind.
+						if (!failedAfterCommit)
+							expect(snapshot(shadow)).toBe(fresh(lastCommitted));
+					} else {
+						expect(outerWrites).toHaveLength(1);
+					}
+					const final = base(finalSpec);
+					strategy.render(final);
+					expect(snapshot(shadow)).toBe(fresh(final));
+				},
+			),
+			{ seed: 168507, numRuns: 300 },
+		);
+	});
+
 	// Phases that can call render(): custom setter (before publish), controlled
 	// flush (after publish), ref and cleanup (after publish), and an outer throw.
 	const phases = ["setter", "controlled", "ref", "cleanup", "throw"] as const;
