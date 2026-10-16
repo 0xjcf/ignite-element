@@ -49,3 +49,71 @@ describe("property sinks are keyed by the state they write", () => {
 		expect(video.getAttribute("muted")).toBe("m");
 	});
 });
+
+describe("a throwing custom setter does not abort the render", () => {
+	let counter = 0;
+	function defineThrowing() {
+		const tag = `throwing-setter-${counter++}`;
+		class El extends HTMLElement {
+			#mode = "ok";
+			get mode() {
+				return this.#mode;
+			}
+			set mode(value: string) {
+				if (value === "invalid") throw new Error("invalid mode");
+				this.#mode = value;
+			}
+		}
+		customElements.define(tag, El);
+		return tag;
+	}
+
+	it("commits later props, children and refs after an update throws", () => {
+		const tag = defineThrowing();
+		const host = document.createElement("div");
+		const tree = mountIgniteJsx(host, jsx(tag, { mode: "a" }));
+		const element = host.firstElementChild as HTMLElement & { mode: string };
+		let ref: Element | null = null;
+		renderIgniteJsx(
+			host,
+			jsx(tag, {
+				mode: "invalid",
+				title: "later",
+				ref: (node: Element | null) => {
+					ref = node;
+				},
+				children: jsx("span", { children: "child" }),
+			}),
+			tree,
+		);
+		expect(element.mode).toBe("a");
+		expect(element.title).toBe("later");
+		expect(element.querySelector("span")?.textContent).toBe("child");
+		expect(ref).toBe(element);
+	});
+
+	it("keeps the render alive for any mix of throwing and valid values", async () => {
+		const fc = await import("fast-check");
+		const tag = defineThrowing();
+		fc.assert(
+			fc.property(
+				fc.array(fc.constantFrom("invalid", "x", "y"), {
+					minLength: 1,
+					maxLength: 5,
+				}),
+				(modes) => {
+					const host = document.createElement("div");
+					const tree = mountIgniteJsx(host, jsx(tag, { mode: "a" }));
+					const element = host.firstElementChild as HTMLElement;
+					let t = tree;
+					modes.forEach((mode, i) => {
+						t =
+							renderIgniteJsx(host, jsx(tag, { mode, title: `t${i}` }), t) ?? t;
+						expect(element.title).toBe(`t${i}`);
+					});
+				},
+			),
+			{ numRuns: 25 },
+		);
+	});
+});

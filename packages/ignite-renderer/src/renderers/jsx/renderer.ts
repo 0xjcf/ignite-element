@@ -1436,12 +1436,8 @@ function removeProp(
 		!hasOwnCustomSetter(element as HTMLElement, key)
 	) {
 		const fallback = UNREFLECTED_PROPERTIES.get(key);
-		try {
-			if (Reflect.get(element, key) !== fallback) {
-				Reflect.set(element, key, fallback);
-			}
-		} catch {
-			// A throwing setter stops here.
+		if (Reflect.get(element, key) !== fallback) {
+			setContained(element, key, fallback);
 		}
 		return;
 	}
@@ -1463,20 +1459,12 @@ function removeProp(
 	if (!isSvg && key in element && key !== "list") {
 		const el = element as HTMLElement;
 		if (hasOwnCustomSetter(el, key)) {
-			try {
-				Reflect.set(el, key, undefined);
-			} catch {
-				// A throwing custom setter stops here.
-			}
+			setContained(el, key, undefined);
 			return;
 		}
 		const current = el[key as keyof HTMLElement];
 		if (typeof current === "boolean") {
-			try {
-				if (current) Reflect.set(el, key, false);
-			} catch {
-				// A throwing boolean setter stops here.
-			}
+			if (current) setContained(el, key, false);
 			element.removeAttribute(attrName);
 			return;
 		}
@@ -1539,10 +1527,16 @@ function assignControlled(
 	)
 		return;
 
+	setContained(element, key, value);
+}
+
+// Every property write goes through here. A throwing setter stops at its own
+// write and never aborts the render. File values are not cleared.
+function setContained(element: Element, key: string, value: unknown): void {
 	try {
 		Reflect.set(element, key, value);
 	} catch {
-		// A throwing setter stops here. File values are not cleared.
+		// A throwing setter stops here.
 	}
 }
 
@@ -1552,9 +1546,7 @@ function applyProperty(
 	value: unknown,
 ): void {
 	const current = Reflect.get(element, key);
-	if (current !== value) {
-		Reflect.set(element, key, value);
-	}
+	if (current !== value) setContained(element, key, value);
 }
 
 function flushSelectValue(element: Element, props: IgniteJsxProps): void {
