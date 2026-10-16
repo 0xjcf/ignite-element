@@ -178,30 +178,24 @@ describe("render re-entrancy", () => {
 			},
 		});
 
-	// Known gap (R08): the queued render's error replaces the outer one. The fix
-	// (keep the first error) did not fit the consumer size ceiling. it.fails
-	// flips to a failure, and so demands removing this marker, once it is fixed.
-	it.fails(
-		"keeps the first error when the outer and the queued render both throw",
-		() => {
-			const { strategy } = attach();
-			strategy.render(base({ id: "0", a: "0", v1: "x", v2: "y" }));
-			let fired = false;
-			ReenterElement.hook = () => {
-				if (fired) return;
-				fired = true;
-				strategy.render(throwingView("queued"));
-			};
-			expect(() =>
-				strategy.render(
-					base({ id: "o", a: "o", v1: "x2", v2: "y2" }, [
-						jsx("x-rp", { trigger: 1 }),
-						throwingView("outer"),
-					]),
-				),
-			).toThrow("outer");
-		},
-	);
+	it("keeps the first error when the outer and the queued render both throw", () => {
+		const { strategy } = attach();
+		strategy.render(base({ id: "0", a: "0", v1: "x", v2: "y" }));
+		let fired = false;
+		ReenterElement.hook = () => {
+			if (fired) return;
+			fired = true;
+			strategy.render(throwingView("queued"));
+		};
+		expect(() =>
+			strategy.render(
+				base({ id: "o", a: "o", v1: "x2", v2: "y2" }, [
+					jsx("x-rp", { trigger: 1 }),
+					throwingView("outer"),
+				]),
+			),
+		).toThrow("outer");
+	});
 
 	it("surfaces a queued render's error when the outer render succeeds", () => {
 		const { strategy } = attach();

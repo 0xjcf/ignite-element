@@ -1114,6 +1114,21 @@ function patchProps(
 
 	settleSmil(element, oldProps, newProps);
 
+	// Drops run first so a setter or attribute written for a present spelling
+	// is never erased by the drop of a differently cased old one.
+	for (const key of Object.keys(oldProps)) {
+		if (hostRuntimeEnabled && key === "use") continue;
+		if (key === "children" || key === "ref" || isBlockedMarkupProp(key))
+			continue;
+		// Listeners are diffed by event slot, not by each spelling.
+		if (isEventHandlerKey(key)) continue;
+		// data-id and DATA-ID are one key. A spelling that is still present
+		// is not a drop.
+		const matched = sinkMatch(newProps, element, key, isSvgElement);
+		if (matched) continue;
+		removeProp(element, key, oldProps[key], isSvgElement);
+	}
+
 	// default* before checked, value, and selected, whatever the key order.
 	for (let pass = 0; pass < 2; pass++) {
 		for (const [key, next] of Object.entries(newProps)) {
@@ -1231,19 +1246,6 @@ function patchProps(
 				element.setAttribute(attrName, nextString);
 			}
 		}
-	}
-
-	for (const key of Object.keys(oldProps)) {
-		if (hostRuntimeEnabled && key === "use") continue;
-		if (key === "children" || key === "ref" || isBlockedMarkupProp(key))
-			continue;
-		// Listeners are diffed by event slot, not by each spelling.
-		if (isEventHandlerKey(key)) continue;
-		// data-id and DATA-ID are one key. A spelling that is still present
-		// is not a drop.
-		const matched = sinkMatch(newProps, element, key, isSvgElement);
-		if (matched) continue;
-		removeProp(element, key, oldProps[key], isSvgElement);
 	}
 }
 
