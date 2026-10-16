@@ -249,23 +249,27 @@ rules), run the steps below in order on the scope about to be touched. The goal
 is to replace the fix-review-fix-review cycle: find violations before the fix,
 not through repeated review rounds.
 
-1. **Mine invariants.** Run the invariant miner
-   (`/home/box/agent-data/workflows/invariant-miner/SKILL.md`; OpenAI generator
-   and Jev judge by default) on the touched scope to generate new `never` and
-   `always` rules. A human approves or rejects every rule before any code moves.
+1. **Mine invariants.** Where the invariant miner is available (an OpenAI
+   generator with a Jev judge by default), run it on the touched scope to
+   generate new `never` and `always` rules. Until the miner is checked into this
+   repository, the portable fallback is a manually written `never`/`always` list
+   for the scope. Either way, a human reviews every rule before any code moves.
 2. **Property-test the current code.** Write `fast-check` properties for the
-   approved rules and run them against the current, unfixed code to surface
-   violations early. Follow the test-first flow above: failing tests first,
-   property tests for invariants, root-cause fixes. Pin the seed and run count.
-3. **Mutate as the adversarial pass.** Run Stryker mutation testing on the
-   touched scope, locally or via the scheduled job. Do not add Stryker to PR CI;
-   it is too slow for a per-PR gate. Treat surviving mutants as missing
-   assertions and strengthen the tests.
-4. **Write the fix.** Only now implement the smallest complete root-cause
-   correction and prove focused green.
+   approved rules and run them against the current, unfixed code. Red is
+   expected: confirm the violations are real and preserve the failing evidence.
+   Follow the test-first flow above: failing tests first, property tests for
+   invariants. Pin the seed and run count.
+3. **Write the fix.** Implement the smallest complete root-cause correction and
+   prove focused green.
+4. **Mutate as the adversarial pass.** Where Stryker is available, run it on the
+   touched scope now that the tests are green, locally or via a scheduled job.
+   Do not add Stryker to PR CI; it is too slow for a per-PR gate. Triage
+   survivors first: note and ignore equivalent mutants (no test can kill them),
+   and add new tests only for real survivors. Until Stryker is configured in
+   this repository, this step is skipped or done manually.
 5. **Codex review last.** Codex review is the final gate, not the first
-   discovery tool. A finding it raises that steps 1-3 should have caught means
-   the rule set or properties need extending, not just a patch.
+   discovery tool. A finding it raises that the earlier steps should have
+   caught means the rules or properties need extending, not just a patch.
 
 Lessons that apply to steps 1-2:
 
