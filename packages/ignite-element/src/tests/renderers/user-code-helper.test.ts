@@ -115,7 +115,7 @@ describe("U1 no user-code call bypasses act", () => {
 		);
 		const rest = src.replace(body, "");
 		const bad =
-			/\.(appendChild|insertBefore|replaceChild|removeChild|setAttribute|removeAttribute|addEventListener|removeEventListener|setProperty|removeProperty|getAttribute|getPropertyValue|focus)\(|Reflect\.(get|set)\(|\.type\(/;
+			/\.(appendChild|insertBefore|replaceChild|removeChild|setAttribute|removeAttribute|addEventListener|removeEventListener|setProperty|removeProperty|getAttribute|getPropertyValue|focus)\(|Reflect\.(get|set)\(|\.type\(|\[method\]\(/;
 		const offenders = rest
 			.split("\n")
 			.map((line, i, all) => ({
