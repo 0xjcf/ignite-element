@@ -17,3 +17,11 @@ Use named construction: `const core = igniteCore()` for source-free presentation
 Activation establishes one baseline per core/source instance without an effect call. Each later source notification queues a synchronous evaluation after source processing; no renderer or framework commit is guaranteed. The activated shared evaluator survives zero-view intervals until core disposal. Reconnection neither resets the baseline nor replays history.
 
 Test errors, event sequence and multiplicity, external updates, disposal, and move/reconnect behavior directly. See the authoritative [events and effects contract](https://0xjcf.github.io/ignite-element/handbook/events/) for activation, delivery eligibility, and error handling.
+
+## Mutation testing
+
+Stryker runs the renderer test suite against mutated copies of `packages/ignite-renderer/src/renderers/jsx/renderer.ts` and `IgniteJsxRenderStrategy.ts` to show which behavior the tests do not pin down. It is a scheduled job, not a PR gate: `.github/workflows/mutation.yml` runs daily and on `workflow_dispatch`, and uploads the HTML and JSON reports plus the incremental file as artifacts. Do not add it to PR CI.
+
+Run it locally with Node 22 and `NODE_OPTIONS=--expose-gc pnpm test:mutation`. The first run covers about 1,700 mutants; later runs reuse `reports/stryker-incremental.json` and only retest what changed. Config lives in `stryker.config.json`, and the runner uses `packages/ignite-element/vitest.stryker.config.ts`, which clears `execArgv` because Stryker's threads pool rejects `--expose-gc` there.
+
+Treat survivors as a to-do list inside the mine-test-fix-verify loop: mine the report for surviving mutants, write a failing test for each real gap, fix the code or test, and verify by rerunning. Mark an equivalent mutant with `// Stryker disable next-line <mutator>: <reason>`. Thresholds are `high: 85`, `low: 70`, and `break: null` while a baseline accumulates; set `break` roughly five points under the observed score once there is one.
