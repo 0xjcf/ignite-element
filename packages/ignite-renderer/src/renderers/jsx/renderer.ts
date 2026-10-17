@@ -445,10 +445,7 @@ function settleSmil(
 	for (const key of Object.keys(oldProps)) {
 		if (!smilKeys.test(key)) continue;
 		const kept = sinkMatch(newProps, element, key, true);
-		if (
-			!kept ||
-			newProps[kept] !== oldProps[key]
-		) {
+		if (!kept || newProps[kept] !== oldProps[key]) {
 			removeProp(element, key, true);
 		}
 	}

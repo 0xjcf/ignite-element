@@ -96,7 +96,8 @@ describe("S1 an own setter wins for every specially normalized key", () => {
 						}
 						if (old) {
 							for (const k of Object.keys(old)) {
-								if (!(k in props) && old[k] != null) expected.push([k, undefined]);
+								if (!(k in props) && old[k] != null)
+									expected.push([k, undefined]);
 							}
 						}
 						const key = (e: [string, unknown]) => e[0];
