@@ -182,7 +182,7 @@ function normalizeChild(
 	}
 
 	if (typeof node.type === "function") {
-		const result = node.type(node.props);
+		const result = act<IgniteJsxChild>(node, "type", node.props);
 		return applySlotKey(node.key, normalizeChild(result, namespace));
 	}
 
@@ -883,7 +883,7 @@ function patchKeyedChildren(
 	// element that was focused inside this parent, including inside a shadow root.
 	const current = focusedWithin(parent);
 	if (focused?.isConnected && current !== focused) {
-		focused.focus();
+		act(focused, "focus");
 	}
 	return true;
 }
@@ -1110,13 +1110,7 @@ function patchProps(
 		// is not a drop.
 		const kept = sinkMatch(newProps, element, key, isSvgElement);
 		if (kept) continue;
-		const old = oldProps[key];
-		removeProp(
-			element,
-			key,
-			isSvgElement,
-			old != null && !isBlockedUrlValue(element, key, old, oldProps),
-		);
+		removeProp(element, key, isSvgElement);
 	}
 	patchEventSlots(element, newProps, oldProps, "addEventListener");
 
@@ -1144,12 +1138,13 @@ function patchProps(
 				// The drop loop already cleared what an earlier render committed.
 				continue;
 			}
+			if (next != null) committedKeys(element).add(key);
 			// An own setter may have side effects its getter does not show, so a
 			// present value is assigned exactly once per render, here, before any
 			// equality skip and without the default*/live reapply below.
 			if (!isSvgElement && hasOwnCustomSetter(element as HTMLElement, key)) {
-				if (next != null) setContained(element, key, next);
-				else if (prev != null) removeProp(element, key, false);
+				if (next == null) removeProp(element, key, false);
+				else setContained(element, key, next);
 				continue;
 			}
 
@@ -1174,7 +1169,7 @@ function patchProps(
 			if (key === "class" || key === "className") {
 				const nextClass = next !== false && next != null ? String(next) : "";
 				if (!nextClass) act(element, "removeAttribute", "class");
-				else if (element.getAttribute("class") !== nextClass)
+				else if (act(element, "getAttribute", "class") !== nextClass)
 					act(element, "setAttribute", "class", nextClass);
 				continue;
 			}
@@ -1251,7 +1246,7 @@ function patchStyle(element: HTMLElement, prev: unknown, next: unknown): void {
 			const cssProperty = toKebabCase(key);
 			if (
 				value != null &&
-				style.getPropertyValue(cssProperty) !== String(value)
+				act(style, "getPropertyValue", cssProperty) !== String(value)
 			) {
 				act(style, "setProperty", cssProperty, String(value));
 			}
@@ -1265,7 +1260,7 @@ function patchStyle(element: HTMLElement, prev: unknown, next: unknown): void {
 	}
 
 	const nextString = String(next);
-	if (style.cssText !== nextString) {
+	if (getContained(style, "cssText") !== nextString) {
 		setContained(style, "cssText", nextString);
 	}
 }
@@ -1290,7 +1285,8 @@ function patchEventSlots(
 ) {
 	const a = eventSlots(from);
 	const b = eventSlots(to);
-	for (const name in a) if (a[name] !== b[name]) element[method](name, a[name]);
+	for (const name in a)
+		if (a[name] !== b[name]) act(element, method, name, a[name]);
 }
 
 // Own means a writable field or setter on the instance or a prototype before
@@ -1413,23 +1409,15 @@ function sinkMatch(
 	return undefined;
 }
 
-function removeProp(
-	element: Element,
-	key: string,
-	isSvg: boolean,
-	committed = true,
-): void {
-	// An own setter, whatever its name, is cleared with undefined, and only when
-	// an earlier render committed a value to it.
+function removeProp(element: Element, key: string, isSvg: boolean): void {
+	// An own setter, whatever its name, is cleared with undefined.
 	if (!isSvg && hasOwnCustomSetter(element as HTMLElement, key)) {
-		if (!committed) return;
-		// An attribute the setter left alone was written before the element
-		// gained it, so it is stale. One the setter changed is its own.
-		const attr = propAttributeName(element, key, false);
-		const was = element.getAttribute(attr);
-		setContained(element, key, undefined);
-		if (element.getAttribute(attr) === was)
-			act(element, "removeAttribute", attr);
+		// Only a value the renderer committed is cleared. The fallback attribute
+		// goes first, so a reflection the setter makes survives.
+		if (committedKeys(element).delete(key)) {
+			act(element, "removeAttribute", propAttributeName(element, key, false));
+			setContained(element, key, undefined);
+		}
 		return;
 	}
 
@@ -1475,13 +1463,15 @@ const composing = new WeakMap<Node, boolean>();
 function watchComposition(element: HTMLElement): void {
 	if (composing.has(element)) return;
 	composing.set(element, false);
+	// native: input and textarea only, never user code.
 	element.addEventListener("compositionstart", () => {
+		// native:
 		composing.set(element, true);
 	});
 	const end = () => composing.set(element, false);
-	element.addEventListener("compositionend", end);
-	element.addEventListener("blur", end);
-	element.addEventListener("focus", end);
+	element.addEventListener("compositionend", end); // native:
+	element.addEventListener("blur", end); // native:
+	element.addEventListener("focus", end); // native:
 }
 
 function queueControlled(
@@ -1511,10 +1501,21 @@ export const setOwner = (host: object, token: object) => {
 // The one write helper. Every DOM method that writes or removes goes through it,
 // and ownership is checked after it too: a custom element's callbacks run user
 // code inside the write, so nothing after the last write may act on a stale commit.
-function act(target: object, method: string, ...args: unknown[]): void {
+function act<T = void>(target: object, method: string, ...args: unknown[]): T {
 	live();
-	(target as Record<string, (...a: unknown[]) => void>)[method](...args);
+	const result = (target as Record<string, (...a: unknown[]) => T>)[method](
+		...args,
+	);
 	live();
+	return result;
+}
+
+// Keys the renderer committed a value for, by setter or attribute fallback.
+const committed = new WeakMap<object, Set<string>>();
+function committedKeys(element: object): Set<string> {
+	let keys = committed.get(element);
+	if (!keys) committed.set(element, (keys = new Set()));
+	return keys;
 }
 
 // A detached root owns its commit from the moment it exists, before any setter
@@ -1584,25 +1585,23 @@ function assignControlled(
 // Every property read goes through here. A throwing getter reads as a value
 // nothing equals, so the render still tries the write and carries on.
 function getContained(element: Element, key: string): unknown {
-	let value: unknown = {};
 	try {
-		value = Reflect.get(element, key);
-	} catch {
+		return act(Reflect, "get", element, key);
+	} catch (error) {
 		// A throwing getter reads as a value nothing equals.
+		if (error === owner) throw error;
+		return {};
 	}
-	return value;
 }
 
 // Every property write goes through here. A throwing setter stops at its own
 // write and never aborts the render. File values are not cleared.
 function setContained(element: object, key: string, value: unknown): void {
-	live();
 	try {
-		Reflect.set(element, key, value);
-	} catch {
-		// A throwing setter stops here.
+		act(Reflect, "set", element, key, value);
+	} catch (error) {
+		if (error === owner) throw error;
 	}
-	live();
 }
 
 function applyProperty(

@@ -1,5 +1,6 @@
-import * as fc from "fast-check";
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import * as fc from "fast-check";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
 	createIgniteJsxRenderStrategy,
@@ -102,9 +103,9 @@ const fire = (
 describe("U1 no user-code call bypasses act", () => {
 	it("renderer.ts calls user code only inside act", () => {
 		const src = readFileSync(
-			new URL(
+			resolve(
+				__dirname,
 				"../../../../ignite-renderer/src/renderers/jsx/renderer.ts",
-				import.meta.url,
 			),
 			"utf8",
 		);
@@ -114,17 +115,17 @@ describe("U1 no user-code call bypasses act", () => {
 		);
 		const rest = src.replace(body, "");
 		const bad =
-			/\.(appendChild|insertBefore|replaceChild|removeChild|setAttribute|removeAttribute|addEventListener|removeEventListener|setProperty|removeProperty|getAttribute|getPropertyValue|focus)\(|Reflect\.(get|set)\(|\.type\(/g;
+			/\.(appendChild|insertBefore|replaceChild|removeChild|setAttribute|removeAttribute|addEventListener|removeEventListener|setProperty|removeProperty|getAttribute|getPropertyValue|focus)\(|Reflect\.(get|set)\(|\.type\(/;
 		const offenders = rest
 			.split("\n")
-			.map((line, i) => ({ line: line.trim(), n: i + 1 }))
+			.map((line, i, all) => ({
+				line: line.trim(),
+				native: /native:/.test(`${all[i - 1] ?? ""}${line}`),
+			}))
 			.filter(
-				({ line }) =>
-					!line.startsWith("//") &&
-					!line.includes("// native:") &&
-					bad.test(line),
+				({ line, native }) =>
+					!line.startsWith("//") && !native && bad.test(line),
 			);
-		bad.lastIndex = 0;
 		expect(offenders).toEqual([]);
 	});
 });
@@ -151,33 +152,34 @@ describe("U2 a property getter that supersedes stops the walk", () => {
 });
 
 describe("U3 overridden listener methods are guarded", () => {
-	it.each([
-		"add",
-		"remove",
-	])("an overridden %sEventListener that supersedes stops later setters", (kind) => {
-		fc.assert(
-			fc.property(events, (event) => {
-				log.length = 0;
-				document.body.replaceChildren();
-				const { strategy, root } = mk();
-				const f1 = () => {};
-				const f2 = () => {};
-				strategy.render(jsx("x-u-lis", { onClick: f1, b: 0 }));
-				hook = () => {
-					hook = null;
-					fire(event, strategy, root);
-				};
-				strategy.render(
-					jsx(
-						"x-u-lis",
-						kind === "add" ? { onClick: f2, b: 1, s: 1 } : { b: 1, s: 1 },
-					),
-				);
-				expect(log).toEqual([]);
-			}),
-			{ seed: 169802, numRuns: 20 },
-		);
-	});
+	it.each(["add", "remove"])(
+		"an overridden %sEventListener that supersedes stops later setters",
+		(kind) => {
+			fc.assert(
+				fc.property(events, (event) => {
+					log.length = 0;
+					document.body.replaceChildren();
+					const { strategy, root } = mk();
+					const f1 = () => {};
+					const f2 = () => {};
+					strategy.render(jsx("x-u-lis", { onClick: f1, b: 0 }));
+					log.length = 0;
+					hook = () => {
+						hook = null;
+						fire(event, strategy, root);
+					};
+					strategy.render(
+						jsx(
+							"x-u-lis",
+							kind === "add" ? { onClick: f2, b: 1, s: 1 } : { b: 1, s: 1 },
+						),
+					);
+					expect(log).toEqual([]);
+				}),
+				{ seed: 169802, numRuns: 20 },
+			);
+		},
+	);
 });
 
 describe("U4 a superseding component stops later siblings", () => {
