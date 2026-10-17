@@ -6,6 +6,7 @@ import { isNoDiffDenylistedTag } from "./noDiffDenylist";
 import {
 	mountIgniteJsx,
 	type NormalizedNode,
+	renderEpochs,
 	renderIgniteJsx,
 	unmountIgniteSubtree,
 } from "./renderer";
@@ -48,7 +49,10 @@ function logJsxFallback(
 }
 
 // A rootless mount into a strategy's own root leaves its cached tree stale.
-const mountedRoots = new WeakSet<object>();
+// The mark lives on the root under a shared key, so a mount made by another
+// bundled copy of this module is seen too.
+const mounted = Symbol.for("ignite.m");
+type Marked = Record<symbol, unknown>;
 const strategyLogging = new WeakMap<object, FallbackLogging>();
 const strategyFallbackReason = new WeakMap<object, string>();
 
@@ -136,20 +140,20 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 		}
 		this.next = undefined;
 		this.writing = true;
-		const errors: unknown[] = [];
+		let failure: [unknown] | undefined;
 		try {
 			this.renderNow(view);
 		} catch (error) {
-			errors.push(error);
+			failure = [error];
 			this.previousTree = null;
 		}
 		this.writing = false;
 		try {
 			if (this.next) this.render(this.next[0]);
 		} catch (error) {
-			errors.push(error);
+			failure ??= [error];
 		}
-		if (errors.length) throw errors[0];
+		if (failure) throw failure[0];
 	}
 
 	private renderNow(view: IgniteJsxChild): void {
@@ -160,7 +164,11 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 			);
 		}
 
-		if (mountedRoots.delete(contentRoot)) this.previousTree = null;
+		const marks = contentRoot as unknown as Marked;
+		if (marks[mounted]) {
+			marks[mounted] = 0;
+			this.previousTree = null;
+		}
 		const mode = this.forceReplace || !this.diffEnabled ? "replace" : this.mode;
 		const onTreePublished = (tree: NormalizedNode[]) => {
 			this.previousTree = tree;
@@ -221,6 +229,7 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 		const rootNode = this.contentRoot?.getRootNode();
 		if (rootNode instanceof ShadowRoot) forgetQueuedStyles(rootNode);
 		if (this.contentRoot) {
+			renderEpochs.set(this.contentRoot, {});
 			unmountIgniteSubtree(this.contentRoot);
 			this.contentRoot.parentNode?.removeChild(this.contentRoot);
 		}
@@ -237,7 +246,7 @@ export function mountIgniteJsxOnce(
 	host: (Node & ParentNode) | ShadowRoot,
 	view: IgniteJsxChild,
 ): void {
-	mountedRoots.add(host);
+	(host as unknown as Marked)[mounted] = 1;
 	mountIgniteJsx(host, view);
 }
 

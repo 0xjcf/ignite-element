@@ -1156,18 +1156,6 @@ function patchProps(
 				continue;
 			}
 			const prev = oldProps[key];
-			if (key === "class" || key === "className") {
-				const nextClass = next !== false && next != null ? String(next) : "";
-				if (element.getAttribute("class") !== nextClass) {
-					if (nextClass) {
-						element.setAttribute("class", nextClass);
-					} else {
-						element.removeAttribute("class");
-					}
-				}
-				continue;
-			}
-
 			if (key === "style") {
 				patchStyle(element as HTMLElement, prev, next);
 				continue;
@@ -1195,6 +1183,18 @@ function patchProps(
 				hasOwnCustomSetter(element as HTMLElement, key)
 			) {
 				applyProperty(element as HTMLElement, key, next);
+				continue;
+			}
+
+			if (key === "class" || key === "className") {
+				const nextClass = next !== false && next != null ? String(next) : "";
+				if (element.getAttribute("class") !== nextClass) {
+					if (nextClass) {
+						element.setAttribute("class", nextClass);
+					} else {
+						element.removeAttribute("class");
+					}
+				}
 				continue;
 			}
 
@@ -1448,11 +1448,6 @@ function removeProp(
 	prev: unknown,
 	isSvg: boolean,
 ): void {
-	if (key === "class" || key === "className") {
-		element.removeAttribute("class");
-		return;
-	}
-
 	if (key === "style") {
 		element.removeAttribute("style");
 		return;
@@ -1461,6 +1456,17 @@ function removeProp(
 	if (isEventHandlerKey(key) && typeof prev === "function") {
 		const eventName = normalizeEventName(key.slice(2));
 		element.removeEventListener(eventName, prev as EventListener);
+		return;
+	}
+
+	// An own setter, whatever its name, is cleared with undefined.
+	if (!isSvg && hasOwnCustomSetter(element as HTMLElement, key)) {
+		setContained(element, key, undefined);
+		return;
+	}
+
+	if (key === "class" || key === "className") {
+		element.removeAttribute("class");
 		return;
 	}
 
@@ -1473,12 +1479,9 @@ function removeProp(
 
 	// An unreflected property is dropped by itself. Its lower-case attribute
 	// spelling is another sink and stays.
-	if (
-		isUnreflectedProperty(element, key, isSvg) &&
-		!hasOwnCustomSetter(element as HTMLElement, key)
-	) {
+	if (isUnreflectedProperty(element, key, isSvg)) {
 		const fallback = UNREFLECTED_PROPERTIES.get(key);
-		if (Reflect.get(element, key) !== fallback) {
+		if (getContained(element, key) !== fallback) {
 			setContained(element, key, fallback);
 		}
 		return;
@@ -1486,12 +1489,11 @@ function removeProp(
 
 	// Absent native defaults stay. A dropped checked, value, or selected does
 	// not read them. Own custom setters, including these names, are cleared
-	// below. Explicit false is applied in the set path.
+	// above. Explicit false is applied in the set path.
 	if (
-		(key === "defaultValue" ||
-			key === "defaultChecked" ||
-			key === "defaultSelected") &&
-		!hasOwnCustomSetter(element as HTMLElement, key)
+		key === "defaultValue" ||
+		key === "defaultChecked" ||
+		key === "defaultSelected"
 	) {
 		return;
 	}
@@ -1500,11 +1502,7 @@ function removeProp(
 	const hadAttribute = element.hasAttribute(attrName);
 	if (!isSvg && key in element && key !== "list") {
 		const el = element as HTMLElement;
-		if (hasOwnCustomSetter(el, key)) {
-			setContained(el, key, undefined);
-			return;
-		}
-		const current = el[key as keyof HTMLElement];
+		const current = getContained(el, key);
 		if (typeof current === "boolean") {
 			if (current) setContained(el, key, false);
 			element.removeAttribute(attrName);
@@ -1542,7 +1540,8 @@ function queueControlled(
 // a setter or flush that renders again has already written the newer view. A
 // render claims the host when it publishes, so one that throws first
 // supersedes nothing.
-const renderEpochs = new WeakMap<object, object>();
+// detach() sets a fresh epoch, which supersedes every commit still writing.
+export const renderEpochs = new WeakMap<object, object>();
 
 function commitRender<T>(render: () => T, host?: object): T {
 	const parent = commitQueue;
@@ -1573,11 +1572,21 @@ function assignControlled(
 	if (
 		key === "value" &&
 		element.localName !== "select" &&
-		Reflect.get(element, key) === value
+		getContained(element, key) === value
 	)
 		return;
 
 	setContained(element, key, value);
+}
+
+// Every property read goes through here. A throwing getter reads as a value
+// nothing equals, so the render still tries the write and carries on.
+function getContained(element: Element, key: string): unknown {
+	try {
+		return Reflect.get(element, key);
+	} catch {
+		return {};
+	}
 }
 
 // Every property write goes through here. A throwing setter stops at its own
@@ -1597,7 +1606,10 @@ function applyProperty(
 ): void {
 	// An own setter may have side effects its getter does not show, so it is
 	// always assigned. Native properties skip a value they already hold.
-	if (hasOwnCustomSetter(element, key) || Reflect.get(element, key) !== value) {
+	if (
+		hasOwnCustomSetter(element, key) ||
+		getContained(element, key) !== value
+	) {
 		setContained(element, key, value);
 	}
 }
