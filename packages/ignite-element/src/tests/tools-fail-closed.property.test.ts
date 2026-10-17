@@ -2525,14 +2525,12 @@ describe("listing checks grant liveness before advertising the command", () => {
 		const over = loadGuideApproval(clock);
 		over.granted.expiresAt = clock.time + DAY_MS + 1;
 		assertDenied(over);
-		// Time moving forward after the grant is made must not rescue it either.
+		// Time moving forward after issuance must not rescue it either: the
+		// window is judged against the issuance time, not the current read.
 		const late = loadGuideApproval(clock);
 		late.granted.expiresAt = clock.time + DAY_MS + 1;
 		clock.time += 1;
-		expect(late.canExecute("setLimit")).toBe(true);
-		expect(
-			late.canExecute("setLimit", late.granted.input, { core: late.component }),
-		).toBe(true);
+		assertDenied(late);
 	});
 
 	it("decides each canExecute call from a single clock read", () => {
@@ -2546,7 +2544,7 @@ describe("listing checks grant liveness before advertising the command", () => {
 		const approval = loadGuideApproval(ticking);
 		// The grant is created with one read; canExecute must add exactly one.
 		const afterGrant = reads;
-		approval.granted.expiresAt = GUIDE_NOW + afterGrant + 1 + DAY_MS;
+		approval.granted.expiresAt = GUIDE_NOW + afterGrant + DAY_MS;
 		expect(approval.canExecute("setLimit")).toBe(true);
 		expect(reads).toBe(afterGrant + 1);
 	});

@@ -357,8 +357,10 @@ const granted = {
   input: 6,
   target: component,
   id: 'approval-1',
-  expiresAt: clock.now() + 60_000,
+  issuedAt: clock.now(),
+  expiresAt: 0,
 };
+granted.expiresAt = granted.issuedAt + 60_000;
 const grantedCall = canonicalCall(granted.name, granted.input);
 function canExecute(
   name: string,
@@ -368,8 +370,8 @@ function canExecute(
   if (name !== 'setLimit') return false;
   if (granted.actor !== session.actor) return false;
   const time = clock.now();
-  const lifetime = granted.expiresAt - time;
-  if (lifetime <= 0 || lifetime > maxGrantLifetimeMs) return false;
+  if (granted.expiresAt <= time) return false;
+  if (granted.expiresAt - granted.issuedAt > maxGrantLifetimeMs) return false;
   const retainUntil = spent.get(granted.id);
   if (retainUntil !== undefined && retainUntil > time) return false;
   if (!context) return true;

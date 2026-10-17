@@ -357,6 +357,18 @@ describe("grant window is decided from one clock read", () => {
 		expect(rejected.canExecute("setThermostat")).toBe(false);
 	});
 
+	it("keeps an over-long grant denied after time advances", () => {
+		const home = createHome();
+		let time = START;
+		const authority = createCommandApprovalAuthority("ada", () => time);
+		authority.grant(grantFor(home, START + MAX_GRANT_LIFETIME_MS + 1));
+		time += 1;
+		expect(authority.canExecute("setThermostat")).toBe(false);
+		expect(
+			authority.canExecute("setThermostat", livingAt70, { core: home }),
+		).toBe(false);
+	});
+
 	it("reads the clock once per grant and once per canExecute", () => {
 		const home = createHome();
 		const clock = tickingClock(START, 1);
