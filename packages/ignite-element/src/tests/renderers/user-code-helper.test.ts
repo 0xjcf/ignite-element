@@ -110,8 +110,8 @@ describe("U1 no user-code call bypasses act", () => {
 			"utf8",
 		);
 		const body = src.slice(
-			src.indexOf("function act("),
-			src.indexOf("\n}\n", src.indexOf("function act(")),
+			src.indexOf("function act<"),
+			src.indexOf("\n}\n", src.indexOf("function act<")),
 		);
 		const rest = src.replace(body, "");
 		const bad =
