@@ -110,6 +110,9 @@ describe("M01 release-note claims match the code", () => {
 		expect(changeset).not.toMatch(/Sets apply before drops/);
 		expect(changeset).toMatch(/Drops apply before sets/);
 	});
+	it("states when an own setter receives undefined, including a change to null", () => {
+		expect(changeset).toMatch(/changes to `null` or `undefined`/);
+	});
 	it("does not claim an executable SMIL value can never stay on a bare animate", () => {
 		expect(changeset).not.toMatch(/cannot remain on a bare `animate`/);
 	});

@@ -111,7 +111,7 @@ function renderIgniteJsxNow(
 	previous: NormalizedNode[] | undefined,
 	options: RenderOptions,
 ): NormalizedNode[] {
-	const epoch = renderEpochs.get(host);
+	const epoch = (host as Owned)[owner];
 	return commitRender(() => {
 		const next = normalizeRoot(view);
 
@@ -126,9 +126,10 @@ function renderIgniteJsxNow(
 		) {
 			replaceAll(host, next);
 		}
-		// A detach during the patch has revoked this render: it publishes nothing.
-		if (renderEpochs.get(host) === epoch) {
-			renderEpochs.set(host, commitQueue);
+		// A detach or newer commit during the patch revoked this render: no publish.
+		if ((host as Owned)[owner] === epoch) {
+			(commitQueue as unknown as Token).r = !previous;
+			(host as Owned)[owner] = commitQueue as unknown as Token;
 			options.onTreePublished?.(next);
 		}
 		return next;
@@ -1164,7 +1165,7 @@ function patchProps(
 			// equality skip and without the default*/live reapply below.
 			const prev = oldProps[key];
 			if (!isSvgElement && hasOwnCustomSetter(element as HTMLElement, key)) {
-				if (next != null) applyProperty(element as HTMLElement, key, next);
+				if (next != null) setContained(element, key, next);
 				else if (prev != null) removeProp(element, key, false);
 				continue;
 			}
@@ -1450,11 +1451,6 @@ function removeProp(element: Element, key: string, isSvg: boolean): void {
 		return;
 	}
 
-	if (key === "style") {
-		element.removeAttribute("style");
-		return;
-	}
-
 	if (key === "class" || key === "className") {
 		element.removeAttribute("class");
 		return;
@@ -1526,13 +1522,17 @@ function queueControlled(
 }
 
 // A render owns its queues; nested or failed renders cannot drain its work.
-// Controlled writes also stop once a newer render committed on the same host:
-// a setter or flush that renders again has already written the newer view. A
-// render claims the host when it publishes, so one that throws first
-// supersedes nothing.
-// detach() sets a fresh epoch, which supersedes every commit still writing.
-export const renderEpochs = new WeakMap<object, object>();
-export const detached = {};
+// Who owns a host is stored on the host under a shared key, like the mount
+// mark, so bundled copies of this module agree: the token of the newest commit
+// to publish, or a detach. A render superseded before it publishes writes
+// nothing; once published, a newer commit stops its controlled writes, and
+// only a detach or a commit that replaced the DOM (`r`) stops its refs.
+const owner = Symbol.for("ignite.o");
+type Token = { r?: boolean };
+type Owned = { [owner]?: Token };
+export const setOwner = (host: object, token: object) => {
+	(host as Owned)[owner] = token;
+};
 
 function commitRender<T>(render: () => T, host?: object): T {
 	const parent = commitQueue;
@@ -1540,10 +1540,11 @@ function commitRender<T>(render: () => T, host?: object): T {
 	commitQueue = queues;
 	try {
 		const result = render();
-		for (const commit of queues[0])
-			if ((renderEpochs.get(host as object) ?? queues) === queues) commit();
+		const mine = () =>
+			!host || (host as Owned)[owner] === (queues as unknown as Token);
+		for (const commit of queues[0]) if (mine()) commit();
 		for (const commit of queues[1])
-			if (renderEpochs.get(host as object) !== detached) commit();
+			if (mine() || !((host as Owned)[owner] as Token).r) commit();
 		return result;
 	} finally {
 		commitQueue = parent;

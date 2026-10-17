@@ -4,11 +4,10 @@ import type { RenderStrategy } from "../RenderStrategy";
 import { readBoundHostRuntime, withIgniteHostRuntime } from "./hostBridge";
 import { isNoDiffDenylistedTag } from "./noDiffDenylist";
 import {
-	detached,
 	mountIgniteJsx,
 	type NormalizedNode,
-	renderEpochs,
 	renderIgniteJsx,
+	setOwner,
 	unmountIgniteSubtree,
 } from "./renderer";
 import type { IgniteJsxChild } from "./types";
@@ -230,7 +229,7 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 		const rootNode = this.contentRoot?.getRootNode();
 		if (rootNode instanceof ShadowRoot) forgetQueuedStyles(rootNode);
 		if (this.contentRoot) {
-			renderEpochs.set(this.contentRoot, detached);
+			setOwner(this.contentRoot, { r: true });
 			unmountIgniteSubtree(this.contentRoot);
 			this.contentRoot.parentNode?.removeChild(this.contentRoot);
 		}
