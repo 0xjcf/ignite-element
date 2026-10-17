@@ -375,4 +375,103 @@ describe("V2 host callbacks are checked for supersession", () => {
 			stale.querySelector("[data-ignite-host-description]"),
 		).not.toBeNull();
 	});
+	it("an equals outside a commit that supersedes stops the deferred update", async () => {
+		const listeners: (() => void)[] = [];
+		vi.stubGlobal("matchMedia", () => ({
+			addEventListener: (_: string, l: () => void) => listeners.push(l),
+			removeEventListener: () => undefined,
+		}));
+		try {
+			const ctx = run(() => ({}));
+			let superseding = false;
+			const host = hostFor(ctx.rec, {
+				equals: () => {
+					if (superseding) ctx.supersede();
+				},
+				update: () => {
+					if (ctx.rec.update === 1) {
+						superseding = true;
+						for (const l of listeners) l();
+					}
+				},
+			});
+			host.mount = (el: Element, hostCtx: { send(event: unknown): void }) => {
+				ctx.rec.mount++;
+				el.append(document.createElement("span"));
+				hostCtx.send("x");
+				return { id: 1 } as never;
+			};
+			ctx.hosts.hosts.scene = host as never;
+			renderIgniteJsx(
+				ctx.root,
+				jsx("div", { children: jsx("canvas", { use: "scene" }) }),
+				undefined,
+				{ hosts: ctx.hosts },
+			);
+			await new Promise((resolve) => setTimeout(resolve, 10));
+			expect(ctx.rec.update).toBe(1);
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+	it("a descendant dispose that supersedes stops the new parent mount", () => {
+		const ctx = run(() => ({}));
+		let superseding = false;
+		const inner = hostFor(ctx.rec, {});
+		inner.dispose = () => {
+			ctx.rec.dispose++;
+			if (superseding) ctx.supersede();
+		};
+		const outer: Rec = { select: 0, mount: 0, update: 0, dispose: 0 };
+		ctx.hosts.hosts.scene = inner as never;
+		(ctx.hosts.hosts as Record<string, unknown>).outer = hostFor(outer, {});
+		const tree = renderIgniteJsx(
+			ctx.root,
+			jsx("div", { children: jsx("canvas", { use: "scene" }) }),
+			undefined,
+			{ hosts: ctx.hosts },
+		);
+		superseding = true;
+		renderIgniteJsx(
+			ctx.root,
+			jsx("div", { use: "outer", children: jsx("canvas", { use: "scene" }) }),
+			tree,
+			{ hosts: ctx.hosts },
+		);
+		expect(outer.mount).toBe(0);
+	});
+	it("an own setter that supersedes and then throws stops the host sync", () => {
+		const ctx = run(() => ({}));
+		let superseding = false;
+		const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+		customElements.define(
+			"x-r14-throws",
+			class extends HTMLElement {
+				constructor() {
+					super();
+					Object.defineProperty(this, "foo", {
+						configurable: true,
+						set: () => {
+							if (!superseding) return;
+							ctx.supersede();
+							throw new Error("setter");
+						},
+					});
+				}
+			},
+		);
+		ctx.hosts.hosts.scene = hostFor(ctx.rec, {}) as never;
+		const view = (foo: number) =>
+			jsx("div", {
+				children: jsx("x-r14-throws", { use: "scene", foo }),
+			});
+		const tree = renderIgniteJsx(ctx.root, view(0), undefined, {
+			hosts: ctx.hosts,
+		});
+		const selects = ctx.rec.select;
+		superseding = true;
+		renderIgniteJsx(ctx.root, view(1), tree, { hosts: ctx.hosts });
+		errors.mockRestore();
+		expect(ctx.rec.select).toBe(selects);
+	});
 });
