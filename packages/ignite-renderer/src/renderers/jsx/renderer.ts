@@ -119,16 +119,20 @@ function renderIgniteJsxNow(
 		frame.r = !previous;
 		const next = normalizeRoot(view);
 
-		if (
-			options.mode === "replace" ||
-			!previous ||
-			host.childNodes.length === 0
-		) {
-			replaceAll(host, next);
-		} else if (
-			!patchChildren(host, previous, next, options.onFallbackReplace)
-		) {
-			replaceAll(host, next);
+		try {
+			if (
+				options.mode === "replace" ||
+				!previous ||
+				host.childNodes.length === 0
+			) {
+				replaceAll(host, next);
+			} else if (
+				!patchChildren(host, previous, next, options.onFallbackReplace)
+			) {
+				replaceAll(host, next);
+			}
+		} catch (error) {
+			if (error !== owner) throw error;
 		}
 		// A detach or newer commit during the patch revoked this render: no publish.
 		if ((host as Owned)[owner] === epoch) {
@@ -728,6 +732,7 @@ export function reacquireMountedView(root: ParentNode): void {
 
 function detachChild(parent: ParentNode, child: ChildNode): void {
 	unmountIgniteSubtree(child);
+	live();
 	parent.removeChild(child);
 }
 
@@ -946,7 +951,7 @@ function patchNode(
 	newNode: NormalizedNode,
 	onFallbackReplace?: (reason: string) => void,
 ): ChildNode {
-	if (stale()) return domNode;
+	live();
 	if (oldNode.kind !== newNode.kind) {
 		return replaceMounted(domNode, newNode);
 	}
@@ -1052,6 +1057,7 @@ function patchNode(
 }
 
 function createDomFromNormalized(node: NormalizedNode): ChildNode {
+	live();
 	switch (node.kind) {
 		case "text":
 			return document.createTextNode(node.value);
@@ -1127,6 +1133,7 @@ function patchProps(
 	// Drops run first so a setter or attribute written for a present spelling
 	// is never erased by the drop of a differently cased old one.
 	for (const key of Object.keys(oldProps)) {
+		live();
 		if (hostRuntimeEnabled && key === "use") continue;
 		if (key === "children" || key === "ref" || isBlockedMarkupProp(key))
 			continue;
@@ -1142,7 +1149,7 @@ function patchProps(
 	// default* before checked, value, and selected, whatever the key order.
 	for (let pass = 0; pass < 2; pass++) {
 		for (const [key, next] of Object.entries(newProps)) {
-			if (stale()) return;
+			live();
 			const late = key === "checked" || key === "value" || key === "selected";
 			if (late !== (pass === 1)) continue;
 			if (hostRuntimeEnabled && key === "use") continue;
@@ -1195,8 +1202,9 @@ function patchProps(
 
 			if (key === "class" || key === "className") {
 				const nextClass = next !== false && next != null ? String(next) : "";
-				if (nextClass) element.setAttribute("class", nextClass);
-				else element.removeAttribute("class");
+				if (!nextClass) element.removeAttribute("class");
+				else if (element.getAttribute("class") !== nextClass)
+					element.setAttribute("class", nextClass);
 				continue;
 			}
 
@@ -1252,35 +1260,21 @@ function patchProps(
 function patchStyle(element: HTMLElement, prev: unknown, next: unknown): void {
 	const style = element.style;
 
-	if (prev && typeof prev === "object" && next && typeof next === "object") {
-		const prevObj = prev as Record<string, unknown>;
-		const nextObj = next as Record<string, unknown>;
-
-		for (const key of Object.keys(prevObj)) {
-			if (!(key in nextObj)) {
-				style.removeProperty(toKebabCase(key));
-			}
-		}
-
-		for (const [key, value] of Object.entries(nextObj)) {
-			if (value != null) {
-				const cssProperty = toKebabCase(key);
-				const nextValue = String(value);
-				if (style.getPropertyValue(cssProperty) !== nextValue) {
-					style.setProperty(cssProperty, nextValue);
-				}
-			}
-		}
-		return;
-	}
-
 	if (next && typeof next === "object") {
-		style.cssText = "";
-		for (const [key, value] of Object.entries(
-			next as Record<string, unknown>,
-		)) {
-			if (value != null) {
-				style.setProperty(toKebabCase(key), String(value));
+		if (prev && typeof prev === "object") {
+			for (const key of Object.keys(prev)) {
+				if (!(key in next)) style.removeProperty(toKebabCase(key));
+			}
+		} else {
+			style.cssText = "";
+		}
+		for (const [key, value] of Object.entries(next)) {
+			const cssProperty = toKebabCase(key);
+			if (
+				value != null &&
+				style.getPropertyValue(cssProperty) !== String(value)
+			) {
+				style.setProperty(cssProperty, String(value));
 			}
 		}
 		return;
@@ -1448,11 +1442,6 @@ function removeProp(element: Element, key: string, isSvg: boolean): void {
 		return;
 	}
 
-	if (key === "class" || key === "className") {
-		element.removeAttribute("class");
-		return;
-	}
-
 	// Dropped checked, value, and selected stay as they are. Catalog form
 	// components own that state. A file input is included and is not cleared.
 	if (!isSvg && isLiveField(element, key)) {
@@ -1478,18 +1467,15 @@ function removeProp(element: Element, key: string, isSvg: boolean): void {
 		return;
 	}
 
-	const attrName = propAttributeName(element, key, isSvg);
-	if (!isSvg && key in element && key !== "list") {
-		const el = element as HTMLElement;
-		const current = getContained(el, key);
-		if (typeof current === "boolean") {
-			setContained(el, key, false);
-			element.removeAttribute(attrName);
-			return;
-		}
+	if (
+		!isSvg &&
+		key in element &&
+		key !== "list" &&
+		typeof getContained(element, key) === "boolean"
+	) {
+		setContained(element, key, false);
 	}
-
-	element.removeAttribute(attrName);
+	element.removeAttribute(propAttributeName(element, key, isSvg));
 }
 
 const composing = new WeakMap<Node, boolean>();
@@ -1528,11 +1514,11 @@ export const setOwner = (host: object, token: object) => {
 	(host as Owned)[owner] = token;
 };
 
-// The patch asks this at node and prop boundaries: once a detach or a newer
-// commit owns the host, the walk stops and writes nothing more.
-function stale(): boolean {
+// Every write site in the patch asks this first. Once a detach or a newer commit
+// owns the host it throws `owner`, which unwinds the whole patch at its root.
+function live(): void {
 	const { h, e } = commitQueue as unknown as Frame;
-	return !!h && (h as Owned)[owner] !== e;
+	if (h && (h as Owned)[owner] !== e) throw owner;
 }
 
 function commitRender<T>(render: () => T, host?: object): T {
