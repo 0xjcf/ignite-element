@@ -247,6 +247,74 @@ describe("injectStyles", () => {
 		}
 	});
 
+	it("releases every queued pair when detach runs before the injector loads", () => {
+		const slotHost = globalThis as typeof globalThis & {
+			[STYLE_INJECT_SLOT]?: unknown;
+		};
+		const previous = slotHost[STYLE_INJECT_SLOT];
+		delete slotHost[STYLE_INJECT_SLOT];
+		const element = document.createElement("div");
+		document.body.append(element);
+		const root = element.attachShadow({ mode: "open" });
+
+		try {
+			const strategy = createIgniteJsxRenderStrategy();
+			strategy.attach(root);
+			strategy.attach(root);
+			strategy.attach(root);
+			strategy.detach();
+
+			const seen: ShadowRoot[] = [];
+			installStyleInject((queued) => {
+				seen.push(queued);
+			});
+
+			expect(seen).not.toContain(root);
+		} finally {
+			element.remove();
+			if (isStyleInject(previous)) installStyleInject(previous);
+			else delete slotHost[STYLE_INJECT_SLOT];
+		}
+	});
+
+	it("queues a later attach and keeps a different root", () => {
+		const slotHost = globalThis as typeof globalThis & {
+			[STYLE_INJECT_SLOT]?: unknown;
+		};
+		const previous = slotHost[STYLE_INJECT_SLOT];
+		delete slotHost[STYLE_INJECT_SLOT];
+		const droppedElement = document.createElement("div");
+		const keptElement = document.createElement("div");
+		document.body.append(droppedElement, keptElement);
+		const dropped = droppedElement.attachShadow({ mode: "open" });
+		const kept = keptElement.attachShadow({ mode: "open" });
+
+		try {
+			const droppedStrategy = createIgniteJsxRenderStrategy();
+			const keptStrategy = createIgniteJsxRenderStrategy();
+			droppedStrategy.attach(dropped);
+			droppedStrategy.attach(dropped);
+			keptStrategy.attach(kept);
+			droppedStrategy.detach();
+			droppedStrategy.attach(dropped);
+
+			const seen: ShadowRoot[] = [];
+			installStyleInject((queued) => {
+				seen.push(queued);
+			});
+
+			expect(seen).toContain(kept);
+			expect(seen).toContain(dropped);
+			expect(seen.filter((root) => root === dropped)).toHaveLength(1);
+			expect(seen.filter((root) => root === kept)).toHaveLength(1);
+		} finally {
+			droppedElement.remove();
+			keptElement.remove();
+			if (isStyleInject(previous)) installStyleInject(previous);
+			else delete slotHost[STYLE_INJECT_SLOT];
+		}
+	});
+
 	it("drops a shadow root when the JSX strategy detaches before the injector loads", () => {
 		const slotHost = globalThis as typeof globalThis & {
 			[STYLE_INJECT_SLOT]?: unknown;

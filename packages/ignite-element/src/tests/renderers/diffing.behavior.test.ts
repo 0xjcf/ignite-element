@@ -9,10 +9,12 @@ import {
 	type NormalizedNode,
 	renderIgniteJsx,
 } from "../../renderers/jsx/renderer";
+import { unsupportedJsxProps } from "./unsupported-jsx-props";
 
 describe("ignite-jsx diffing behavior", () => {
 	afterEach(() => {
 		clearNoDiffDenylistForTests();
+		document.body.replaceChildren();
 	});
 
 	it("does not rewrite input value when unchanged", () => {
@@ -34,11 +36,45 @@ describe("ignite-jsx diffing behavior", () => {
 		const host = document.createElement("div");
 		const tree = mountIgniteJsx(host, jsx("input", { value: "a" }));
 		const input = host.querySelector("input") as HTMLInputElement;
-		(input as unknown as { isComposing: boolean }).isComposing = true;
+		document.body.append(host);
+		input.focus();
+		input.dispatchEvent(new Event("compositionstart"));
 
 		renderIgniteJsx(host, jsx("input", { value: "b" }), tree);
 
 		expect(input.value).toBe("a");
+	});
+
+	it("keeps an in-progress composition when onInput re-renders", () => {
+		const host = document.createElement("div");
+		let value = "he";
+		let tree: NormalizedNode[] | undefined;
+		const view = () =>
+			jsx("input", {
+				value,
+				onInput: (event: Event) => {
+					value = (event.currentTarget as HTMLInputElement).value;
+					tree = renderIgniteJsx(host, view(), tree);
+				},
+			});
+		tree = mountIgniteJsx(host, view());
+		const input = host.querySelector("input") as HTMLInputElement;
+		document.body.append(host);
+		input.focus();
+		input.dispatchEvent(new Event("compositionstart"));
+		// The field already shows the composition. onInput copies it and re-renders.
+		input.value = "hel";
+		input.dispatchEvent(new Event("input"));
+		expect(value).toBe("hel");
+		expect(input.value).toBe("hel");
+
+		value = "he";
+		tree = renderIgniteJsx(host, view(), tree);
+		expect(input.value).toBe("hel");
+
+		input.dispatchEvent(new Event("compositionend"));
+		tree = renderIgniteJsx(host, view(), tree);
+		expect(input.value).toBe("he");
 	});
 
 	it("updates event listeners without stacking", () => {
@@ -136,10 +172,13 @@ describe("ignite-jsx diffing behavior", () => {
 		});
 	const innerHtmlView = () =>
 		jsx("div", {
-			children: jsx("main", {
-				class: "content",
-				innerHTML: "<p>Other view</p>",
-			}),
+			children: jsx(
+				"main",
+				unsupportedJsxProps({
+					class: "content",
+					innerHTML: "<p>Other view</p>",
+				}),
+			),
 		});
 
 	it("replaces (not appends) when toggling between JSX children and innerHTML", () => {

@@ -70,10 +70,28 @@ describe("JSX host runtime size", () => {
 		assert.equal(code.includes("prefers-reduced-motion"), false);
 		assert.equal(code.includes("Host mount failed"), false);
 		assert.ok(gzip > 0);
-		assert.ok(
-			gzip < 3600,
-			`no-host JSX gzip ${gzip} includes the host runtime`,
-		);
+		// Existing default gzip (level 6), not the consumer's level 9 method.
+		// Jose approved the exact 4173 B cost of committed refs and native
+		// select correctness, then the exact 4355 B for PR #168: the render-tree
+		// publish hook (commit ordering), the exact-name property sink table, and
+		// SMIL commit ordering (approved for native select correctness and sink
+		// blocking), then the exact 4480 B for PR #168's restructure: one guarded
+		// write helper that rechecks ownership before every DOM write, and
+		// detached roots claiming ownership at creation.
+		// Then 4510 B: the round-9 fixes for three Codex threads (blocked URL across
+		// spellings, listener sets after drops, never-committed own setters) cost 27 B.
+		// Then 4560 B (Jose pre-approved up to 4560): the round-11 fixes for six
+		// Codex threads (custom-element construction rechecked through the write
+		// helper, a private unwinding sentinel, explicit fallback-attribute state
+		// that removes a stale attribute before an upgraded setter) cost 49 B.
+		// Then 4580 B (Jose pre-approved up to 4590): the round-12 fix for the
+		// spelling-keyed fallback marker (an alias handing its marker to the
+		// spelling that stays) reads 4576 B on the rebuilt dist.
+		// Then 4670 B (Jose approved): the round-14 fixes (act lookup recheck,
+		// off-list volume/playbackRate/currentTime, ref self-unmount with a
+		// disposer) read 4666 B on the rebuilt dist.
+		// Host exclusion and build settings stay the same.
+		assert.ok(gzip <= 4670, `no-host JSX gzip ${gzip} is above 4670`);
 	});
 
 	it("includes the host runtime when the internal module is imported", async () => {
@@ -92,6 +110,6 @@ describe("JSX host runtime size", () => {
 		const gzip = gzipSync(code).byteLength;
 		assert.equal(code.includes("Host mount failed"), true);
 		assert.equal(code.includes("Unknown host"), false);
-		assert.ok(gzip > 3600, `host JSX gzip ${gzip} dropped the host runtime`);
+		assert.ok(gzip > 4173, `host JSX gzip ${gzip} dropped the host runtime`);
 	});
 });

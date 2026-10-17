@@ -7,6 +7,7 @@ import {
 	mountIgniteJsx,
 	type NormalizedNode,
 	renderIgniteJsx,
+	setOwner,
 	unmountIgniteSubtree,
 } from "./renderer";
 import type { IgniteJsxChild } from "./types";
@@ -47,6 +48,11 @@ function logJsxFallback(
 	}
 }
 
+// A rootless mount into a strategy's own root leaves its cached tree stale.
+// The mark lives on the root under a shared key, so a mount made by another
+// bundled copy of this module is seen too.
+const mounted = Symbol.for("ignite.m");
+type Marked = Record<symbol, unknown>;
 const strategyLogging = new WeakMap<object, FallbackLogging>();
 const strategyFallbackReason = new WeakMap<object, string>();
 
@@ -56,6 +62,8 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 	private readonly mode: "diff" | "replace";
 	private readonly diffEnabled: boolean;
 	private forceReplace = false;
+	private writing = false;
+	private next: [IgniteJsxChild] | undefined;
 
 	constructor() {
 		const { strategy, logging } = getIgniteConfig() ?? {};
@@ -114,7 +122,41 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 		}
 	}
 
+	// A custom setter can call render() while the commit is still writing the
+	// DOM, before the tree is published. A nested render would diff a stale
+	// tree over a half-patched DOM, so it waits for the outer commit and the
+	// newest request runs after it, even when the outer render throws. detach()
+	// drops a waiting request. If both renders throw, the caller sees the first
+	// error.
+	// A render that throws before publishing leaves a DOM that no tree
+	// describes, so the next render rebuilds it; until then it stays as left.
+	// Once the tree is published (controlled flush, refs, cleanups) a nested
+	// render runs at once; the renderer stops the outer controlled writes it
+	// superseded.
 	render(view: IgniteJsxChild): void {
+		if (this.writing) {
+			this.next = [view];
+			return;
+		}
+		this.next = undefined;
+		this.writing = true;
+		let failure: [unknown] | undefined;
+		try {
+			this.renderNow(view);
+		} catch (error) {
+			failure = [error];
+			this.previousTree = null;
+		}
+		this.writing = false;
+		try {
+			if (this.next) this.render(this.next[0]);
+		} catch (error) {
+			failure ??= [error];
+		}
+		if (failure) throw failure[0];
+	}
+
+	private renderNow(view: IgniteJsxChild): void {
 		const contentRoot = this.contentRoot;
 		if (!contentRoot) {
 			throw new Error(
@@ -122,12 +164,22 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 			);
 		}
 
+		const marks = contentRoot as unknown as Marked;
+		if (marks[mounted]) {
+			marks[mounted] = 0;
+			this.previousTree = null;
+		}
 		const mode = this.forceReplace || !this.diffEnabled ? "replace" : this.mode;
+		const onTreePublished = (tree: NormalizedNode[]) => {
+			this.previousTree = tree;
+			this.writing = false;
+		};
 		const render = () =>
 			this.previousTree === null
-				? mountIgniteJsx(contentRoot, view)
-				: renderIgniteJsx(contentRoot, view, this.previousTree ?? undefined, {
+				? mountIgniteJsx(contentRoot, view, { onTreePublished })
+				: renderIgniteJsx(contentRoot, view, this.previousTree, {
 						mode,
+						onTreePublished,
 						onFallbackReplace: __IGNITE_DEV_WARNINGS__
 							? (reason) =>
 									logJsxFallback(
@@ -142,9 +194,9 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 			const runtime = readBoundHostRuntime(
 				rootNode instanceof ShadowRoot ? rootNode.host : undefined,
 			);
-			this.previousTree = withIgniteHostRuntime(runtime, render);
+			withIgniteHostRuntime(runtime, render);
 		} else {
-			this.previousTree = render();
+			render();
 		}
 
 		if (__IGNITE_DEV_WARNINGS__) {
@@ -173,9 +225,11 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 	}
 
 	detach(): void {
+		this.next = undefined;
 		const rootNode = this.contentRoot?.getRootNode();
 		if (rootNode instanceof ShadowRoot) forgetQueuedStyles(rootNode);
 		if (this.contentRoot) {
+			setOwner(this.contentRoot, { r: true });
 			unmountIgniteSubtree(this.contentRoot);
 			this.contentRoot.parentNode?.removeChild(this.contentRoot);
 		}
@@ -192,6 +246,7 @@ export function mountIgniteJsxOnce(
 	host: (Node & ParentNode) | ShadowRoot,
 	view: IgniteJsxChild,
 ): void {
+	(host as unknown as Marked)[mounted] = 1;
 	mountIgniteJsx(host, view);
 }
 

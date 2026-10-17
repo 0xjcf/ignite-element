@@ -5,6 +5,7 @@
 
 import {
 	claimHostSubtree,
+	hostLive,
 	type IgniteHostContext,
 	type IgniteHostDefinition,
 	type IgniteHostRuntime,
@@ -179,13 +180,20 @@ function deliver(record: HostRecord, force: boolean): void {
 		let deliverForce = force;
 		do {
 			record.redeliver = false;
-			if (
-				!deliverForce &&
-				record.delivered &&
-				slicesEqual(record.definition, record.deliveredSlice, record.slice)
-			) {
-				deliverForce = false;
-				continue;
+			if (!deliverForce && record.delivered) {
+				const same = slicesEqual(
+					record.definition,
+					record.deliveredSlice,
+					record.slice,
+				);
+				// A superseding equals must not be followed by update. Outside a
+				// commit there is no frame, so the record itself is the check.
+				hostLive();
+				if (!record.settled) break;
+				if (same) {
+					deliverForce = false;
+					continue;
+				}
 			}
 			const slice = record.slice;
 			try {
@@ -288,20 +296,34 @@ function clearDescription(element: Element): void {
 	else element.setAttribute("aria-describedby", next.join(" "));
 }
 
+// An async settle runs outside any commit, so currency is the record itself.
+function superseded(element: Element, record: HostRecord): boolean {
+	// Retiring or dropping a record deletes it, so it is also aborted.
+	return hostRecords.get(element) !== record;
+}
+
 function applyDescription(
 	element: Element,
 	definition: IgniteHostDefinition,
 	slice: unknown,
+	record?: HostRecord,
 ): void {
 	if (!definition.describe) {
 		clearDescription(element);
 		return;
 	}
-	let text: string;
+	let text: unknown;
+	let failed = false;
 	try {
 		text = definition.describe(slice);
 	} catch (error) {
 		reportHostError("[ignite-jsx] Host describe failed.", error);
+		failed = true;
+	}
+	// No DOM write and no further callback follows a superseded describe.
+	hostLive();
+	if (record && superseded(element, record)) return;
+	if (failed) {
 		clearDescription(element);
 		return;
 	}
@@ -365,12 +387,14 @@ function acceptHandle(
 	record.handle = handle;
 	record.settled = true;
 	const afterDeliver = () =>
-		applyDescription(element, definition, record.slice);
+		applyDescription(element, definition, record.slice, record);
 	if (deferDeliver) {
 		pendingDeliver.push({ record, afterDeliver });
 		return;
 	}
 	deliver(record, false);
+	hostLive();
+	if (superseded(element, record)) return;
 	afterDeliver();
 }
 
@@ -397,6 +421,9 @@ function startHost(
 	runtime: IgniteHostRuntime,
 	slice: unknown,
 ): void {
+	// A descendant's dispose is user code: stop before this host registers.
+	retireDescendantHosts(element);
+	hostLive();
 	const controller = new AbortController();
 	const ctx: IgniteHostContext = {
 		signal: controller.signal,
@@ -432,37 +459,45 @@ function startHost(
 	});
 	hostRecords.set(element, record);
 	ensureHostUnmount(element);
-	retireDescendantHosts(element);
 	const queuedBefore = deferredSends.length;
 	let result: unknown;
+	let failed = false;
 	try {
 		result = definition.mount(element, ctx);
 	} catch (error) {
 		reportHostError("[ignite-jsx] Host mount failed.", error);
+		failed = true;
 		if (hostRecords.get(element) === record) {
 			dropRecord(element, record);
 			releaseHostSubtree(element);
 		}
-		return;
 	}
+	const fulfilled = (handle: unknown) => {
+		acceptHandle(element, record, definition, handle);
+	};
+	const rejected = (error: unknown) => {
+		reportHostError("[ignite-jsx] Host mount failed.", error);
+		if (
+			record.controller.signal.aborted ||
+			hostRecords.get(element) !== record
+		) {
+			return;
+		}
+		dropRecord(element, record);
+		releaseHostSubtree(element);
+	};
+	// A mount that superseded this commit is settled like any async mount:
+	// a late handle is disposed and a late rejection is reported.
+	try {
+		hostLive();
+	} catch (error) {
+		if (!failed) Promise.resolve(result).then(fulfilled, rejected);
+		throw error;
+	}
+	if (failed) return;
 	const deferDeliver = deferredSends.length > queuedBefore;
 	if (isPromiseLike(result)) {
-		Promise.resolve(result).then(
-			(handle) => {
-				acceptHandle(element, record, definition, handle);
-			},
-			(error: unknown) => {
-				reportHostError("[ignite-jsx] Host mount failed.", error);
-				if (
-					record.controller.signal.aborted ||
-					hostRecords.get(element) !== record
-				) {
-					return;
-				}
-				dropRecord(element, record);
-				releaseHostSubtree(element);
-			},
-		);
+		Promise.resolve(result).then(fulfilled, rejected);
 		return;
 	}
 	acceptHandle(element, record, definition, result, deferDeliver);
@@ -483,36 +518,38 @@ function readSlice(
 	}
 }
 
+// Retire a host: dispose is user code, so nothing follows a superseded commit.
+function dropHost(element: Element): void {
+	retireHost(element);
+	hostLive();
+	releaseHostSubtree(element);
+	clearDescription(element);
+}
+
 export function syncHostElement(element: Element, useName: unknown): void {
 	const runtime = activeRuntime;
 	if (!runtime) return;
 	if (typeof useName !== "string" || useName.length === 0) {
-		retireHost(element);
-		releaseHostSubtree(element);
-		clearDescription(element);
+		dropHost(element);
 		return;
 	}
 	if (!ownName(runtime.hosts, useName)) {
 		if (__IGNITE_DEV_WARNINGS__) warnUnknownHost(element, useName);
-		retireHost(element);
-		releaseHostSubtree(element);
-		clearDescription(element);
+		dropHost(element);
 		return;
 	}
 	const definition = runtime.hosts[useName];
 	if (!definition) {
 		if (__IGNITE_DEV_WARNINGS__) warnUnknownHost(element, useName);
-		retireHost(element);
-		releaseHostSubtree(element);
-		clearDescription(element);
+		dropHost(element);
 		return;
 	}
 	claimHostSubtree(element);
 	const selected = readSlice(definition, runtime.snapshot);
+	// Host callbacks are user code: a superseded commit stops after each one.
+	hostLive();
 	if (!selected.ok) {
-		retireHost(element);
-		releaseHostSubtree(element);
-		clearDescription(element);
+		dropHost(element);
 		return;
 	}
 	const slice = selected.slice;
@@ -526,7 +563,10 @@ export function syncHostElement(element: Element, useName: unknown): void {
 		existing.name !== useName ||
 		existing.definition !== definition
 	) {
-		if (existing) retireHost(element);
+		if (existing) {
+			retireHost(element);
+			hostLive();
+		}
 		startHost(element, useName, definition, runtime, slice);
 		applyDescription(element, definition, slice);
 		return;
@@ -534,6 +574,7 @@ export function syncHostElement(element: Element, useName: unknown): void {
 	existing.slice = slice;
 	existing.hasSlice = true;
 	deliver(existing, false);
+	hostLive();
 	applyDescription(element, definition, slice);
 }
 

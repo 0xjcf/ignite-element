@@ -42,6 +42,59 @@ describe("Ignite JSX runtime", () => {
 		expect((fragment.props.children as IgniteJsxChild[])[0]).toBe("a");
 	});
 
+	it("allows content props on function components and rejects them on tags", () => {
+		function Label(props: {
+			innerHTML?: string;
+			outerHTML?: string;
+			innerText?: string;
+			outerText?: string;
+			textContent?: string;
+		}): IgniteJsxChild {
+			return props.textContent ?? null;
+		}
+
+		const caption = jsx(Label, {
+			innerHTML: "a",
+			outerHTML: "b",
+			innerText: "c",
+			outerText: "d",
+			textContent: "caption",
+		});
+		const repeated = jsxs(Label, { textContent: "caption" });
+		expect(caption.props.textContent).toBe("caption");
+		expect(repeated.props.textContent).toBe("caption");
+
+		// @ts-expect-error intrinsic tags reject content props
+		jsx("div", { textContent: "no" });
+		// @ts-expect-error intrinsic tags reject content props
+		jsx("div", { innerHTML: "no" });
+		// @ts-expect-error intrinsic tags reject content props
+		jsx("div", { outerHTML: "no" });
+		// @ts-expect-error intrinsic tags reject content props
+		jsx("div", { innerText: "no" });
+		// @ts-expect-error intrinsic tags reject content props
+		jsxs("div", { outerText: "no" });
+	});
+
+	it("rejects two spellings of one prop on an intrinsic tag", () => {
+		jsx("form", { acceptCharset: "utf-8" });
+		jsx("label", { htmlFor: "name" });
+		jsx("button", { onClick: () => undefined });
+		jsx("div", { "aria-label": "name" });
+		jsx("div", { className: "on" });
+
+		// @ts-expect-error acceptCharset and accept-charset are one prop
+		jsx("form", { acceptCharset: "utf-8", "accept-charset": "latin1" });
+		// @ts-expect-error htmlFor and for are one prop
+		jsx("label", { htmlFor: "name", for: "name" });
+		// @ts-expect-error onClick and onclick are one prop
+		jsx("button", { onClick: () => undefined, onclick: () => undefined });
+		// @ts-expect-error ariaLabel and aria-label are one prop
+		jsx("div", { ariaLabel: "name", "aria-label": "name" });
+		// @ts-expect-error className and class are one prop
+		jsx("div", { className: "on", class: "off" });
+	});
+
 	it("supports jsxDEV metadata parameters", () => {
 		const element = jsxDEV(
 			"button",

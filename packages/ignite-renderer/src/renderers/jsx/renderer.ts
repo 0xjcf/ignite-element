@@ -61,15 +61,18 @@ export function createDomNode(
 	node: IgniteJsxChild,
 	namespace?: string,
 ): Node | DocumentFragment {
-	const normalized = normalizeChild(node, namespace);
-	if (normalized.length === 1) {
-		return createDomFromNormalized(normalized[0]);
-	}
-	const fragment = document.createDocumentFragment();
-	for (const child of normalized) {
-		fragment.appendChild(createDomFromNormalized(child));
-	}
-	return fragment;
+	return commitRender(() => {
+		const normalized = normalizeChild(node, namespace);
+		if (normalized.length === 1) {
+			return createDomFromNormalized(normalized[0]);
+		}
+		const fragment = document.createDocumentFragment();
+		claim(fragment);
+		for (const child of normalized) {
+			act(fragment, "appendChild", createDomFromNormalized(child));
+		}
+		return fragment;
+	});
 }
 
 export function mountIgniteJsx(
@@ -77,19 +80,15 @@ export function mountIgniteJsx(
 	view: IgniteJsxChild,
 	options: RenderOptions = {},
 ): NormalizedNode[] {
-	const mount = () => {
-		const normalized = normalizeRoot(view);
-		replaceAll(host, normalized);
-		return normalized;
-	};
-	if (hostRuntimeEnabled) return withIgniteHostRuntime(options.hosts, mount);
-	return mount();
+	return renderIgniteJsx(host, view, undefined, options);
 }
 
 type RenderOptions = {
 	mode?: "diff" | "replace";
 	onFallbackReplace?: (reason: string) => void;
 	hosts?: IgniteHostRuntime;
+	/** Called once the DOM matches the tree, before refs and controlled writes. */
+	onTreePublished?: (tree: NormalizedNode[]) => void;
 };
 
 export function renderIgniteJsx(
@@ -112,28 +111,30 @@ function renderIgniteJsxNow(
 	previous: NormalizedNode[] | undefined,
 	options: RenderOptions,
 ): NormalizedNode[] {
-	const next = normalizeRoot(view);
+	const epoch = (host as Owned)[owner];
+	return commitRender(() => {
+		const frame = commitQueue as unknown as Frame;
+		frame.h = host;
+		frame.e = epoch;
+		frame.r = !previous;
+		const next = normalizeRoot(view);
 
-	if (options.mode === "replace") {
-		replaceAll(host, next);
+		if (
+			options.mode === "replace" ||
+			!previous ||
+			host.childNodes.length === 0
+		) {
+			replaceAll(host, next);
+		} else if (
+			!patchChildren(host, previous, next, options.onFallbackReplace)
+		) {
+			replaceAll(host, next);
+		}
+		// act() unwound any render a detach or newer commit revoked: this publishes.
+		(host as Owned)[owner] = commitQueue as unknown as Token;
+		options.onTreePublished?.(next);
 		return next;
-	}
-
-	if (!previous || host.childNodes.length === 0) {
-		replaceAll(host, next);
-		return next;
-	}
-
-	const patched = patchChildren(
-		host,
-		previous,
-		next,
-		options.onFallbackReplace,
-	);
-	if (!patched) {
-		replaceAll(host, next);
-	}
-	return next;
+	}, host);
 }
 
 function normalizeRoot(view: IgniteJsxChild): NormalizedNode[] {
@@ -177,7 +178,7 @@ function normalizeChild(
 	}
 
 	if (typeof node.type === "function") {
-		const result = node.type(node.props);
+		const result = act<IgniteJsxChild>(node, "type", node.props);
 		return applySlotKey(node.key, normalizeChild(result, namespace));
 	}
 
@@ -216,6 +217,8 @@ type RefCallback = (
 ) => void | RefDisposer | PromiseLike<void>;
 
 interface ElementMount {
+	pending?: () => void;
+	binding?: () => void;
 	ref: RefCallback | null;
 	/** Disposer returned by the current ref. Absent when the ref returns nothing. */
 	cleanup: RefDisposer | null;
@@ -223,6 +226,8 @@ interface ElementMount {
 	unmounted: boolean;
 	/** True after a true-disconnect release that kept the callback for reacquire. */
 	released: boolean;
+	/** False while the ref callback runs; true once a teardown arrived during the call. */
+	late?: boolean;
 }
 
 const elementMounts = new WeakMap<Node, ElementMount>();
@@ -316,14 +321,6 @@ function warnIgnoredProp(element: Element, key: string, message: string): void {
 	console.warn(message);
 }
 
-function warnDeprecatedContentProp(element: Element, key: string): void {
-	warnIgnoredProp(
-		element,
-		key,
-		`[ignite-jsx] \`${key}\` is deprecated and will be removed in the next major release. Use JSX children for text, and hosts for trusted rich content.`,
-	);
-}
-
 function warnBlockedMarkupProp(element: Element, key: string): void {
 	warnIgnoredProp(
 		element,
@@ -340,12 +337,50 @@ function warnBlockedUrl(element: Element, key: string): void {
 	);
 }
 
+function warnDroppedControl(element: Element, key: string): void {
+	if (!__IGNITE_DEV_WARNINGS__) return;
+	warnIgnoredProp(
+		element,
+		`drop:${key}`,
+		`[ignite-jsx] \`${key}\` dropped on a controlled ${element.localName}; pass it every render or use a catalog form component`,
+	);
+}
+
+function warnDuplicateProps(
+	element: Element,
+	props: IgniteJsxProps,
+	isSvg: boolean,
+): void {
+	if (!__IGNITE_DEV_WARNINGS__) return;
+	const seen: Record<string, string> = {};
+	for (const key of Object.keys(props)) {
+		if (key === "children" || key === "ref") continue;
+		const id = sinkKey(element, key, isSvg);
+		const prev = seen[id];
+		if (prev) {
+			warnIgnoredProp(
+				element,
+				`dup:${id}`,
+				`[ignite-jsx] \`${prev}\` and \`${key}\` are two spellings of one prop. Pass one. Production behavior is unspecified.`,
+			);
+			continue;
+		}
+		seen[id] = key;
+	}
+}
+
 function isBlockedMarkupProp(key: string): boolean {
 	const normalized = key.toLowerCase();
 	return (
 		normalized === "innerhtml" ||
 		normalized === "outerhtml" ||
-		normalized === "srcdoc"
+		normalized === "innertext" ||
+		normalized === "outertext" ||
+		normalized === "textcontent" ||
+		normalized === "srcdoc" ||
+		normalized === "length" ||
+		normalized === "options" ||
+		normalized === "selectedoptions"
 	);
 }
 
@@ -384,6 +419,36 @@ function smilHrefTarget(value: unknown): boolean {
 		: value != null;
 }
 
+const smilKeys = /^(attributeName|from|to|by|values)$/i;
+
+function isSmil(element: Element): boolean {
+	const tag = element.localName.toLowerCase();
+	return tag === "animate" || tag === "set" || tag === "animatemotion";
+}
+
+// A SMIL value is only safe or unsafe relative to the attribute it animates,
+// so the DOM must never hold a value next to a target that makes it
+// executable. The guard reads the next props, so it describes the DOM only
+// once the target is committed. Retract first instead: every SMIL prop that is
+// dropped, changed, or blocked for the next props is removed before the main
+// loop writes anything. The DOM then holds only values that are unchanged and
+// safe under any target, and the rewrite of a changed attributeName or value
+// never sits next to a stale partner, whatever the key order.
+function settleSmil(
+	element: Element,
+	oldProps: IgniteJsxProps,
+	newProps: IgniteJsxProps,
+): void {
+	if (!isSmil(element)) return;
+	for (const key of Object.keys(oldProps)) {
+		if (!smilKeys.test(key)) continue;
+		const kept = sinkMatch(newProps, element, key, true);
+		if (!kept || newProps[kept] !== oldProps[key]) {
+			removeProp(element, key, true);
+		}
+	}
+}
+
 function isBlockedUrlValue(
 	element: Element,
 	key: string,
@@ -400,7 +465,7 @@ function isBlockedUrlValue(
 	// are removed, then any Clark or namespace prefix is removed. href,
 	// and any non-string attributeName, drops from, to, by, and values.
 	if (
-		(tag === "animate" || tag === "set" || tag === "animatemotion") &&
+		isSmil(element) &&
 		(name === "from" || name === "to" || name === "by" || name === "values") &&
 		smilHrefTarget(props?.attributeName)
 	) {
@@ -457,6 +522,8 @@ if (hostRuntimeEnabled) {
 		claimSubtree,
 		releaseSubtree,
 		onUnmount: onIgniteUnmount,
+		// Host callbacks also run after the write phase, with no frame.
+		live: () => commitQueue && live(),
 		unmountSubtree: unmountIgniteSubtree,
 	});
 }
@@ -474,6 +541,7 @@ function commitFresh(node: ChildNode, normalized: NormalizedNode): void {
 	// them. Rebind here; an already-bound fresh node returns immediately.
 	if (hostRuntimeEnabled) assignRef(element, normalized.props.ref);
 	syncHostElement(element, normalized.props.use);
+	live();
 	if (hostRuntimeEnabled && subtreeOwners.has(element)) return;
 	const children = Array.from(element.childNodes);
 	for (let index = 0; index < normalized.children.length; index++) {
@@ -541,7 +609,9 @@ function releaseRefBinding(
 	ref: RefCallback,
 	cleanup: RefDisposer | null,
 ): void {
+	const mount = elementMounts.get(node);
 	if (cleanup) invokeContained(node, cleanup);
+	else if (mount?.late === false) mount.late = true;
 	else invokeContained(node, () => ref(null));
 }
 
@@ -556,6 +626,7 @@ function releaseStoredRef(node: Node, mount: ElementMount): void {
 
 /** Shared unmount path. Runs before detach, exactly once per mount. */
 export function unmountIgniteSubtree(node: Node): void {
+	composing.set(node, false);
 	if (
 		node.nodeType === ELEMENT_NODE ||
 		node.nodeType === DOCUMENT_FRAGMENT_NODE
@@ -573,33 +644,45 @@ export function unmountIgniteSubtree(node: Node): void {
 	elementMounts.delete(node);
 }
 
+// Each commit has two ordered phases: controlled writes, then ref acquisition.
+// Queue writers are private; all create/render/reacquire paths establish a frame.
+let commitQueue: [(() => void)[], (() => void)[]];
 function assignRef(element: Element, ref: unknown): void {
 	const mount = ensureMount(element);
-	if (mount.unmounted) return;
-	const next = typeof ref === "function" ? (ref as RefCallback) : null;
-	if (mount.ref === next && !mount.released) return;
-	if (mount.ref && !mount.released) {
-		const previous = mount.ref;
-		const cleanup = mount.cleanup;
-		mount.ref = null;
-		mount.cleanup = null;
-		releaseRefBinding(element, previous, cleanup);
-	}
-	mount.ref = next;
-	mount.cleanup = null;
-	mount.released = false;
-	if (!next) return;
-	try {
-		const result = next(element);
-		if (typeof result === "function") {
-			mount.cleanup = result;
-			return;
+	const acquire = () => {
+		if (mount.unmounted || mount.pending !== acquire) return;
+		const next = typeof ref === "function" ? (ref as RefCallback) : null;
+		if (mount.ref === next && !mount.released) return;
+		if (mount.ref && !mount.released) {
+			releaseStoredRef(element, mount);
+			if (mount.unmounted || mount.pending !== acquire) return;
 		}
-		observeRejection(element, result);
-	} catch (error) {
-		mount.cleanup = null;
-		reportRendererError(element, error);
-	}
+		mount.ref = next;
+		mount.released = false;
+		mount.binding = acquire;
+		if (!next) return;
+		invokeContained(element, () => {
+			let result: ReturnType<RefCallback> | undefined;
+			mount.late = false;
+			try {
+				result = next(element);
+			} finally {
+				// Nobody returned a disposer, so a teardown that arrived mid-call is due.
+				const owed = mount.late;
+				mount.late = undefined;
+				if (owed && typeof result !== "function") next(null);
+			}
+			if (typeof result === "function") {
+				if (!mount.unmounted && !mount.released && mount.binding === acquire)
+					mount.cleanup = result;
+				else invokeContained(element, result);
+				return;
+			}
+			return result;
+		});
+	};
+	mount.pending = acquire;
+	commitQueue[1].push(acquire);
 }
 
 function releaseNodeRefs(node: Node): void {
@@ -624,17 +707,7 @@ function reacquireNodeRefs(node: Node): void {
 	if (node instanceof Element) {
 		const mount = elementMounts.get(node);
 		if (mount && !mount.unmounted && mount.released && mount.ref) {
-			const ref = mount.ref;
-			mount.released = false;
-			mount.cleanup = null;
-			try {
-				const result = ref(node);
-				if (typeof result === "function") mount.cleanup = result;
-				else observeRejection(node, result);
-			} catch (error) {
-				mount.cleanup = null;
-				reportRendererError(node, error);
-			}
+			assignRef(node, mount.ref);
 		}
 	}
 	if (
@@ -656,14 +729,16 @@ export function releaseMountedView(root: ParentNode): void {
 
 /** Acquire one-shot refs again after a later reconnect. */
 export function reacquireMountedView(root: ParentNode): void {
-	for (const child of Array.from(root.childNodes)) {
-		reacquireNodeRefs(child);
-	}
+	commitRender(() => {
+		for (const child of Array.from(root.childNodes)) {
+			reacquireNodeRefs(child);
+		}
+	});
 }
 
 function detachChild(parent: ParentNode, child: ChildNode): void {
 	unmountIgniteSubtree(child);
-	parent.removeChild(child);
+	act(parent, "removeChild", child);
 }
 
 function patchChildren(
@@ -682,75 +757,48 @@ function patchChildren(
 			onFallbackReplace,
 		);
 	}
-	if (!isAppendOnlyCompatible(oldChildren, newChildren)) {
-		// Instead of full replacement, try positional patching.
-		// This preserves existing elements when siblings change kind.
-		const maxLen = Math.max(oldChildren.length, newChildren.length);
-		for (let i = 0; i < maxLen; i++) {
-			const domChild = parent.childNodes[i];
-			if (i < oldChildren.length && i < newChildren.length && domChild) {
-				const patched = patchNode(
-					domChild,
-					oldChildren[i],
-					newChildren[i],
-					onFallbackReplace,
-				);
-				if (patched !== domChild) {
-					parent.replaceChild(patched, domChild);
-					if (hostRuntimeEnabled) {
-						const spec = newChildren[i];
-						if (spec) commitFresh(patched, spec);
-					}
-				}
-			} else if (i >= oldChildren.length) {
-				parent.appendChild(createDomFromNormalized(newChildren[i]));
-				if (hostRuntimeEnabled) {
-					const created = newChildren[i];
-					const placed = parent.lastChild;
-					if (created && placed) commitFresh(placed, created);
-				}
-			} else if (i >= newChildren.length && domChild) {
-				detachChild(parent, domChild);
-			}
-		}
-		// Remove any extra trailing DOM nodes
-		while (parent.childNodes.length > newChildren.length && parent.lastChild) {
-			detachChild(parent, parent.lastChild);
-		}
-		return true;
-	}
-
-	let childIndex = 0;
-	for (; childIndex < oldChildren.length; childIndex++) {
-		const domChild = parent.childNodes[childIndex];
-		if (!domChild) {
-			return false;
-		}
-		const patched = patchNode(
-			domChild,
-			oldChildren[childIndex],
-			newChildren[childIndex],
-			onFallbackReplace,
-		);
-		if (patched !== domChild) {
-			parent.replaceChild(patched, domChild);
+	// Positional patching keeps existing elements when siblings change kind. An
+	// append-only update leaves extra DOM nodes alone and needs every old one.
+	const compat = isAppendOnlyCompatible(oldChildren, newChildren);
+	const maxLen = compat
+		? newChildren.length
+		: Math.max(oldChildren.length, newChildren.length);
+	for (let i = 0; i < maxLen; i++) {
+		const domChild = parent.childNodes[i];
+		if (i >= oldChildren.length) {
+			act(parent, "appendChild", createDomFromNormalized(newChildren[i]));
 			if (hostRuntimeEnabled) {
-				const spec = newChildren[childIndex];
-				if (spec) commitFresh(patched, spec);
+				const created = newChildren[i];
+				const placed = parent.lastChild;
+				if (created && placed) commitFresh(placed, created);
+			}
+		} else if (!domChild) {
+			if (compat) return false;
+		} else if (i >= newChildren.length) {
+			detachChild(parent, domChild);
+		} else {
+			const patched = patchNode(
+				domChild,
+				oldChildren[i],
+				newChildren[i],
+				onFallbackReplace,
+			);
+			if (patched !== domChild) {
+				act(parent, "replaceChild", patched, domChild);
+				if (hostRuntimeEnabled) {
+					const spec = newChildren[i];
+					if (spec) commitFresh(patched, spec);
+				}
 			}
 		}
 	}
-
-	for (; childIndex < newChildren.length; childIndex++) {
-		parent.appendChild(createDomFromNormalized(newChildren[childIndex]));
-		if (hostRuntimeEnabled) {
-			const created = newChildren[childIndex];
-			const placed = parent.lastChild;
-			if (created && placed) commitFresh(placed, created);
-		}
+	while (
+		!compat &&
+		parent.childNodes.length > newChildren.length &&
+		parent.lastChild
+	) {
+		detachChild(parent, parent.lastChild);
 	}
-
-	// If the parent has extra nodes beyond managed children, leave them untouched.
 	return true;
 }
 
@@ -797,7 +845,7 @@ function patchKeyedChildren(
 					onFallbackReplace,
 				);
 				if (patched !== match.dom && match.dom.parentNode) {
-					match.dom.parentNode.removeChild(match.dom);
+					act(match.dom.parentNode, "removeChild", match.dom);
 				}
 				nextDom.push(patched);
 				continue;
@@ -816,7 +864,8 @@ function patchKeyedChildren(
 				child,
 				onFallbackReplace,
 			);
-			if (patched !== dom && dom.parentNode) dom.parentNode.removeChild(dom);
+			if (patched !== dom && dom.parentNode)
+				act(dom.parentNode, "removeChild", dom);
 			nextDom.push(patched);
 			continue;
 		}
@@ -834,7 +883,7 @@ function patchKeyedChildren(
 		if (node === cursor) {
 			cursor = node.nextSibling;
 		} else {
-			parent.insertBefore(node, cursor);
+			act(parent, "insertBefore", node, cursor);
 		}
 		if (hostRuntimeEnabled) {
 			const spec = newChildren[index];
@@ -845,7 +894,7 @@ function patchKeyedChildren(
 	// element that was focused inside this parent, including inside a shadow root.
 	const current = focusedWithin(parent);
 	if (focused?.isConnected && current !== focused) {
-		focused.focus();
+		act(focused, "focus");
 	}
 	return true;
 }
@@ -865,18 +914,6 @@ function focusedWithin(parent: ParentNode): HTMLElement | null {
 
 function keyShapeIsInvalid(shape: KeyShape): boolean {
 	return shape === "duplicate" || shape === "mixed";
-}
-
-// textContent replaces the element's subtree as a DOM property. Nodes it creates
-// are not tracked by the normalized children model, so the child diff must defer
-// to it. Hosts claim the same rule through `claimSubtree`. innerHTML is not applied.
-function ownsSubtreeViaProps(props: IgniteJsxProps): boolean {
-	const value = (props as Record<string, unknown>).textContent;
-	return value !== undefined && value !== null && value !== false;
-}
-
-function subtreeIsOwned(element: Element, props: IgniteJsxProps): boolean {
-	return subtreeOwners.has(element) || ownsSubtreeViaProps(props);
 }
 
 function replaceMounted(
@@ -902,7 +939,7 @@ function patchNode(
 			return replaceMounted(domNode, newNode);
 		}
 		if (domNode.textContent !== newNode.value) {
-			domNode.textContent = newNode.value;
+			setContained(domNode, "textContent", newNode.value);
 		}
 		return domNode;
 	}
@@ -937,25 +974,19 @@ function patchNode(
 
 	const elementNode = domNode as Element & ParentNode;
 	const nextUse = newNode.props.use;
-	const droppingHost =
-		hostRuntimeEnabled &&
-		ownsSubtreeViaProps(newNode.props) &&
-		(typeof nextUse !== "string" || nextUse.length === 0);
-	if (droppingHost) {
-		syncHostElement(elementNode, nextUse);
-	}
 
 	patchProps(elementNode, oldNode.props, newNode.props);
-	const previouslyOwned = hostRuntimeEnabled
-		? subtreeIsOwned(elementNode, oldNode.props)
-		: ownsSubtreeViaProps(oldNode.props);
-	if (hostRuntimeEnabled && !droppingHost) {
+	// Content props are never applied, so they do not own the subtree. A host
+	// claim still does. Read it before sync, which may release the claim.
+	const previouslyOwned = hostRuntimeEnabled && subtreeOwners.has(elementNode);
+	if (hostRuntimeEnabled) {
 		syncHostElement(elementNode, nextUse);
+		live();
 	}
-	// A subtree owner (textContent or a host claim) is opaque. patchProps already
-	// applied the owning prop — skip child diffing so the positional patch does
+	// A host claim is opaque. Skip child diffing so the positional patch does
 	// not desync against untracked DOM nodes (issue #57).
-	if (subtreeIsOwned(elementNode, newNode.props)) {
+	if (hostRuntimeEnabled && subtreeOwners.has(elementNode)) {
+		flushSelectValue(elementNode, newNode.props);
 		assignRef(elementNode, newNode.props.ref);
 		return domNode;
 	}
@@ -991,7 +1022,7 @@ function patchNode(
 			detachChild(elementNode, elementNode.firstChild);
 		}
 		for (const child of mappedChildren) {
-			elementNode.appendChild(createDomFromNormalized(child));
+			act(elementNode, "appendChild", createDomFromNormalized(child));
 			if (hostRuntimeEnabled) {
 				const placed = elementNode.lastChild;
 				if (placed) commitFresh(placed, child);
@@ -999,6 +1030,7 @@ function patchNode(
 		}
 	}
 
+	flushSelectValue(elementNode, newNode.props);
 	assignRef(elementNode, newNode.props.ref);
 	return domNode;
 }
@@ -1015,12 +1047,14 @@ function createDomFromNormalized(node: NormalizedNode): ChildNode {
 			);
 		case "element": {
 			const element = node.namespace
-				? document.createElementNS(node.namespace, node.tag)
-				: document.createElement(node.tag);
+				? act<Element>(document, "createElementNS", node.namespace, node.tag)
+				: act<Element>(document, "createElement", node.tag);
+			claim(element);
 			patchProps(element, {}, node.props);
 			for (const child of node.children) {
-				element.appendChild(createDomFromNormalized(child));
+				act(element, "appendChild", createDomFromNormalized(child));
 			}
+			flushSelectValue(element, node.props);
 			assignRef(element, node.props.ref);
 			if (hostRuntimeEnabled) freshNodes.add(element);
 			return element;
@@ -1061,234 +1095,550 @@ function patchProps(
 	newProps: IgniteJsxProps,
 ) {
 	const isSvgElement = element instanceof SVGElement;
+	if (
+		!isSvgElement &&
+		(element.localName === "input" || element.localName === "textarea")
+	) {
+		watchComposition(element as HTMLElement);
+	}
+	// One listener per event. The last spelling in prop order wins.
+	patchEventSlots(element, oldProps, newProps, "removeEventListener");
+	if (__IGNITE_DEV_WARNINGS__) {
+		warnDuplicateProps(element, newProps, isSvgElement);
+	}
 
+	settleSmil(element, oldProps, newProps);
+
+	// Drops run first so a setter or attribute written for a present spelling
+	// is never erased by the drop of a differently cased old one.
 	for (const key of Object.keys(oldProps)) {
 		if (hostRuntimeEnabled && key === "use") continue;
 		if (key === "children" || key === "ref" || isBlockedMarkupProp(key))
 			continue;
-		if (!(key in newProps)) {
-			removeProp(element, key, oldProps[key], isSvgElement);
+		// Listeners are diffed by event slot, not by each spelling.
+		if (isEventHandlerKey(key)) continue;
+		// data-id and DATA-ID are one key. A spelling that is still present
+		// is not a drop.
+		const kept = sinkMatch(newProps, element, key, isSvgElement);
+		if (kept) {
+			// The spelling that stays owns the attribute: the old marker is handed over.
+			if (kept !== key) committedKeys(element).delete(key);
+			continue;
 		}
+		removeProp(element, key, isSvgElement);
 	}
+	patchEventSlots(element, newProps, oldProps, "addEventListener");
 
-	for (const [key, next] of Object.entries(newProps)) {
-		if (hostRuntimeEnabled && key === "use") continue;
-		if (key === "children" || key === "ref") continue;
-		if (isBlockedMarkupProp(key)) {
-			if (next !== undefined && next !== null && next !== false) {
-				warnBlockedMarkupProp(element, key);
+	// default* before checked, value, and selected, whatever the key order.
+	for (let pass = 0; pass < 2; pass++) {
+		for (const [key, next] of Object.entries(newProps)) {
+			const late = key === "checked" || key === "value" || key === "selected";
+			if (late !== (pass === 1)) continue;
+			if (hostRuntimeEnabled && key === "use") continue;
+			if (key === "children" || key === "ref") continue;
+			if (isBlockedMarkupProp(key)) {
+				if (next !== undefined && next !== null && next !== false) {
+					warnBlockedMarkupProp(element, key);
+				}
+				continue;
 			}
-			continue;
-		}
-		if (isIgnoredHandlerAttribute(key)) {
-			// A string `ONCLICK` or `xlink:onclick` would become an executable
-			// attribute. Functions still bind through addEventListener.
+			if (isIgnoredHandlerAttribute(key)) {
+				// A string `ONCLICK` or `xlink:onclick` would become an executable
+				// attribute. Functions bind once per event slot above.
+				continue;
+			}
+			const prev = oldProps[key];
+			if (isBlockedUrlValue(element, key, next, newProps)) {
+				warnBlockedUrl(element, key);
+				// The drop loop already cleared what an earlier render committed.
+				continue;
+			}
+			// An own setter may have side effects its getter does not show, so a
+			// present value is assigned exactly once per render, here, before any
+			// equality skip and without the default*/live reapply below.
+			if (!isSvgElement && hasOwnCustomSetter(element as HTMLElement, key)) {
+				if (next == null) removeProp(element, key, false);
+				else {
+					// A fallback attribute written before the upgrade is replaced.
+					const keys = committedKeys(element);
+					if (keys.get(key)) dropFallback(element, key);
+					keys.set(key, false);
+					setContained(element, key, next);
+				}
+				continue;
+			}
+			// Any other commit is a fallback: the renderer owns that attribute.
+			if (next != null) committedKeys(element).set(key, true);
+
+			if (key === "style") {
+				patchStyle(element as HTMLElement, prev, next);
+				continue;
+			}
+
+			// Passed checked, value, and selected are written every render,
+			// including explicit false. Null leaves the live property alone.
+			if (!isSvgElement && isLiveField(element, key)) {
+				// Select value is queued after its options. Every other live
+				// field waits for the same flush, so a later default* sibling
+				// cannot clear it.
+				if (key === "value" && element.localName === "select") continue;
+				if (next != null) {
+					queueControlled(element as HTMLElement, key, next);
+				}
+				continue;
+			}
+
+			if (key === "class" || key === "className") {
+				const nextClass = next !== false && next != null ? String(next) : "";
+				if (!nextClass) act(element, "removeAttribute", "class");
+				else if (
+					act<string | null>(element, "getAttribute", "class") !== nextClass
+				)
+					act(element, "setAttribute", "class", nextClass);
+				continue;
+			}
+
+			// An unchanged spelling is still applied when its twin was dropped.
+			// Two spellings at once stay unspecified; one remaining spelling is not.
+			// Unchanged also means committed: a value the previous props blocked
+			// (for example a SMIL `to` beside an href target) was never written.
 			if (
-				isEventHandlerKey(key) &&
-				(typeof next === "function" || typeof oldProps[key] === "function")
+				next === prev &&
+				!isBlockedUrlValue(element, key, prev, oldProps) &&
+				!droppedSiblingSpelling(oldProps, newProps, element, key, isSvgElement)
 			) {
-				patchEventListener(element, key, oldProps[key], next);
+				continue;
 			}
-			continue;
-		}
-		if (isBlockedUrlValue(element, key, next, newProps)) {
-			warnBlockedUrl(element, key);
-			// removeProp clears a non-reflected property and the attribute.
-			// Attribute removal alone leaves a stale custom-element URL.
-			removeProp(element, key, oldProps[key], isSvgElement);
-			continue;
-		}
-		const prev = oldProps[key];
-		if (
-			key === "textContent" &&
-			next !== undefined &&
-			next !== null &&
-			next !== false
-		) {
-			warnDeprecatedContentProp(element, key);
-			if (next !== prev) {
-				for (const child of Array.from(element.childNodes)) {
-					unmountIgniteSubtree(child);
-				}
-			}
-		}
 
-		if (key === "class" || key === "className") {
-			const nextClass = next !== false && next != null ? String(next) : "";
-			if (element.getAttribute("class") !== nextClass) {
-				if (nextClass) {
-					element.setAttribute("class", nextClass);
+			// Explicit false is a set for these defaults, not a drop. The live
+			// checked or selected value is written by its own pass afterwards.
+			if (
+				next === false &&
+				!isSvgElement &&
+				(key === "defaultChecked" || key === "defaultSelected")
+			) {
+				applyProperty(element as HTMLElement, key, false);
+				continue;
+			}
+
+			if (next === false || next === null || next === undefined) {
+				// A present false is a value. undefined is only for a later drop.
+				if (
+					next === false &&
+					!isSvgElement &&
+					/^(translate|spellcheck|draggable)$/i.test(key)
+				) {
+					// These attributes have false tokens; absence has different semantics.
+					act(
+						element,
+						"setAttribute",
+						key,
+						/^translate$/i.test(key) ? "no" : "false",
+					);
 				} else {
-					element.removeAttribute("class");
+					removeProp(element, key, isSvgElement);
 				}
+				continue;
 			}
-			continue;
-		}
 
-		if (key === "style") {
-			patchStyle(element as HTMLElement, prev, next);
-			continue;
-		}
+			if (!isSvgElement && key in element && key !== "list") {
+				applyProperty(element as HTMLElement, key, next);
+				continue;
+			}
 
-		if (next === prev) {
-			continue;
-		}
-
-		if (next === false || next === null || next === undefined) {
-			removeProp(element, key, prev, isSvgElement);
-			continue;
-		}
-
-		if (!isSvgElement && key in element && key !== "list") {
-			applyProperty(element as HTMLElement, key, next);
-			continue;
-		}
-
-		const attrName = metaRefreshKey(element, key)
-			? "http-equiv"
-			: isSvgElement
-				? normalizeSvgAttributeName(key)
-				: key;
-		const nextString = String(next);
-		if (element.getAttribute(attrName) !== nextString) {
-			element.setAttribute(attrName, nextString);
+			const attrName = propAttributeName(element, key, isSvgElement);
+			act(element, "setAttribute", attrName, String(next));
 		}
 	}
 }
 
 function patchStyle(element: HTMLElement, prev: unknown, next: unknown): void {
-	const style = element.style;
-
-	if (prev && typeof prev === "object" && next && typeof next === "object") {
-		const prevObj = prev as Record<string, unknown>;
-		const nextObj = next as Record<string, unknown>;
-
-		for (const key of Object.keys(prevObj)) {
-			if (!(key in nextObj)) {
-				style.removeProperty(toKebabCase(key));
-			}
-		}
-
-		for (const [key, value] of Object.entries(nextObj)) {
-			if (value != null) {
-				const cssProperty = toKebabCase(key);
-				const nextValue = String(value);
-				if (style.getPropertyValue(cssProperty) !== nextValue) {
-					style.setProperty(cssProperty, nextValue);
-				}
-			}
-		}
-		return;
-	}
+	// An override of style is a user getter: contained, and a non-style value
+	// (undefined, or the throw fallback) leaves the rest of the render alone.
+	const style = getContained(element, "style") as CSSStyleDeclaration;
+	if (!style?.setProperty) return;
 
 	if (next && typeof next === "object") {
-		style.cssText = "";
-		for (const [key, value] of Object.entries(
-			next as Record<string, unknown>,
-		)) {
-			if (value != null) {
-				style.setProperty(toKebabCase(key), String(value));
+		if (prev && typeof prev === "object") {
+			for (const key of Object.keys(prev)) {
+				if (!(key in next)) act(style, "removeProperty", toKebabCase(key));
+			}
+		} else {
+			setContained(style, "cssText", "");
+		}
+		for (const [key, value] of Object.entries(next)) {
+			const cssProperty = toKebabCase(key);
+			if (
+				value != null &&
+				act<string>(style, "getPropertyValue", cssProperty) !== String(value)
+			) {
+				act(style, "setProperty", cssProperty, String(value));
 			}
 		}
 		return;
 	}
 
 	if (next === null || next === undefined || next === false) {
-		style.cssText = "";
+		setContained(style, "cssText", "");
 		return;
 	}
 
 	const nextString = String(next);
-	if (style.cssText !== nextString) {
-		style.cssText = nextString;
+	if (getContained(style, "cssText") !== nextString) {
+		setContained(style, "cssText", nextString);
 	}
 }
 
-function patchEventListener(
+function eventSlots(props: IgniteJsxProps): Record<string, EventListener> {
+	const slots: Record<string, EventListener> = {};
+	for (const key of Object.keys(props)) {
+		const value = props[key];
+		if (typeof value !== "function" || !isEventHandlerKey(key)) continue;
+		slots[normalizeEventName(key.slice(2))] = value as EventListener;
+	}
+	return slots;
+}
+
+// Removals are drops and run with them; additions are sets and run after.
+// Each call walks the slots of `from` that `to` does not share.
+function patchEventSlots(
 	element: Element,
-	key: string,
-	prev: unknown,
-	next: unknown,
+	from: IgniteJsxProps,
+	to: IgniteJsxProps,
+	method: "addEventListener" | "removeEventListener",
 ) {
-	const eventName = normalizeEventName(key.slice(2));
-	const prevHandler =
-		typeof prev === "function" ? (prev as EventListener) : null;
-	const nextHandler =
-		typeof next === "function" ? (next as EventListener) : null;
-
-	if (prevHandler && prevHandler !== nextHandler) {
-		element.removeEventListener(eventName, prevHandler);
-	}
-
-	if (nextHandler && nextHandler !== prevHandler) {
-		element.addEventListener(eventName, nextHandler);
-	}
+	const a = eventSlots(from);
+	const b = eventSlots(to);
+	for (const name in a)
+		if (a[name] !== b[name]) act(element, method, name, a[name]);
 }
 
-function removeProp(
+// Own means a writable field or setter on the instance or a prototype before
+// HTMLElement. Inherited IDL, including a media element's volume, is not own.
+// The walk stops at HTMLElement so an override of an inherited name such as
+// id still counts. There is no cached built-in element.
+function hasOwnCustomSetter(element: HTMLElement, key: string): boolean {
+	if (!element.localName.includes("-")) return false;
+	for (
+		let current: object | null = element;
+		current && current !== HTMLElement.prototype;
+		current = Object.getPrototypeOf(current)
+	) {
+		const desc = Object.getOwnPropertyDescriptor(current, key);
+		if (!desc) continue;
+		return Boolean(desc.set || desc.writable);
+	}
+	return false;
+}
+
+function propAttributeName(
 	element: Element,
 	key: string,
-	prev: unknown,
 	isSvg: boolean,
-): void {
-	if (key === "class" || key === "className") {
-		element.removeAttribute("class");
-		return;
+): string {
+	const lower = key.toLowerCase();
+	if (lower === "class" || lower === "classname") return "class";
+	if (lower === "htmlfor") return "for";
+	if (lower === "acceptcharset") return "accept-charset";
+	if (lower === "httpequiv" || metaRefreshKey(element, key)) {
+		return "http-equiv";
 	}
-
-	if (key === "style") {
-		(element as HTMLElement).style.cssText = "";
-		return;
-	}
-
-	if (isEventHandlerKey(key) && typeof prev === "function") {
-		const eventName = normalizeEventName(key.slice(2));
-		element.removeEventListener(eventName, prev as EventListener);
-		return;
-	}
-
-	const attrName = metaRefreshKey(element, key)
-		? "http-equiv"
-		: isSvg
-			? normalizeSvgAttributeName(key)
-			: key;
-	if (element.hasAttribute(attrName)) {
-		element.removeAttribute(attrName);
-	}
-
-	if (isSvg || !(key in element) || key === "list") return;
-	const el = element as HTMLElement;
-	const current = el[key as keyof HTMLElement];
-	const name = key.toLowerCase();
-	const custom = el.localName.includes("-");
-	// Reflected URL setters turn undefined into the URL "undefined".
-	// value={1} becomes the string "1", and checked={1} becomes true.
+	// ariaLabel reflects to aria-label, not arialabel. aria-label stays.
 	if (
-		uriBearingKeyPattern.test(name) ||
-		(name === "data" && el.localName === "object") ||
-		(custom && name === "codebase")
+		lower.startsWith("aria") &&
+		key.charCodeAt(4) >= 65 &&
+		key.charCodeAt(4) <= 90
 	) {
-		// Custom-element setters can store an absolute URL, so the getter
-		// no longer equals the relative prop. Native reflected setters must
-		// not be assigned undefined. codebase uses that custom clear only.
-		if (current === prev || custom) {
-			Reflect.set(el, key, undefined);
+		return `aria-${lower.slice(4)}`;
+	}
+	return isSvg ? normalizeSvgAttributeName(key) : lower;
+}
+
+// value, checked, and selected use the IDL property only in that spelling.
+// CHECKED and VALUE are attributes, so they are not the same sink.
+function isLiveField(element: Element, key: string): boolean {
+	const tag = element.localName;
+	if (key === "checked") return tag === "input";
+	if (key === "selected") return tag === "option";
+	return (
+		key === "value" &&
+		(tag === "input" || tag === "textarea" || tag === "select")
+	);
+}
+
+// These properties have no attribute counterpart. The set path writes them
+// only in this exact spelling; SCROLLTOP is an unrelated attribute.
+// The value is the default a drop restores.
+const UNREFLECTED_PROPERTIES = new Map<string, number | boolean>([
+	["scrollTop", 0],
+	["scrollLeft", 0],
+	["indeterminate", false],
+	["muted", false],
+]);
+
+function isUnreflectedProperty(
+	element: Element,
+	key: string,
+	isSvg: boolean,
+): boolean {
+	return !isSvg && UNREFLECTED_PROPERTIES.has(key) && key in element;
+}
+
+// Events and HTML attributes compare case-insensitively. Exact-name property
+// sinks keep their spelling, so foo and FOO are different keys.
+function sinkKey(element: Element, key: string, isSvg: boolean): string {
+	if (isEventHandlerKey(key)) {
+		return `*${normalizeEventName(key.slice(2))}`;
+	}
+	if (
+		hasOwnCustomSetter(element as HTMLElement, key) ||
+		isLiveField(element, key) ||
+		isUnreflectedProperty(element, key, isSvg)
+	) {
+		return `\0${key}`;
+	}
+	return propAttributeName(element, key, isSvg);
+}
+
+function droppedSiblingSpelling(
+	oldProps: IgniteJsxProps,
+	newProps: IgniteJsxProps,
+	element: Element,
+	key: string,
+	isSvg: boolean,
+): boolean {
+	const id = sinkKey(element, key, isSvg);
+	for (const other of Object.keys(oldProps)) {
+		if (other === key || other in newProps) continue;
+		if (sinkKey(element, other, isSvg) === id) return true;
+	}
+	return false;
+}
+
+function sinkMatch(
+	props: IgniteJsxProps,
+	element: Element,
+	key: string,
+	isSvg: boolean,
+): string | undefined {
+	const id = sinkKey(element, key, isSvg);
+	for (const other of Object.keys(props)) {
+		// A blocked present spelling writes nothing, so it keeps nothing.
+		if (
+			sinkKey(element, other, isSvg) === id &&
+			!isBlockedUrlValue(element, other, props[other], props)
+		)
+			return other;
+	}
+	return undefined;
+}
+
+function dropFallback(element: Element, key: string): void {
+	act(element, "removeAttribute", propAttributeName(element, key, false));
+}
+
+function removeProp(element: Element, key: string, isSvg: boolean): void {
+	// Removing a prop forgets what the renderer committed for it.
+	const had = committedKeys(element).delete(key);
+	// An own setter, whatever its name, is cleared with undefined.
+	if (!isSvg && hasOwnCustomSetter(element as HTMLElement, key)) {
+		// Only a value the renderer committed is cleared. The fallback attribute
+		// goes first, so a reflection the setter makes survives.
+		if (had) {
+			dropFallback(element, key);
+			setContained(element, key, undefined);
 		}
 		return;
 	}
-	// A custom setter may store 0, false, or another coerced value. Assign
-	// undefined whenever the prop is dropped. Native elements do not.
-	if (custom) {
-		Reflect.set(el, key, undefined);
+
+	// Dropped checked, value, and selected stay as they are. Catalog form
+	// components own that state. A file input is included and is not cleared.
+	if (!isSvg && isLiveField(element, key)) {
+		if (__IGNITE_DEV_WARNINGS__) warnDroppedControl(element, key);
 		return;
 	}
-	if (name === "value" || typeof current === "boolean") {
-		Reflect.set(el, key, name === "value" ? "" : false);
+
+	// An unreflected property is dropped by itself. Its lower-case attribute
+	// spelling is another sink and stays.
+	if (isUnreflectedProperty(element, key, isSvg)) {
+		setContained(element, key, UNREFLECTED_PROPERTIES.get(key));
 		return;
 	}
-	// Reflected properties such as id become "" when the attribute is
-	// removed. undefined would stringify.
-	if (current === prev) Reflect.set(el, key, undefined);
+
+	// Absent native defaults stay. A dropped checked, value, or selected does
+	// not read them. Own custom setters, including these names, are cleared
+	// above. Explicit false is applied in the set path.
+	if (
+		key in element &&
+		/^(default(Value|Checked|Selected)|volume|playbackRate|currentTime)$/.test(
+			key,
+		)
+	) {
+		return;
+	}
+
+	if (
+		!isSvg &&
+		key in element &&
+		key !== "list" &&
+		typeof getContained(element, key) === "boolean"
+	) {
+		setContained(element, key, false);
+	}
+	act(element, "removeAttribute", propAttributeName(element, key, isSvg));
+}
+
+const composing = new WeakMap<Node, boolean>();
+
+function watchComposition(element: HTMLElement): void {
+	if (composing.has(element)) return;
+	composing.set(element, false);
+	// native: input and textarea only, never user code.
+	element.addEventListener("compositionstart", () => {
+		// native:
+		composing.set(element, true);
+	});
+	const end = () => composing.set(element, false);
+	element.addEventListener("compositionend", end); // native:
+	element.addEventListener("blur", end); // native:
+	element.addEventListener("focus", end); // native:
+}
+
+function queueControlled(
+	element: HTMLElement,
+	key: string,
+	value: unknown,
+): void {
+	commitQueue[0].push(() => assignControlled(element, key, value));
+}
+
+// A render owns its queues; nested or failed renders cannot drain its work.
+// Who owns a host is stored on the host under a shared key, like the mount
+// mark, so bundled copies of this module agree: the token of the newest commit
+// to publish, or a detach. A render superseded before it publishes writes
+// nothing; once published, a newer commit stops its controlled writes, and
+// only a detach or a commit that replaced the DOM (`r`) stops its refs.
+const owner = Symbol.for("ignite.o");
+// Private unwinding signal: a thrown user symbol is never mistaken for it.
+const abort = {};
+type Token = { r?: boolean };
+type Frame = Token & { h?: object; e?: Token };
+type Owned = { [owner]?: Token };
+export const setOwner = (host: object, token: object) => {
+	(host as Owned)[owner] = token;
+};
+
+// Every write site in the patch asks this first. Once a detach or a newer commit
+// owns the host it throws `abort`, which unwinds the whole patch at its root.
+// The one write helper. Every DOM method that writes or removes goes through it,
+// and ownership is checked after it too: a custom element's callbacks run user
+// code inside the write, so nothing after the last write may act on a stale commit.
+function act<T = void>(target: object, method: string, ...args: unknown[]): T {
+	live();
+	// The lookup is user code too: an accessor can supersede before the call.
+	const call = (target as Record<string, (...a: unknown[]) => T>)[method];
+	live();
+	const result = call.apply(target, args);
+	live();
+	return result;
+}
+
+// Keys the renderer committed a value for. true: it wrote the attribute
+// fallback; false: an own setter received the value.
+const committed = new WeakMap<object, Map<string, boolean>>();
+function committedKeys(element: object): Map<string, boolean> {
+	let keys = committed.get(element);
+	if (!keys) {
+		keys = new Map();
+		committed.set(element, keys);
+	}
+	return keys;
+}
+
+// A detached root owns its commit from the moment it exists, before any setter
+// runs, so a mount made inside one supersedes the rest of the construction.
+function claim(root: Node): void {
+	const frame = commitQueue as unknown as Frame;
+	if (frame.h) return;
+	setOwner(root, frame);
+	frame.h = root;
+	frame.e = frame;
+}
+
+function live(): void {
+	const { h, e } = commitQueue as unknown as Frame;
+	if (h && (h as Owned)[owner] !== e) throw abort;
+}
+
+function commitRender<T>(render: () => T, host?: object): T {
+	const parent = commitQueue;
+	const queues: typeof commitQueue = [[], []];
+	commitQueue = queues;
+	try {
+		let result: T | undefined;
+		try {
+			result = render();
+		} catch (error) {
+			// live() unwinds a superseded render here, whole, and it publishes nothing.
+			if (error !== abort) throw error;
+		}
+		// A superseded detached root is still the value of its own call.
+		const frame = queues as unknown as Frame;
+		result ??= (host ? undefined : frame.h) as T | undefined;
+		// The write phase is over. Queued writes check ownership through mine().
+		frame.h = undefined;
+		const root = (host ?? result) as Owned | undefined;
+		const mine = () => !root || root[owner] === (queues as unknown as Token);
+		for (const commit of queues[0]) if (mine()) commit();
+		for (const commit of queues[1])
+			if (mine() || !(root?.[owner] as Token).r) commit();
+		return result as T;
+	} finally {
+		commitQueue = parent;
+	}
+}
+
+function assignControlled(
+	element: HTMLElement,
+	key: string,
+	value: unknown,
+): void {
+	// Composition keeps text until the next render after compositionend.
+	if (key === "value" && composing.get(element) === true) {
+		if (element.isConnected && element.matches(":focus")) return;
+		composing.set(element, false);
+	}
+	// A select setter clears extra selections even when its getter matches.
+	if (
+		key === "value" &&
+		element.localName !== "select" &&
+		getContained(element, key) === value
+	)
+		return;
+
+	setContained(element, key, value);
+}
+
+// Every property read goes through here. A throwing getter reads as a value
+// nothing equals, so the render still tries the write and carries on.
+function getContained(element: object, key: string): unknown {
+	try {
+		return act(Reflect, "get", element, key);
+	} catch {
+		// A throwing getter reads as a value nothing equals. The write that follows
+		// rechecks ownership.
+		return {};
+	}
+}
+
+// Every property write goes through here. A throwing setter stops at its own
+// write and never aborts the render. File values are not cleared.
+function setContained(element: object, key: string, value: unknown): void {
+	try {
+		act(Reflect, "set", element, key, value);
+	} catch {
+		live();
+	}
 }
 
 function applyProperty(
@@ -1296,25 +1646,19 @@ function applyProperty(
 	key: string,
 	value: unknown,
 ): void {
-	if (key === "value" || key === "checked") {
-		const current = Reflect.get(element, key);
-		if (current !== value && !(isComposingInput(element) && key === "value")) {
-			Reflect.set(element, key, value);
-		}
-		return;
-	}
-
-	const current = Reflect.get(element, key);
-	if (current !== value) {
-		Reflect.set(element, key, value);
+	// An own setter may have side effects its getter does not show, so it is
+	// always assigned. Native properties skip a value they already hold.
+	if (
+		hasOwnCustomSetter(element, key) ||
+		getContained(element, key) !== value
+	) {
+		setContained(element, key, value);
 	}
 }
 
-function isComposingInput(element: HTMLElement): boolean {
-	return (
-		"isComposing" in element &&
-		Boolean((element as HTMLElement & { isComposing?: boolean }).isComposing)
-	);
+function flushSelectValue(element: Element, props: IgniteJsxProps): void {
+	if (element.localName !== "select" || props.value == null) return;
+	queueControlled(element as HTMLElement, "value", props.value);
 }
 
 function replaceAll(parent: ParentNode, children: NormalizedNode[]): void {
@@ -1322,7 +1666,7 @@ function replaceAll(parent: ParentNode, children: NormalizedNode[]): void {
 		detachChild(parent, parent.firstChild);
 	}
 	for (const child of children) {
-		parent.appendChild(createDomFromNormalized(child));
+		act(parent, "appendChild", createDomFromNormalized(child));
 		if (hostRuntimeEnabled) {
 			const placed = parent.lastChild;
 			if (placed) commitFresh(placed, child);

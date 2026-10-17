@@ -47,12 +47,11 @@ const DUPLICATE_KEY =
 const INNER_HTML =
 	"[ignite-jsx] `innerHTML` is ignored and not applied. Use JSX children for text, and hosts for trusted rich content.";
 const TEXT_CONTENT =
-	"[ignite-jsx] `textContent` is deprecated and will be removed in the next major release. Use JSX children for text, and hosts for trusted rich content.";
+	"[ignite-jsx] `textContent` is ignored and not applied. Use JSX children for text, and hosts for trusted rich content.";
 const WARNING_STRINGS = [
 	"Duplicate key",
 	"Mixed keyed and unkeyed",
 	"requires a single element",
-	"is deprecated and will be removed",
 	"is ignored and not applied",
 	"URL scheme is not allowed",
 ];
@@ -61,8 +60,24 @@ const EVENT_ORIGIN_WARNING = "observed from both native and effect";
 // Gzip level 9 of this production consumer entry before dev warnings were
 // left for a consumer bundler to strip. Previous target was 4634.
 // renderer security guard: SVG animate/set + meta refresh
-// Ceiling is the measured consumer after that guard, with no extra slack.
-const TODAY_CONSUMER_GZIP = 4864;
+// Consumer budget: 6,020 B gzip level 9. Jose raised it from 6,000 B for PR #168
+// (one guarded write helper): CI reads about 14 B above local box measurements
+// (observed +8 and +14 B), and the box measures 5,988 B. An overrun must still be
+// paid for by shrinking other code in the same change.
+// Then 6,080 B (Jose approved): the round-11 fixes for six Codex threads cost 54 B
+// (custom-element construction rechecked, private abort signal, explicit fallback
+// state). The box and CI agree at 6,073 B once packages/ignite-renderer/dist is
+// rebuilt; earlier box readings were stale builds.
+// Then 6,090 B (Jose pre-approved up to 6,110): the round-12 fixes (host
+// callbacks rechecked between equals/update and after describe, rejected
+// superseded mounts reported, alias marker handover) read 6,087 B on the rebuilt dist.
+// Then 6,170 B (Jose approved): the round-14 fixes read 6,163 B on the rebuilt dist.
+// Dropped checked, value, and selected stay.
+// Native defaultValue, defaultChecked, and defaultSelected stay on drop.
+// Explicit false for the last two is a set. Own custom setters get undefined
+// and stay case-sensitive. There is no cached built-in element and no
+// fresh-element default reset.
+const TODAY_CONSUMER_GZIP = 6170;
 
 function consumerEntry() {
 	return `import { jsx, mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";

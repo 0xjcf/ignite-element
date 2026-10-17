@@ -51,8 +51,14 @@ jobs:
       - name: Verify packed ESM consumers
         run: pnpm run verify:packed
 
+      - name: Install Chromium for renderer property tests
+        run: pnpm --filter ignite-element exec playwright install --with-deps chromium
+
       - name: Run tests and generate coverage
         run: pnpm run test:coverage
+
+      - name: Run Chromium renderer tests
+        run: pnpm --filter ignite-element run test:browser
 
       - name: Run script tests
         run: pnpm run test:scripts
