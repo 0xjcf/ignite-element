@@ -1499,11 +1499,12 @@ export const setOwner = (host: object, token: object) => {
 // Every write site in the patch asks this first. Once a detach or a newer commit
 // owns the host it throws `owner`, which unwinds the whole patch at its root.
 // The one write helper. Every DOM method that writes or removes goes through it,
-// and ownership is checked first. A custom element's callbacks may have run
-// user code inside the previous write, so the check precedes the next one.
+// and ownership is checked after it too: a custom element's callbacks run user
+// code inside the write, so nothing after the last write may act on a stale commit.
 function act(target: object, method: string, ...args: unknown[]): void {
 	live();
 	(target as Record<string, (...a: unknown[]) => void>)[method](...args);
+	live();
 }
 
 // A detached root owns its commit from the moment it exists, before any setter
@@ -1579,7 +1580,6 @@ function getContained(element: Element, key: string): unknown {
 	} catch {
 		// A throwing getter reads as a value nothing equals.
 	}
-	live();
 	return value;
 }
 

@@ -15,6 +15,8 @@ import { createDomNode } from "../../renderers/jsx/renderer";
 //  S3 a drop clears a pre-upgrade attribute only if the setter left it alone.
 //  S4 ownership is rechecked before any destructive op, including after
 //     component execution and before an unmount runs cleanups.
+//  S6 ownership is rechecked after every write too: the last write's callback
+//     may supersede, so no trailing step (append, ref, return) follows it.
 //  S5 default* names are preserved on drop only where the element has the
 //     native default field.
 
@@ -219,6 +221,63 @@ describe("S5 default* names are preserved only where they are exposed", () => {
 		strategy.render(jsx("input", {}));
 		expect((root.firstElementChild as HTMLInputElement).defaultValue).toBe(
 			"kept",
+		);
+	});
+});
+
+describe("S6 ownership is rechecked after every write", () => {
+	let lastCb: HTMLElement | null = null;
+	class Cb extends HTMLElement {
+		static observedAttributes = ["a", "b"];
+		attributeChangedCallback(_n: string, _o: unknown, v: unknown) {
+			if (v === "1") {
+				lastCb = this;
+				hook?.("cb");
+			}
+		}
+	}
+	it("no trailing step follows the last write whose callback supersedes", () => {
+		if (!customElements.get("x-cb")) customElements.define("x-cb", Cb);
+		fc.assert(
+			fc.property(
+				fc.constantFrom("mount-same", "mount-other", "detach"),
+				fc.boolean(),
+				fc.boolean(),
+				fc.boolean(),
+				(event, patch, withRef, kids) => {
+					document.body.replaceChildren();
+					const { strategy, root } = mkStrategy();
+					const refs: string[] = [];
+					const view = (g: number) =>
+						jsx("x-cb", {
+							a: "0",
+							b: `${g}`,
+							ref: withRef ? () => void refs.push(`${g}`) : undefined,
+							children: g && kids ? [jsx("i", {}), jsx("u", {})] : [],
+						});
+					if (patch) strategy.render(view(0));
+					refs.length = 0;
+					const seen: HTMLElement[] = [];
+					hook = () => {
+						hook = null;
+						if (lastCb) seen.push(lastCb);
+						if (event === "detach") strategy.detach();
+						else
+							(event === "mount-same" ? mountIgniteJsxOnce : otherMount)(
+								root,
+								jsx("p", {}),
+							);
+					};
+					const before = root.innerHTML;
+					strategy.render(view(1));
+					expect(hook).toBeNull();
+					expect(refs).not.toContain("1");
+					for (const el of seen) expect(el.childNodes.length).toBe(0);
+					if (event !== "detach") expect(root.innerHTML).toBe("<p></p>");
+					else expect(root.innerHTML).not.toBe(before === "" ? "x" : "");
+				},
+			),
+			{ seed: 169501, numRuns: 40 },
 		);
 	});
 });
