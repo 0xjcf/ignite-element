@@ -228,10 +228,18 @@ type PendingApproval = {
 	expiresAt: number;
 };
 
+/** Time source. Grant-window decisions are a pure function of this port. */
+export type Clock = { now(): number };
+
+/** The one place domain code touches the real clock. */
+export const systemClock: Clock = { now: () => Date.now() };
+
 export function createCommandApprovalAuthority(
 	actor: string,
-	now: () => number = Date.now,
+	clock: Clock | (() => number) = systemClock,
 ) {
+	const readClock: () => number =
+		typeof clock === "function" ? clock : () => clock.now();
 	const pending = new Map<object, PendingApproval[]>();
 	const spent = new Map<string, number>();
 
@@ -240,8 +248,7 @@ export function createCommandApprovalAuthority(
 		return retainUntil !== undefined && retainUntil > time;
 	}
 
-	function prune(): void {
-		const time = now();
+	function prune(time: number): void {
 		for (const [id, retainUntil] of spent) {
 			if (retainUntil <= time) spent.delete(id);
 		}
@@ -256,8 +263,8 @@ export function createCommandApprovalAuthority(
 		}
 	}
 
-	function live(record: PendingApproval): boolean {
-		return record.expiresAt > now() && !spentId(record.id, now());
+	function live(record: PendingApproval, time: number): boolean {
+		return record.expiresAt > time && !spentId(record.id, time);
 	}
 
 	function withinGrantWindow(expiresAt: number, time: number): boolean {
@@ -266,8 +273,8 @@ export function createCommandApprovalAuthority(
 
 	return {
 		grant(approval: AppCommandApproval): void {
-			prune();
-			const time = now();
+			const time = readClock();
+			prune(time);
 			if (approval.actor !== actor) return;
 			if (!withinGrantWindow(approval.expiresAt, time)) return;
 			if (spentId(approval.id, time)) return;
@@ -288,10 +295,13 @@ export function createCommandApprovalAuthority(
 			input?: unknown,
 			context?: { core: object; execute?: boolean },
 		): boolean {
-			prune();
+			const time = readClock();
+			prune(time);
 			if (!context) {
 				for (const bucket of pending.values()) {
-					if (bucket.some((record) => record.name === name && live(record))) {
+					if (
+						bucket.some((record) => record.name === name && live(record, time))
+					) {
 						return true;
 					}
 				}
@@ -304,7 +314,7 @@ export function createCommandApprovalAuthority(
 					record.actor === actor &&
 					record.name === name &&
 					record.call === call &&
-					live(record),
+					live(record, time),
 			);
 			if (!match) return false;
 			if (context.execute !== true) return true;
@@ -315,7 +325,7 @@ export function createCommandApprovalAuthority(
 			return true;
 		},
 		ledger(): { targets: number; pending: number; spent: number } {
-			prune();
+			prune(readClock());
 			let pendingCount = 0;
 			for (const bucket of pending.values()) pendingCount += bucket.length;
 			return {

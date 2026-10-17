@@ -7,19 +7,21 @@ import {
 } from "./commandApproval";
 import { createHome, homeToolSchema } from "./home";
 
+/** Fixed injected time: these tests never read the real clock. */
+const FIXED_NOW = 1_700_000_000_000;
 const livingAt70 = { room: "living", temp: 70 };
 const livingAt72 = { room: "living", temp: 72 };
 
 function bind(input: unknown, id: string) {
 	const home = createHome();
-	const authority = createCommandApprovalAuthority("ada");
+	const authority = createCommandApprovalAuthority("ada", () => FIXED_NOW);
 	authority.grant({
 		actor: "ada",
 		name: "setThermostat",
 		input,
 		target: home,
 		id,
-		expiresAt: Date.now() + 60_000,
+		expiresAt: FIXED_NOW + 60_000,
 	});
 	const { run } = igniteTools({
 		core: home,
@@ -65,7 +67,7 @@ describe("app-owned command approvals", () => {
 
 	it("allows a later approval with a new id for the same call", async () => {
 		const home = createHome();
-		const authority = createCommandApprovalAuthority("ada");
+		const authority = createCommandApprovalAuthority("ada", () => FIXED_NOW);
 		const grant = (id: string) =>
 			authority.grant({
 				actor: "ada",
@@ -73,7 +75,7 @@ describe("app-owned command approvals", () => {
 				input: livingAt70,
 				target: home,
 				id,
-				expiresAt: Date.now() + 60_000,
+				expiresAt: FIXED_NOW + 60_000,
 			});
 		grant("first");
 		const { run } = igniteTools({
@@ -95,7 +97,7 @@ describe("app-owned command approvals", () => {
 
 	it("treats signed zero as the same plain JSON number", async () => {
 		const home = createHome();
-		const authority = createCommandApprovalAuthority("ada");
+		const authority = createCommandApprovalAuthority("ada", () => FIXED_NOW);
 		const closed = { room: "living", percent: 0 };
 		const signed = { room: "living", percent: -0 };
 		expect(canonicalCall("setBlinds", closed)).toBe(
@@ -107,7 +109,7 @@ describe("app-owned command approvals", () => {
 			input: closed,
 			target: home,
 			id: "blinds-zero",
-			expiresAt: Date.now() + 60_000,
+			expiresAt: FIXED_NOW + 60_000,
 		});
 		const { run } = igniteTools({
 			core: home,
@@ -140,7 +142,9 @@ describe("app-owned command approvals", () => {
 		class Box {
 			a = 1;
 		}
-		expect(canonicalCall("n", new Box())).not.toBe(canonicalCall("n", { a: 1 }));
+		expect(canonicalCall("n", new Box())).not.toBe(
+			canonicalCall("n", { a: 1 }),
+		);
 		const keyed: { a: number; [key: symbol]: string } = { a: 1 };
 		keyed[Symbol("id")] = "x";
 		expect(canonicalCall("n", keyed)).not.toBe(canonicalCall("n", { a: 1 }));
@@ -288,14 +292,14 @@ describe("app-owned command approvals", () => {
 
 	it("does not consume an approval when resolveCall validates the call", async () => {
 		const home = createHome();
-		const authority = createCommandApprovalAuthority("ada");
+		const authority = createCommandApprovalAuthority("ada", () => FIXED_NOW);
 		authority.grant({
 			actor: "ada",
 			name: "setThermostat",
 			input: livingAt70,
 			target: home,
 			id: "preview",
-			expiresAt: Date.now() + 60_000,
+			expiresAt: FIXED_NOW + 60_000,
 		});
 		const tools = igniteTools({
 			core: home,
@@ -306,5 +310,84 @@ describe("app-owned command approvals", () => {
 		expect(
 			(await tools.run({ name: "setThermostat", input: livingAt70 })).ok,
 		).toBe(true);
+	});
+});
+
+/** A clock that advances `step` ms after every read, like a slow CI runner. */
+function tickingClock(start: number, step: number) {
+	let time = start;
+	let reads = 0;
+	return {
+		now: () => {
+			const current = time;
+			time += step;
+			reads += 1;
+			return current;
+		},
+		reads: () => reads,
+	};
+}
+
+describe("grant window is decided from one clock read", () => {
+	const START = 1_700_000_000_000;
+	const grantFor = (home: object, expiresAt: number) => ({
+		actor: "ada",
+		name: "setThermostat",
+		input: livingAt70,
+		target: home,
+		id: "window",
+		expiresAt,
+	});
+
+	it("rejects 24h+1ms even when the clock ticks between reads", () => {
+		const home = createHome();
+		const clock = tickingClock(START, 1);
+		const authority = createCommandApprovalAuthority("ada", clock.now);
+		authority.grant(grantFor(home, START + MAX_GRANT_LIFETIME_MS + 1));
+		expect(authority.canExecute("setThermostat")).toBe(false);
+	});
+
+	it("accepts exactly 24h and rejects 24h+1ms on a frozen clock", () => {
+		const home = createHome();
+		const accepted = createCommandApprovalAuthority("ada", () => START);
+		accepted.grant(grantFor(home, START + MAX_GRANT_LIFETIME_MS));
+		expect(accepted.canExecute("setThermostat")).toBe(true);
+		const rejected = createCommandApprovalAuthority("ada", () => START);
+		rejected.grant(grantFor(home, START + MAX_GRANT_LIFETIME_MS + 1));
+		expect(rejected.canExecute("setThermostat")).toBe(false);
+	});
+
+	it("keeps an over-long grant denied after time advances", () => {
+		const home = createHome();
+		let time = START;
+		const authority = createCommandApprovalAuthority("ada", () => time);
+		authority.grant(grantFor(home, START + MAX_GRANT_LIFETIME_MS + 1));
+		time += 1;
+		expect(authority.canExecute("setThermostat")).toBe(false);
+		expect(
+			authority.canExecute("setThermostat", livingAt70, { core: home }),
+		).toBe(false);
+	});
+
+	it("reads the clock once per grant and once per canExecute", () => {
+		const home = createHome();
+		const clock = tickingClock(START, 1);
+		const authority = createCommandApprovalAuthority("ada", clock.now);
+		authority.grant(grantFor(home, START + 60_000));
+		expect(clock.reads()).toBe(1);
+		authority.canExecute("setThermostat", livingAt70, {
+			core: home,
+			execute: true,
+		});
+		expect(clock.reads()).toBe(2);
+	});
+
+	it("accepts a Clock object as well as a bare function", () => {
+		const home = createHome();
+		const authority = createCommandApprovalAuthority("ada", {
+			now: () => START,
+		});
+		authority.grant(grantFor(home, START + 1));
+		expect(authority.canExecute("setThermostat")).toBe(true);
 	});
 });
