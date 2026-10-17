@@ -395,7 +395,10 @@ describe("V2 host callbacks are checked for supersession", () => {
 					}
 				},
 			});
-			host.mount = (el: Element, hostCtx: { send(event: unknown): void }) => {
+			(host as { mount: unknown }).mount = (
+				el: Element,
+				hostCtx: { send(event: unknown): void },
+			) => {
 				ctx.rec.mount++;
 				el.append(document.createElement("span"));
 				hostCtx.send("x");
@@ -464,6 +467,40 @@ describe("V2 host callbacks are checked for supersession", () => {
 		const view = (foo: number) =>
 			jsx("div", {
 				children: jsx("x-r14-throws", { use: "scene", foo }),
+			});
+		const tree = renderIgniteJsx(ctx.root, view(0), undefined, {
+			hosts: ctx.hosts,
+		});
+		const selects = ctx.rec.select;
+		superseding = true;
+		renderIgniteJsx(ctx.root, view(1), tree, { hosts: ctx.hosts });
+		errors.mockRestore();
+		expect(ctx.rec.select).toBe(selects);
+	});
+	it("an own getter that supersedes and then throws stops the host sync", () => {
+		const ctx = run(() => ({}));
+		let superseding = false;
+		const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+		customElements.define(
+			"x-r14-getter",
+			class extends HTMLElement {
+				constructor() {
+					super();
+					Object.defineProperty(this, "bar", {
+						configurable: true,
+						get: () => {
+							if (!superseding) return;
+							ctx.supersede();
+							throw new Error("setter");
+						},
+					});
+				}
+			},
+		);
+		ctx.hosts.hosts.scene = hostFor(ctx.rec, {}) as never;
+		const view = (bar: number) =>
+			jsx("div", {
+				children: jsx("x-r14-getter", { use: "scene", bar }),
 			});
 		const tree = renderIgniteJsx(ctx.root, view(0), undefined, {
 			hosts: ctx.hosts,

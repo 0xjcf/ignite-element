@@ -87,8 +87,11 @@ describe("JSX host runtime size", () => {
 		// Then 4580 B (Jose pre-approved up to 4590): the round-12 fix for the
 		// spelling-keyed fallback marker (an alias handing its marker to the
 		// spelling that stays) reads 4576 B on the rebuilt dist.
+		// Then 4670 B (Jose approved): the round-14 fixes (act lookup recheck,
+		// off-list volume/playbackRate/currentTime, ref self-unmount with a
+		// disposer) read 4666 B on the rebuilt dist.
 		// Host exclusion and build settings stay the same.
-		assert.ok(gzip <= 4580, `no-host JSX gzip ${gzip} is above 4580`);
+		assert.ok(gzip <= 4670, `no-host JSX gzip ${gzip} is above 4670`);
 	});
 
 	it("includes the host runtime when the internal module is imported", async () => {

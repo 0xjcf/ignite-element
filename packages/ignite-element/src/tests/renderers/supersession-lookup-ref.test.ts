@@ -25,6 +25,7 @@ describe("W1 an accessor-shaped method is rechecked before it is called", () => 
 		customElements.define(
 			"x-r14-lookup",
 			class extends HTMLElement {
+				// @ts-expect-error an accessor shadows the method on purpose
 				get addEventListener() {
 					if (superseding) {
 						renderIgniteJsx(root, jsx("p", {}), undefined, undefined);

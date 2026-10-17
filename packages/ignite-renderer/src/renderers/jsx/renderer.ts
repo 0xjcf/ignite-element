@@ -226,6 +226,8 @@ interface ElementMount {
 	unmounted: boolean;
 	/** True after a true-disconnect release that kept the callback for reacquire. */
 	released: boolean;
+	/** False while the ref callback runs; true once a teardown arrived during the call. */
+	late?: boolean;
 }
 
 const elementMounts = new WeakMap<Node, ElementMount>();
@@ -607,7 +609,9 @@ function releaseRefBinding(
 	ref: RefCallback,
 	cleanup: RefDisposer | null,
 ): void {
+	const mount = elementMounts.get(node);
 	if (cleanup) invokeContained(node, cleanup);
+	else if (mount?.late === false) mount.late = true;
 	else invokeContained(node, () => ref(null));
 }
 
@@ -658,7 +662,16 @@ function assignRef(element: Element, ref: unknown): void {
 		mount.binding = acquire;
 		if (!next) return;
 		invokeContained(element, () => {
-			const result = next(element);
+			let result: ReturnType<RefCallback> | undefined;
+			mount.late = false;
+			try {
+				result = next(element);
+			} finally {
+				// Nobody returned a disposer, so a teardown that arrived mid-call is due.
+				const owed = mount.late;
+				mount.late = undefined;
+				if (owed && typeof result !== "function") next(null);
+			}
 			if (typeof result === "function") {
 				if (!mount.unmounted && !mount.released && mount.binding === acquire)
 					mount.cleanup = result;
@@ -1457,9 +1470,9 @@ function removeProp(element: Element, key: string, isSvg: boolean): void {
 	// above. Explicit false is applied in the set path.
 	if (
 		key in element &&
-		(key === "defaultValue" ||
-			key === "defaultChecked" ||
-			key === "defaultSelected")
+		/^(default(Value|Checked|Selected)|volume|playbackRate|currentTime)$/.test(
+			key,
+		)
 	) {
 		return;
 	}
@@ -1522,9 +1535,10 @@ export const setOwner = (host: object, token: object) => {
 // code inside the write, so nothing after the last write may act on a stale commit.
 function act<T = void>(target: object, method: string, ...args: unknown[]): T {
 	live();
-	const result = (target as Record<string, (...a: unknown[]) => T>)[method](
-		...args,
-	);
+	// The lookup is user code too: an accessor can supersede before the call.
+	const call = (target as Record<string, (...a: unknown[]) => T>)[method];
+	live();
+	const result = call.apply(target, args);
 	live();
 	return result;
 }
@@ -1610,9 +1624,9 @@ function assignControlled(
 function getContained(element: object, key: string): unknown {
 	try {
 		return act(Reflect, "get", element, key);
-	} catch (error) {
-		// A throwing getter reads as a value nothing equals.
-		if (error === abort) throw error;
+	} catch {
+		// A throwing getter reads as a value nothing equals. The write that follows
+		// rechecks ownership.
 		return {};
 	}
 }
@@ -1622,8 +1636,8 @@ function getContained(element: object, key: string): unknown {
 function setContained(element: object, key: string, value: unknown): void {
 	try {
 		act(Reflect, "set", element, key, value);
-	} catch (error) {
-		if (error === abort) throw error;
+	} catch {
+		live();
 	}
 }
 

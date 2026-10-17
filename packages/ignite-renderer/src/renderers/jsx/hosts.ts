@@ -186,8 +186,10 @@ function deliver(record: HostRecord, force: boolean): void {
 					record.deliveredSlice,
 					record.slice,
 				);
-				// A superseding equals must not be followed by update.
+				// A superseding equals must not be followed by update. Outside a
+				// commit there is no frame, so the record itself is the check.
 				hostLive();
+				if (!record.settled) break;
 				if (same) {
 					deliverForce = false;
 					continue;
@@ -419,6 +421,9 @@ function startHost(
 	runtime: IgniteHostRuntime,
 	slice: unknown,
 ): void {
+	// A descendant's dispose is user code: stop before this host registers.
+	retireDescendantHosts(element);
+	hostLive();
 	const controller = new AbortController();
 	const ctx: IgniteHostContext = {
 		signal: controller.signal,
@@ -454,7 +459,6 @@ function startHost(
 	});
 	hostRecords.set(element, record);
 	ensureHostUnmount(element);
-	retireDescendantHosts(element);
 	const queuedBefore = deferredSends.length;
 	let result: unknown;
 	let failed = false;
