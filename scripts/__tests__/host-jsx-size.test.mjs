@@ -78,8 +78,10 @@ describe("JSX host runtime size", () => {
 		// blocking), then the exact 4480 B for PR #168's restructure: one guarded
 		// write helper that rechecks ownership before every DOM write, and
 		// detached roots claiming ownership at creation.
+		// Then 4510 B: the round-9 fixes for three Codex threads (blocked URL across
+		// spellings, listener sets after drops, never-committed own setters) cost 27 B.
 		// Host exclusion and build settings stay the same.
-		assert.ok(gzip <= 4480, `no-host JSX gzip ${gzip} is above 4480`);
+		assert.ok(gzip <= 4510, `no-host JSX gzip ${gzip} is above 4510`);
 	});
 
 	it("includes the host runtime when the internal module is imported", async () => {
