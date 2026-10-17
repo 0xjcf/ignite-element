@@ -723,7 +723,6 @@ export function reacquireMountedView(root: ParentNode): void {
 }
 
 function detachChild(parent: ParentNode, child: ChildNode): void {
-	live();
 	unmountIgniteSubtree(child);
 	act(parent, "removeChild", child);
 }
@@ -907,7 +906,6 @@ function replaceMounted(
 	domNode: ChildNode,
 	newNode: NormalizedNode,
 ): ChildNode {
-	live();
 	unmountIgniteSubtree(domNode);
 	return createDomFromNormalized(newNode);
 }
