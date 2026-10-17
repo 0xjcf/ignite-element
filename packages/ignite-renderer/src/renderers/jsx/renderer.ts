@@ -1042,7 +1042,7 @@ function createDomFromNormalized(node: NormalizedNode): ChildNode {
 			const element = node.namespace
 				? document.createElementNS(node.namespace, node.tag)
 				: document.createElement(node.tag);
-			if (!(commitQueue as unknown as Frame).h) claim(element);
+			claim(element);
 			patchProps(element, {}, node.props);
 			for (const child of node.children) {
 				act(element, "appendChild", createDomFromNormalized(child));
@@ -1507,13 +1507,14 @@ function act(target: object, method: string, ...args: unknown[]): void {
 	live();
 }
 
-// A detached root owns its commit from the moment it exists, before any of its
-// setters run, so a mount made inside one of them supersedes the rest.
+// A detached root owns its commit from the moment it exists, before any setter
+// runs, so a mount made inside one supersedes the rest of the construction.
 function claim(root: Node): void {
 	const frame = commitQueue as unknown as Frame;
-	setOwner(root, commitQueue);
+	if (frame.h) return;
+	setOwner(root, frame);
 	frame.h = root;
-	frame.e = commitQueue as unknown as Token;
+	frame.e = frame;
 }
 
 function live(): void {
