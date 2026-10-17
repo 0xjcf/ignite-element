@@ -113,6 +113,10 @@ function renderIgniteJsxNow(
 ): NormalizedNode[] {
 	const epoch = (host as Owned)[owner];
 	return commitRender(() => {
+		const frame = commitQueue as unknown as Frame;
+		frame.h = host;
+		frame.e = epoch;
+		frame.r = !previous;
 		const next = normalizeRoot(view);
 
 		if (
@@ -128,7 +132,6 @@ function renderIgniteJsxNow(
 		}
 		// A detach or newer commit during the patch revoked this render: no publish.
 		if ((host as Owned)[owner] === epoch) {
-			(commitQueue as unknown as Token).r = !previous;
 			(host as Owned)[owner] = commitQueue as unknown as Token;
 			options.onTreePublished?.(next);
 		}
@@ -943,6 +946,7 @@ function patchNode(
 	newNode: NormalizedNode,
 	onFallbackReplace?: (reason: string) => void,
 ): ChildNode {
+	if (stale()) return domNode;
 	if (oldNode.kind !== newNode.kind) {
 		return replaceMounted(domNode, newNode);
 	}
@@ -1138,6 +1142,7 @@ function patchProps(
 	// default* before checked, value, and selected, whatever the key order.
 	for (let pass = 0; pass < 2; pass++) {
 		for (const [key, next] of Object.entries(newProps)) {
+			if (stale()) return;
 			const late = key === "checked" || key === "value" || key === "selected";
 			if (late !== (pass === 1)) continue;
 			if (hostRuntimeEnabled && key === "use") continue;
@@ -1190,13 +1195,8 @@ function patchProps(
 
 			if (key === "class" || key === "className") {
 				const nextClass = next !== false && next != null ? String(next) : "";
-				if (element.getAttribute("class") !== nextClass) {
-					if (nextClass) {
-						element.setAttribute("class", nextClass);
-					} else {
-						element.removeAttribute("class");
-					}
-				}
+				if (nextClass) element.setAttribute("class", nextClass);
+				else element.removeAttribute("class");
 				continue;
 			}
 
@@ -1244,10 +1244,7 @@ function patchProps(
 			}
 
 			const attrName = propAttributeName(element, key, isSvgElement);
-			const nextString = String(next);
-			if (element.getAttribute(attrName) !== nextString) {
-				element.setAttribute(attrName, nextString);
-			}
+			element.setAttribute(attrName, String(next));
 		}
 	}
 }
@@ -1466,10 +1463,7 @@ function removeProp(element: Element, key: string, isSvg: boolean): void {
 	// An unreflected property is dropped by itself. Its lower-case attribute
 	// spelling is another sink and stays.
 	if (isUnreflectedProperty(element, key, isSvg)) {
-		const fallback = UNREFLECTED_PROPERTIES.get(key);
-		if (getContained(element, key) !== fallback) {
-			setContained(element, key, fallback);
-		}
+		setContained(element, key, UNREFLECTED_PROPERTIES.get(key));
 		return;
 	}
 
@@ -1485,18 +1479,17 @@ function removeProp(element: Element, key: string, isSvg: boolean): void {
 	}
 
 	const attrName = propAttributeName(element, key, isSvg);
-	const hadAttribute = element.hasAttribute(attrName);
 	if (!isSvg && key in element && key !== "list") {
 		const el = element as HTMLElement;
 		const current = getContained(el, key);
 		if (typeof current === "boolean") {
-			if (current) setContained(el, key, false);
+			setContained(el, key, false);
 			element.removeAttribute(attrName);
 			return;
 		}
 	}
 
-	if (hadAttribute) element.removeAttribute(attrName);
+	element.removeAttribute(attrName);
 }
 
 const composing = new WeakMap<Node, boolean>();
@@ -1529,10 +1522,18 @@ function queueControlled(
 // only a detach or a commit that replaced the DOM (`r`) stops its refs.
 const owner = Symbol.for("ignite.o");
 type Token = { r?: boolean };
+type Frame = Token & { h?: object; e?: Token };
 type Owned = { [owner]?: Token };
 export const setOwner = (host: object, token: object) => {
 	(host as Owned)[owner] = token;
 };
+
+// The patch asks this at node and prop boundaries: once a detach or a newer
+// commit owns the host, the walk stops and writes nothing more.
+function stale(): boolean {
+	const { h, e } = commitQueue as unknown as Frame;
+	return !!h && (h as Owned)[owner] !== e;
+}
 
 function commitRender<T>(render: () => T, host?: object): T {
 	const parent = commitQueue;
