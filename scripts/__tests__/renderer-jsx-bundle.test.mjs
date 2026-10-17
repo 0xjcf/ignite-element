@@ -64,12 +64,16 @@ const EVENT_ORIGIN_WARNING = "observed from both native and effect";
 // (one guarded write helper): CI reads about 14 B above local box measurements
 // (observed +8 and +14 B), and the box measures 5,988 B. An overrun must still be
 // paid for by shrinking other code in the same change.
+// Then 6,080 B (Jose approved): the round-11 fixes for six Codex threads cost 54 B
+// (custom-element construction rechecked, private abort signal, explicit fallback
+// state). The box and CI agree at 6,073 B once packages/ignite-renderer/dist is
+// rebuilt; earlier box readings were stale builds.
 // Dropped checked, value, and selected stay.
 // Native defaultValue, defaultChecked, and defaultSelected stay on drop.
 // Explicit false for the last two is a set. Own custom setters get undefined
 // and stay case-sensitive. There is no cached built-in element and no
 // fresh-element default reset.
-const TODAY_CONSUMER_GZIP = 6020;
+const TODAY_CONSUMER_GZIP = 6080;
 
 function consumerEntry() {
 	return `import { jsx, mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";
