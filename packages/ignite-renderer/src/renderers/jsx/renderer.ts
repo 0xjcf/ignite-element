@@ -750,79 +750,48 @@ function patchChildren(
 			onFallbackReplace,
 		);
 	}
-	if (!isAppendOnlyCompatible(oldChildren, newChildren)) {
-		// Instead of full replacement, try positional patching.
-		// This preserves existing elements when siblings change kind.
-		const maxLen = Math.max(oldChildren.length, newChildren.length);
-		for (let i = 0; i < maxLen; i++) {
-			const domChild = parent.childNodes[i];
-			if (i < oldChildren.length && i < newChildren.length && domChild) {
-				const patched = patchNode(
-					domChild,
-					oldChildren[i],
-					newChildren[i],
-					onFallbackReplace,
-				);
-				if (patched !== domChild) {
-					act(parent, "replaceChild", patched, domChild);
-					if (hostRuntimeEnabled) {
-						const spec = newChildren[i];
-						if (spec) commitFresh(patched, spec);
-					}
-				}
-			} else if (i >= oldChildren.length) {
-				act(parent, "appendChild", createDomFromNormalized(newChildren[i]));
-				if (hostRuntimeEnabled) {
-					const created = newChildren[i];
-					const placed = parent.lastChild;
-					if (created && placed) commitFresh(placed, created);
-				}
-			} else if (i >= newChildren.length && domChild) {
-				detachChild(parent, domChild);
-			}
-		}
-		// Remove any extra trailing DOM nodes
-		while (parent.childNodes.length > newChildren.length && parent.lastChild) {
-			detachChild(parent, parent.lastChild);
-		}
-		return true;
-	}
-
-	let childIndex = 0;
-	for (; childIndex < oldChildren.length; childIndex++) {
-		const domChild = parent.childNodes[childIndex];
-		if (!domChild) {
-			return false;
-		}
-		const patched = patchNode(
-			domChild,
-			oldChildren[childIndex],
-			newChildren[childIndex],
-			onFallbackReplace,
-		);
-		if (patched !== domChild) {
-			act(parent, "replaceChild", patched, domChild);
+	// Positional patching keeps existing elements when siblings change kind. An
+	// append-only update leaves extra DOM nodes alone and needs every old one.
+	const compat = isAppendOnlyCompatible(oldChildren, newChildren);
+	const maxLen = compat
+		? newChildren.length
+		: Math.max(oldChildren.length, newChildren.length);
+	for (let i = 0; i < maxLen; i++) {
+		const domChild = parent.childNodes[i];
+		if (i >= oldChildren.length) {
+			act(parent, "appendChild", createDomFromNormalized(newChildren[i]));
 			if (hostRuntimeEnabled) {
-				const spec = newChildren[childIndex];
-				if (spec) commitFresh(patched, spec);
+				const created = newChildren[i];
+				const placed = parent.lastChild;
+				if (created && placed) commitFresh(placed, created);
+			}
+		} else if (!domChild) {
+			if (compat) return false;
+		} else if (i >= newChildren.length) {
+			detachChild(parent, domChild);
+		} else {
+			const patched = patchNode(
+				domChild,
+				oldChildren[i],
+				newChildren[i],
+				onFallbackReplace,
+			);
+			if (patched !== domChild) {
+				act(parent, "replaceChild", patched, domChild);
+				if (hostRuntimeEnabled) {
+					const spec = newChildren[i];
+					if (spec) commitFresh(patched, spec);
+				}
 			}
 		}
 	}
-
-	for (; childIndex < newChildren.length; childIndex++) {
-		act(
-			parent,
-			"appendChild",
-			createDomFromNormalized(newChildren[childIndex]),
-		);
-		if (hostRuntimeEnabled) {
-			const created = newChildren[childIndex];
-			const placed = parent.lastChild;
-			if (created && placed) commitFresh(placed, created);
-		}
+	while (
+		!compat &&
+		parent.childNodes.length > newChildren.length &&
+		parent.lastChild
+	) {
+		detachChild(parent, parent.lastChild);
 	}
-
-	// If the parent has extra nodes beyond managed children, leave them untouched.
 	return true;
 }
 
@@ -1532,13 +1501,10 @@ export const setOwner = (host: object, token: object) => {
 // The one write helper. Every DOM method that writes or removes goes through it:
 // ownership is checked before the call, and again after, because a custom
 // element's callbacks may have run user code inside it.
-function act(target: object, method: string, ...args: unknown[]): unknown {
+function act(target: object, method: string, ...args: unknown[]): void {
 	live();
-	const result = (target as Record<string, (...a: unknown[]) => unknown>)[
-		method
-	](...args);
+	(target as Record<string, (...a: unknown[]) => void>)[method](...args);
 	live();
-	return result;
 }
 
 // A detached root owns its commit from the moment it exists, before any of its
