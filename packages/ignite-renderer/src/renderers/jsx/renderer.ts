@@ -130,11 +130,9 @@ function renderIgniteJsxNow(
 		) {
 			replaceAll(host, next);
 		}
-		// A detach or newer commit during the patch revoked this render: no publish.
-		if ((host as Owned)[owner] === epoch) {
-			(host as Owned)[owner] = commitQueue as unknown as Token;
-			options.onTreePublished?.(next);
-		}
+		// act() unwound any render a detach or newer commit revoked: this publishes.
+		(host as Owned)[owner] = commitQueue as unknown as Token;
+		options.onTreePublished?.(next);
 		return next;
 	}, host);
 }
