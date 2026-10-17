@@ -180,13 +180,18 @@ function deliver(record: HostRecord, force: boolean): void {
 		let deliverForce = force;
 		do {
 			record.redeliver = false;
-			if (
-				!deliverForce &&
-				record.delivered &&
-				slicesEqual(record.definition, record.deliveredSlice, record.slice)
-			) {
-				deliverForce = false;
-				continue;
+			if (!deliverForce && record.delivered) {
+				const same = slicesEqual(
+					record.definition,
+					record.deliveredSlice,
+					record.slice,
+				);
+				// A superseding equals must not be followed by update.
+				hostLive();
+				if (same) {
+					deliverForce = false;
+					continue;
+				}
 			}
 			const slice = record.slice;
 			try {
@@ -298,11 +303,17 @@ function applyDescription(
 		clearDescription(element);
 		return;
 	}
-	let text: string;
+	let text: unknown;
+	let failed = false;
 	try {
 		text = definition.describe(slice);
 	} catch (error) {
 		reportHostError("[ignite-jsx] Host describe failed.", error);
+		failed = true;
+	}
+	// No DOM write and no further callback follows a superseded describe.
+	hostLive();
+	if (failed) {
 		clearDescription(element);
 		return;
 	}
@@ -447,33 +458,31 @@ function startHost(
 		}
 		return;
 	}
-	// A mount that superseded this commit has its handle disposed once it settles.
+	const fulfilled = (handle: unknown) => {
+		acceptHandle(element, record, definition, handle);
+	};
+	const rejected = (error: unknown) => {
+		reportHostError("[ignite-jsx] Host mount failed.", error);
+		if (
+			record.controller.signal.aborted ||
+			hostRecords.get(element) !== record
+		) {
+			return;
+		}
+		dropRecord(element, record);
+		releaseHostSubtree(element);
+	};
+	// A mount that superseded this commit is settled like any async mount:
+	// a late handle is disposed and a late rejection is reported.
 	try {
 		hostLive();
 	} catch (error) {
-		Promise.resolve(result).then((handle) =>
-			acceptHandle(element, record, definition, handle),
-		);
+		Promise.resolve(result).then(fulfilled, rejected);
 		throw error;
 	}
 	const deferDeliver = deferredSends.length > queuedBefore;
 	if (isPromiseLike(result)) {
-		Promise.resolve(result).then(
-			(handle) => {
-				acceptHandle(element, record, definition, handle);
-			},
-			(error: unknown) => {
-				reportHostError("[ignite-jsx] Host mount failed.", error);
-				if (
-					record.controller.signal.aborted ||
-					hostRecords.get(element) !== record
-				) {
-					return;
-				}
-				dropRecord(element, record);
-				releaseHostSubtree(element);
-			},
-		);
+		Promise.resolve(result).then(fulfilled, rejected);
 		return;
 	}
 	acceptHandle(element, record, definition, result, deferDeliver);

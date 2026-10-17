@@ -84,8 +84,11 @@ describe("JSX host runtime size", () => {
 		// Codex threads (custom-element construction rechecked through the write
 		// helper, a private unwinding sentinel, explicit fallback-attribute state
 		// that removes a stale attribute before an upgraded setter) cost 49 B.
+		// Then 4580 B (Jose pre-approved up to 4590): the round-12 fix for the
+		// spelling-keyed fallback marker (an alias handing its marker to the
+		// spelling that stays) reads 4576 B on the rebuilt dist.
 		// Host exclusion and build settings stay the same.
-		assert.ok(gzip <= 4560, `no-host JSX gzip ${gzip} is above 4560`);
+		assert.ok(gzip <= 4580, `no-host JSX gzip ${gzip} is above 4580`);
 	});
 
 	it("includes the host runtime when the internal module is imported", async () => {

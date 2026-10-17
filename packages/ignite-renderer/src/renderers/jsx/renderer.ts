@@ -1107,7 +1107,11 @@ function patchProps(
 		// data-id and DATA-ID are one key. A spelling that is still present
 		// is not a drop.
 		const kept = sinkMatch(newProps, element, key, isSvgElement);
-		if (kept) continue;
+		if (kept) {
+			// The spelling that stays owns the attribute: the old marker is handed over.
+			if (kept !== key) committedKeys(element).delete(key);
+			continue;
+		}
 		removeProp(element, key, isSvgElement);
 	}
 	patchEventSlots(element, newProps, oldProps, "addEventListener");

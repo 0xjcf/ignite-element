@@ -68,12 +68,15 @@ const EVENT_ORIGIN_WARNING = "observed from both native and effect";
 // (custom-element construction rechecked, private abort signal, explicit fallback
 // state). The box and CI agree at 6,073 B once packages/ignite-renderer/dist is
 // rebuilt; earlier box readings were stale builds.
+// Then 6,090 B (Jose pre-approved up to 6,110): the round-12 fixes (host
+// callbacks rechecked between equals/update and after describe, rejected
+// superseded mounts reported, alias marker handover) read 6,087 B on the rebuilt dist.
 // Dropped checked, value, and selected stay.
 // Native defaultValue, defaultChecked, and defaultSelected stay on drop.
 // Explicit false for the last two is a set. Own custom setters get undefined
 // and stay case-sensitive. There is no cached built-in element and no
 // fresh-element default reset.
-const TODAY_CONSUMER_GZIP = 6080;
+const TODAY_CONSUMER_GZIP = 6090;
 
 function consumerEntry() {
 	return `import { jsx, mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";
