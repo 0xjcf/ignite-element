@@ -450,7 +450,6 @@ function settleSmil(
 ): void {
 	if (!isSmil(element)) return;
 	for (const key of Object.keys(oldProps)) {
-		live();
 		if (!smilKeys.test(key)) continue;
 		const kept = sinkMatch(newProps, element, key, true);
 		if (
@@ -1142,6 +1141,7 @@ function patchProps(
 	// Drops run first so a setter or attribute written for a present spelling
 	// is never erased by the drop of a differently cased old one.
 	for (const key of Object.keys(oldProps)) {
+		live();
 		if (hostRuntimeEnabled && key === "use") continue;
 		if (key === "children" || key === "ref" || isBlockedMarkupProp(key))
 			continue;
