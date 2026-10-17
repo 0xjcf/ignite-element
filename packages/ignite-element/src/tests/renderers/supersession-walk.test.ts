@@ -18,6 +18,10 @@ class Probe extends HTMLElement {
 	set w(v: unknown) {
 		log.push(`w:${String(v)}`);
 	}
+	get flag(): unknown {
+		Probe.hook?.("g");
+		return 1;
+	}
 	set d1(v: unknown) {
 		if (v === undefined) Probe.hook?.("d1");
 	}
@@ -74,6 +78,7 @@ describe("R2' a superseded patch aborts entirely", () => {
 					"replace",
 					"new-value",
 					"drop-last",
+					"getter",
 				),
 				fc.constantFrom("detach", "mount-same", "mount-other"),
 				(shape0, keyed, n, pick, hookKind, event) => {
@@ -114,6 +119,7 @@ describe("R2' a superseded patch aborts entirely", () => {
 								if (gen === 0) {
 									props.d1 = 1;
 									props.d2 = 1;
+									if (hookKind === "getter") props.flag = 1;
 									if (
 										(hookKind === "cleanup" && i === n) ||
 										(hookKind === "replace" && i === hookAt)
@@ -170,6 +176,12 @@ describe("R2' a superseded patch aborts entirely", () => {
 						childList: true,
 						subtree: true,
 					});
+					// A getter-only prop leaves no attribute, so plant one the drop would erase.
+					if (hookKind === "getter") {
+						for (const e of root.querySelectorAll("x-walk")) {
+							e.setAttribute("flag", "1");
+						}
+					}
 					const before = oldNodes(root);
 					let atEvent: string[] = [];
 					let fired = false;
@@ -177,9 +189,11 @@ describe("R2' a superseded patch aborts entirely", () => {
 					const want =
 						hookKind === "drop" || hookKind === "drop-last"
 							? "d1"
-							: hookKind === "cleanup" || hookKind === "replace"
-								? "c"
-								: `t${hookKind === "new" || hookKind === "new-value" ? n : hookAt}`;
+							: hookKind === "getter"
+								? "g"
+								: hookKind === "cleanup" || hookKind === "replace"
+									? "c"
+									: `t${hookKind === "new" || hookKind === "new-value" ? n : hookAt}`;
 					Probe.hook = (tag) => {
 						if (fired || tag !== want) return;
 						fired = true;

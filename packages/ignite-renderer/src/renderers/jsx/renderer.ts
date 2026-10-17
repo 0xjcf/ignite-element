@@ -953,7 +953,6 @@ function patchNode(
 	newNode: NormalizedNode,
 	onFallbackReplace?: (reason: string) => void,
 ): ChildNode {
-	live();
 	if (oldNode.kind !== newNode.kind) {
 		return replaceMounted(domNode, newNode);
 	}
@@ -1136,7 +1135,6 @@ function patchProps(
 	// Drops run first so a setter or attribute written for a present spelling
 	// is never erased by the drop of a differently cased old one.
 	for (const key of Object.keys(oldProps)) {
-		live();
 		if (hostRuntimeEnabled && key === "use") continue;
 		if (key === "children" || key === "ref" || isBlockedMarkupProp(key))
 			continue;
@@ -1152,7 +1150,6 @@ function patchProps(
 	// default* before checked, value, and selected, whatever the key order.
 	for (let pass = 0; pass < 2; pass++) {
 		for (const [key, next] of Object.entries(newProps)) {
-			live();
 			const late = key === "checked" || key === "value" || key === "selected";
 			if (late !== (pass === 1)) continue;
 			if (hostRuntimeEnabled && key === "use") continue;
