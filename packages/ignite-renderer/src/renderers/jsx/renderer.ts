@@ -63,18 +63,15 @@ export function createDomNode(
 ): Node | DocumentFragment {
 	return commitRender(() => {
 		const normalized = normalizeChild(node, namespace);
-		const fragment = document.createDocumentFragment();
-		const result =
-			normalized.length === 1
-				? createDomFromNormalized(normalized[0])
-				: fragment;
-		for (const child of normalized.length === 1 ? [] : normalized) {
-			fragment.appendChild(createDomFromNormalized(child));
+		if (normalized.length === 1) {
+			return createDomFromNormalized(normalized[0]);
 		}
-		// The detached root owns this commit: a newer mount on it retires the
-		// controlled writes and refs still queued here.
-		setOwner(result, commitQueue);
-		return result;
+		const fragment = document.createDocumentFragment();
+		claim(fragment);
+		for (const child of normalized) {
+			act(fragment, "appendChild", createDomFromNormalized(child));
+		}
+		return fragment;
 	});
 }
 
@@ -122,23 +119,19 @@ function renderIgniteJsxNow(
 		frame.r = !previous;
 		const next = normalizeRoot(view);
 
-		try {
-			if (
-				options.mode === "replace" ||
-				!previous ||
-				host.childNodes.length === 0
-			) {
-				replaceAll(host, next);
-			} else if (
-				!patchChildren(host, previous, next, options.onFallbackReplace)
-			) {
-				replaceAll(host, next);
-			}
-		} catch (error) {
-			if (error !== owner) throw error;
+		// A function component may have mounted on this host while it ran.
+		live();
+		if (
+			options.mode === "replace" ||
+			!previous ||
+			host.childNodes.length === 0
+		) {
+			replaceAll(host, next);
+		} else if (
+			!patchChildren(host, previous, next, options.onFallbackReplace)
+		) {
+			replaceAll(host, next);
 		}
-		// The patch is over. Queued writes check ownership through mine().
-		frame.h = undefined;
 		// A detach or newer commit during the patch revoked this render: no publish.
 		if ((host as Owned)[owner] === epoch) {
 			(host as Owned)[owner] = commitQueue as unknown as Token;
@@ -736,9 +729,9 @@ export function reacquireMountedView(root: ParentNode): void {
 }
 
 function detachChild(parent: ParentNode, child: ChildNode): void {
-	unmountIgniteSubtree(child);
 	live();
-	parent.removeChild(child);
+	unmountIgniteSubtree(child);
+	act(parent, "removeChild", child);
 }
 
 function patchChildren(
@@ -771,14 +764,14 @@ function patchChildren(
 					onFallbackReplace,
 				);
 				if (patched !== domChild) {
-					parent.replaceChild(patched, domChild);
+					act(parent, "replaceChild", patched, domChild);
 					if (hostRuntimeEnabled) {
 						const spec = newChildren[i];
 						if (spec) commitFresh(patched, spec);
 					}
 				}
 			} else if (i >= oldChildren.length) {
-				parent.appendChild(createDomFromNormalized(newChildren[i]));
+				act(parent, "appendChild", createDomFromNormalized(newChildren[i]));
 				if (hostRuntimeEnabled) {
 					const created = newChildren[i];
 					const placed = parent.lastChild;
@@ -808,7 +801,7 @@ function patchChildren(
 			onFallbackReplace,
 		);
 		if (patched !== domChild) {
-			parent.replaceChild(patched, domChild);
+			act(parent, "replaceChild", patched, domChild);
 			if (hostRuntimeEnabled) {
 				const spec = newChildren[childIndex];
 				if (spec) commitFresh(patched, spec);
@@ -817,7 +810,11 @@ function patchChildren(
 	}
 
 	for (; childIndex < newChildren.length; childIndex++) {
-		parent.appendChild(createDomFromNormalized(newChildren[childIndex]));
+		act(
+			parent,
+			"appendChild",
+			createDomFromNormalized(newChildren[childIndex]),
+		);
 		if (hostRuntimeEnabled) {
 			const created = newChildren[childIndex];
 			const placed = parent.lastChild;
@@ -872,7 +869,7 @@ function patchKeyedChildren(
 					onFallbackReplace,
 				);
 				if (patched !== match.dom && match.dom.parentNode) {
-					match.dom.parentNode.removeChild(match.dom);
+					act(match.dom.parentNode, "removeChild", match.dom);
 				}
 				nextDom.push(patched);
 				continue;
@@ -891,7 +888,8 @@ function patchKeyedChildren(
 				child,
 				onFallbackReplace,
 			);
-			if (patched !== dom && dom.parentNode) dom.parentNode.removeChild(dom);
+			if (patched !== dom && dom.parentNode)
+				act(dom.parentNode, "removeChild", dom);
 			nextDom.push(patched);
 			continue;
 		}
@@ -904,13 +902,12 @@ function patchKeyedChildren(
 
 	let cursor: ChildNode | null = parent.firstChild;
 	for (let index = 0; index < nextDom.length; index++) {
-		live();
 		const node = nextDom[index];
 		if (!node) continue;
 		if (node === cursor) {
 			cursor = node.nextSibling;
 		} else {
-			parent.insertBefore(node, cursor);
+			act(parent, "insertBefore", node, cursor);
 		}
 		if (hostRuntimeEnabled) {
 			const spec = newChildren[index];
@@ -947,6 +944,7 @@ function replaceMounted(
 	domNode: ChildNode,
 	newNode: NormalizedNode,
 ): ChildNode {
+	live();
 	unmountIgniteSubtree(domNode);
 	return createDomFromNormalized(newNode);
 }
@@ -957,7 +955,6 @@ function patchNode(
 	newNode: NormalizedNode,
 	onFallbackReplace?: (reason: string) => void,
 ): ChildNode {
-	live();
 	if (oldNode.kind !== newNode.kind) {
 		return replaceMounted(domNode, newNode);
 	}
@@ -967,7 +964,7 @@ function patchNode(
 			return replaceMounted(domNode, newNode);
 		}
 		if (domNode.textContent !== newNode.value) {
-			domNode.textContent = newNode.value;
+			setContained(domNode, "textContent", newNode.value);
 		}
 		return domNode;
 	}
@@ -1009,7 +1006,6 @@ function patchNode(
 	const previouslyOwned = hostRuntimeEnabled && subtreeOwners.has(elementNode);
 	if (hostRuntimeEnabled) {
 		syncHostElement(elementNode, nextUse);
-		live();
 	}
 	// A host claim is opaque. Skip child diffing so the positional patch does
 	// not desync against untracked DOM nodes (issue #57).
@@ -1050,7 +1046,7 @@ function patchNode(
 			detachChild(elementNode, elementNode.firstChild);
 		}
 		for (const child of mappedChildren) {
-			elementNode.appendChild(createDomFromNormalized(child));
+			act(elementNode, "appendChild", createDomFromNormalized(child));
 			if (hostRuntimeEnabled) {
 				const placed = elementNode.lastChild;
 				if (placed) commitFresh(placed, child);
@@ -1064,7 +1060,6 @@ function patchNode(
 }
 
 function createDomFromNormalized(node: NormalizedNode): ChildNode {
-	live();
 	switch (node.kind) {
 		case "text":
 			return document.createTextNode(node.value);
@@ -1078,14 +1073,14 @@ function createDomFromNormalized(node: NormalizedNode): ChildNode {
 			const element = node.namespace
 				? document.createElementNS(node.namespace, node.tag)
 				: document.createElement(node.tag);
+			if (!(commitQueue as unknown as Frame).h) claim(element);
 			patchProps(element, {}, node.props);
 			for (const child of node.children) {
-				element.appendChild(createDomFromNormalized(child));
+				act(element, "appendChild", createDomFromNormalized(child));
 			}
 			flushSelectValue(element, node.props);
 			assignRef(element, node.props.ref);
 			if (hostRuntimeEnabled) freshNodes.add(element);
-			live();
 			return element;
 		}
 	}
@@ -1141,7 +1136,6 @@ function patchProps(
 	// Drops run first so a setter or attribute written for a present spelling
 	// is never erased by the drop of a differently cased old one.
 	for (const key of Object.keys(oldProps)) {
-		live();
 		if (hostRuntimeEnabled && key === "use") continue;
 		if (key === "children" || key === "ref" || isBlockedMarkupProp(key))
 			continue;
@@ -1157,7 +1151,6 @@ function patchProps(
 	// default* before checked, value, and selected, whatever the key order.
 	for (let pass = 0; pass < 2; pass++) {
 		for (const [key, next] of Object.entries(newProps)) {
-			live();
 			const late = key === "checked" || key === "value" || key === "selected";
 			if (late !== (pass === 1)) continue;
 			if (hostRuntimeEnabled && key === "use") continue;
@@ -1210,9 +1203,9 @@ function patchProps(
 
 			if (key === "class" || key === "className") {
 				const nextClass = next !== false && next != null ? String(next) : "";
-				if (!nextClass) element.removeAttribute("class");
+				if (!nextClass) act(element, "removeAttribute", "class");
 				else if (element.getAttribute("class") !== nextClass)
-					element.setAttribute("class", nextClass);
+					act(element, "setAttribute", "class", nextClass);
 				continue;
 			}
 
@@ -1247,7 +1240,12 @@ function patchProps(
 					/^(translate|spellcheck|draggable)$/i.test(key)
 				) {
 					// These attributes have false tokens; absence has different semantics.
-					element.setAttribute(key, /^translate$/i.test(key) ? "no" : "false");
+					act(
+						element,
+						"setAttribute",
+						key,
+						/^translate$/i.test(key) ? "no" : "false",
+					);
 				} else {
 					removeProp(element, key, isSvgElement);
 				}
@@ -1260,7 +1258,7 @@ function patchProps(
 			}
 
 			const attrName = propAttributeName(element, key, isSvgElement);
-			element.setAttribute(attrName, String(next));
+			act(element, "setAttribute", attrName, String(next));
 		}
 	}
 }
@@ -1271,10 +1269,10 @@ function patchStyle(element: HTMLElement, prev: unknown, next: unknown): void {
 	if (next && typeof next === "object") {
 		if (prev && typeof prev === "object") {
 			for (const key of Object.keys(prev)) {
-				if (!(key in next)) style.removeProperty(toKebabCase(key));
+				if (!(key in next)) act(style, "removeProperty", toKebabCase(key));
 			}
 		} else {
-			style.cssText = "";
+			setContained(style, "cssText", "");
 		}
 		for (const [key, value] of Object.entries(next)) {
 			const cssProperty = toKebabCase(key);
@@ -1282,20 +1280,20 @@ function patchStyle(element: HTMLElement, prev: unknown, next: unknown): void {
 				value != null &&
 				style.getPropertyValue(cssProperty) !== String(value)
 			) {
-				style.setProperty(cssProperty, String(value));
+				act(style, "setProperty", cssProperty, String(value));
 			}
 		}
 		return;
 	}
 
 	if (next === null || next === undefined || next === false) {
-		style.cssText = "";
+		setContained(style, "cssText", "");
 		return;
 	}
 
 	const nextString = String(next);
 	if (style.cssText !== nextString) {
-		style.cssText = nextString;
+		setContained(style, "cssText", nextString);
 	}
 }
 
@@ -1446,9 +1444,13 @@ function sinkMatch(
 function removeProp(element: Element, key: string, isSvg: boolean): void {
 	// An own setter, whatever its name, is cleared with undefined.
 	if (!isSvg && hasOwnCustomSetter(element as HTMLElement, key)) {
+		// An attribute the setter left alone was written before the element
+		// gained it, so it is stale. One the setter changed is its own.
+		const attr = propAttributeName(element, key, false);
+		const was = element.getAttribute(attr);
 		setContained(element, key, undefined);
-		// An attribute written before the element gained this setter is stale.
-		element.removeAttribute(propAttributeName(element, key, false));
+		if (element.getAttribute(attr) === was)
+			act(element, "removeAttribute", attr);
 		return;
 	}
 
@@ -1470,9 +1472,10 @@ function removeProp(element: Element, key: string, isSvg: boolean): void {
 	// not read them. Own custom setters, including these names, are cleared
 	// above. Explicit false is applied in the set path.
 	if (
-		key === "defaultValue" ||
-		key === "defaultChecked" ||
-		key === "defaultSelected"
+		key in element &&
+		(key === "defaultValue" ||
+			key === "defaultChecked" ||
+			key === "defaultSelected")
 	) {
 		return;
 	}
@@ -1485,7 +1488,7 @@ function removeProp(element: Element, key: string, isSvg: boolean): void {
 	) {
 		setContained(element, key, false);
 	}
-	element.removeAttribute(propAttributeName(element, key, isSvg));
+	act(element, "removeAttribute", propAttributeName(element, key, isSvg));
 }
 
 const composing = new WeakMap<Node, boolean>();
@@ -1526,6 +1529,27 @@ export const setOwner = (host: object, token: object) => {
 
 // Every write site in the patch asks this first. Once a detach or a newer commit
 // owns the host it throws `owner`, which unwinds the whole patch at its root.
+// The one write helper. Every DOM method that writes or removes goes through it:
+// ownership is checked before the call, and again after, because a custom
+// element's callbacks may have run user code inside it.
+function act(target: object, method: string, ...args: unknown[]): unknown {
+	live();
+	const result = (target as Record<string, (...a: unknown[]) => unknown>)[
+		method
+	](...args);
+	live();
+	return result;
+}
+
+// A detached root owns its commit from the moment it exists, before any of its
+// setters run, so a mount made inside one of them supersedes the rest.
+function claim(root: Node): void {
+	const frame = commitQueue as unknown as Frame;
+	setOwner(root, commitQueue);
+	frame.h = root;
+	frame.e = commitQueue as unknown as Token;
+}
+
 function live(): void {
 	const { h, e } = commitQueue as unknown as Frame;
 	if (h && (h as Owned)[owner] !== e) throw owner;
@@ -1536,13 +1560,25 @@ function commitRender<T>(render: () => T, host?: object): T {
 	const queues: typeof commitQueue = [[], []];
 	commitQueue = queues;
 	try {
-		const result = render();
+		let result: T | undefined;
+		try {
+			result = render();
+		} catch (error) {
+			// live() unwinds a superseded render here, whole, and it publishes nothing.
+			if (error !== owner) throw error;
+		}
+		// A superseded detached root is still the value of its own call.
+		const frame = queues as unknown as Frame;
+		result ??= (host ? undefined : frame.h) as T | undefined;
+		// The write phase is over. Queued writes check ownership through mine().
+		frame.h = undefined;
 		const root = (host ?? result) as Owned | undefined;
+		if (root) root[owner] ??= queues as unknown as Token;
 		const mine = () => !root || root[owner] === (queues as unknown as Token);
 		for (const commit of queues[0]) if (mine()) commit();
 		for (const commit of queues[1])
 			if (mine() || !(root?.[owner] as Token).r) commit();
-		return result;
+		return result as T;
 	} finally {
 		commitQueue = parent;
 	}
@@ -1584,7 +1620,8 @@ function getContained(element: Element, key: string): unknown {
 
 // Every property write goes through here. A throwing setter stops at its own
 // write and never aborts the render. File values are not cleared.
-function setContained(element: Element, key: string, value: unknown): void {
+function setContained(element: object, key: string, value: unknown): void {
+	live();
 	try {
 		Reflect.set(element, key, value);
 	} catch {
@@ -1618,7 +1655,7 @@ function replaceAll(parent: ParentNode, children: NormalizedNode[]): void {
 		detachChild(parent, parent.firstChild);
 	}
 	for (const child of children) {
-		parent.appendChild(createDomFromNormalized(child));
+		act(parent, "appendChild", createDomFromNormalized(child));
 		if (hostRuntimeEnabled) {
 			const placed = parent.lastChild;
 			if (placed) commitFresh(placed, child);
