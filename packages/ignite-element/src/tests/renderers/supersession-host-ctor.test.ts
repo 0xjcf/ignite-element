@@ -272,6 +272,38 @@ describe("V4c fallback state and attribute names", () => {
 	});
 });
 
+describe("V4d a fallback marker follows the spelling that replaced it", () => {
+	it("Foo then foo then Foo null never calls the never-set setter", () => {
+		fc.assert(
+			fc.property(fc.constantFrom(["Foo", "foo"], ["foo", "Foo"]), ([a, b]) => {
+				const tag = `x-v-alias${uidAlias++}`;
+				const log: unknown[] = [];
+				const { strategy, root } = mk();
+				strategy.render(jsx(tag, { [a as string]: "a" }));
+				strategy.render(jsx(tag, { [b as string]: "b" }));
+				strategy.render(jsx(tag, {}));
+				customElements.define(
+					tag,
+					class extends HTMLElement {
+						constructor() {
+							super();
+							Object.defineProperty(this, a as string, {
+								configurable: true,
+								set: (x) => void log.push(x),
+							});
+						}
+					},
+				);
+				customElements.upgrade(root.firstElementChild as Element);
+				strategy.render(jsx(tag, { [a as string]: null }));
+				expect(log).toEqual([]);
+			}),
+			{ seed: 169912, numRuns: 4 },
+		);
+	});
+});
+let uidAlias = 0;
+
 describe("V5 the handbook states the committed rule", () => {
 	it("views.mdx limits the drop clear to committed non-nullish values", () => {
 		const doc = readFileSync(
