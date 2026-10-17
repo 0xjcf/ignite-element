@@ -4,6 +4,7 @@ import type { RenderStrategy } from "../RenderStrategy";
 import { readBoundHostRuntime, withIgniteHostRuntime } from "./hostBridge";
 import { isNoDiffDenylistedTag } from "./noDiffDenylist";
 import {
+	detached,
 	mountIgniteJsx,
 	type NormalizedNode,
 	renderEpochs,
@@ -229,7 +230,7 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 		const rootNode = this.contentRoot?.getRootNode();
 		if (rootNode instanceof ShadowRoot) forgetQueuedStyles(rootNode);
 		if (this.contentRoot) {
-			renderEpochs.set(this.contentRoot, {});
+			renderEpochs.set(this.contentRoot, detached);
 			unmountIgniteSubtree(this.contentRoot);
 			this.contentRoot.parentNode?.removeChild(this.contentRoot);
 		}

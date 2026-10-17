@@ -111,6 +111,7 @@ function renderIgniteJsxNow(
 	previous: NormalizedNode[] | undefined,
 	options: RenderOptions,
 ): NormalizedNode[] {
+	const epoch = renderEpochs.get(host);
 	return commitRender(() => {
 		const next = normalizeRoot(view);
 
@@ -125,8 +126,11 @@ function renderIgniteJsxNow(
 		) {
 			replaceAll(host, next);
 		}
-		renderEpochs.set(host, commitQueue);
-		options.onTreePublished?.(next);
+		// A detach during the patch has revoked this render: it publishes nothing.
+		if (renderEpochs.get(host) === epoch) {
+			renderEpochs.set(host, commitQueue);
+			options.onTreePublished?.(next);
+		}
 		return next;
 	}, host);
 }
@@ -440,7 +444,7 @@ function settleSmil(
 			newProps[kept] !== oldProps[key] ||
 			isBlockedUrlValue(element, kept, newProps[kept], newProps)
 		) {
-			removeProp(element, key, oldProps[key], true);
+			removeProp(element, key, true);
 		}
 	}
 }
@@ -1127,7 +1131,7 @@ function patchProps(
 		// is not a drop.
 		const matched = sinkMatch(newProps, element, key, isSvgElement);
 		if (matched) continue;
-		removeProp(element, key, oldProps[key], isSvgElement);
+		removeProp(element, key, isSvgElement);
 	}
 
 	// default* before checked, value, and selected, whatever the key order.
@@ -1152,10 +1156,19 @@ function patchProps(
 				warnBlockedUrl(element, key);
 				// removeProp clears a non-reflected property and the attribute.
 				// Attribute removal alone leaves a stale custom-element URL.
-				removeProp(element, key, oldProps[key], isSvgElement);
+				removeProp(element, key, isSvgElement);
 				continue;
 			}
+			// An own setter may have side effects its getter does not show, so a
+			// present value is assigned exactly once per render, here, before any
+			// equality skip and without the default*/live reapply below.
 			const prev = oldProps[key];
+			if (!isSvgElement && hasOwnCustomSetter(element as HTMLElement, key)) {
+				if (next != null) applyProperty(element as HTMLElement, key, next);
+				else if (prev != null) removeProp(element, key, false);
+				continue;
+			}
+
 			if (key === "style") {
 				patchStyle(element as HTMLElement, prev, next);
 				continue;
@@ -1171,18 +1184,6 @@ function patchProps(
 				if (next != null) {
 					queueControlled(element as HTMLElement, key, next);
 				}
-				continue;
-			}
-
-			// An own setter may have side effects its getter does not show, so a
-			// present value is assigned exactly once per render, here, before any
-			// equality skip and without the default*/live reapply below.
-			if (
-				!isSvgElement &&
-				next != null &&
-				hasOwnCustomSetter(element as HTMLElement, key)
-			) {
-				applyProperty(element as HTMLElement, key, next);
 				continue;
 			}
 
@@ -1231,7 +1232,7 @@ function patchProps(
 					// These attributes have false tokens; absence has different semantics.
 					element.setAttribute(key, /^translate$/i.test(key) ? "no" : "false");
 				} else {
-					removeProp(element, key, prev, isSvgElement);
+					removeProp(element, key, isSvgElement);
 				}
 				continue;
 			}
@@ -1442,26 +1443,15 @@ function sinkMatch(
 	return undefined;
 }
 
-function removeProp(
-	element: Element,
-	key: string,
-	prev: unknown,
-	isSvg: boolean,
-): void {
-	if (key === "style") {
-		element.removeAttribute("style");
-		return;
-	}
-
-	if (isEventHandlerKey(key) && typeof prev === "function") {
-		const eventName = normalizeEventName(key.slice(2));
-		element.removeEventListener(eventName, prev as EventListener);
-		return;
-	}
-
+function removeProp(element: Element, key: string, isSvg: boolean): void {
 	// An own setter, whatever its name, is cleared with undefined.
 	if (!isSvg && hasOwnCustomSetter(element as HTMLElement, key)) {
 		setContained(element, key, undefined);
+		return;
+	}
+
+	if (key === "style") {
+		element.removeAttribute("style");
 		return;
 	}
 
@@ -1542,6 +1532,7 @@ function queueControlled(
 // supersedes nothing.
 // detach() sets a fresh epoch, which supersedes every commit still writing.
 export const renderEpochs = new WeakMap<object, object>();
+export const detached = {};
 
 function commitRender<T>(render: () => T, host?: object): T {
 	const parent = commitQueue;
@@ -1551,7 +1542,8 @@ function commitRender<T>(render: () => T, host?: object): T {
 		const result = render();
 		for (const commit of queues[0])
 			if ((renderEpochs.get(host as object) ?? queues) === queues) commit();
-		for (const commit of queues[1]) commit();
+		for (const commit of queues[1])
+			if (renderEpochs.get(host as object) !== detached) commit();
 		return result;
 	} finally {
 		commitQueue = parent;
