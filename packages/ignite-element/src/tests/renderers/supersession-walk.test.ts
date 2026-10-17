@@ -65,13 +65,22 @@ describe("R2' a superseded patch aborts entirely", () => {
 				fc.boolean(),
 				fc.integer({ min: 1, max: 4 }),
 				fc.nat(),
-				fc.constantFrom("drop", "set", "value", "cleanup", "new", "replace"),
+				fc.constantFrom(
+					"drop",
+					"set",
+					"value",
+					"cleanup",
+					"new",
+					"replace",
+					"new-value",
+					"drop-last",
+				),
 				fc.constantFrom("detach", "mount-same", "mount-other"),
 				(shape0, keyed, n, pick, hookKind, event) => {
 					const shape =
 						hookKind === "cleanup"
 							? "shrink"
-							: hookKind === "new"
+							: hookKind === "new" || hookKind === "new-value"
 								? "grow"
 								: hookKind === "replace"
 									? "same"
@@ -117,6 +126,15 @@ describe("R2' a superseded patch aborts entirely", () => {
 									props.value = i;
 								} else if (hookKind === "new" && i === n) {
 									props.trigger = i;
+								} else if (hookKind === "new-value" && i === n) {
+									props.value = i;
+								}
+								// The last walked position of the drop loop: only the setter
+								// that supersedes, nothing after it on this node.
+								const bare = hookKind === "drop-last" && i === hookAt;
+								if (bare) {
+									for (const k of Object.keys(props)) delete props[k];
+									if (gen === 0) props.d1 = 1;
 								}
 								const replaced =
 									hookKind === "replace" && gen === 0 && i === hookAt;
@@ -134,7 +152,7 @@ describe("R2' a superseded patch aborts entirely", () => {
 									{
 										// children first, so a trigger prop is the last key walked
 										children:
-											pick % 3 === 0
+											pick % 3 === 0 || bare
 												? []
 												: [`t${gen}.${i}`, jsx("b", { children: `b${gen}` })],
 										...props,
@@ -157,11 +175,11 @@ describe("R2' a superseded patch aborts entirely", () => {
 					let fired = false;
 					let logAtEvent = -1;
 					const want =
-						hookKind === "drop"
+						hookKind === "drop" || hookKind === "drop-last"
 							? "d1"
 							: hookKind === "cleanup" || hookKind === "replace"
 								? "c"
-								: `t${hookKind === "new" ? n : hookAt}`;
+								: `t${hookKind === "new" || hookKind === "new-value" ? n : hookAt}`;
 					Probe.hook = (tag) => {
 						if (fired || tag !== want) return;
 						fired = true;
@@ -184,7 +202,7 @@ describe("R2' a superseded patch aborts entirely", () => {
 					obs.disconnect();
 				},
 			),
-			{ seed: 169001, numRuns: 300 },
+			{ seed: 169101, numRuns: 500 },
 		);
 	});
 });
@@ -268,5 +286,59 @@ describe("R2' the keyed reorder stops too", () => {
 		expect(keys()).toEqual(first);
 		expect(section.innerHTML).toBe(before);
 		expect(order()).toBe(3);
+	});
+});
+
+// Rule U (PR #168 thread on renderer.ts:1442): when an element gains an own
+// setter for a key after the renderer wrote that key as an attribute, a later
+// drop clears the stale attribute too, so it matches a fresh render.
+describe("U pre-upgrade attributes are cleared once the element gains a setter", () => {
+	let uid = 0;
+	const render = (tag: string, props: Record<string, unknown>) => {
+		const host = document.createElement("div");
+		document.body.appendChild(host);
+		const shadow = host.attachShadow({ mode: "open" });
+		const strategy = createIgniteJsxRenderStrategy();
+		strategy.attach(shadow);
+		return {
+			strategy,
+			el: () => shadow.querySelector(tag) as HTMLElement,
+			view: (p: Record<string, unknown>) => jsx(tag, p),
+			props,
+		};
+	};
+	it("drops the attribute written before the definition existed", () => {
+		fc.assert(
+			fc.property(
+				fc.constantFrom("foo", "bar", "mode", "label"),
+				fc.constantFrom("a", "1", "x y"),
+				fc.constantFrom("keep", "other"),
+				(key, value, kept) => {
+					const tag = `x-up${uid++}`;
+					const r = render(tag, {});
+					r.strategy.render(r.view({ [key]: value, [kept]: "k" }));
+					const calls: unknown[] = [];
+					customElements.define(
+						tag,
+						class extends HTMLElement {
+							constructor() {
+								super();
+								Object.defineProperty(this, key, {
+									set: (v) => calls.push(v),
+									configurable: true,
+								});
+							}
+						},
+					);
+					customElements.upgrade(r.el());
+					r.strategy.render(r.view({ [kept]: "k" }));
+					const fresh = render(tag, {});
+					fresh.strategy.render(fresh.view({ [kept]: "k" }));
+					expect(r.el().hasAttribute(key)).toBe(false);
+					expect(r.el().outerHTML).toBe(fresh.el().outerHTML);
+				},
+			),
+			{ seed: 169102, numRuns: 40 },
+		);
 	});
 });

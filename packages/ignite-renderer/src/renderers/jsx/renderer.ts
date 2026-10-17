@@ -134,6 +134,8 @@ function renderIgniteJsxNow(
 		} catch (error) {
 			if (error !== owner) throw error;
 		}
+		// The patch is over. Queued writes check ownership through mine().
+		frame.h = undefined;
 		// A detach or newer commit during the patch revoked this render: no publish.
 		if ((host as Owned)[owner] === epoch) {
 			(host as Owned)[owner] = commitQueue as unknown as Token;
@@ -1003,6 +1005,7 @@ function patchNode(
 	const previouslyOwned = hostRuntimeEnabled && subtreeOwners.has(elementNode);
 	if (hostRuntimeEnabled) {
 		syncHostElement(elementNode, nextUse);
+		live();
 	}
 	// A host claim is opaque. Skip child diffing so the positional patch does
 	// not desync against untracked DOM nodes (issue #57).
@@ -1439,6 +1442,8 @@ function removeProp(element: Element, key: string, isSvg: boolean): void {
 	// An own setter, whatever its name, is cleared with undefined.
 	if (!isSvg && hasOwnCustomSetter(element as HTMLElement, key)) {
 		setContained(element, key, undefined);
+		// An attribute written before the element gained this setter is stale.
+		element.removeAttribute(propAttributeName(element, key, false));
 		return;
 	}
 
@@ -1562,11 +1567,14 @@ function assignControlled(
 // Every property read goes through here. A throwing getter reads as a value
 // nothing equals, so the render still tries the write and carries on.
 function getContained(element: Element, key: string): unknown {
+	let value: unknown = {};
 	try {
-		return Reflect.get(element, key);
+		value = Reflect.get(element, key);
 	} catch {
-		return {};
+		// A throwing getter reads as a value nothing equals.
 	}
+	live();
+	return value;
 }
 
 // Every property write goes through here. A throwing setter stops at its own
@@ -1577,6 +1585,7 @@ function setContained(element: Element, key: string, value: unknown): void {
 	} catch {
 		// A throwing setter stops here.
 	}
+	live();
 }
 
 function applyProperty(
