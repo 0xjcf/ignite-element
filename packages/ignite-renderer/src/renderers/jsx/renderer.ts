@@ -447,8 +447,7 @@ function settleSmil(
 		const kept = sinkMatch(newProps, element, key, true);
 		if (
 			!kept ||
-			newProps[kept] !== oldProps[key] ||
-			isBlockedUrlValue(element, kept, newProps[kept], newProps)
+			newProps[kept] !== oldProps[key]
 		) {
 			removeProp(element, key, true);
 		}
@@ -1095,7 +1094,7 @@ function patchProps(
 		watchComposition(element as HTMLElement);
 	}
 	// One listener per event. The last spelling in prop order wins.
-	patchEventSlots(element, oldProps, newProps);
+	patchEventSlots(element, oldProps, newProps, "removeEventListener");
 	if (__IGNITE_DEV_WARNINGS__) {
 		warnDuplicateProps(element, newProps, isSvgElement);
 	}
@@ -1112,10 +1111,17 @@ function patchProps(
 		if (isEventHandlerKey(key)) continue;
 		// data-id and DATA-ID are one key. A spelling that is still present
 		// is not a drop.
-		const matched = sinkMatch(newProps, element, key, isSvgElement);
-		if (matched) continue;
-		removeProp(element, key, isSvgElement);
+		const kept = sinkMatch(newProps, element, key, isSvgElement);
+		if (kept) continue;
+		const old = oldProps[key];
+		removeProp(
+			element,
+			key,
+			isSvgElement,
+			old != null && !isBlockedUrlValue(element, key, old, oldProps),
+		);
 	}
+	patchEventSlots(element, newProps, oldProps, "addEventListener");
 
 	// default* before checked, value, and selected, whatever the key order.
 	for (let pass = 0; pass < 2; pass++) {
@@ -1138,11 +1144,7 @@ function patchProps(
 			const prev = oldProps[key];
 			if (isBlockedUrlValue(element, key, next, newProps)) {
 				warnBlockedUrl(element, key);
-				// removeProp clears a non-reflected property and the attribute.
-				// Attribute removal alone leaves a stale custom-element URL. Only a
-				// sink an earlier render committed is cleared; a never-set one is not.
-				if (prev != null && !isBlockedUrlValue(element, key, prev, oldProps))
-					removeProp(element, key, isSvgElement);
+				// The drop loop already cleared what an earlier render committed.
 				continue;
 			}
 			// An own setter may have side effects its getter does not show, so a
@@ -1281,23 +1283,17 @@ function eventSlots(props: IgniteJsxProps): Record<string, EventListener> {
 	return slots;
 }
 
+// Removals are drops and run with them; additions are sets and run after.
+// Each call walks the slots of `from` that `to` does not share.
 function patchEventSlots(
 	element: Element,
-	oldProps: IgniteJsxProps,
-	newProps: IgniteJsxProps,
+	from: IgniteJsxProps,
+	to: IgniteJsxProps,
+	method: "addEventListener" | "removeEventListener",
 ) {
-	const prev = eventSlots(oldProps);
-	const next = eventSlots(newProps);
-	for (const name in prev) {
-		if (prev[name] !== next[name]) {
-			element.removeEventListener(name, prev[name]);
-		}
-	}
-	for (const name in next) {
-		if (next[name] !== prev[name]) {
-			element.addEventListener(name, next[name]);
-		}
-	}
+	const a = eventSlots(from);
+	const b = eventSlots(to);
+	for (const name in a) if (a[name] !== b[name]) element[method](name, a[name]);
 }
 
 // Own means a writable field or setter on the instance or a prototype before
@@ -1410,14 +1406,26 @@ function sinkMatch(
 ): string | undefined {
 	const id = sinkKey(element, key, isSvg);
 	for (const other of Object.keys(props)) {
-		if (sinkKey(element, other, isSvg) === id) return other;
+		// A blocked present spelling writes nothing, so it keeps nothing.
+		if (
+			sinkKey(element, other, isSvg) === id &&
+			!isBlockedUrlValue(element, other, props[other], props)
+		)
+			return other;
 	}
 	return undefined;
 }
 
-function removeProp(element: Element, key: string, isSvg: boolean): void {
-	// An own setter, whatever its name, is cleared with undefined.
+function removeProp(
+	element: Element,
+	key: string,
+	isSvg: boolean,
+	committed = true,
+): void {
+	// An own setter, whatever its name, is cleared with undefined, and only when
+	// an earlier render committed a value to it.
 	if (!isSvg && hasOwnCustomSetter(element as HTMLElement, key)) {
+		if (!committed) return;
 		// An attribute the setter left alone was written before the element
 		// gained it, so it is stale. One the setter changed is its own.
 		const attr = propAttributeName(element, key, false);
