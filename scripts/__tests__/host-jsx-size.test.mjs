@@ -80,8 +80,12 @@ describe("JSX host runtime size", () => {
 		// detached roots claiming ownership at creation.
 		// Then 4510 B: the round-9 fixes for three Codex threads (blocked URL across
 		// spellings, listener sets after drops, never-committed own setters) cost 27 B.
+		// Then 4560 B (Jose pre-approved up to 4560): the round-11 fixes for six
+		// Codex threads (custom-element construction rechecked through the write
+		// helper, a private unwinding sentinel, explicit fallback-attribute state
+		// that removes a stale attribute before an upgraded setter) cost 49 B.
 		// Host exclusion and build settings stay the same.
-		assert.ok(gzip <= 4510, `no-host JSX gzip ${gzip} is above 4510`);
+		assert.ok(gzip <= 4560, `no-host JSX gzip ${gzip} is above 4560`);
 	});
 
 	it("includes the host runtime when the internal module is imported", async () => {

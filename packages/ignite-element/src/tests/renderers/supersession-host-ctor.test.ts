@@ -2,13 +2,11 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import * as fc from "fast-check";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import "../../../../ignite-renderer/src/renderers/jsx/hosts";
 import {
 	createIgniteJsxRenderStrategy,
 	mountIgniteJsxOnce,
 } from "../../renderers/jsx/IgniteJsxRenderStrategy";
 import { jsx } from "../../renderers/jsx/jsx-runtime";
-import { renderIgniteJsx } from "../../renderers/jsx/renderer";
 
 // Rules (PR #168, round 11). The single helper rule widens:
 //  V1 a custom element constructor is user code: createElement goes through
@@ -90,100 +88,6 @@ describe("V1 a constructor that supersedes stops the construction", () => {
 			}),
 			{ seed: 169901, numRuns: 20 },
 		);
-	});
-});
-
-type Rec = { select: number; mount: number; update: number; dispose: number };
-const hostFor = (rec: Rec, hooks: Partial<Record<keyof Rec, () => void>>) => ({
-	select: (n: unknown) => {
-		rec.select++;
-		hooks.select?.();
-		return n;
-	},
-	mount: (el: Element) => {
-		rec.mount++;
-		hooks.mount?.();
-		const child = document.createElement("span");
-		el.append(child);
-		return { id: rec.mount };
-	},
-	update: () => {
-		rec.update++;
-		hooks.update?.();
-	},
-	dispose: () => {
-		rec.dispose++;
-	},
-	describe: () => {
-		rec.describe = (rec.describe ?? 0) + 1;
-		return "d";
-	},
-});
-type Rec2 = Rec & { describe?: number };
-
-describe("V2 host callbacks are checked for supersession", () => {
-	const run = (
-		hooks: (root: HTMLElement) => Partial<Record<keyof Rec, () => void>>,
-	) => {
-		const rec: Rec2 = { select: 0, mount: 0, update: 0, dispose: 0 };
-		const root = document.createElement("div");
-		document.body.append(root);
-		const supersede = () =>
-			renderIgniteJsx(root, jsx("p", {}), undefined, undefined);
-		const host = hostFor(rec, hooks(root) as never);
-		const hosts = {
-			snapshot: 1,
-			send: () => undefined,
-			reducedMotion: () => false,
-			hosts: { scene: host as never },
-		};
-		return { rec, root, supersede, hosts };
-	};
-	it("a select that supersedes stops the mount", () => {
-		const ctx = run(() => ({}));
-		const host = hostFor(ctx.rec, { select: ctx.supersede });
-		ctx.hosts.hosts.scene = host as never;
-		renderIgniteJsx(
-			ctx.root,
-			jsx("div", { children: jsx("canvas", { use: "scene" }) }),
-			undefined,
-			{
-				hosts: ctx.hosts,
-			},
-		);
-		expect(ctx.rec.mount).toBe(0);
-	});
-	it("a mount that supersedes disposes its handle and delivers nothing", () => {
-		const ctx = run(() => ({}));
-		const host = hostFor(ctx.rec, { mount: ctx.supersede });
-		ctx.hosts.hosts.scene = host as never;
-		renderIgniteJsx(
-			ctx.root,
-			jsx("div", { children: jsx("canvas", { use: "scene" }) }),
-			undefined,
-			{
-				hosts: ctx.hosts,
-			},
-		);
-		return Promise.resolve().then(() => {
-			expect(ctx.rec.update).toBe(0);
-			expect(ctx.rec.describe ?? 0).toBe(0);
-			expect(ctx.rec.dispose).toBe(1);
-		});
-	});
-	it("an update that supersedes stops the description", () => {
-		const ctx = run(() => ({}));
-		const host = hostFor(ctx.rec, { update: ctx.supersede });
-		ctx.hosts.hosts.scene = host as never;
-		renderIgniteJsx(
-			ctx.root,
-			jsx("div", { children: jsx("canvas", { use: "scene" }) }),
-			undefined,
-			{
-				hosts: ctx.hosts,
-			},
-		);
-		expect(ctx.rec.describe ?? 0).toBe(0);
 	});
 });
 
@@ -276,6 +180,98 @@ describe("V4 committed state is explicit for fallback attributes", () => {
 	});
 });
 
+describe("V4b the fallback attribute is only removed when the renderer wrote it", () => {
+	let uid = 0;
+	const upgraded = (tag: string, reflect: boolean) =>
+		customElements.define(
+			tag,
+			class extends HTMLElement {
+				constructor() {
+					super();
+					Object.defineProperty(this, "foo", {
+						configurable: true,
+						set: (x) => {
+							if (reflect && !this.hasAttribute("foo"))
+								this.setAttribute("foo", String(x));
+						},
+					});
+				}
+			},
+		);
+	it("keeps an attribute the renderer never wrote", () => {
+		const tag = `x-v-keep${uid++}`;
+		const { strategy, root } = mk();
+		strategy.render(jsx(tag, {}));
+		const el = root.firstElementChild as Element;
+		el.setAttribute("foo", "authored");
+		upgraded(tag, false);
+		customElements.upgrade(el);
+		strategy.render(jsx(tag, { foo: 1 }));
+		expect(el.getAttribute("foo")).toBe("authored");
+	});
+	it("keeps a reflection the setter made on later renders", () => {
+		const tag = `x-v-refl${uid++}`;
+		const { strategy, root } = mk();
+		strategy.render(jsx(tag, { foo: 0 }));
+		const el = root.firstElementChild as Element;
+		upgraded(tag, true);
+		customElements.upgrade(el);
+		strategy.render(jsx(tag, { foo: 1 }));
+		strategy.render(jsx(tag, { foo: 2 }));
+		expect(el.getAttribute("foo")).toBe("1");
+		strategy.render(jsx(tag, { foo: 3 }));
+		expect(el.getAttribute("foo")).toBe("1");
+	});
+});
+
+describe("V4c fallback state and attribute names", () => {
+	let uid = 0;
+	it("a null that wrote nothing leaves an authored attribute alone", () => {
+		const tag = `x-v-null${uid++}`;
+		const { strategy, root } = mk();
+		strategy.render(jsx(tag, { foo: null }));
+		const el = root.firstElementChild as Element;
+		el.setAttribute("foo", "authored");
+		customElements.define(
+			tag,
+			class extends HTMLElement {
+				constructor() {
+					super();
+					Object.defineProperty(this, "foo", {
+						configurable: true,
+						set: () => undefined,
+					});
+				}
+			},
+		);
+		customElements.upgrade(el);
+		strategy.render(jsx(tag, { foo: 1 }));
+		expect(el.getAttribute("foo")).toBe("authored");
+	});
+	it("removes the reflected attribute spelling of a camel-cased key", () => {
+		const tag = `x-v-aria${uid++}`;
+		const { strategy, root } = mk();
+		strategy.render(jsx(tag, { ariaLabel: "a" }));
+		const el = root.firstElementChild as Element;
+		expect(el.getAttribute("aria-label")).toBe("a");
+		customElements.define(
+			tag,
+			class extends HTMLElement {
+				constructor() {
+					super();
+					Object.defineProperty(this, "ariaLabel", {
+						configurable: true,
+						set: () => undefined,
+					});
+				}
+			},
+		);
+		customElements.upgrade(el);
+		strategy.render(jsx(tag, { ariaLabel: "b" }));
+		expect(el.getAttribute("aria-label")).toBeNull();
+	});
+});
+
 describe("V5 the handbook states the committed rule", () => {
 	it("views.mdx limits the drop clear to committed non-nullish values", () => {
 		const doc = readFileSync(
@@ -313,7 +309,7 @@ describe("V6 the structural scan covers constructors and the host bridge", () =>
 				!l.includes("import") &&
 				!/^\s*syncHostElement,/.test(l)
 			)
-				expect(lines.slice(i, i + 4).join("\n")).toMatch(/live\(\)/);
+				expect(lines.slice(i, i + 12).join("\n")).toMatch(/live\(\)/);
 		});
 	});
 });

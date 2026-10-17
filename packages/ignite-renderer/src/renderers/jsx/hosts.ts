@@ -5,6 +5,7 @@
 
 import {
 	claimHostSubtree,
+	hostLive,
 	type IgniteHostContext,
 	type IgniteHostDefinition,
 	type IgniteHostRuntime,
@@ -371,6 +372,7 @@ function acceptHandle(
 		return;
 	}
 	deliver(record, false);
+	hostLive();
 	afterDeliver();
 }
 
@@ -445,6 +447,15 @@ function startHost(
 		}
 		return;
 	}
+	// A mount that superseded this commit has its handle disposed once it settles.
+	try {
+		hostLive();
+	} catch (error) {
+		Promise.resolve(result).then((handle) =>
+			acceptHandle(element, record, definition, handle),
+		);
+		throw error;
+	}
 	const deferDeliver = deferredSends.length > queuedBefore;
 	if (isPromiseLike(result)) {
 		Promise.resolve(result).then(
@@ -509,6 +520,8 @@ export function syncHostElement(element: Element, useName: unknown): void {
 	}
 	claimHostSubtree(element);
 	const selected = readSlice(definition, runtime.snapshot);
+	// Host callbacks are user code: a superseded commit stops after each one.
+	hostLive();
 	if (!selected.ok) {
 		retireHost(element);
 		releaseHostSubtree(element);
@@ -534,6 +547,7 @@ export function syncHostElement(element: Element, useName: unknown): void {
 	existing.slice = slice;
 	existing.hasSlice = true;
 	deliver(existing, false);
+	hostLive();
 	applyDescription(element, definition, slice);
 }
 

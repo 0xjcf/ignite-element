@@ -50,6 +50,8 @@ type HostOwnershipTools = {
 	releaseSubtree(element: Element): void;
 	onUnmount(node: Node, hook: () => void): void;
 	unmountSubtree(node: Node): void;
+	/** Throws when the commit that called the host was superseded. */
+	live(): void;
 };
 
 type HostSlot = {
@@ -66,6 +68,7 @@ function emptyOwnership(): HostOwnershipTools {
 		releaseSubtree() {},
 		onUnmount() {},
 		unmountSubtree() {},
+		live() {},
 	};
 }
 
@@ -99,6 +102,11 @@ export function onHostUnmount(node: Node, hook: () => void): void {
 
 export function unmountOwnedSubtree(node: Node): void {
 	hostSlot().ownership.unmountSubtree(node);
+}
+
+/** Called after each host callback so a superseded commit stops. */
+export function hostLive(): void {
+	hostSlot().ownership.live();
 }
 
 export function installHostSync(sync: HostSlot["sync"]): void {

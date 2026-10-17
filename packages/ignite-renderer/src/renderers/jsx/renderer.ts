@@ -520,6 +520,8 @@ if (hostRuntimeEnabled) {
 		claimSubtree,
 		releaseSubtree,
 		onUnmount: onIgniteUnmount,
+		// Host callbacks also run after the write phase, with no frame.
+		live: () => commitQueue && live(),
 		unmountSubtree: unmountIgniteSubtree,
 	});
 }
@@ -537,6 +539,7 @@ function commitFresh(node: ChildNode, normalized: NormalizedNode): void {
 	// them. Rebind here; an already-bound fresh node returns immediately.
 	if (hostRuntimeEnabled) assignRef(element, normalized.props.ref);
 	syncHostElement(element, normalized.props.use);
+	live();
 	if (hostRuntimeEnabled && subtreeOwners.has(element)) return;
 	const children = Array.from(element.childNodes);
 	for (let index = 0; index < normalized.children.length; index++) {
@@ -965,6 +968,7 @@ function patchNode(
 	const previouslyOwned = hostRuntimeEnabled && subtreeOwners.has(elementNode);
 	if (hostRuntimeEnabled) {
 		syncHostElement(elementNode, nextUse);
+		live();
 	}
 	// A host claim is opaque. Skip child diffing so the positional patch does
 	// not desync against untracked DOM nodes (issue #57).
@@ -1030,8 +1034,8 @@ function createDomFromNormalized(node: NormalizedNode): ChildNode {
 			);
 		case "element": {
 			const element = node.namespace
-				? document.createElementNS(node.namespace, node.tag)
-				: document.createElement(node.tag);
+				? act<Element>(document, "createElementNS", node.namespace, node.tag)
+				: act<Element>(document, "createElement", node.tag);
 			claim(element);
 			patchProps(element, {}, node.props);
 			for (const child of node.children) {
@@ -1132,15 +1136,22 @@ function patchProps(
 				// The drop loop already cleared what an earlier render committed.
 				continue;
 			}
-			if (next != null) committedKeys(element).add(key);
 			// An own setter may have side effects its getter does not show, so a
 			// present value is assigned exactly once per render, here, before any
 			// equality skip and without the default*/live reapply below.
 			if (!isSvgElement && hasOwnCustomSetter(element as HTMLElement, key)) {
 				if (next == null) removeProp(element, key, false);
-				else setContained(element, key, next);
+				else {
+					// A fallback attribute written before the upgrade is replaced.
+					const keys = committedKeys(element);
+					if (keys.get(key)) dropFallback(element, key);
+					keys.set(key, false);
+					setContained(element, key, next);
+				}
 				continue;
 			}
+			// Any other commit is a fallback: the renderer owns that attribute.
+			if (next != null) committedKeys(element).set(key, true);
 
 			if (key === "style") {
 				patchStyle(element as HTMLElement, prev, next);
@@ -1405,13 +1416,19 @@ function sinkMatch(
 	return undefined;
 }
 
+function dropFallback(element: Element, key: string): void {
+	act(element, "removeAttribute", propAttributeName(element, key, false));
+}
+
 function removeProp(element: Element, key: string, isSvg: boolean): void {
+	// Removing a prop forgets what the renderer committed for it.
+	const had = committedKeys(element).delete(key);
 	// An own setter, whatever its name, is cleared with undefined.
 	if (!isSvg && hasOwnCustomSetter(element as HTMLElement, key)) {
 		// Only a value the renderer committed is cleared. The fallback attribute
 		// goes first, so a reflection the setter makes survives.
-		if (committedKeys(element).delete(key)) {
-			act(element, "removeAttribute", propAttributeName(element, key, false));
+		if (had) {
+			dropFallback(element, key);
 			setContained(element, key, undefined);
 		}
 		return;
@@ -1485,6 +1502,8 @@ function queueControlled(
 // nothing; once published, a newer commit stops its controlled writes, and
 // only a detach or a commit that replaced the DOM (`r`) stops its refs.
 const owner = Symbol.for("ignite.o");
+// Private unwinding signal: a thrown user symbol is never mistaken for it.
+const abort = {};
 type Token = { r?: boolean };
 type Frame = Token & { h?: object; e?: Token };
 type Owned = { [owner]?: Token };
@@ -1493,7 +1512,7 @@ export const setOwner = (host: object, token: object) => {
 };
 
 // Every write site in the patch asks this first. Once a detach or a newer commit
-// owns the host it throws `owner`, which unwinds the whole patch at its root.
+// owns the host it throws `abort`, which unwinds the whole patch at its root.
 // The one write helper. Every DOM method that writes or removes goes through it,
 // and ownership is checked after it too: a custom element's callbacks run user
 // code inside the write, so nothing after the last write may act on a stale commit.
@@ -1506,12 +1525,13 @@ function act<T = void>(target: object, method: string, ...args: unknown[]): T {
 	return result;
 }
 
-// Keys the renderer committed a value for, by setter or attribute fallback.
-const committed = new WeakMap<object, Set<string>>();
-function committedKeys(element: object): Set<string> {
+// Keys the renderer committed a value for. true: it wrote the attribute
+// fallback; false: an own setter received the value.
+const committed = new WeakMap<object, Map<string, boolean>>();
+function committedKeys(element: object): Map<string, boolean> {
 	let keys = committed.get(element);
 	if (!keys) {
-		keys = new Set();
+		keys = new Map();
 		committed.set(element, keys);
 	}
 	return keys;
@@ -1529,7 +1549,7 @@ function claim(root: Node): void {
 
 function live(): void {
 	const { h, e } = commitQueue as unknown as Frame;
-	if (h && (h as Owned)[owner] !== e) throw owner;
+	if (h && (h as Owned)[owner] !== e) throw abort;
 }
 
 function commitRender<T>(render: () => T, host?: object): T {
@@ -1542,7 +1562,7 @@ function commitRender<T>(render: () => T, host?: object): T {
 			result = render();
 		} catch (error) {
 			// live() unwinds a superseded render here, whole, and it publishes nothing.
-			if (error !== owner) throw error;
+			if (error !== abort) throw error;
 		}
 		// A superseded detached root is still the value of its own call.
 		const frame = queues as unknown as Frame;
@@ -1588,7 +1608,7 @@ function getContained(element: object, key: string): unknown {
 		return act(Reflect, "get", element, key);
 	} catch (error) {
 		// A throwing getter reads as a value nothing equals.
-		if (error === owner) throw error;
+		if (error === abort) throw error;
 		return {};
 	}
 }
@@ -1599,7 +1619,7 @@ function setContained(element: object, key: string, value: unknown): void {
 	try {
 		act(Reflect, "set", element, key, value);
 	} catch (error) {
-		if (error === owner) throw error;
+		if (error === abort) throw error;
 	}
 }
 
