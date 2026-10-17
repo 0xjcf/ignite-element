@@ -1135,17 +1135,19 @@ function patchProps(
 				// attribute. Functions bind once per event slot above.
 				continue;
 			}
+			const prev = oldProps[key];
 			if (isBlockedUrlValue(element, key, next, newProps)) {
 				warnBlockedUrl(element, key);
 				// removeProp clears a non-reflected property and the attribute.
-				// Attribute removal alone leaves a stale custom-element URL.
-				removeProp(element, key, isSvgElement);
+				// Attribute removal alone leaves a stale custom-element URL. Only a
+				// sink an earlier render committed is cleared; a never-set one is not.
+				if (prev != null && !isBlockedUrlValue(element, key, prev, oldProps))
+					removeProp(element, key, isSvgElement);
 				continue;
 			}
 			// An own setter may have side effects its getter does not show, so a
 			// present value is assigned exactly once per render, here, before any
 			// equality skip and without the default*/live reapply below.
-			const prev = oldProps[key];
 			if (!isSvgElement && hasOwnCustomSetter(element as HTMLElement, key)) {
 				if (next != null) setContained(element, key, next);
 				else if (prev != null) removeProp(element, key, false);
@@ -1233,7 +1235,10 @@ function patchProps(
 }
 
 function patchStyle(element: HTMLElement, prev: unknown, next: unknown): void {
-	const style = element.style;
+	// An override of style is a user getter: contained, and a non-style value
+	// (undefined, or the throw fallback) leaves the rest of the render alone.
+	const style = getContained(element, "style") as CSSStyleDeclaration;
+	if (!style?.setProperty) return;
 
 	if (next && typeof next === "object") {
 		if (prev && typeof prev === "object") {
