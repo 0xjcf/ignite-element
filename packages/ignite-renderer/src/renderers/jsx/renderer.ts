@@ -1498,13 +1498,12 @@ export const setOwner = (host: object, token: object) => {
 
 // Every write site in the patch asks this first. Once a detach or a newer commit
 // owns the host it throws `owner`, which unwinds the whole patch at its root.
-// The one write helper. Every DOM method that writes or removes goes through it:
-// ownership is checked before the call, and again after, because a custom
-// element's callbacks may have run user code inside it.
+// The one write helper. Every DOM method that writes or removes goes through it,
+// and ownership is checked first. A custom element's callbacks may have run
+// user code inside the previous write, so the check precedes the next one.
 function act(target: object, method: string, ...args: unknown[]): void {
 	live();
 	(target as Record<string, (...a: unknown[]) => void>)[method](...args);
-	live();
 }
 
 // A detached root owns its commit from the moment it exists, before any setter
@@ -1540,7 +1539,6 @@ function commitRender<T>(render: () => T, host?: object): T {
 		// The write phase is over. Queued writes check ownership through mine().
 		frame.h = undefined;
 		const root = (host ?? result) as Owned | undefined;
-		if (root) root[owner] ??= queues as unknown as Token;
 		const mine = () => !root || root[owner] === (queues as unknown as Token);
 		for (const commit of queues[0]) if (mine()) commit();
 		for (const commit of queues[1])
