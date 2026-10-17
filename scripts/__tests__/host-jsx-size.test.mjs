@@ -75,9 +75,11 @@ describe("JSX host runtime size", () => {
 		// select correctness, then the exact 4355 B for PR #168: the render-tree
 		// publish hook (commit ordering), the exact-name property sink table, and
 		// SMIL commit ordering (approved for native select correctness and sink
-		// blocking).
+		// blocking), then the exact 4480 B for PR #168's restructure: one guarded
+		// write helper that rechecks ownership before every DOM write, and
+		// detached roots claiming ownership at creation.
 		// Host exclusion and build settings stay the same.
-		assert.ok(gzip <= 4355, `no-host JSX gzip ${gzip} is above 4355`);
+		assert.ok(gzip <= 4480, `no-host JSX gzip ${gzip} is above 4480`);
 	});
 
 	it("includes the host runtime when the internal module is imported", async () => {
