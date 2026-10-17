@@ -119,8 +119,6 @@ function renderIgniteJsxNow(
 		frame.r = !previous;
 		const next = normalizeRoot(view);
 
-		// A function component may have mounted on this host while it ran.
-		live();
 		if (
 			options.mode === "replace" ||
 			!previous ||
