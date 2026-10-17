@@ -241,15 +241,13 @@ describe("V2 host callbacks are checked for supersession", () => {
 			undefined,
 			{ hosts: ctx.hosts },
 		);
-		const stale = ctx.root.querySelector("canvas") as Element;
 		await new Promise((resolve) => setTimeout(resolve, 10));
 		expect(ctx.rec.update).toBe(1);
 		// One describe ran while the mount was pending; none after it settled.
 		expect(ctx.rec.describe).toBe(1);
-		expect(stale.querySelector("[data-ignite-host-description]")).toBeNull();
 		expect(ctx.rec.dispose).toBe(1);
 	});
-	it("a mount that supersedes and then throws stops the description", () => {
+	it("a mount that supersedes and then throws stops the description", async () => {
 		const ctx = run(() => ({}));
 		const errors = vi.spyOn(console, "error").mockImplementation(() => {});
 		const host = hostFor(ctx.rec, {});
@@ -265,8 +263,10 @@ describe("V2 host callbacks are checked for supersession", () => {
 			undefined,
 			{ hosts: ctx.hosts },
 		);
+		await new Promise((resolve) => setTimeout(resolve, 10));
 		errors.mockRestore();
 		expect(ctx.rec.describe ?? 0).toBe(0);
+		expect(ctx.rec.dispose).toBe(0);
 	});
 	it("a dispose that supersedes while a retained element switches hosts stops the new mount", () => {
 		const ctx = run(() => ({}));
@@ -289,5 +289,90 @@ describe("V2 host callbacks are checked for supersession", () => {
 		renderIgniteJsx(ctx.root, view("other"), tree, { hosts: ctx.hosts });
 		expect(ctx.rec.dispose).toBe(1);
 		expect(other.mount).toBe(0);
+	});
+	it("an update that supersedes with a redeliver pending does not update again", () => {
+		const listeners: (() => void)[] = [];
+		vi.stubGlobal("matchMedia", () => ({
+			addEventListener: (_: string, l: () => void) => listeners.push(l),
+			removeEventListener: () => undefined,
+		}));
+		try {
+			const ctx = run(() => ({}));
+			let superseding = false;
+			ctx.hosts.hosts.scene = hostFor(ctx.rec, {
+				update: () => {
+					if (!superseding) return;
+					for (const l of listeners) l();
+					ctx.supersede();
+				},
+			}) as never;
+			const view = jsx("div", { children: jsx("canvas", { use: "scene" }) });
+			const tree = renderIgniteJsx(ctx.root, view, undefined, {
+				hosts: ctx.hosts,
+			});
+			const updates = ctx.rec.update;
+			superseding = true;
+			renderIgniteJsx(ctx.root, view, tree, {
+				hosts: { ...ctx.hosts, snapshot: 2 },
+			});
+			expect(ctx.rec.update).toBe(updates + 1);
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+	it("a describe that supersedes after an async settle writes nothing", async () => {
+		const ctx = run(() => ({}));
+		const host = hostFor(ctx.rec, {});
+		host.mount = (el: Element) => {
+			ctx.rec.mount++;
+			el.append(document.createElement("i"));
+			return Promise.resolve({ id: 1 }) as never;
+		};
+		host.describe = () => {
+			ctx.rec.describe = (ctx.rec.describe ?? 0) + 1;
+			if (ctx.rec.describe === 2) ctx.supersede();
+			return `d${ctx.rec.describe}`;
+		};
+		ctx.hosts.hosts.scene = host as never;
+		renderIgniteJsx(
+			ctx.root,
+			jsx("div", { children: jsx("canvas", { use: "scene" }) }),
+			undefined,
+			{ hosts: ctx.hosts },
+		);
+		const stale = ctx.root.querySelector("canvas") as Element;
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		expect(ctx.rec.describe).toBe(2);
+		expect(
+			stale.querySelector("[data-ignite-host-description]")?.textContent,
+		).toBe("d1");
+	});
+	it("a dispose that supersedes while a host is dropped leaves the stale description", () => {
+		const ctx = run(() => ({}));
+		let superseding = false;
+		const host = hostFor(ctx.rec, {});
+		host.dispose = () => {
+			ctx.rec.dispose++;
+			if (superseding) ctx.supersede();
+		};
+		ctx.hosts.hosts.scene = host as never;
+		const tree = renderIgniteJsx(
+			ctx.root,
+			jsx("div", { children: jsx("canvas", { use: "scene" }) }),
+			undefined,
+			{ hosts: ctx.hosts },
+		);
+		const stale = ctx.root.querySelector("canvas") as Element;
+		superseding = true;
+		renderIgniteJsx(
+			ctx.root,
+			jsx("div", { children: jsx("canvas", {}) }),
+			tree,
+			{ hosts: ctx.hosts },
+		);
+		expect(ctx.rec.dispose).toBe(1);
+		expect(
+			stale.querySelector("[data-ignite-host-description]"),
+		).not.toBeNull();
 	});
 });

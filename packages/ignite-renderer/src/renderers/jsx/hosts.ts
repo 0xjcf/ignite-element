@@ -294,10 +294,17 @@ function clearDescription(element: Element): void {
 	else element.setAttribute("aria-describedby", next.join(" "));
 }
 
+// An async settle runs outside any commit, so currency is the record itself.
+function superseded(element: Element, record: HostRecord): boolean {
+	// Retiring or dropping a record deletes it, so it is also aborted.
+	return hostRecords.get(element) !== record;
+}
+
 function applyDescription(
 	element: Element,
 	definition: IgniteHostDefinition,
 	slice: unknown,
+	record?: HostRecord,
 ): void {
 	if (!definition.describe) {
 		clearDescription(element);
@@ -313,6 +320,7 @@ function applyDescription(
 	}
 	// No DOM write and no further callback follows a superseded describe.
 	hostLive();
+	if (record && superseded(element, record)) return;
 	if (failed) {
 		clearDescription(element);
 		return;
@@ -377,13 +385,14 @@ function acceptHandle(
 	record.handle = handle;
 	record.settled = true;
 	const afterDeliver = () =>
-		applyDescription(element, definition, record.slice);
+		applyDescription(element, definition, record.slice, record);
 	if (deferDeliver) {
 		pendingDeliver.push({ record, afterDeliver });
 		return;
 	}
 	deliver(record, false);
 	hostLive();
+	if (superseded(element, record)) return;
 	afterDeliver();
 }
 
@@ -448,15 +457,16 @@ function startHost(
 	retireDescendantHosts(element);
 	const queuedBefore = deferredSends.length;
 	let result: unknown;
+	let failed = false;
 	try {
 		result = definition.mount(element, ctx);
 	} catch (error) {
 		reportHostError("[ignite-jsx] Host mount failed.", error);
+		failed = true;
 		if (hostRecords.get(element) === record) {
 			dropRecord(element, record);
 			releaseHostSubtree(element);
 		}
-		return;
 	}
 	const fulfilled = (handle: unknown) => {
 		acceptHandle(element, record, definition, handle);
@@ -477,9 +487,10 @@ function startHost(
 	try {
 		hostLive();
 	} catch (error) {
-		Promise.resolve(result).then(fulfilled, rejected);
+		if (!failed) Promise.resolve(result).then(fulfilled, rejected);
 		throw error;
 	}
+	if (failed) return;
 	const deferDeliver = deferredSends.length > queuedBefore;
 	if (isPromiseLike(result)) {
 		Promise.resolve(result).then(fulfilled, rejected);
@@ -503,28 +514,30 @@ function readSlice(
 	}
 }
 
+// Retire a host: dispose is user code, so nothing follows a superseded commit.
+function dropHost(element: Element): void {
+	retireHost(element);
+	hostLive();
+	releaseHostSubtree(element);
+	clearDescription(element);
+}
+
 export function syncHostElement(element: Element, useName: unknown): void {
 	const runtime = activeRuntime;
 	if (!runtime) return;
 	if (typeof useName !== "string" || useName.length === 0) {
-		retireHost(element);
-		releaseHostSubtree(element);
-		clearDescription(element);
+		dropHost(element);
 		return;
 	}
 	if (!ownName(runtime.hosts, useName)) {
 		if (__IGNITE_DEV_WARNINGS__) warnUnknownHost(element, useName);
-		retireHost(element);
-		releaseHostSubtree(element);
-		clearDescription(element);
+		dropHost(element);
 		return;
 	}
 	const definition = runtime.hosts[useName];
 	if (!definition) {
 		if (__IGNITE_DEV_WARNINGS__) warnUnknownHost(element, useName);
-		retireHost(element);
-		releaseHostSubtree(element);
-		clearDescription(element);
+		dropHost(element);
 		return;
 	}
 	claimHostSubtree(element);
@@ -532,9 +545,7 @@ export function syncHostElement(element: Element, useName: unknown): void {
 	// Host callbacks are user code: a superseded commit stops after each one.
 	hostLive();
 	if (!selected.ok) {
-		retireHost(element);
-		releaseHostSubtree(element);
-		clearDescription(element);
+		dropHost(element);
 		return;
 	}
 	const slice = selected.slice;
@@ -548,7 +559,10 @@ export function syncHostElement(element: Element, useName: unknown): void {
 		existing.name !== useName ||
 		existing.definition !== definition
 	) {
-		if (existing) retireHost(element);
+		if (existing) {
+			retireHost(element);
+			hostLive();
+		}
 		startHost(element, useName, definition, runtime, slice);
 		applyDescription(element, definition, slice);
 		return;
