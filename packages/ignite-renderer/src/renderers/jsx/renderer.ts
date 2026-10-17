@@ -1163,7 +1163,9 @@ function patchProps(
 			if (key === "class" || key === "className") {
 				const nextClass = next !== false && next != null ? String(next) : "";
 				if (!nextClass) act(element, "removeAttribute", "class");
-				else if (act(element, "getAttribute", "class") !== nextClass)
+				else if (
+					act<string | null>(element, "getAttribute", "class") !== nextClass
+				)
 					act(element, "setAttribute", "class", nextClass);
 				continue;
 			}
@@ -1240,7 +1242,7 @@ function patchStyle(element: HTMLElement, prev: unknown, next: unknown): void {
 			const cssProperty = toKebabCase(key);
 			if (
 				value != null &&
-				act(style, "getPropertyValue", cssProperty) !== String(value)
+				act<string>(style, "getPropertyValue", cssProperty) !== String(value)
 			) {
 				act(style, "setProperty", cssProperty, String(value));
 			}
@@ -1508,7 +1510,10 @@ function act<T = void>(target: object, method: string, ...args: unknown[]): T {
 const committed = new WeakMap<object, Set<string>>();
 function committedKeys(element: object): Set<string> {
 	let keys = committed.get(element);
-	if (!keys) committed.set(element, (keys = new Set()));
+	if (!keys) {
+		keys = new Set();
+		committed.set(element, keys);
+	}
 	return keys;
 }
 
@@ -1578,7 +1583,7 @@ function assignControlled(
 
 // Every property read goes through here. A throwing getter reads as a value
 // nothing equals, so the render still tries the write and carries on.
-function getContained(element: Element, key: string): unknown {
+function getContained(element: object, key: string): unknown {
 	try {
 		return act(Reflect, "get", element, key);
 	} catch (error) {
