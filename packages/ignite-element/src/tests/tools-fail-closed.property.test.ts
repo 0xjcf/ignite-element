@@ -2210,32 +2210,29 @@ describe(`non-enumerable array indexes are not granted calls (seed ${PROPERTY_SE
 		};
 
 		await fc.assert(
-			fc.asyncProperty(
-				fc.integer({ min: -30, max: 30 }),
-				async (element) => {
-					const exotic: number[] = [];
-					Object.defineProperty(exotic, "0", {
-						value: element,
-						writable: true,
-						configurable: true,
-						enumerable: false,
-					});
-					const plain = [element];
-					const snap = snapshotPlainJson(exotic, "input", schema);
-					const authorityExotic = authorityCanonical("act", exotic);
-					const guideExotic = guideCanonical("act", exotic);
-					const authorityPlain = authorityCanonical("act", plain);
-					const guidePlain = guideCanonical("act", plain);
-					expect(snap.ok).toBe(false);
-					expect(authorityExotic).toBe(guideExotic);
-					expect(authorityPlain).toBe(guidePlain);
-					expect(authorityExotic).not.toBe(authorityPlain);
-					expect(guideExotic).not.toBe(guidePlain);
-					expect(authorityExotic.includes("invalid:")).toBe(true);
-					expect(guideExotic.includes("invalid:")).toBe(true);
-					return true;
-				},
-			),
+			fc.asyncProperty(fc.integer({ min: -30, max: 30 }), async (element) => {
+				const exotic: number[] = [];
+				Object.defineProperty(exotic, "0", {
+					value: element,
+					writable: true,
+					configurable: true,
+					enumerable: false,
+				});
+				const plain = [element];
+				const snap = snapshotPlainJson(exotic, "input", schema);
+				const authorityExotic = authorityCanonical("act", exotic);
+				const guideExotic = guideCanonical("act", exotic);
+				const authorityPlain = authorityCanonical("act", plain);
+				const guidePlain = guideCanonical("act", plain);
+				expect(snap.ok).toBe(false);
+				expect(authorityExotic).toBe(guideExotic);
+				expect(authorityPlain).toBe(guidePlain);
+				expect(authorityExotic).not.toBe(authorityPlain);
+				expect(guideExotic).not.toBe(guidePlain);
+				expect(authorityExotic.includes("invalid:")).toBe(true);
+				expect(guideExotic.includes("invalid:")).toBe(true);
+				return true;
+			}),
 			{ seed: PROPERTY_SEED, numRuns: PROPERTY_RUNS, endOnFailure: true },
 		);
 	}, 60_000);
@@ -2389,7 +2386,11 @@ describe(`a grant never authorizes a non-plain input (seed ${PROPERTY_SEED}, run
 	}, 60_000);
 });
 
-function loadGuideApproval(): {
+type GuideClock = { now(): number };
+
+const GUIDE_CLOCK_LINE = "const clock = { now: () => Date.now() };";
+
+function loadGuideApproval(clock: GuideClock): {
 	canExecute: (
 		name: string,
 		input?: unknown,
@@ -2417,8 +2418,14 @@ function loadGuideApproval(): {
 	if (start < 0 || end < start) {
 		throw new Error("published approval predicate shape changed");
 	}
+	// The published snippet owns a system clock port. Swap that one line for the
+	// injected clock so the decision never depends on wall time.
+	const region = block.slice(start, end);
+	if (!region.includes(GUIDE_CLOCK_LINE)) {
+		throw new Error("published approval clock port missing");
+	}
 	const compiled = ts.transpileModule(
-		`const component = {};\n${block.slice(start, end)}`,
+		`const component = {};\n${region.replace(GUIDE_CLOCK_LINE, "const clock = injectedClock;")}`,
 		{
 			compilerOptions: {
 				module: ts.ModuleKind.None,
@@ -2427,11 +2434,62 @@ function loadGuideApproval(): {
 		},
 	).outputText;
 	return new Function(
+		"injectedClock",
 		`${compiled}\nreturn { canExecute, granted, session, spent, component };`,
-	)() as ReturnType<typeof loadGuideApproval>;
+	)(clock) as ReturnType<typeof loadGuideApproval>;
 }
 
+/** Controllable clock: tests move time by hand and never read wall time. */
+function manualClock(start: number): GuideClock & { time: number } {
+	const clock = {
+		time: start,
+		now() {
+			return clock.time;
+		},
+	};
+	return clock;
+}
+
+const GUIDE_NOW = 1_700_000_000_000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 describe("listing checks grant liveness before advertising the command", () => {
+	function mutate(
+		kind: "expired" | "spent" | "previous-actor" | "too-long",
+		approval: ReturnType<typeof loadGuideApproval>,
+		clock: { time: number },
+	): void {
+		if (kind === "expired") approval.granted.expiresAt = clock.time - 1;
+		if (kind === "spent") {
+			approval.spent.set(approval.granted.id, clock.time + 60_000);
+		}
+		if (kind === "previous-actor") approval.session.actor = "bob";
+		if (kind === "too-long")
+			approval.granted.expiresAt = clock.time + DAY_MS + 1;
+	}
+
+	function assertDenied(approval: ReturnType<typeof loadGuideApproval>): void {
+		expect(approval.canExecute("setLimit")).toBe(false);
+		expect(
+			approval.canExecute("setLimit", approval.granted.input, {
+				core: approval.component,
+			}),
+		).toBe(false);
+	}
+
+	function assertLiveGrantStillWorks(clock: GuideClock): void {
+		const live = loadGuideApproval(clock);
+		expect(live.canExecute("setLimit")).toBe(true);
+		expect(live.canExecute("setLimit", 7, { core: live.component })).toBe(
+			false,
+		);
+		expect(
+			live.canExecute("setLimit", live.granted.input, {
+				core: live.component,
+			}),
+		).toBe(true);
+	}
+
 	it("does not advertise setLimit when the grant is expired, spent, or for another actor", () => {
 		// Rebinding the provider list calls canExecute(name) with no context.
 		// Actor, lifetime, and the spent tombstone decide that listing. The
@@ -2444,35 +2502,75 @@ describe("listing checks grant liveness before advertising the command", () => {
 		);
 		fc.assert(
 			fc.property(reason, (kind) => {
-				const approval = loadGuideApproval();
+				const clock = manualClock(GUIDE_NOW);
+				const approval = loadGuideApproval(clock);
 				expect(approval.canExecute("setLimit")).toBe(true);
-				if (kind === "expired") approval.granted.expiresAt = Date.now() - 1;
-				if (kind === "spent") {
-					approval.spent.set(approval.granted.id, Date.now() + 60_000);
-				}
-				if (kind === "previous-actor") approval.session.actor = "bob";
-				if (kind === "too-long") {
-					approval.granted.expiresAt = Date.now() + 24 * 60 * 60 * 1000 + 1;
-				}
-				expect(approval.canExecute("setLimit")).toBe(false);
-				expect(
-					approval.canExecute("setLimit", approval.granted.input, {
-						core: approval.component,
-					}),
-				).toBe(false);
-				const live = loadGuideApproval();
-				expect(live.canExecute("setLimit")).toBe(true);
-				expect(
-					live.canExecute("setLimit", 7, { core: live.component }),
-				).toBe(false);
-				expect(
-					live.canExecute("setLimit", live.granted.input, {
-						core: live.component,
-					}),
-				).toBe(true);
+				mutate(kind, approval, clock);
+				assertDenied(approval);
+				assertLiveGrantStillWorks(manualClock(GUIDE_NOW));
 				return true;
 			}),
 			{ seed: PROPERTY_SEED, numRuns: 4, endOnFailure: true },
+		);
+	});
+
+	it("pins the 24h boundary and seed 20261011 regression (too-long, 24h+1ms)", () => {
+		// CI failed here with canExecute returning true: the test derived
+		// expiresAt from one Date.now() read and the guide read Date.now() again
+		// later, so a 1ms tick turned 24h+1ms into exactly 24h.
+		const clock = manualClock(GUIDE_NOW);
+		const exact = loadGuideApproval(clock);
+		exact.granted.expiresAt = clock.time + DAY_MS;
+		expect(exact.canExecute("setLimit")).toBe(true);
+		const over = loadGuideApproval(clock);
+		over.granted.expiresAt = clock.time + DAY_MS + 1;
+		assertDenied(over);
+		// Time moving forward after the grant is made must not rescue it either.
+		const late = loadGuideApproval(clock);
+		late.granted.expiresAt = clock.time + DAY_MS + 1;
+		clock.time += 1;
+		expect(late.canExecute("setLimit")).toBe(true);
+		expect(
+			late.canExecute("setLimit", late.granted.input, { core: late.component }),
+		).toBe(true);
+	});
+
+	it("decides each canExecute call from a single clock read", () => {
+		let reads = 0;
+		const ticking: GuideClock = {
+			now() {
+				reads += 1;
+				return GUIDE_NOW + reads;
+			},
+		};
+		const approval = loadGuideApproval(ticking);
+		// The grant is created with one read; canExecute must add exactly one.
+		const afterGrant = reads;
+		approval.granted.expiresAt = GUIDE_NOW + afterGrant + 1 + DAY_MS;
+		expect(approval.canExecute("setLimit")).toBe(true);
+		expect(reads).toBe(afterGrant + 1);
+	});
+
+	it("replays seed 20261011 for every denial kind at the boundary", () => {
+		const reason = fc.constantFrom(
+			"expired" as const,
+			"spent" as const,
+			"previous-actor" as const,
+			"too-long" as const,
+		);
+		fc.assert(
+			fc.property(
+				reason,
+				fc.integer({ min: 0, max: 1_000_000 }),
+				(kind, skew) => {
+					const clock = manualClock(GUIDE_NOW + skew);
+					const approval = loadGuideApproval(clock);
+					mutate(kind, approval, clock);
+					assertDenied(approval);
+					return true;
+				},
+			),
+			{ seed: PROPERTY_SEED, numRuns: 50, endOnFailure: true },
 		);
 	});
 });

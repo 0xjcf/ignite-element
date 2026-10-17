@@ -203,6 +203,7 @@ Keep the single-use record in the application. Compare the canonical call, the c
 ```ts
 const session = { actor: 'ada' };
 const maxGrantLifetimeMs = 24 * 60 * 60 * 1000;
+const clock = { now: () => Date.now() };
 const spent = new Map<string, number>();
 function plainSnapshotShape(value: object): boolean {
   try {
@@ -356,7 +357,7 @@ const granted = {
   input: 6,
   target: component,
   id: 'approval-1',
-  expiresAt: Date.now() + 60_000,
+  expiresAt: clock.now() + 60_000,
 };
 const grantedCall = canonicalCall(granted.name, granted.input);
 function canExecute(
@@ -366,17 +367,18 @@ function canExecute(
 ): boolean {
   if (name !== 'setLimit') return false;
   if (granted.actor !== session.actor) return false;
-  const lifetime = granted.expiresAt - Date.now();
+  const time = clock.now();
+  const lifetime = granted.expiresAt - time;
   if (lifetime <= 0 || lifetime > maxGrantLifetimeMs) return false;
   const retainUntil = spent.get(granted.id);
-  if (retainUntil !== undefined && retainUntil > Date.now()) return false;
+  if (retainUntil !== undefined && retainUntil > time) return false;
   if (!context) return true;
   if (context.core !== granted.target) return false;
   if (canonicalCall(name, input) !== grantedCall) return false;
   if (context.execute) {
     spent.set(granted.id, granted.expiresAt + maxGrantLifetimeMs);
     for (const [id, until] of spent) {
-      if (until <= Date.now()) spent.delete(id);
+      if (until <= time) spent.delete(id);
     }
   }
   return true;
