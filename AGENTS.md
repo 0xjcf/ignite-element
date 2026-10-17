@@ -272,8 +272,9 @@ not through repeated review rounds.
    caught means the rules or properties need extending, not just a patch.
 
 **Bundle budget.** The ignite-element consumer bundle ceiling is a fixed hard
-budget of 6,000 B gzip (6K), not a moving target. Any change that would exceed
-it must reduce size elsewhere in the same change. Do not bump the ceiling and do
+budget of 6,020 B gzip, not a moving target (raised from 6,000 B for PR #168 by
+the maintainer: CI reads about 14 B above local measurements). Any change that
+would exceed it must reduce size elsewhere in the same change. Do not bump the ceiling and do
 not open follow-up PRs to raise it.
 
 Lessons that apply to steps 1-2:

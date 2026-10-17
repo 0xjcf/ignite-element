@@ -60,14 +60,16 @@ const EVENT_ORIGIN_WARNING = "observed from both native and effect";
 // Gzip level 9 of this production consumer entry before dev warnings were
 // left for a consumer bundler to strip. Previous target was 4634.
 // renderer security guard: SVG animate/set + meta refresh
-// Fixed 6 KB consumer budget (6,000 B, gzip level 9). Do not raise it: an
-// overrun must be paid for by shrinking other code in the same change.
+// Consumer budget: 6,020 B gzip level 9. Jose raised it from 6,000 B for PR #168
+// (one guarded write helper): CI reads about 14 B above local box measurements
+// (observed +8 and +14 B), and the box measures 5,988 B. An overrun must still be
+// paid for by shrinking other code in the same change.
 // Dropped checked, value, and selected stay.
 // Native defaultValue, defaultChecked, and defaultSelected stay on drop.
 // Explicit false for the last two is a set. Own custom setters get undefined
 // and stay case-sensitive. There is no cached built-in element and no
 // fresh-element default reset.
-const TODAY_CONSUMER_GZIP = 6000;
+const TODAY_CONSUMER_GZIP = 6020;
 
 function consumerEntry() {
 	return `import { jsx, mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";
