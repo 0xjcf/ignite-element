@@ -63,15 +63,18 @@ export function createDomNode(
 ): Node | DocumentFragment {
 	return commitRender(() => {
 		const normalized = normalizeChild(node, namespace);
-		if (normalized.length === 1) {
-			const result = createDomFromNormalized(normalized[0]);
-			return result;
-		}
 		const fragment = document.createDocumentFragment();
-		for (const child of normalized) {
+		const result =
+			normalized.length === 1
+				? createDomFromNormalized(normalized[0])
+				: fragment;
+		for (const child of normalized.length === 1 ? [] : normalized) {
 			fragment.appendChild(createDomFromNormalized(child));
 		}
-		return fragment;
+		// The detached root owns this commit: a newer mount on it retires the
+		// controlled writes and refs still queued here.
+		setOwner(result, commitQueue);
+		return result;
 	});
 }
 
@@ -447,6 +450,7 @@ function settleSmil(
 ): void {
 	if (!isSmil(element)) return;
 	for (const key of Object.keys(oldProps)) {
+		live();
 		if (!smilKeys.test(key)) continue;
 		const kept = sinkMatch(newProps, element, key, true);
 		if (
@@ -901,6 +905,7 @@ function patchKeyedChildren(
 
 	let cursor: ChildNode | null = parent.firstChild;
 	for (let index = 0; index < nextDom.length; index++) {
+		live();
 		const node = nextDom[index];
 		if (!node) continue;
 		if (node === cursor) {
@@ -953,6 +958,7 @@ function patchNode(
 	newNode: NormalizedNode,
 	onFallbackReplace?: (reason: string) => void,
 ): ChildNode {
+	live();
 	if (oldNode.kind !== newNode.kind) {
 		return replaceMounted(domNode, newNode);
 	}
@@ -1080,6 +1086,7 @@ function createDomFromNormalized(node: NormalizedNode): ChildNode {
 			flushSelectValue(element, node.props);
 			assignRef(element, node.props.ref);
 			if (hostRuntimeEnabled) freshNodes.add(element);
+			live();
 			return element;
 		}
 	}
@@ -1150,6 +1157,7 @@ function patchProps(
 	// default* before checked, value, and selected, whatever the key order.
 	for (let pass = 0; pass < 2; pass++) {
 		for (const [key, next] of Object.entries(newProps)) {
+			live();
 			const late = key === "checked" || key === "value" || key === "selected";
 			if (late !== (pass === 1)) continue;
 			if (hostRuntimeEnabled && key === "use") continue;
@@ -1529,11 +1537,11 @@ function commitRender<T>(render: () => T, host?: object): T {
 	commitQueue = queues;
 	try {
 		const result = render();
-		const mine = () =>
-			!host || (host as Owned)[owner] === (queues as unknown as Token);
+		const root = (host ?? result) as Owned | undefined;
+		const mine = () => !root || root[owner] === (queues as unknown as Token);
 		for (const commit of queues[0]) if (mine()) commit();
 		for (const commit of queues[1])
-			if (mine() || !((host as Owned)[owner] as Token).r) commit();
+			if (mine() || !(root?.[owner] as Token).r) commit();
 		return result;
 	} finally {
 		commitQueue = parent;
