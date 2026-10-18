@@ -139,8 +139,8 @@ function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
 }
 
 // The one choke point for host-side user code: a getter, an overridable
-// element method, a thenable, an abort listener. Ownership is rechecked before
-// and after, in a commit (hostLive) and outside one (the record). Outside a
+// element method, a thenable, an abort listener. Ownership is rechecked after the
+// call (every step before it ended with the same check), in a commit (hostLive) and outside one (the record). Outside a
 // commit a stale call throws `halt`, which the entry points swallow.
 const halt = {};
 function touch<T>(
@@ -148,7 +148,6 @@ function touch<T>(
 	record: HostRecord | undefined,
 	run: () => T,
 ): T {
-	hostLive();
 	const result = run();
 	hostLive();
 	if (record && superseded(element, record)) throw halt;
