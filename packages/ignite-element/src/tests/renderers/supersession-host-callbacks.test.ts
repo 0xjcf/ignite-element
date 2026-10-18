@@ -721,4 +721,40 @@ describe("V2 host callbacks are checked for supersession", () => {
 		expect(seen).toBeDefined();
 		expect(seen?.getAttribute("aria-describedby")).toBe(id);
 	});
+	it("an abort listener that supersedes still stops motion watching and disposes in order", () => {
+		const removed: string[] = [];
+		vi.stubGlobal("matchMedia", () => ({
+			addEventListener: () => undefined,
+			removeEventListener: () => void removed.push("motion"),
+		}));
+		try {
+			const ctx = run(() => ({}));
+			const log: string[] = [];
+			const host = hostFor(ctx.rec, {});
+			(host as { mount: unknown }).mount = (
+				el: Element,
+				hostCtx: { signal: AbortSignal },
+			) => {
+				el.append(document.createElement("span"));
+				hostCtx.signal.addEventListener("abort", () => {
+					log.push("abort");
+					ctx.supersede();
+				});
+				return {};
+			};
+			host.dispose = () =>
+				void log.push(`dispose after ${removed.length} motion stop`);
+			ctx.hosts.hosts.scene = host as never;
+			const tree = renderIgniteJsx(
+				ctx.root,
+				jsx("div", { children: jsx("canvas", { use: "scene" }) }),
+				undefined,
+				{ hosts: ctx.hosts },
+			);
+			renderIgniteJsx(ctx.root, jsx("div", {}), tree, { hosts: ctx.hosts });
+			expect(log).toEqual(["abort", "dispose after 1 motion stop"]);
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
 });
