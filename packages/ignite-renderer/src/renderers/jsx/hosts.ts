@@ -70,7 +70,7 @@ function scheduleDeferredSends(): void {
 			if (!pending.record.settled) continue;
 			deliver(pending.record, false);
 			if (!pending.record.settled) continue;
-			pending.afterDeliver();
+			guard(pending.afterDeliver);
 		}
 		if (deferredSends.length > 0) scheduleDeferredSends();
 	});
@@ -107,8 +107,8 @@ export function describeIgniteHosts(
 		const host = hosts[name];
 		if (!host?.describe) continue;
 		try {
-			const slice = host.select ? host.select(snapshot) : snapshot;
-			const description = host.describe(slice);
+			const slice = host.select ? host.select(snapshot) : snapshot; // callback: describeIgniteHosts is render-time, outside commits
+			const description = host.describe(slice); // callback: ditto
 			if (typeof description !== "string") continue;
 			Object.defineProperty(text, name, {
 				value: description,
@@ -133,9 +133,43 @@ function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
 	return (
 		(typeof value === "object" || typeof value === "function") &&
 		value !== null &&
-		"then" in value &&
-		typeof (value as { then?: unknown }).then === "function"
+		"then" in value && // native: only called inside touch()
+		typeof (value as { then?: unknown }).then === "function" // native: ditto
 	);
+}
+
+// The one choke point for host-side user code: a getter, an overridable
+// element method, a thenable, an abort listener. Ownership is rechecked before
+// and after, in a commit (hostLive) and outside one (the record). Outside a
+// commit a stale call throws `halt`, which the entry points swallow.
+const halt = {};
+function touch<T>(
+	element: Element,
+	record: HostRecord | undefined,
+	run: () => T,
+): T {
+	hostLive();
+	const result = run();
+	hostLive();
+	if (record && superseded(element, record)) throw halt;
+	return result;
+}
+
+// native: the one raw assimilation. It must run even when touch() would stop.
+function settleSuperseded(
+	result: unknown,
+	fulfilled: (handle: unknown) => void,
+	rejected: (error: unknown) => void,
+): void {
+	Promise.resolve(result).then(fulfilled, rejected); // native: see above
+}
+
+function guard(run: () => void): void {
+	try {
+		run();
+	} catch (error) {
+		if (error !== halt) throw error;
+	}
 }
 
 function reportHostError(message: string, error: unknown): void {
@@ -149,7 +183,7 @@ function slicesEqual(
 ): boolean {
 	if (!definition.equals) return Object.is(previous, next);
 	try {
-		return definition.equals(previous, next);
+		return definition.equals(previous, next); // callback: contained, rechecked by deliver
 	} catch (error) {
 		reportHostError("[ignite-jsx] Host equals failed.", error);
 		return false;
@@ -197,7 +231,7 @@ function deliver(record: HostRecord, force: boolean): void {
 			}
 			const slice = record.slice;
 			try {
-				record.definition.update(record.handle, slice);
+				record.definition.update(record.handle, slice); // callback: contained, rechecked by deliver
 				record.delivered = true;
 				record.deliveredSlice = slice;
 			} catch (error) {
@@ -211,7 +245,9 @@ function deliver(record: HostRecord, force: boolean): void {
 }
 
 function retireDescendantHosts(element: Element): void {
-	for (const child of Array.from(element.childNodes)) {
+	for (const child of touch(element, undefined, () =>
+		Array.from(element.childNodes),
+	)) {
 		unmountOwnedSubtree(child);
 	}
 }
@@ -220,7 +256,7 @@ function disposeSettled(record: HostRecord): void {
 	if (!record.settled) return;
 	record.settled = false;
 	try {
-		record.definition.dispose(record.handle);
+		record.definition.dispose(record.handle); // callback: contained, always runs
 	} catch (error) {
 		reportHostError("[ignite-jsx] Host dispose failed.", error);
 	}
@@ -228,36 +264,62 @@ function disposeSettled(record: HostRecord): void {
 
 function dropRecord(element: Element, record: HostRecord): void {
 	if (hostRecords.get(element) === record) hostRecords.delete(element);
-	record.controller.abort();
-	record.stopMotion();
+	// Cleanup runs even when an abort listener superseded the commit.
+	try {
+		touch(element, undefined, () => record.controller.abort());
+	} finally {
+		record.stopMotion();
+	}
 }
 
 function retireHost(element: Element): void {
 	const record = hostRecords.get(element);
 	if (!record) return;
 	hostRecords.delete(element);
-	record.controller.abort();
-	record.stopMotion();
-	disposeSettled(record);
+	// A listener that supersedes the commit stops it after the abort, but the
+	// retired handle is still released: nothing else can dispose it.
+	try {
+		touch(element, undefined, () => record.controller.abort());
+	} finally {
+		record.stopMotion();
+		disposeSettled(record);
+	}
 }
 
 function descriptionIdTaken(element: Element, id: string): boolean {
-	const root = element.getRootNode();
+	const root = touch(element, undefined, () => element.getRootNode());
 	if (root instanceof Document || root instanceof ShadowRoot) {
-		return root.getElementById(id) !== null;
+		return touch(element, undefined, () => root.getElementById(id)) !== null;
 	}
-	return element.ownerDocument.getElementById(id) !== null;
+	return (
+		touch(element, undefined, () =>
+			element.ownerDocument.getElementById(id),
+		) !== null
+	);
 }
 
 function forgetDescriptionId(element: Element, id: string): void {
 	descriptionIds.delete(element);
-	const current = element.getAttribute("aria-describedby");
-	// An override may have rendered a newer view: its attribute is not ours to edit.
-	hostLive();
+	editDescribedBy(element, id);
+}
+
+// Drops one id from aria-describedby. The read is user code: a newer view it
+// renders owns the attribute, so nothing is edited after it.
+function editDescribedBy(element: Element, id: string): void {
+	const current = touch(element, undefined, () =>
+		element.getAttribute("aria-describedby"),
+	);
 	if (!current) return;
 	const next = current.split(/\s+/).filter((token) => token && token !== id);
-	if (next.length === 0) element.removeAttribute("aria-describedby");
-	else element.setAttribute("aria-describedby", next.join(" "));
+	if (next.length === 0) {
+		touch(element, undefined, () =>
+			element.removeAttribute("aria-describedby"),
+		);
+	} else {
+		touch(element, undefined, () =>
+			element.setAttribute("aria-describedby", next.join(" ")),
+		);
+	}
 }
 
 function descriptionId(element: Element): string {
@@ -279,25 +341,25 @@ function descriptionId(element: Element): string {
 }
 
 function descriptionNode(element: Element): HTMLElement | null {
-	for (const child of element.children) {
-		if (child instanceof HTMLElement && child.hasAttribute(DESCRIPTION_ATTR)) {
-			return child;
+	return touch(element, undefined, () => {
+		for (const child of element.children) {
+			if (
+				child instanceof HTMLElement &&
+				child.hasAttribute(DESCRIPTION_ATTR)
+			) {
+				return child;
+			}
 		}
-	}
-	return null;
+		return null;
+	});
 }
 
 function clearDescription(element: Element): void {
 	const id = descriptionIds.get(element);
-	descriptionNode(element)?.remove();
+	const node = descriptionNode(element);
+	if (node) touch(element, undefined, () => node.remove());
 	if (!id) return;
-	const current = element.getAttribute("aria-describedby");
-	// An override may have rendered a newer view: its attribute is not ours to edit.
-	hostLive();
-	if (!current) return;
-	const next = current.split(/\s+/).filter((token) => token && token !== id);
-	if (next.length === 0) element.removeAttribute("aria-describedby");
-	else element.setAttribute("aria-describedby", next.join(" "));
+	editDescribedBy(element, id);
 }
 
 // An async settle runs outside any commit, so currency is the record itself.
@@ -319,19 +381,13 @@ function applyDescription(
 	let text: unknown;
 	let failed = false;
 	try {
-		text = definition.describe(slice);
+		text = definition.describe(slice); // callback: contained, rechecked below
 	} catch (error) {
 		reportHostError("[ignite-jsx] Host describe failed.", error);
 		failed = true;
 	}
-	// The element's own methods are user code too: every call below is followed
-	// by the same check, so no description write follows a superseding override.
-	const stale = () => {
-		hostLive();
-		return !!record && superseded(element, record);
-	};
 	// No DOM write and no further callback follows a superseded describe.
-	if (stale()) return;
+	touch(element, record, () => undefined);
 	if (failed) {
 		clearDescription(element);
 		return;
@@ -340,20 +396,30 @@ function applyDescription(
 	const id = descriptionId(element);
 	let node = descriptionNode(element);
 	if (!node) {
-		node = element.ownerDocument.createElement("span");
-		node.id = id;
-		node.setAttribute(DESCRIPTION_ATTR, "");
-		node.style.cssText = VISUALLY_HIDDEN;
-		element.append(node);
-		if (stale()) return;
+		const fresh = touch(element, record, () =>
+			element.ownerDocument.createElement("span"),
+		);
+		touch(element, record, () => {
+			fresh.id = id;
+			fresh.setAttribute(DESCRIPTION_ATTR, "");
+			fresh.style.cssText = VISUALLY_HIDDEN;
+			element.append(fresh);
+		});
+		node = fresh;
 	}
-	if (node.textContent !== text) node.textContent = text;
-	const described = element.getAttribute("aria-describedby");
-	if (stale()) return;
+	const target = node;
+	touch(element, record, () => {
+		if (target.textContent !== text) target.textContent = text;
+	});
+	const described = touch(element, record, () =>
+		element.getAttribute("aria-describedby"),
+	);
 	const tokens = (described ?? "").split(/\s+/).filter(Boolean);
 	if (!tokens.includes(id)) {
 		tokens.push(id);
-		element.setAttribute("aria-describedby", tokens.join(" "));
+		touch(element, record, () =>
+			element.setAttribute("aria-describedby", tokens.join(" ")),
+		);
 	}
 }
 
@@ -388,7 +454,7 @@ function acceptHandle(
 ): void {
 	if (record.controller.signal.aborted || hostRecords.get(element) !== record) {
 		try {
-			definition.dispose(handle);
+			definition.dispose(handle); // callback: contained, always runs
 		} catch (error) {
 			reportHostError("[ignite-jsx] Host dispose failed.", error);
 		}
@@ -418,9 +484,12 @@ function ensureHostUnmount(element: Element): void {
 		if (!current) return;
 		retireDescendantHosts(element);
 		hostRecords.delete(element);
-		current.controller.abort();
-		current.stopMotion();
-		disposeSettled(current);
+		try {
+			touch(element, undefined, () => current.controller.abort());
+		} finally {
+			current.stopMotion();
+			disposeSettled(current);
+		}
 	});
 }
 
@@ -473,7 +542,7 @@ function startHost(
 	let result: unknown;
 	let failed = false;
 	try {
-		result = definition.mount(element, ctx);
+		result = definition.mount(element, ctx); // callback: contained, rechecked below
 	} catch (error) {
 		reportHostError("[ignite-jsx] Host mount failed.", error);
 		failed = true;
@@ -486,12 +555,14 @@ function startHost(
 	// mount settles. Once the flush has run there is nothing left to wait for.
 	const deferDeliver = deferredSends.length > queuedBefore;
 	const fulfilled = (handle: unknown) => {
-		acceptHandle(
-			element,
-			record,
-			definition,
-			handle,
-			deferDeliver && flushScheduled,
+		guard(() =>
+			acceptHandle(
+				element,
+				record,
+				definition,
+				handle,
+				deferDeliver && flushScheduled,
+			),
 		);
 	};
 	const rejected = (error: unknown) => {
@@ -507,15 +578,20 @@ function startHost(
 	};
 	// A mount that superseded this commit is settled like any async mount:
 	// a late handle is disposed and a late rejection is reported.
+	let thenable = false;
 	try {
-		hostLive();
+		if (failed) hostLive();
+		else thenable = touch(element, record, () => isPromiseLike(result));
 	} catch (error) {
-		if (!failed) Promise.resolve(result).then(fulfilled, rejected);
+		// A superseded mount is still settled, so the late handle is disposed.
+		if (!failed) settleSuperseded(result, fulfilled, rejected);
 		throw error;
 	}
 	if (failed) return;
-	if (isPromiseLike(result)) {
-		Promise.resolve(result).then(fulfilled, rejected);
+	if (thenable) {
+		touch(element, record, () =>
+			Promise.resolve(result).then(fulfilled, rejected),
+		);
 		return;
 	}
 	acceptHandle(element, record, definition, result, deferDeliver);
@@ -528,7 +604,7 @@ function readSlice(
 	try {
 		return {
 			ok: true,
-			slice: definition.select ? definition.select(snapshot) : snapshot,
+			slice: definition.select ? definition.select(snapshot) : snapshot, // callback: contained, rechecked by sync
 		};
 	} catch (error) {
 		reportHostError("[ignite-jsx] Host select failed.", error);

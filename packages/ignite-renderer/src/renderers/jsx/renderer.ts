@@ -1576,10 +1576,15 @@ function live(): void {
 	if (h ? (h as Owned)[owner] !== e : m && !m()) throw abort;
 }
 
+// Commits this renderer instance made. A token from another instance cannot
+// invalidate this instance's ref bookkeeping, so its queue stops there.
+const ownCommits = new WeakSet<object>();
+
 function commitRender<T>(render: () => T, host?: object): T {
 	const parent = commitQueue;
 	const queues: typeof commitQueue = [[], []];
 	commitQueue = queues;
+	ownCommits.add(queues);
 	const restoreHost = hostTools && useHostOwnership(hostTools);
 	try {
 		let result: T | undefined;
@@ -1604,8 +1609,10 @@ function commitRender<T>(render: () => T, host?: object): T {
 		} finally {
 			frame.m = undefined;
 		}
-		for (const commit of queues[1])
-			if (mine() || !(root?.[owner] as Token).r) commit();
+		for (const commit of queues[1]) {
+			const current = root?.[owner] as Token;
+			if (mine() || (ownCommits.has(current) && !current.r)) commit();
+		}
 		return result as T;
 	} finally {
 		restoreHost?.();

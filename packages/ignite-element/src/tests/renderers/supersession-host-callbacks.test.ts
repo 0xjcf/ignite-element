@@ -795,6 +795,7 @@ describe("V2 host callbacks are checked for supersession", () => {
 		let trig = false;
 		const host = hostFor(ctx.rec, {});
 		(host as { mount: unknown }).mount = () => ({
+			// biome-ignore lint/suspicious/noThenProperty: a thenable is the case under test
 			get then() {
 				if (trig) {
 					trig = false;
@@ -812,5 +813,46 @@ describe("V2 host callbacks are checked for supersession", () => {
 			{ hosts: ctx.hosts },
 		);
 		expect(ctx.rec.describe ?? 0).toBe(0);
+	});
+	it("a stale deferred description outside a commit stops quietly", async () => {
+		const ctx = run(() => ({}));
+		let trig = false;
+		const uncaught: unknown[] = [];
+		const onUncaught = (error: unknown) => void uncaught.push(error);
+		process.on("uncaughtException", onUncaught);
+		customElements.define(
+			"x-r18-micro",
+			class extends HTMLElement {
+				getAttribute(name: string) {
+					if (trig && name === "aria-describedby") {
+						trig = false;
+						ctx.supersede();
+					}
+					return super.getAttribute(name);
+				}
+			},
+		);
+		const host = hostFor(ctx.rec, {});
+		(host as { mount: unknown }).mount = (
+			_el: Element,
+			hostCtx: { send(event: unknown): void },
+		) => {
+			hostCtx.send("x");
+			return {};
+		};
+		ctx.hosts.hosts.scene = host as never;
+		try {
+			renderIgniteJsx(
+				ctx.root,
+				jsx("div", { children: jsx("x-r18-micro", { use: "scene" }) }),
+				undefined,
+				{ hosts: ctx.hosts },
+			);
+			trig = true;
+			await new Promise((resolve) => setTimeout(resolve, 10));
+			expect(uncaught).toEqual([]);
+		} finally {
+			process.off("uncaughtException", onUncaught);
+		}
 	});
 });
