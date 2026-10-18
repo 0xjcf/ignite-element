@@ -252,12 +252,10 @@ function descriptionIdTaken(element: Element, id: string): boolean {
 function forgetDescriptionId(element: Element, id: string): void {
 	descriptionIds.delete(element);
 	const current = element.getAttribute("aria-describedby");
-	hostLive();
 	if (!current) return;
 	const next = current.split(/\s+/).filter((token) => token && token !== id);
 	if (next.length === 0) element.removeAttribute("aria-describedby");
 	else element.setAttribute("aria-describedby", next.join(" "));
-	hostLive();
 }
 
 function descriptionId(element: Element): string {
@@ -292,12 +290,10 @@ function clearDescription(element: Element): void {
 	descriptionNode(element)?.remove();
 	if (!id) return;
 	const current = element.getAttribute("aria-describedby");
-	hostLive();
 	if (!current) return;
 	const next = current.split(/\s+/).filter((token) => token && token !== id);
 	if (next.length === 0) element.removeAttribute("aria-describedby");
 	else element.setAttribute("aria-describedby", next.join(" "));
-	hostLive();
 }
 
 // An async settle runs outside any commit, so currency is the record itself.
