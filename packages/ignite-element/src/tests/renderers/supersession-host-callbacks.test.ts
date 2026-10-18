@@ -511,4 +511,89 @@ describe("V2 host callbacks are checked for supersession", () => {
 		errors.mockRestore();
 		expect(ctx.rec.select).toBe(selects);
 	});
+	it("a host element method that supersedes stops the description writes", () => {
+		const ctx = run(() => ({}));
+		let trig = false;
+		let seen: Element | undefined;
+		customElements.define(
+			"x-r16-host",
+			class extends HTMLElement {
+				append(...nodes: (Node | string)[]) {
+					const first = nodes[0];
+					if (
+						trig &&
+						first instanceof HTMLElement &&
+						first.hasAttribute("data-ignite-host-description")
+					) {
+						trig = false;
+						seen = this;
+						ctx.supersede();
+					}
+					super.append(...nodes);
+				}
+			},
+		);
+		ctx.hosts.hosts.scene = hostFor(ctx.rec, {}) as never;
+		trig = true;
+		renderIgniteJsx(
+			ctx.root,
+			jsx("div", { children: jsx("x-r16-host", { use: "scene" }) }),
+			undefined,
+			{ hosts: ctx.hosts },
+		);
+		expect(seen).toBeDefined();
+		expect(seen?.hasAttribute("aria-describedby")).toBe(false);
+	});
+	it("a mount that sends and returns a fulfilled promise delivers after the send", async () => {
+		const ctx = run(() => ({}));
+		const log: string[] = [];
+		const host = {
+			select: (n: unknown) => n,
+			mount: (_el: Element, hostCtx: { send(event: unknown): void }) => {
+				hostCtx.send("x");
+				return Promise.resolve({ id: 1 });
+			},
+			update: () => void log.push("update"),
+			dispose: () => undefined,
+		};
+		ctx.hosts.send = () => void log.push("send");
+		ctx.hosts.hosts.scene = host as never;
+		renderIgniteJsx(
+			ctx.root,
+			jsx("div", { children: jsx("canvas", { use: "scene" }) }),
+			undefined,
+			{ hosts: ctx.hosts },
+		);
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		expect(log).toEqual(["send", "update"]);
+	});
+	it("an abort listener that supersedes still disposes the old host once and stops the new mount", () => {
+		const ctx = run(() => ({}));
+		let superseding = false;
+		const hostA = hostFor(ctx.rec, {});
+		const other: Rec = { select: 0, mount: 0, update: 0, dispose: 0 };
+		const hostB = hostFor(other, {});
+		(hostA as { mount: unknown }).mount = (
+			el: Element,
+			hostCtx: { signal: AbortSignal },
+		) => {
+			ctx.rec.mount++;
+			el.append(document.createElement("span"));
+			hostCtx.signal.addEventListener("abort", () => {
+				if (superseding) ctx.supersede();
+			});
+			return { id: 1 } as never;
+		};
+		(ctx.hosts.hosts as Record<string, unknown>).a = hostA;
+		(ctx.hosts.hosts as Record<string, unknown>).b = hostB;
+		const view = (use: string) =>
+			jsx("div", { children: jsx("canvas", { use }) });
+		const tree = renderIgniteJsx(ctx.root, view("a"), undefined, {
+			hosts: ctx.hosts,
+		});
+		superseding = true;
+		renderIgniteJsx(ctx.root, view("b"), tree, { hosts: ctx.hosts });
+		expect(ctx.rec.dispose).toBe(1);
+		expect(other.mount).toBe(0);
+	});
 });
