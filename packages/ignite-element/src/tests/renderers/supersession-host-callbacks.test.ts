@@ -757,4 +757,60 @@ describe("V2 host callbacks are checked for supersession", () => {
 			vi.unstubAllGlobals();
 		}
 	});
+	it("a children getter that supersedes during the cleanup leaves the new description", () => {
+		const ctx = run(() => ({}));
+		let trig = false;
+		let tree1: ReturnType<typeof renderIgniteJsx>;
+		const view = (use?: string) =>
+			jsx("div", { children: jsx("x-r18-children", { use }) });
+		customElements.define(
+			"x-r18-children",
+			class extends HTMLElement {
+				get children() {
+					if (trig) {
+						trig = false;
+						renderIgniteJsx(ctx.root, view("scene"), tree1, {
+							hosts: ctx.hosts,
+						});
+					}
+					return super.children;
+				}
+			},
+		);
+		ctx.hosts.hosts.scene = hostFor(ctx.rec, {}) as never;
+		tree1 = renderIgniteJsx(ctx.root, view("scene"), undefined, {
+			hosts: ctx.hosts,
+		});
+		trig = true;
+		renderIgniteJsx(ctx.root, view(), tree1, { hosts: ctx.hosts });
+		const now = ctx.root.querySelector("x-r18-children") as Element;
+		const node = now.querySelector("[data-ignite-host-description]");
+		expect(node).not.toBeNull();
+		expect(now.getAttribute("aria-describedby")).toContain(
+			(node as Element).id,
+		);
+	});
+	it("a thenable whose then accessor supersedes stops the description work", () => {
+		const ctx = run(() => ({}));
+		let trig = false;
+		const host = hostFor(ctx.rec, {});
+		(host as { mount: unknown }).mount = () => ({
+			get then() {
+				if (trig) {
+					trig = false;
+					ctx.supersede();
+				}
+				return (resolve: (value: unknown) => void) => resolve({});
+			},
+		});
+		ctx.hosts.hosts.scene = host as never;
+		trig = true;
+		renderIgniteJsx(
+			ctx.root,
+			jsx("div", { children: jsx("canvas", { use: "scene" }) }),
+			undefined,
+			{ hosts: ctx.hosts },
+		);
+		expect(ctx.rec.describe ?? 0).toBe(0);
+	});
 });

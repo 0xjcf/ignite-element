@@ -85,4 +85,33 @@ describe("X6 two renderer copies in one realm", () => {
 		);
 		expect(mounts).toBe(0);
 	});
+	it("a ref queue stops when another copy takes the root", async () => {
+		vi.resetModules();
+		const second = await import(
+			"../../../../ignite-renderer/src/renderers/jsx/renderer"
+		);
+		const root = document.createElement("div");
+		document.body.append(root);
+		const calls: string[] = [];
+		const plain = () =>
+			jsx("div", { children: [jsx("span", {}), jsx("p", {})] });
+		const tree1 = renderIgniteJsx(root, plain(), undefined, undefined);
+		const first = (node: Element | null) => {
+			if (!node) return;
+			calls.push("first");
+			second.renderIgniteJsx(root, plain(), tree1, undefined);
+		};
+		const later = (node: Element | null) => {
+			if (node) calls.push("later");
+		};
+		renderIgniteJsx(
+			root,
+			jsx("div", {
+				children: [jsx("span", { ref: first }), jsx("p", { ref: later })],
+			}),
+			tree1,
+			undefined,
+		);
+		expect(calls).toEqual(["first"]);
+	});
 });
