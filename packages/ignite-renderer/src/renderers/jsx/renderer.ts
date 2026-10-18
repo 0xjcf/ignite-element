@@ -274,18 +274,25 @@ function duplicateKey(children: NormalizedNode[]): string | number | undefined {
 	return undefined;
 }
 
+// console.warn is user code (an app can replace it), so every dev warning
+// goes through here and ownership is rechecked before the commit goes on.
+function warn(message: string): void {
+	console.warn(message);
+	live();
+}
+
 function warnInvalidKeys(children: NormalizedNode[]): void {
 	if (!__IGNITE_DEV_WARNINGS__) return;
 	const shape = classifyKeys(children);
 	if (shape === "duplicate") {
 		const key = duplicateKey(children);
-		console.warn(
+		warn(
 			`[ignite-jsx] Duplicate key "${String(key)}" among siblings. Keys must be unique.`,
 		);
 		return;
 	}
 	if (shape === "mixed") {
-		console.warn(
+		warn(
 			"[ignite-jsx] Mixed keyed and unkeyed siblings. The list will match by position.",
 		);
 	}
@@ -302,7 +309,7 @@ function applySlotKey(
 		return nodes;
 	}
 	if (__IGNITE_DEV_WARNINGS__) {
-		console.warn(
+		warn(
 			`[ignite-jsx] Key "${String(key)}" requires a single element, but the component returned ${material.length} nodes.`,
 		);
 	}
@@ -318,7 +325,7 @@ function warnIgnoredProp(element: Element, key: string, message: string): void {
 	}
 	if (seen.has(key)) return;
 	seen.add(key);
-	console.warn(message);
+	warn(message);
 }
 
 function warnBlockedMarkupProp(element: Element, key: string): void {

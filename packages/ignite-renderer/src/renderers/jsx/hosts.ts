@@ -129,13 +129,17 @@ function isClient(): boolean {
 	return typeof globalThis.window !== "undefined";
 }
 
-function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+// Two reads, two touches: a Proxy `has` trap and a `then` getter are separate user code.
+function hasThen(value: unknown): boolean {
 	return (
 		(typeof value === "object" || typeof value === "function") &&
 		value !== null &&
-		"then" in value && // native: only called inside touch()
-		typeof (value as { then?: unknown }).then === "function" // native: ditto
+		"then" in value // native: only called inside touch()
 	);
+}
+
+function thenIsFunction(value: unknown): boolean {
+	return typeof (value as { then?: unknown }).then === "function"; // native: ditto
 }
 
 // The one choke point for host-side user code: a getter, an overridable
@@ -172,7 +176,7 @@ function guard(run: () => void): void {
 }
 
 function reportHostError(message: string, error: unknown): void {
-	console.error(message, error);
+	console.error(message, error); // reported: known gap, a console.error override is not rechecked (round 19)
 }
 
 function slicesEqual(
@@ -285,62 +289,77 @@ function retireHost(element: Element): void {
 	}
 }
 
-function descriptionIdTaken(element: Element, id: string): boolean {
-	const root = touch(element, undefined, () => element.getRootNode());
+function descriptionIdTaken(
+	element: Element,
+	id: string,
+	record?: HostRecord,
+): boolean {
+	const root = touch(element, record, () => element.getRootNode());
 	if (root instanceof Document || root instanceof ShadowRoot) {
-		return touch(element, undefined, () => root.getElementById(id)) !== null;
+		return touch(element, record, () => root.getElementById(id)) !== null;
 	}
 	return (
-		touch(element, undefined, () =>
-			element.ownerDocument.getElementById(id),
-		) !== null
+		touch(element, record, () => element.ownerDocument.getElementById(id)) !==
+		null
 	);
 }
 
-function forgetDescriptionId(element: Element, id: string): void {
+function forgetDescriptionId(
+	element: Element,
+	id: string,
+	record?: HostRecord,
+): void {
 	descriptionIds.delete(element);
-	editDescribedBy(element, id);
+	editDescribedBy(element, id, record);
 }
 
 // Drops one id from aria-describedby. The read is user code: a newer view it
 // renders owns the attribute, so nothing is edited after it.
-function editDescribedBy(element: Element, id: string): void {
-	const current = touch(element, undefined, () =>
+function editDescribedBy(
+	element: Element,
+	id: string,
+	record?: HostRecord,
+): void {
+	const current = touch(element, record, () =>
 		element.getAttribute("aria-describedby"),
 	);
 	if (!current) return;
 	const next = current.split(/\s+/).filter((token) => token && token !== id);
 	if (next.length === 0) {
-		touch(element, undefined, () =>
-			element.removeAttribute("aria-describedby"),
-		);
+		touch(element, record, () => element.removeAttribute("aria-describedby"));
 	} else {
-		touch(element, undefined, () =>
+		touch(element, record, () =>
 			element.setAttribute("aria-describedby", next.join(" ")),
 		);
 	}
 }
 
-function descriptionId(element: Element): string {
+function descriptionId(element: Element, record?: HostRecord): string {
 	const existing = descriptionIds.get(element);
 	if (existing) {
-		const node = descriptionNode(element);
-		if (node?.id === existing || !descriptionIdTaken(element, existing)) {
+		const node = descriptionNode(element, record);
+		if (
+			node?.id === existing ||
+			!descriptionIdTaken(element, existing, record)
+		) {
 			return existing;
 		}
-		forgetDescriptionId(element, existing);
+		forgetDescriptionId(element, existing, record);
 	}
 	let id = "";
 	do {
 		descriptionSerial += 1;
 		id = `ignite-host-desc-${descriptionSerial}`;
-	} while (descriptionIdTaken(element, id));
+	} while (descriptionIdTaken(element, id, record));
 	descriptionIds.set(element, id);
 	return id;
 }
 
-function descriptionNode(element: Element): HTMLElement | null {
-	return touch(element, undefined, () => {
+function descriptionNode(
+	element: Element,
+	record?: HostRecord,
+): HTMLElement | null {
+	return touch(element, record, () => {
 		for (const child of element.children) {
 			if (
 				child instanceof HTMLElement &&
@@ -353,12 +372,12 @@ function descriptionNode(element: Element): HTMLElement | null {
 	});
 }
 
-function clearDescription(element: Element): void {
+function clearDescription(element: Element, record?: HostRecord): void {
 	const id = descriptionIds.get(element);
-	const node = descriptionNode(element);
-	if (node) touch(element, undefined, () => node.remove());
+	const node = descriptionNode(element, record);
+	if (node) touch(element, record, () => node.remove());
 	if (!id) return;
-	editDescribedBy(element, id);
+	editDescribedBy(element, id, record);
 }
 
 // An async settle runs outside any commit, so currency is the record itself.
@@ -374,7 +393,7 @@ function applyDescription(
 	record?: HostRecord,
 ): void {
 	if (!definition.describe) {
-		clearDescription(element);
+		clearDescription(element, record);
 		return;
 	}
 	let text: unknown;
@@ -388,12 +407,12 @@ function applyDescription(
 	// No DOM write and no further callback follows a superseded describe.
 	touch(element, record, () => undefined);
 	if (failed) {
-		clearDescription(element);
+		clearDescription(element, record);
 		return;
 	}
 	if (typeof text !== "string") return;
-	const id = descriptionId(element);
-	let node = descriptionNode(element);
+	const id = descriptionId(element, record);
+	let node = descriptionNode(element, record);
 	if (!node) {
 		const fresh = touch(element, record, () =>
 			element.ownerDocument.createElement("span"),
@@ -439,8 +458,11 @@ function warnUnknownHost(element: Element, name: string): void {
 	}
 	if (seen.has(name)) return;
 	seen.add(name);
-	console.warn(
-		`[ignite-jsx] Unknown host "${name}". Declare it on the core's hosts map.`,
+	// console.warn is user code: nothing after it acts on a superseded commit.
+	touch(element, undefined, () =>
+		console.warn(
+			`[ignite-jsx] Unknown host "${name}". Declare it on the core's hosts map.`,
+		),
 	);
 }
 
@@ -580,7 +602,11 @@ function startHost(
 	let thenable = false;
 	try {
 		if (failed) hostLive();
-		else thenable = touch(element, record, () => isPromiseLike(result));
+		else {
+			thenable =
+				touch(element, record, () => hasThen(result)) &&
+				touch(element, record, () => thenIsFunction(result));
+		}
 	} catch (error) {
 		// A superseded mount is still settled, so the late handle is disposed.
 		if (!failed) settleSuperseded(result, fulfilled, rejected);
