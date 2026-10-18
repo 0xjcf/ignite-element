@@ -5,8 +5,10 @@ import {
 } from "./executableUri";
 import {
 	configureHostOwnership,
+	type HostOwnershipTools,
 	type IgniteHostRuntime,
 	syncHostElement,
+	useHostOwnership,
 	withIgniteHostRuntime,
 } from "./hostBridge";
 import { isNoDiffDenylistedTag } from "./noDiffDenylist";
@@ -226,8 +228,6 @@ interface ElementMount {
 	unmounted: boolean;
 	/** True after a true-disconnect release that kept the callback for reacquire. */
 	released: boolean;
-	/** False while the ref callback runs; true once a teardown arrived during the call. */
-	late?: boolean;
 }
 
 const elementMounts = new WeakMap<Node, ElementMount>();
@@ -517,16 +517,17 @@ export function releaseSubtree(element: Element): void {
 	subtreeOwners.delete(element);
 }
 
-if (hostRuntimeEnabled) {
-	configureHostOwnership({
-		claimSubtree,
-		releaseSubtree,
-		onUnmount: onIgniteUnmount,
-		// Host callbacks also run after the write phase, with no frame.
-		live: () => commitQueue && live(),
-		unmountSubtree: unmountIgniteSubtree,
-	});
-}
+const hostTools: HostOwnershipTools | undefined = hostRuntimeEnabled
+	? {
+			claimSubtree,
+			releaseSubtree,
+			onUnmount: onIgniteUnmount,
+			// Host callbacks also run after the write phase, with no frame.
+			live: () => commitQueue && live(),
+			unmountSubtree: unmountIgniteSubtree,
+		}
+	: undefined;
+if (hostTools) configureHostOwnership(hostTools);
 
 const freshNodes = new WeakSet<ChildNode>();
 
@@ -609,9 +610,7 @@ function releaseRefBinding(
 	ref: RefCallback,
 	cleanup: RefDisposer | null,
 ): void {
-	const mount = elementMounts.get(node);
 	if (cleanup) invokeContained(node, cleanup);
-	else if (mount?.late === false) mount.late = true;
 	else invokeContained(node, () => ref(null));
 }
 
@@ -663,17 +662,23 @@ function assignRef(element: Element, ref: unknown): void {
 		if (!next) return;
 		invokeContained(element, () => {
 			let result: ReturnType<RefCallback> | undefined;
-			mount.late = false;
+			// This call's own marker: a teardown that arrives while it runs is
+			// owed to this callback alone, whatever nested refs do meanwhile.
+			let late = false;
+			const hold = () => {
+				late = true;
+			};
+			mount.cleanup = hold;
 			try {
 				result = next(element);
 			} finally {
-				// Nobody returned a disposer, so a teardown that arrived mid-call is due.
-				const owed = mount.late;
-				mount.late = undefined;
-				if (owed && typeof result !== "function") next(null);
+				if (mount.cleanup === hold) mount.cleanup = null;
+				if (late && typeof result !== "function") {
+					invokeContained(element, () => next(null));
+				}
 			}
 			if (typeof result === "function") {
-				if (!mount.unmounted && !mount.released && mount.binding === acquire)
+				if (!late && !mount.released && mount.binding === acquire)
 					mount.cleanup = result;
 				else invokeContained(element, result);
 				return;
@@ -1522,7 +1527,7 @@ const owner = Symbol.for("ignite.o");
 // Private unwinding signal: a thrown user symbol is never mistaken for it.
 const abort = {};
 type Token = { r?: boolean };
-type Frame = Token & { h?: object; e?: Token };
+type Frame = Token & { h?: object; e?: Token; m?: () => boolean };
 type Owned = { [owner]?: Token };
 export const setOwner = (host: object, token: object) => {
 	(host as Owned)[owner] = token;
@@ -1566,14 +1571,16 @@ function claim(root: Node): void {
 }
 
 function live(): void {
-	const { h, e } = commitQueue as unknown as Frame;
-	if (h && (h as Owned)[owner] !== e) throw abort;
+	const { h, e, m } = commitQueue as unknown as Frame;
+	// During the controlled phase there is no host any more: m is the check.
+	if (h ? (h as Owned)[owner] !== e : m && !m()) throw abort;
 }
 
 function commitRender<T>(render: () => T, host?: object): T {
 	const parent = commitQueue;
 	const queues: typeof commitQueue = [[], []];
 	commitQueue = queues;
+	const restoreHost = hostTools && useHostOwnership(hostTools);
 	try {
 		let result: T | undefined;
 		try {
@@ -1589,11 +1596,19 @@ function commitRender<T>(render: () => T, host?: object): T {
 		frame.h = undefined;
 		const root = (host ?? result) as Owned | undefined;
 		const mine = () => !root || root[owner] === (queues as unknown as Token);
-		for (const commit of queues[0]) if (mine()) commit();
+		frame.m = mine;
+		try {
+			for (const commit of queues[0]) if (mine()) commit();
+		} catch (error) {
+			if (error !== abort) throw error;
+		} finally {
+			frame.m = undefined;
+		}
 		for (const commit of queues[1])
 			if (mine() || !(root?.[owner] as Token).r) commit();
 		return result as T;
 	} finally {
+		restoreHost?.();
 		commitQueue = parent;
 	}
 }
@@ -1625,8 +1640,9 @@ function getContained(element: object, key: string): unknown {
 	try {
 		return act(Reflect, "get", element, key);
 	} catch {
-		// A throwing getter reads as a value nothing equals. The write that follows
-		// rechecks ownership.
+		// A throwing getter reads as a value nothing equals. The abort act()
+		// throws after a superseding getter returns is not a getter error.
+		live();
 		return {};
 	}
 }

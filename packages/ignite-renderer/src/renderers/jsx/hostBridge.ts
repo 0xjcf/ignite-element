@@ -45,7 +45,7 @@ export type IgniteHostRuntime = {
 /** Field the element factory sets and the JSX strategy reads. */
 export const HOST_RUNTIME_FIELD = "__igniteHostRuntime";
 
-type HostOwnershipTools = {
+export type HostOwnershipTools = {
 	claimSubtree(element: Element): void;
 	releaseSubtree(element: Element): void;
 	onUnmount(node: Node, hook: () => void): void;
@@ -86,6 +86,20 @@ function hostSlot(): HostSlot {
 
 export function configureHostOwnership(tools: HostOwnershipTools): void {
 	hostSlot().ownership = tools;
+}
+
+/**
+ * Routes host callbacks to these tools until the returned function runs. Each
+ * bundled copy of the renderer activates its own tools while it commits, so a
+ * copy loaded later cannot take over a commit the first copy started.
+ */
+export function useHostOwnership(tools: HostOwnershipTools): () => void {
+	const slot = hostSlot();
+	const previous = slot.ownership;
+	slot.ownership = tools;
+	return () => {
+		slot.ownership = previous;
+	};
 }
 
 export function claimHostSubtree(element: Element): void {

@@ -90,8 +90,11 @@ describe("JSX host runtime size", () => {
 		// Then 4670 B (Jose approved): the round-14 fixes (act lookup recheck,
 		// off-list volume/playbackRate/currentTime, ref self-unmount with a
 		// disposer) read 4666 B on the rebuilt dist.
+		// Then 4700 B (Jose approved up to 4710): the round-15 fixes (controlled
+		// phase ownership check, per-call ref teardown marker, per-commit host
+		// tools) read 4692 B on the rebuilt dist.
 		// Host exclusion and build settings stay the same.
-		assert.ok(gzip <= 4670, `no-host JSX gzip ${gzip} is above 4670`);
+		assert.ok(gzip <= 4700, `no-host JSX gzip ${gzip} is above 4700`);
 	});
 
 	it("includes the host runtime when the internal module is imported", async () => {

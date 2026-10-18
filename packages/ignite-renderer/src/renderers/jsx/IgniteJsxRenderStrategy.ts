@@ -225,7 +225,6 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 	}
 
 	detach(): void {
-		this.next = undefined;
 		const rootNode = this.contentRoot?.getRootNode();
 		if (rootNode instanceof ShadowRoot) forgetQueuedStyles(rootNode);
 		if (this.contentRoot) {
@@ -235,6 +234,8 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 		}
 		this.contentRoot = null;
 		this.previousTree = null;
+		// Last: a disposer or hook above may have queued a render of its own.
+		this.next = undefined;
 	}
 }
 

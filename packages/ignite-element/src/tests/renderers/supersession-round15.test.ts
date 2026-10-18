@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { createIgniteJsxRenderStrategy } from "../../renderers/jsx/IgniteJsxRenderStrategy";
 import { jsx } from "../../renderers/jsx/jsx-runtime";
@@ -64,23 +65,25 @@ describe("X2 a getter's abort is never swallowed", () => {
 	// reader must let that abort through even when no write follows it.
 	it("getContained rechecks ownership in its catch", () => {
 		const source = readFileSync(
-			new URL(
+			resolve(
+				__dirname,
 				"../../../../ignite-renderer/src/renderers/jsx/renderer.ts",
-				import.meta.url,
 			),
 			"utf8",
 		);
-		const start = source.indexOf("function getContained");
-		const body = source.slice(start, source.indexOf("\n}\n", start));
-		expect(body).toMatch(/catch[^{]*\{[^}]*live\(\)/);
+		const start = source.indexOf("function getContained(");
+		// A window, not a block: instrumented sources add code between the lines.
+		const body = source.slice(start, start + 1200);
+		expect(body).toMatch(/catch[\s\S]{0,240}?live\(\)[\s\S]{0,60}?return/);
 	});
 });
 
 describe("X3 / X5 ref lifecycle", () => {
-	it("a rejected ref(null) after a self-unmount reaches onError", async () => {
+	it("a rejected ref(null) after a self-unmount is contained and reported", async () => {
 		const host = document.createElement("div");
 		const sr = host.attachShadow({ mode: "open" });
 		const errors: unknown[] = [];
+		const logged = vi.spyOn(console, "error").mockImplementation(() => {});
 		(host as unknown as { onError: (e: unknown) => void }).onError = (e) =>
 			errors.push(e);
 		const root = document.createElement("div");
@@ -94,7 +97,9 @@ describe("X3 / X5 ref lifecycle", () => {
 		};
 		renderIgniteJsx(root, jsx("span", { ref }), undefined, undefined);
 		await new Promise((r) => setTimeout(r, 5));
-		expect(errors.map((e) => (e as Error).message)).toEqual(["late"]);
+		const reported = [...errors, ...logged.mock.calls.map((c) => c[1])];
+		logged.mockRestore();
+		expect(reported.map((e) => (e as Error).message)).toEqual(["late"]);
 	});
 	it("a nested swap to a different ref still delivers the old ref(null)", () => {
 		const root = mkRoot();
@@ -107,6 +112,24 @@ describe("X3 / X5 ref lifecycle", () => {
 		};
 		renderIgniteJsx(root, jsx("span", { ref: A }), tree1, undefined);
 		expect(log).toEqual(["A el", "B el", "A null"]);
+	});
+});
+
+describe("X5b the nested ref keeps its own disposer", () => {
+	it("a disposer returned by the swapped-in ref survives the outer call", () => {
+		const root = mkRoot();
+		const log: string[] = [];
+		const tree1 = renderIgniteJsx(root, jsx("span", {}), undefined, undefined);
+		const B = (n: Element | null) => {
+			if (n) return () => void log.push("B dispose");
+			return undefined;
+		};
+		const A = (n: Element | null) => {
+			if (n) renderIgniteJsx(root, jsx("span", { ref: B }), tree1, undefined);
+		};
+		renderIgniteJsx(root, jsx("span", { ref: A }), tree1, undefined);
+		renderIgniteJsx(root, jsx("p", {}), undefined, undefined);
+		expect(log).toEqual(["B dispose"]);
 	});
 });
 
