@@ -650,4 +650,75 @@ describe("V2 host callbacks are checked for supersession", () => {
 		expect(seen).toBeDefined();
 		expect(seen?.hasAttribute("aria-describedby")).toBe(false);
 	});
+	it("a getAttribute that supersedes during the cleanup leaves the new description", () => {
+		const ctx = run(() => ({}));
+		let trig = false;
+		let tree1: ReturnType<typeof renderIgniteJsx>;
+		const view = (use?: string) =>
+			jsx("div", { children: jsx("x-r17-clear", { use }) });
+		customElements.define(
+			"x-r17-clear",
+			class extends HTMLElement {
+				getAttribute(name: string) {
+					if (trig && name === "aria-describedby") {
+						trig = false;
+						renderIgniteJsx(ctx.root, view("scene"), tree1, {
+							hosts: ctx.hosts,
+						});
+					}
+					return super.getAttribute(name);
+				}
+			},
+		);
+		ctx.hosts.hosts.scene = hostFor(ctx.rec, {}) as never;
+		tree1 = renderIgniteJsx(ctx.root, view("scene"), undefined, {
+			hosts: ctx.hosts,
+		});
+		const el = ctx.root.querySelector("x-r17-clear") as Element;
+		expect(el.hasAttribute("aria-describedby")).toBe(true);
+		trig = true;
+		renderIgniteJsx(ctx.root, view(), tree1, { hosts: ctx.hosts });
+		const now = ctx.root.querySelector("x-r17-clear") as Element;
+		const node = now.querySelector("[data-ignite-host-description]");
+		expect(node).not.toBeNull();
+		expect(now.getAttribute("aria-describedby")).toContain(
+			(node as Element).id,
+		);
+	});
+	it("a getAttribute that supersedes while an id is forgotten writes nothing stale", () => {
+		const ctx = run(() => ({}));
+		let trig = false;
+		let seen: Element | undefined;
+		customElements.define(
+			"x-r17-forget",
+			class extends HTMLElement {
+				getAttribute(name: string) {
+					if (trig && name === "aria-describedby") {
+						trig = false;
+						seen = this;
+						ctx.supersede();
+					}
+					return super.getAttribute(name);
+				}
+			},
+		);
+		ctx.hosts.hosts.scene = hostFor(ctx.rec, {}) as never;
+		const view = () =>
+			jsx("div", { children: jsx("x-r17-forget", { use: "scene" }) });
+		const tree1 = renderIgniteJsx(ctx.root, view(), undefined, {
+			hosts: ctx.hosts,
+		});
+		const el = ctx.root.querySelector("x-r17-forget") as Element;
+		const id = el.querySelector("[data-ignite-host-description]")?.id ?? "";
+		// Another element takes the id and the description node goes away, so the
+		// next description forgets the old id.
+		el.querySelector("[data-ignite-host-description]")?.remove();
+		const squatter = document.createElement("i");
+		squatter.id = id;
+		document.body.append(squatter);
+		trig = true;
+		renderIgniteJsx(ctx.root, view(), tree1, { hosts: ctx.hosts });
+		expect(seen).toBeDefined();
+		expect(seen?.getAttribute("aria-describedby")).toBe(id);
+	});
 });
