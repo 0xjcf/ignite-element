@@ -130,6 +130,32 @@ describe("U1 no user-code call bypasses act", () => {
 	});
 });
 
+describe("U1b console.warn is user code", () => {
+	it("renderer.ts warns only through the warn() helper that rechecks", () => {
+		const src = readFileSync(
+			resolve(
+				__dirname,
+				"../../../../ignite-renderer/src/renderers/jsx/renderer.ts",
+			),
+			"utf8",
+		);
+		const start = src.indexOf("function warn(");
+		const body = src.slice(start, src.indexOf("\n}\n", start));
+		expect(body).toMatch(/console\.warn\(message\);\s*live\(\);/);
+		const offenders = src
+			.replace(body, "")
+			.split("\n")
+			.filter(
+				(line) =>
+					!line.trim().startsWith("//") &&
+					/\bconsole\.warn\(/.test(line) &&
+					!/native:/.test(line),
+			)
+			.map((line) => line.trim());
+		expect(offenders).toEqual([]);
+	});
+});
+
 describe("U2 a property getter that supersedes stops the walk", () => {
 	it("the next prop's getter never runs on the retired element", () => {
 		fc.assert(

@@ -55,4 +55,28 @@ describe("hosts.ts user-code touchpoints", () => {
 			.map((line) => line.trim());
 		expect(offenders).toEqual([]);
 	});
+	it("passes the record into every description helper", () => {
+		// Round 19: a helper that took the element only judged staleness inside a
+		// commit, so an async settle (no commit) ran on after a getter superseded.
+		const from = src.indexOf("function descriptionIdTaken");
+		const to = src.indexOf("function ownName");
+		const helpers = src.slice(from, to);
+		expect(helpers).not.toMatch(/touch\(\s*element,\s*undefined/);
+		expect(helpers).not.toMatch(
+			/\b(descriptionId|descriptionNode|clearDescription|editDescribedBy|forgetDescriptionId|descriptionIdTaken)\(element(, (id|existing))?\)/,
+		);
+	});
+	it("reaches console.* and then-reads only through touch() or a marker", () => {
+		const rest = stripCalls(src, "touch");
+		const offenders = rest
+			.split("\n")
+			.filter(
+				(line) =>
+					!line.trim().startsWith("//") &&
+					/\bconsole\.(warn|error|log|info|debug)\(/.test(line) &&
+					!/(native|reported):/.test(line),
+			)
+			.map((line) => line.trim());
+		expect(offenders).toEqual([]);
+	});
 });

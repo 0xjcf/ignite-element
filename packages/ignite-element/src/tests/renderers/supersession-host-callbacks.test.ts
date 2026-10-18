@@ -855,4 +855,136 @@ describe("V2 host callbacks are checked for supersession", () => {
 			process.off("uncaughtException", onUncaught);
 		}
 	});
+	it("an async settle whose children getter supersedes leaves the newer description", async () => {
+		const ctx = run(() => ({}));
+		let trig = false;
+		let tree1: ReturnType<typeof renderIgniteJsx>;
+		const view = (use: string) =>
+			jsx("div", { children: jsx("x-r19-async", { use }) });
+		customElements.define(
+			"x-r19-async",
+			class extends HTMLElement {
+				get children() {
+					if (trig) {
+						trig = false;
+						renderIgniteJsx(ctx.root, view("second"), tree1, {
+							hosts: ctx.hosts,
+						});
+					}
+					return super.children;
+				}
+			},
+		);
+		const first = hostFor(ctx.rec, {});
+		first.mount = (el: Element) => {
+			el.append(document.createElement("i"));
+			return Promise.resolve({}) as never;
+		};
+		let calls = 0;
+		first.describe = () => {
+			calls++;
+			if (calls === 1) throw new Error("describe failed");
+			return "first";
+		};
+		ctx.hosts.hosts.scene = first as never;
+		(ctx.hosts.hosts as Record<string, never>).second = hostFor(
+			ctx.rec,
+			{},
+		) as never;
+		const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+		try {
+			tree1 = renderIgniteJsx(ctx.root, view("scene"), undefined, {
+				hosts: ctx.hosts,
+			});
+			trig = true;
+			await new Promise((resolve) => setTimeout(resolve, 10));
+		} finally {
+			errors.mockRestore();
+		}
+		const now = ctx.root.querySelector("x-r19-async") as Element;
+		const node = now.querySelector("[data-ignite-host-description]");
+		expect(node).not.toBeNull();
+		expect(node?.textContent).toBe("d");
+		expect(now.getAttribute("aria-describedby")).toContain(
+			(node as Element).id,
+		);
+	});
+	it("a thenable whose has trap supersedes never reads then", () => {
+		const ctx = run(() => ({}));
+		let trig = false;
+		let reads = 0;
+		const host = hostFor(ctx.rec, {});
+		(host as { mount: unknown }).mount = () =>
+			new Proxy(
+				{},
+				{
+					has(_target, key) {
+						if (trig && key === "then") {
+							trig = false;
+							ctx.supersede();
+						}
+						return key === "then";
+					},
+					get(_target, key) {
+						if (key === "then") reads++;
+						return undefined;
+					},
+				},
+			);
+		ctx.hosts.hosts.scene = host as never;
+		trig = true;
+		renderIgniteJsx(
+			ctx.root,
+			jsx("div", { children: jsx("canvas", { use: "scene" }) }),
+			undefined,
+			{ hosts: ctx.hosts },
+		);
+		// The one read left is the assimilation that disposes the late handle.
+		expect(reads).toBe(1);
+	});
+	it("a describe cleanup removes the stale id when nothing supersedes", () => {
+		const ctx = run(() => ({}));
+		ctx.hosts.hosts.scene = hostFor(ctx.rec, {}) as never;
+		const view = () =>
+			jsx("div", { children: jsx("x-r19-forget", { use: "scene" }) });
+		customElements.define("x-r19-forget", class extends HTMLElement {});
+		const tree1 = renderIgniteJsx(ctx.root, view(), undefined, {
+			hosts: ctx.hosts,
+		});
+		const el = ctx.root.querySelector("x-r19-forget") as Element;
+		const old = el.querySelector("[data-ignite-host-description]")?.id ?? "";
+		el.querySelector("[data-ignite-host-description]")?.remove();
+		const squatter = document.createElement("i");
+		squatter.id = old;
+		document.body.append(squatter);
+		el.setAttribute("aria-describedby", `keep ${old}`);
+		renderIgniteJsx(ctx.root, view(), tree1, { hosts: ctx.hosts });
+		const fresh = el.querySelector("[data-ignite-host-description]")?.id ?? "";
+		expect(fresh).not.toBe(old);
+		expect(el.getAttribute("aria-describedby")?.split(" ")).toEqual([
+			"keep",
+			fresh,
+		]);
+	});
+	it("a console.warn for an unknown host that supersedes leaves the newer host mounted", () => {
+		const ctx = run(() => ({}));
+		ctx.hosts.hosts.scene = hostFor(ctx.rec, {}) as never;
+		const view = (use: string) =>
+			jsx("div", { children: jsx("canvas", { use }) });
+		const tree1 = renderIgniteJsx(ctx.root, view("scene"), undefined, {
+			hosts: ctx.hosts,
+		});
+		let trig = true;
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {
+			if (!trig) return;
+			trig = false;
+			renderIgniteJsx(ctx.root, view("scene"), tree1, { hosts: ctx.hosts });
+		});
+		try {
+			renderIgniteJsx(ctx.root, view("missing"), tree1, { hosts: ctx.hosts });
+		} finally {
+			warn.mockRestore();
+		}
+		expect(ctx.rec.dispose).toBe(0);
+	});
 });
