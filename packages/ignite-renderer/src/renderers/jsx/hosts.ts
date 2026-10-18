@@ -252,10 +252,12 @@ function descriptionIdTaken(element: Element, id: string): boolean {
 function forgetDescriptionId(element: Element, id: string): void {
 	descriptionIds.delete(element);
 	const current = element.getAttribute("aria-describedby");
+	hostLive();
 	if (!current) return;
 	const next = current.split(/\s+/).filter((token) => token && token !== id);
 	if (next.length === 0) element.removeAttribute("aria-describedby");
 	else element.setAttribute("aria-describedby", next.join(" "));
+	hostLive();
 }
 
 function descriptionId(element: Element): string {
@@ -290,10 +292,12 @@ function clearDescription(element: Element): void {
 	descriptionNode(element)?.remove();
 	if (!id) return;
 	const current = element.getAttribute("aria-describedby");
+	hostLive();
 	if (!current) return;
 	const next = current.split(/\s+/).filter((token) => token && token !== id);
 	if (next.length === 0) element.removeAttribute("aria-describedby");
 	else element.setAttribute("aria-describedby", next.join(" "));
+	hostLive();
 }
 
 // An async settle runs outside any commit, so currency is the record itself.
@@ -320,9 +324,14 @@ function applyDescription(
 		reportHostError("[ignite-jsx] Host describe failed.", error);
 		failed = true;
 	}
+	// The element's own methods are user code too: every call below is followed
+	// by the same check, so no description write follows a superseding override.
+	const stale = () => {
+		hostLive();
+		return !!record && superseded(element, record);
+	};
 	// No DOM write and no further callback follows a superseded describe.
-	hostLive();
-	if (record && superseded(element, record)) return;
+	if (stale()) return;
 	if (failed) {
 		clearDescription(element);
 		return;
@@ -336,11 +345,12 @@ function applyDescription(
 		node.setAttribute(DESCRIPTION_ATTR, "");
 		node.style.cssText = VISUALLY_HIDDEN;
 		element.append(node);
+		if (stale()) return;
 	}
 	if (node.textContent !== text) node.textContent = text;
-	const tokens = (element.getAttribute("aria-describedby") ?? "")
-		.split(/\s+/)
-		.filter(Boolean);
+	const described = element.getAttribute("aria-describedby");
+	if (stale()) return;
+	const tokens = (described ?? "").split(/\s+/).filter(Boolean);
 	if (!tokens.includes(id)) {
 		tokens.push(id);
 		element.setAttribute("aria-describedby", tokens.join(" "));
@@ -472,8 +482,17 @@ function startHost(
 			releaseHostSubtree(element);
 		}
 	}
+	// A send made by mount is delivered before the first update, however the
+	// mount settles. Once the flush has run there is nothing left to wait for.
+	const deferDeliver = deferredSends.length > queuedBefore;
 	const fulfilled = (handle: unknown) => {
-		acceptHandle(element, record, definition, handle);
+		acceptHandle(
+			element,
+			record,
+			definition,
+			handle,
+			deferDeliver && flushScheduled,
+		);
 	};
 	const rejected = (error: unknown) => {
 		reportHostError("[ignite-jsx] Host mount failed.", error);
@@ -495,7 +514,6 @@ function startHost(
 		throw error;
 	}
 	if (failed) return;
-	const deferDeliver = deferredSends.length > queuedBefore;
 	if (isPromiseLike(result)) {
 		Promise.resolve(result).then(fulfilled, rejected);
 		return;

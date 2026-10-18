@@ -543,6 +543,9 @@ describe("V2 host callbacks are checked for supersession", () => {
 		);
 		expect(seen).toBeDefined();
 		expect(seen?.hasAttribute("aria-describedby")).toBe(false);
+		expect(
+			seen?.querySelector("[data-ignite-host-description]")?.textContent,
+		).toBe("");
 	});
 	it("a mount that sends and returns a fulfilled promise delivers after the send", async () => {
 		const ctx = run(() => ({}));
@@ -595,5 +598,56 @@ describe("V2 host callbacks are checked for supersession", () => {
 		renderIgniteJsx(ctx.root, view("b"), tree, { hosts: ctx.hosts });
 		expect(ctx.rec.dispose).toBe(1);
 		expect(other.mount).toBe(0);
+	});
+	it("a mount that sends and settles after the flush still delivers", async () => {
+		const ctx = run(() => ({}));
+		const log: string[] = [];
+		const host = {
+			select: (n: unknown) => n,
+			mount: (_el: Element, hostCtx: { send(event: unknown): void }) => {
+				hostCtx.send("x");
+				return new Promise((resolve) => setTimeout(() => resolve({}), 15));
+			},
+			update: () => void log.push("update"),
+			dispose: () => undefined,
+		};
+		ctx.hosts.send = () => void log.push("send");
+		ctx.hosts.hosts.scene = host as never;
+		renderIgniteJsx(
+			ctx.root,
+			jsx("div", { children: jsx("canvas", { use: "scene" }) }),
+			undefined,
+			{ hosts: ctx.hosts },
+		);
+		await new Promise((resolve) => setTimeout(resolve, 40));
+		expect(log).toEqual(["send", "update"]);
+	});
+	it("a host element getAttribute that supersedes stops the aria write", () => {
+		const ctx = run(() => ({}));
+		let seen: Element | undefined;
+		let trig = false;
+		customElements.define(
+			"x-r16-attr",
+			class extends HTMLElement {
+				getAttribute(name: string) {
+					if (trig && name === "aria-describedby") {
+						trig = false;
+						seen = this;
+						ctx.supersede();
+					}
+					return super.getAttribute(name);
+				}
+			},
+		);
+		ctx.hosts.hosts.scene = hostFor(ctx.rec, {}) as never;
+		trig = true;
+		renderIgniteJsx(
+			ctx.root,
+			jsx("div", { children: jsx("x-r16-attr", { use: "scene" }) }),
+			undefined,
+			{ hosts: ctx.hosts },
+		);
+		expect(seen).toBeDefined();
+		expect(seen?.hasAttribute("aria-describedby")).toBe(false);
 	});
 });
