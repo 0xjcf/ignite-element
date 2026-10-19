@@ -28,3 +28,38 @@ export function warnSupersedes(): { warned: number; value: string } {
 		value: (root.querySelector("input") as HTMLInputElement).value,
 	};
 }
+
+// Round 20: the final focus lookup of a keyed update is user code (getRootNode
+// on a custom parent). Nothing after it checks ownership but the publish.
+export function focusSupersedes(): string[] {
+	const root = document.createElement("div");
+	document.body.append(root);
+	const published: string[] = [];
+	let tree1: ReturnType<typeof renderIgniteJsx>;
+	let armed = false;
+	let lookups = 0;
+	customElements.define(
+		"x-r20-parent",
+		class extends HTMLElement {
+			getRootNode(options?: GetRootNodeOptions) {
+				// The first lookup starts the keyed patch; the second is the final one.
+				if (armed && ++lookups === 2) {
+					renderIgniteJsx(root, list(["c"]), tree1, {
+						onTreePublished: () => void published.push("newer"),
+					});
+				}
+				return super.getRootNode(options);
+			}
+		},
+	);
+	const list = (keys: string[]) =>
+		jsx("x-r20-parent", {
+			children: keys.map((key) => jsx("li", {}, key)),
+		});
+	tree1 = renderIgniteJsx(root, list(["a", "b"]), undefined, {});
+	armed = true;
+	renderIgniteJsx(root, list(["b", "a"]), tree1, {
+		onTreePublished: () => void published.push("older"),
+	});
+	return published;
+}

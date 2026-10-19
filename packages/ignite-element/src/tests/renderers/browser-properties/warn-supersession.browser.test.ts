@@ -56,4 +56,14 @@ describe("no-host renderer: console.warn is a user-code touchpoint", () => {
 		expect(result.warned).toBeGreaterThan(0);
 		expect(result.value).toBe("newer");
 	});
+	it("a keyed update whose final focus lookup supersedes does not publish", async () => {
+		const published = await page.evaluate(() =>
+			(
+				window as unknown as {
+					WarnSupersession: { focusSupersedes(): string[] };
+				}
+			).WarnSupersession.focusSupersedes(),
+		);
+		expect(published).toEqual(["newer"]);
+	});
 });

@@ -79,4 +79,51 @@ describe("hosts.ts user-code touchpoints", () => {
 			.map((line) => line.trim());
 		expect(offenders).toEqual([]);
 	});
+	it("allows one interceptable operation per touch()", () => {
+		// Round 20: a check runs after the callback, so the second operation of a
+		// bundle ran stale. Count `name.member` accesses on DOM-ish values.
+		const bad: string[] = [];
+		let from = 0;
+		for (;;) {
+			const at = src.indexOf("touch(", from);
+			if (at < 0) break;
+			let depth = 0;
+			let end = at + 5;
+			for (; end < src.length; end++) {
+				if (src[end] === "(") depth++;
+				else if (src[end] === ")" && --depth === 0) break;
+			}
+			from = end;
+			const call = src.slice(at, end + 1);
+			if (/^touch\(\s*$/.test(call) || call.startsWith("touch<")) continue;
+			const body = call.replace(/"[^"]*"/g, '""');
+			let ops = 0;
+			for (const match of body.matchAll(
+				/\b(element|node|child|root|fresh|target|doc|current|value|result)((?:\.[A-Za-z]+)+)/g,
+			)) {
+				ops += (match[2] ?? "")
+					.split(".")
+					.filter((part) => part && part !== "length").length;
+			}
+			if (ops > 1) bad.push(call.replace(/\s+/g, " ").slice(0, 100));
+		}
+		expect(bad).toEqual([]);
+	});
+	it("rechecks ownership when the touched operation throws", () => {
+		const start = src.indexOf("function touch<");
+		const body = src.slice(start, src.indexOf("\n}\n", start));
+		expect(body).toMatch(/catch/);
+		expect(body.match(/hostLive\(\)/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+	});
+	it("versions a retained record and compares the version", () => {
+		expect(src).toMatch(/\bgen: number\b/);
+		expect(src).toMatch(/\.gen\s*(\+=|\+\+)|\.gen = /);
+		const from = src.indexOf("function superseded(");
+		expect(src.slice(from, src.indexOf("\n}\n", from))).toMatch(/gen/);
+	});
+	it("rechecks after a host error report", () => {
+		const start = src.indexOf("function reportHostError(");
+		const body = src.slice(start, src.indexOf("\n}\n", start));
+		expect(body).toMatch(/console\.error[^\n]*\n\s*hostLive\(\)/);
+	});
 });
