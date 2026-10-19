@@ -103,3 +103,26 @@ describe("R25 X: a detach that removed its root and then threw", () => {
 		expect(second).toHaveBeenCalledWith(root()?.querySelector("p"));
 	});
 });
+
+describe("R26 a detach that moved its root elsewhere and then threw", () => {
+	it("never renders into the foreign parent; attach recreates the root", () => {
+		const { shadow, strategy, root } = attached();
+		strategy.render(jsx("p", { children: "one" }));
+		const foreign = document.createElement("section");
+		document.body.append(foreign);
+		const boom = new Error("moved, then threw");
+		shadow.removeChild = <T extends Node>(child: T): T => {
+			foreign.append(child);
+			throw boom;
+		};
+		expect(() => strategy.detach()).toThrow(boom);
+		expect(() => strategy.render(jsx("p", { children: "lost" }))).toThrow(
+			/before attach/,
+		);
+		expect(foreign.textContent).not.toContain("lost");
+		strategy.attach(shadow);
+		strategy.render(jsx("p", { children: "two" }));
+		expect(root()?.textContent).toBe("two");
+		expect(foreign.textContent).not.toContain("two");
+	});
+});
