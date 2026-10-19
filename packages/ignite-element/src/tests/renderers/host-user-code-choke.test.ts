@@ -130,4 +130,14 @@ describe("hosts.ts user-code touchpoints", () => {
 			/try \{[\s\S]*console\.error[\s\S]*\} catch[\s\S]*hostLive\(\)/,
 		);
 	});
+	it("retires a rejected mount before the user-controlled report", () => {
+		// Off a commit hostLive() is inactive: a reporter that renders a newer
+		// slice must find the failed record already gone.
+		const start = src.indexOf("const rejected = (error: unknown) => {");
+		const body = src.slice(start, src.indexOf("\n\t};\n", start));
+		const drop = body.indexOf("dropRecord(element, record)");
+		const report = body.indexOf("reportHostError(");
+		expect(drop).toBeGreaterThan(-1);
+		expect(drop).toBeLessThan(report);
+	});
 });
