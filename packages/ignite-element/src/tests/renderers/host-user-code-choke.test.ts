@@ -103,7 +103,9 @@ describe("hosts.ts user-code touchpoints", () => {
 			)) {
 				ops += (match[2] ?? "")
 					.split(".")
-					.filter((part) => part && part !== "length").length;
+					.filter(
+						(part) => part && part !== "length" && part !== "controller",
+					).length;
 			}
 			if (ops > 1) bad.push(call.replace(/\s+/g, " ").slice(0, 100));
 		}

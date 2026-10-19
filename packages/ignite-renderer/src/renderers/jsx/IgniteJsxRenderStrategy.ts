@@ -228,8 +228,16 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 		const rootNode = this.contentRoot?.getRootNode();
 		if (rootNode instanceof ShadowRoot) forgetQueuedStyles(rootNode);
 		if (this.contentRoot) {
+			// A cleanup that renders must wait: the unmount below already took its
+			// snapshot, so a render now would create nodes nothing releases.
+			const was = this.writing;
+			this.writing = true;
 			setOwner(this.contentRoot, { r: true });
-			unmountIgniteSubtree(this.contentRoot);
+			try {
+				unmountIgniteSubtree(this.contentRoot);
+			} finally {
+				this.writing = was;
+			}
 			this.contentRoot.parentNode?.removeChild(this.contentRoot);
 		}
 		this.contentRoot = null;

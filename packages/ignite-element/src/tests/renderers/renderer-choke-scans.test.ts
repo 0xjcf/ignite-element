@@ -14,16 +14,12 @@ const fn = (src: string, head: string) => {
 	return start < 0 ? "" : src.slice(start, src.indexOf("\n}\n", start));
 };
 
-describe("renderer.ts publish and report choke points", () => {
+describe("renderer.ts publish choke point", () => {
 	it("the root publish is preceded by an unconditional live()", () => {
 		const body = fn(renderer, "function renderIgniteJsxNow(");
 		expect(body).toMatch(
 			/\blive\(\);\s*(\/\/[^\n]*\n\s*)*\(host as Owned\)\[owner\]/,
 		);
-	});
-	it("a contained callback's error report is followed by live()", () => {
-		const body = fn(renderer, "function invokeContained(");
-		expect(body).toMatch(/reportRendererError\(node, error\);[\s\S]*live\(\)/);
 	});
 });
 

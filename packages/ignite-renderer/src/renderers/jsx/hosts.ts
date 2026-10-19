@@ -36,6 +36,8 @@ type HostRecord = {
 	delivering: boolean;
 	redeliver: boolean;
 	stopMotion: () => void;
+	// Bumped when a newer slice is accepted into a retained record.
+	gen: number;
 };
 
 const hostRecords = new WeakMap<Element, HostRecord>();
@@ -147,14 +149,22 @@ function thenIsFunction(value: unknown): boolean {
 // call (every step before it ended with the same check), in a commit (hostLive) and outside one (the record). Outside a
 // commit a stale call throws `halt`, which the entry points swallow.
 const halt = {};
-function touch<T>(
-	element: Element,
-	record: HostRecord | undefined,
-	run: () => T,
-): T {
-	const result = run();
+// What a piece of host work was started for: the record, and optionally the
+// delivery generation. A newer slice accepted into a retained record bumps the
+// generation, so identity alone does not make old work current.
+type Stamp = { record: HostRecord; gen?: number };
+function touch<T>(element: Element, stamp: Stamp | undefined, run: () => T): T {
+	let result: T;
+	try {
+		result = run();
+	} catch (error) {
+		// A call that superseded and then threw is stale work, not an error.
+		hostLive();
+		if (stamp && superseded(element, stamp)) throw halt;
+		throw error;
+	}
 	hostLive();
-	if (record && superseded(element, record)) throw halt;
+	if (stamp && superseded(element, stamp)) throw halt;
 	return result;
 }
 
@@ -176,7 +186,8 @@ function guard(run: () => void): void {
 }
 
 function reportHostError(message: string, error: unknown): void {
-	console.error(message, error); // reported: known gap, a console.error override is not rechecked (round 19)
+	console.error(message, error); // reported: rechecked on the next line
+	hostLive();
 }
 
 function slicesEqual(
@@ -292,98 +303,91 @@ function retireHost(element: Element): void {
 function descriptionIdTaken(
 	element: Element,
 	id: string,
-	record?: HostRecord,
+	stamp?: Stamp,
 ): boolean {
-	const root = touch(element, record, () => element.getRootNode());
+	const root = touch(element, stamp, () => element.getRootNode());
 	if (root instanceof Document || root instanceof ShadowRoot) {
-		return touch(element, record, () => root.getElementById(id)) !== null;
+		return touch(element, stamp, () => root.getElementById(id)) !== null;
 	}
-	return (
-		touch(element, record, () => element.ownerDocument.getElementById(id)) !==
-		null
-	);
+	const doc = touch(element, stamp, () => element.ownerDocument);
+	return touch(element, stamp, () => doc.getElementById(id)) !== null;
 }
 
 function forgetDescriptionId(
 	element: Element,
 	id: string,
-	record?: HostRecord,
+	stamp?: Stamp,
 ): void {
 	descriptionIds.delete(element);
-	editDescribedBy(element, id, record);
+	editDescribedBy(element, id, stamp);
 }
 
 // Drops one id from aria-describedby. The read is user code: a newer view it
 // renders owns the attribute, so nothing is edited after it.
-function editDescribedBy(
-	element: Element,
-	id: string,
-	record?: HostRecord,
-): void {
-	const current = touch(element, record, () =>
+function editDescribedBy(element: Element, id: string, stamp?: Stamp): void {
+	const current = touch(element, stamp, () =>
 		element.getAttribute("aria-describedby"),
 	);
 	if (!current) return;
 	const next = current.split(/\s+/).filter((token) => token && token !== id);
 	if (next.length === 0) {
-		touch(element, record, () => element.removeAttribute("aria-describedby"));
+		touch(element, stamp, () => element.removeAttribute("aria-describedby"));
 	} else {
-		touch(element, record, () =>
+		touch(element, stamp, () =>
 			element.setAttribute("aria-describedby", next.join(" ")),
 		);
 	}
 }
 
-function descriptionId(element: Element, record?: HostRecord): string {
+function descriptionId(element: Element, stamp?: Stamp): string {
 	const existing = descriptionIds.get(element);
 	if (existing) {
-		const node = descriptionNode(element, record);
+		const node = descriptionNode(element, stamp);
 		if (
 			node?.id === existing ||
-			!descriptionIdTaken(element, existing, record)
+			!descriptionIdTaken(element, existing, stamp)
 		) {
 			return existing;
 		}
-		forgetDescriptionId(element, existing, record);
+		forgetDescriptionId(element, existing, stamp);
 	}
 	let id = "";
 	do {
 		descriptionSerial += 1;
 		id = `ignite-host-desc-${descriptionSerial}`;
-	} while (descriptionIdTaken(element, id, record));
+	} while (descriptionIdTaken(element, id, stamp));
 	descriptionIds.set(element, id);
 	return id;
 }
 
-function descriptionNode(
-	element: Element,
-	record?: HostRecord,
-): HTMLElement | null {
-	return touch(element, record, () => {
-		for (const child of element.children) {
-			if (
-				child instanceof HTMLElement &&
-				child.hasAttribute(DESCRIPTION_ATTR)
-			) {
-				return child;
-			}
+function descriptionNode(element: Element, stamp?: Stamp): HTMLElement | null {
+	const kids = touch(element, stamp, () => Array.from(element.children));
+	for (const child of kids) {
+		if (
+			child instanceof HTMLElement &&
+			touch(element, stamp, () => child.hasAttribute(DESCRIPTION_ATTR))
+		) {
+			return child;
 		}
-		return null;
-	});
+	}
+	return null;
 }
 
-function clearDescription(element: Element, record?: HostRecord): void {
+function clearDescription(element: Element, stamp?: Stamp): void {
 	const id = descriptionIds.get(element);
-	const node = descriptionNode(element, record);
-	if (node) touch(element, record, () => node.remove());
+	const node = descriptionNode(element, stamp);
+	if (node) touch(element, stamp, () => node.remove());
 	if (!id) return;
-	editDescribedBy(element, id, record);
+	editDescribedBy(element, id, stamp);
 }
 
 // An async settle runs outside any commit, so currency is the record itself.
-function superseded(element: Element, record: HostRecord): boolean {
+function superseded(element: Element, stamp: Stamp): boolean {
 	// Retiring or dropping a record deletes it, so it is also aborted.
-	return hostRecords.get(element) !== record;
+	return (
+		hostRecords.get(element) !== stamp.record ||
+		(stamp.gen !== undefined && stamp.record.gen !== stamp.gen)
+	);
 }
 
 function applyDescription(
@@ -392,8 +396,11 @@ function applyDescription(
 	slice: unknown,
 	record?: HostRecord,
 ): void {
+	// The generation is taken before describe runs: a describe that renders a
+	// newer slice into this retained record makes everything below stale.
+	const stamp = record && { record, gen: record.gen };
 	if (!definition.describe) {
-		clearDescription(element, record);
+		clearDescription(element, stamp);
 		return;
 	}
 	let text: unknown;
@@ -405,37 +412,41 @@ function applyDescription(
 		failed = true;
 	}
 	// No DOM write and no further callback follows a superseded describe.
-	touch(element, record, () => undefined);
+	touch(element, stamp, () => undefined);
 	if (failed) {
-		clearDescription(element, record);
+		clearDescription(element, stamp);
 		return;
 	}
 	if (typeof text !== "string") return;
-	const id = descriptionId(element, record);
-	let node = descriptionNode(element, record);
+	const id = descriptionId(element, stamp);
+	let node = descriptionNode(element, stamp);
 	if (!node) {
-		const fresh = touch(element, record, () =>
-			element.ownerDocument.createElement("span"),
-		);
-		touch(element, record, () => {
+		const doc = touch(element, stamp, () => element.ownerDocument);
+		const fresh = touch(element, stamp, () => doc.createElement("span"));
+		touch(element, stamp, () => {
 			fresh.id = id;
-			fresh.setAttribute(DESCRIPTION_ATTR, "");
-			fresh.style.cssText = VISUALLY_HIDDEN;
-			element.append(fresh);
 		});
+		touch(element, stamp, () => fresh.setAttribute(DESCRIPTION_ATTR, ""));
+		const style = touch(element, stamp, () => fresh.style);
+		touch(element, stamp, () => {
+			style.cssText = VISUALLY_HIDDEN;
+		});
+		touch(element, stamp, () => element.append(fresh));
 		node = fresh;
 	}
 	const target = node;
-	touch(element, record, () => {
-		if (target.textContent !== text) target.textContent = text;
-	});
-	const described = touch(element, record, () =>
+	if (touch(element, stamp, () => target.textContent) !== text) {
+		touch(element, stamp, () => {
+			target.textContent = text;
+		});
+	}
+	const described = touch(element, stamp, () =>
 		element.getAttribute("aria-describedby"),
 	);
 	const tokens = (described ?? "").split(/\s+/).filter(Boolean);
 	if (!tokens.includes(id)) {
 		tokens.push(id);
-		touch(element, record, () =>
+		touch(element, stamp, () =>
 			element.setAttribute("aria-describedby", tokens.join(" ")),
 		);
 	}
@@ -491,7 +502,7 @@ function acceptHandle(
 	}
 	deliver(record, false);
 	hostLive();
-	if (superseded(element, record)) return;
+	if (superseded(element, { record })) return;
 	afterDeliver();
 }
 
@@ -552,6 +563,7 @@ function startHost(
 		delivering: false,
 		redeliver: false,
 		stopMotion: () => undefined,
+		gen: 0,
 	};
 	record.stopMotion = watchReducedMotion(() => {
 		if (controller.signal.aborted) return;
@@ -599,13 +611,14 @@ function startHost(
 	};
 	// A mount that superseded this commit is settled like any async mount:
 	// a late handle is disposed and a late rejection is reported.
+	const own = { record };
 	let thenable = false;
 	try {
 		if (failed) hostLive();
 		else {
 			thenable =
-				touch(element, record, () => hasThen(result)) &&
-				touch(element, record, () => thenIsFunction(result));
+				touch(element, own, () => hasThen(result)) &&
+				touch(element, own, () => thenIsFunction(result));
 		}
 	} catch (error) {
 		// A superseded mount is still settled, so the late handle is disposed.
@@ -614,7 +627,7 @@ function startHost(
 	}
 	if (failed) return;
 	if (thenable) {
-		touch(element, record, () =>
+		touch(element, own, () =>
 			Promise.resolve(result).then(fulfilled, rejected),
 		);
 		return;
@@ -691,6 +704,7 @@ export function syncHostElement(element: Element, useName: unknown): void {
 		return;
 	}
 	existing.slice = slice;
+	existing.gen += 1;
 	existing.hasSlice = true;
 	deliver(existing, false);
 	hostLive();

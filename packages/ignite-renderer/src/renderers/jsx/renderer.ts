@@ -132,6 +132,9 @@ function renderIgniteJsxNow(
 		) {
 			replaceAll(host, next);
 		}
+		// The last read before this (a focus lookup, a node-type read) may have
+		// been user code that rendered a newer view: nothing publishes over it.
+		live();
 		// act() unwound any render a detach or newer commit revoked: this publishes.
 		(host as Owned)[owner] = commitQueue as unknown as Token;
 		options.onTreePublished?.(next);

@@ -74,12 +74,13 @@ const EVENT_ORIGIN_WARNING = "observed from both native and effect";
 // Then 6,170 B (Jose approved): the round-14 fixes read 6,163 B on the rebuilt dist.
 // Then 6,180 B (Jose approved up to 6,210): the round-15 fixes read 6,175 B on the rebuilt dist.
 // Then 6,200 B (Jose approved up to 6,220): the round-18 ref-queue guard reads 6,189 B on the rebuilt dist.
+// Then 6,210 B (Jose approved up to 6,220): the round-20 publish guard and detach hold read 6,204 B on the rebuilt dist.
 // Dropped checked, value, and selected stay.
 // Native defaultValue, defaultChecked, and defaultSelected stay on drop.
 // Explicit false for the last two is a set. Own custom setters get undefined
 // and stay case-sensitive. There is no cached built-in element and no
 // fresh-element default reset.
-const TODAY_CONSUMER_GZIP = 6200;
+const TODAY_CONSUMER_GZIP = 6210;
 
 function consumerEntry() {
 	return `import { jsx, mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";
