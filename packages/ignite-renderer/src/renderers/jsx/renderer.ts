@@ -1654,6 +1654,8 @@ function assignControlled(
 	// Composition keeps text until the next render after compositionend.
 	if (key === "value" && composing.get(element) === true) {
 		if (element.isConnected && element.matches(":focus")) return;
+		// Both reads are user code: a newer render they made owns this state.
+		live();
 		composing.set(element, false);
 	}
 	// A select setter clears extra selections even when its getter matches.

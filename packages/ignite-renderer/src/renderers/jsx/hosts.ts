@@ -581,12 +581,13 @@ function startHost(
 	try {
 		result = definition.mount(element, ctx); // callback: contained, rechecked below
 	} catch (error) {
-		reportHostError("[ignite-jsx] Host mount failed.", error);
 		failed = true;
+		// Retire before the report (user code) so a render it makes mounts afresh.
 		if (hostRecords.get(element) === record) {
 			dropRecord(element, record);
 			releaseHostSubtree(element);
 		}
+		reportHostError("[ignite-jsx] Host mount failed.", error);
 	}
 	// A send made by mount is delivered before the first update, however the
 	// mount settles. Once the flush has run there is nothing left to wait for.
@@ -603,15 +604,15 @@ function startHost(
 		);
 	};
 	const rejected = (error: unknown) => {
-		reportHostError("[ignite-jsx] Host mount failed.", error);
-		if (
-			record.controller.signal.aborted ||
-			hostRecords.get(element) !== record
-		) {
-			return;
+		// Retire first: the report is user code, and off a commit nothing stops
+		// a render it makes from adopting this failed record as current.
+		// An aborted record has already left hostRecords (both retire paths
+		// delete before they abort), so identity alone decides.
+		if (hostRecords.get(element) === record) {
+			dropRecord(element, record);
+			releaseHostSubtree(element);
 		}
-		dropRecord(element, record);
-		releaseHostSubtree(element);
+		reportHostError("[ignite-jsx] Host mount failed.", error);
 	};
 	// A mount that superseded this commit is settled like any async mount:
 	// a late handle is disposed and a late rejection is reported.

@@ -130,14 +130,29 @@ describe("hosts.ts user-code touchpoints", () => {
 			/try \{[\s\S]*console\.error[\s\S]*\} catch[\s\S]*hostLive\(\)/,
 		);
 	});
-	it("retires a rejected mount before the user-controlled report", () => {
-		// Off a commit hostLive() is inactive: a reporter that renders a newer
-		// slice must find the failed record already gone.
-		const start = src.indexOf("const rejected = (error: unknown) => {");
-		const body = src.slice(start, src.indexOf("\n\t};\n", start));
-		const drop = body.indexOf("dropRecord(element, record)");
-		const report = body.indexOf("reportHostError(");
-		expect(drop).toBeGreaterThan(-1);
-		expect(drop).toBeLessThan(report);
+	it("retires a failed mount before the user-controlled report", () => {
+		// The report is user code: a render it makes must find the failed
+		// record already gone, in the sync catch and the async rejection alike.
+		const start = src.indexOf("function startHost(");
+		const body = src.slice(start, src.indexOf("\n}\n", start));
+		const marker = 'reportHostError("[ignite-jsx] Host mount failed."';
+		const sites: string[] = [];
+		for (
+			let at = body.indexOf(marker);
+			at >= 0;
+			at = body.indexOf(marker, at + 1)
+		) {
+			const before = body.slice(0, at);
+			const open = Math.max(
+				before.lastIndexOf("catch (error) {"),
+				before.lastIndexOf("(error: unknown) => {"),
+			);
+			sites.push(before.slice(open));
+		}
+		expect(sites).toHaveLength(2);
+		for (const site of sites)
+			expect(site).toMatch(
+				/dropRecord\(element, record\);\s*releaseHostSubtree\(element\);\s*\}\s*$/,
+			);
 	});
 });

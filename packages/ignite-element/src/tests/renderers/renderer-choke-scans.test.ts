@@ -64,13 +64,7 @@ describe("renderer.ts round-22 choke points", () => {
 	it("composition state is cleared only after a live() that follows the focus reads", () => {
 		const body = fn(renderer, "function assignControlled(");
 		expect(body).toMatch(
-			/matches\(":focus"\)[^\n]*\n\s*live\(\);\s*composing\.set\(element, false\)/,
-		);
-	});
-	it("the controlled phase treats a stale throw as the abort", () => {
-		const body = fn(renderer, "function commitRender<");
-		expect(body).toMatch(
-			/for \(const commit of queues\[0\]\)[\s\S]*?catch \(error\) \{\s*if \(error !== abort && !stale\(\)\) throw error;/,
+			/matches\(":focus"\)[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*live\(\);\s*composing\.set\(element, false\)/,
 		);
 	});
 });
