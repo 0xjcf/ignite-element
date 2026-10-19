@@ -244,16 +244,18 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 			const was = this.writing;
 			this.writing = true;
 			setOwner(root, detaching);
+			const parent = root.parentNode;
 			try {
 				unmountIgniteSubtree(root);
-				root.parentNode?.removeChild(root);
+				parent?.removeChild(root);
 				this.contentRoot = null;
 			} finally {
 				this.writing = was;
 				// A teardown that threw keeps its root renderable: the next render
-				// mounts the released view afresh. A root it already took out of
-				// the tree is dropped instead, so attach creates a fresh one.
-				if (!root.parentNode) this.contentRoot = null;
+				// mounts the released view afresh. A root no longer in
+				// its parent (removed or moved elsewhere) is dropped instead, so
+				// attach creates a fresh one.
+				if (root.parentNode !== parent) this.contentRoot = null;
 				else setOwner(root, {});
 			}
 		}
