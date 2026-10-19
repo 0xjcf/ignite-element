@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import "../../../../ignite-renderer/src/renderers/jsx/hosts";
 import { jsx } from "../../../../ignite-renderer/src/renderers/jsx/jsx-runtime";
-import { renderIgniteJsx } from "../../../../ignite-renderer/src/renderers/jsx/renderer";
+import {
+	renderIgniteJsx,
+	unmountIgniteSubtree,
+} from "../../../../ignite-renderer/src/renderers/jsx/renderer";
 
 // Round 21 (PR #168).
 //  E  an operation (logger, DOM call, getter) that supersedes and then THROWS
@@ -137,6 +140,62 @@ describe("R21 exceptions after supersession", () => {
 		expect(() =>
 			renderIgniteJsx(root, view(1), tree1, undefined),
 		).not.toThrow();
+	});
+});
+
+describe("R21 reporters outside a commit", () => {
+	it("a throwing console.error does not escape a reported ref cleanup failure", () => {
+		const root = base();
+		renderIgniteJsx(
+			root,
+			jsx("span", {
+				ref: () => () => {
+					throw new Error("cleanup failed");
+				},
+			}),
+			undefined,
+			undefined,
+		);
+		const error = vi.spyOn(console, "error").mockImplementation(() => {
+			throw new Error("logger failed");
+		});
+		try {
+			expect(() => unmountIgniteSubtree(root)).not.toThrow();
+		} finally {
+			error.mockRestore();
+		}
+	});
+	it("a throwing console.error does not escape a reported host dispose failure", () => {
+		const root = base();
+		const hosts = {
+			snapshot: 1,
+			send: () => undefined,
+			reducedMotion: () => false,
+			hosts: {
+				scene: {
+					select: (n: unknown) => n,
+					mount: () => ({}),
+					update: () => undefined,
+					dispose: () => {
+						throw new Error("dispose failed");
+					},
+				} as never,
+			},
+		};
+		renderIgniteJsx(
+			root,
+			jsx("div", { children: jsx("canvas", { use: "scene" }) }),
+			undefined,
+			{ hosts: hosts as never },
+		);
+		const error = vi.spyOn(console, "error").mockImplementation(() => {
+			throw new Error("logger failed");
+		});
+		try {
+			expect(() => unmountIgniteSubtree(root)).not.toThrow();
+		} finally {
+			error.mockRestore();
+		}
 	});
 });
 
