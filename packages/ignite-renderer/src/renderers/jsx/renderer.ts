@@ -581,23 +581,32 @@ function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
 	);
 }
 
+// A logger or error handler is user code: nothing it throws escapes the
+// reporter (the callers of invokeContained have no abort catch to receive it).
 function reportRendererError(node: Node, error: unknown): void {
-	const root = node.getRootNode();
-	const host = root instanceof ShadowRoot ? root.host : null;
-	const candidate = host as {
-		handleError?: (error: unknown) => void;
-		onError?: (error: unknown) => void;
-	} | null;
-	const handler = candidate?.handleError ?? candidate?.onError;
-	if (typeof handler === "function") {
+	const log = (message: string, reason: unknown) => {
 		try {
+			console.error(message, reason);
+		} catch {
+			// Nothing to report a failing logger to.
+		}
+	};
+	try {
+		const root = node.getRootNode();
+		const host = root instanceof ShadowRoot ? root.host : null;
+		const candidate = host as {
+			handleError?: (error: unknown) => void;
+			onError?: (error: unknown) => void;
+		} | null;
+		const handler = candidate?.handleError ?? candidate?.onError;
+		if (typeof handler === "function") {
 			handler.call(host, error);
 			return;
-		} catch (handlerError) {
-			console.error("[ignite-jsx] Error handler failed.", handlerError);
 		}
+	} catch (handlerError) {
+		log("[ignite-jsx] Error handler failed.", handlerError);
 	}
-	console.error("[ignite-jsx] Callback failed.", error);
+	log("[ignite-jsx] Callback failed.", error);
 }
 
 function observeRejection(node: Node, result: unknown): void {
@@ -1508,15 +1517,14 @@ const composing = new WeakMap<Node, boolean>();
 function watchComposition(element: HTMLElement): void {
 	if (composing.has(element)) return;
 	composing.set(element, false);
-	// native: input and textarea only, never user code.
-	element.addEventListener("compositionstart", () => {
-		// native:
-		composing.set(element, true);
-	});
 	const end = () => composing.set(element, false);
-	element.addEventListener("compositionend", end); // native:
-	element.addEventListener("blur", end); // native:
-	element.addEventListener("focus", end); // native:
+	// Registration is a DOM call like any other: it can be overridden.
+	act(element, "addEventListener", "compositionstart", () =>
+		composing.set(element, true),
+	);
+	for (const type of ["compositionend", "blur", "focus"]) {
+		act(element, "addEventListener", type, end);
+	}
 }
 
 function queueControlled(
@@ -1550,12 +1558,15 @@ export const setOwner = (host: object, token: object) => {
 // code inside the write, so nothing after the last write may act on a stale commit.
 function act<T = void>(target: object, method: string, ...args: unknown[]): T {
 	live();
-	// The lookup is user code too: an accessor can supersede before the call.
-	const call = (target as Record<string, (...a: unknown[]) => T>)[method];
-	live();
-	const result = call.apply(target, args);
-	live();
-	return result;
+	try {
+		// The lookup is user code too: an accessor can supersede before the call.
+		const call = (target as Record<string, (...a: unknown[]) => T>)[method];
+		live();
+		return call.apply(target, args);
+	} finally {
+		// Also when the call threw: a call that superseded and then threw is stale.
+		live();
+	}
 }
 
 // Keys the renderer committed a value for. true: it wrote the attribute
@@ -1580,10 +1591,14 @@ function claim(root: Node): void {
 	frame.e = frame;
 }
 
-function live(): void {
+function stale(): boolean {
 	const { h, e, m } = commitQueue as unknown as Frame;
 	// During the controlled phase there is no host any more: m is the check.
-	if (h ? (h as Owned)[owner] !== e : m && !m()) throw abort;
+	return h ? (h as Owned)[owner] !== e : !!m && !m();
+}
+
+function live(): void {
+	if (stale()) throw abort;
 }
 
 // Commits this renderer instance made. A token from another instance cannot
@@ -1602,7 +1617,8 @@ function commitRender<T>(render: () => T, host?: object): T {
 			result = render();
 		} catch (error) {
 			// live() unwinds a superseded render here, whole, and it publishes nothing.
-			if (error !== abort) throw error;
+			// A raw read that superseded and then threw is stale too, not a failure.
+			if (error !== abort && !stale()) throw error;
 		}
 		// A superseded detached root is still the value of its own call.
 		const frame = queues as unknown as Frame;

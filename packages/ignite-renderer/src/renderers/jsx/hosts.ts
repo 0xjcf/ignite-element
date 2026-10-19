@@ -186,7 +186,11 @@ function guard(run: () => void): void {
 }
 
 function reportHostError(message: string, error: unknown): void {
-	console.error(message, error); // reported: rechecked on the next line
+	try {
+		console.error(message, error); // reported: rechecked below
+	} catch {
+		// A logger that throws is not the host's failure; the check still runs.
+	}
 	hostLive();
 }
 

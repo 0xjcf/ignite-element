@@ -17,9 +17,8 @@ describe("composition suppression docs", () => {
 		"utf8",
 	);
 	it("lists compositionend, blur, focus and disconnect", () => {
-		const ending = [...code.matchAll(/addEventListener\("(\w+)", end\)/g)].map(
-			(m) => m[1],
-		);
+		const list = /for \(const type of \[([^\]]+)\]\)/.exec(code)?.[1] ?? "";
+		const ending = [...list.matchAll(/"(\w+)"/g)].map((m) => m[1]);
 		expect(ending.sort()).toEqual(["blur", "compositionend", "focus"]);
 		for (const event of ending) expect(doc).toContain(`\`${event}\``);
 		expect(doc).toContain("disconnecting the element");
