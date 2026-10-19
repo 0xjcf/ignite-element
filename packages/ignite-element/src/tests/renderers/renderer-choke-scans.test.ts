@@ -33,3 +33,27 @@ describe("IgniteJsxRenderStrategy detach", () => {
 		expect(body).toMatch(/finally/);
 	});
 });
+
+describe("renderer.ts round-21 choke points", () => {
+	it("has no `native:` bypass left for a DOM call", () => {
+		expect(renderer.match(/native:/g)).toBeNull();
+	});
+	it("act() rechecks in a finally, so a throw after a supersession is the abort", () => {
+		const body = fn(renderer, "function act<");
+		expect(body).toMatch(/try \{[\s\S]*\} finally \{\s*live\(\);/);
+	});
+	it("commitRender rechecks before it rethrows a render error", () => {
+		const body = fn(renderer, "function commitRender<");
+		expect(body).toMatch(
+			/catch \(error\) \{[\s\S]*?live\(\);[\s\S]*?throw error/,
+		);
+	});
+	it("reporters contain every logger and handler failure", () => {
+		const body = fn(renderer, "function reportRendererError(");
+		expect(body).not.toMatch(/\bconsole\.error\(/);
+		expect(renderer.match(/\bconsole\.error\(/g)?.length).toBe(1);
+		const log = fn(renderer, "function logError(");
+		expect(log).toMatch(/try \{[\s\S]*console\.error[\s\S]*\} catch/);
+		expect(body).toMatch(/try \{[\s\S]*getRootNode[\s\S]*\} catch/);
+	});
+});

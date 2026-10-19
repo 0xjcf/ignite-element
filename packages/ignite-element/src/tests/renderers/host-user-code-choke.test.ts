@@ -123,9 +123,11 @@ describe("hosts.ts user-code touchpoints", () => {
 		const from = src.indexOf("function superseded(");
 		expect(src.slice(from, src.indexOf("\n}\n", from))).toMatch(/gen/);
 	});
-	it("rechecks after a host error report", () => {
+	it("rechecks after a host error report, even when the logger throws", () => {
 		const start = src.indexOf("function reportHostError(");
 		const body = src.slice(start, src.indexOf("\n}\n", start));
-		expect(body).toMatch(/console\.error[^\n]*\n\s*hostLive\(\)/);
+		expect(body).toMatch(
+			/try \{[\s\S]*console\.error[\s\S]*\} catch[\s\S]*hostLive\(\)/,
+		);
 	});
 });
