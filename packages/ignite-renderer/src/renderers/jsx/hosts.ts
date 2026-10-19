@@ -610,7 +610,8 @@ function startHost(
 		// delete before they abort), so identity alone decides.
 		if (hostRecords.get(element) === record) {
 			dropRecord(element, record);
-			releaseHostSubtree(element);
+			// An abort listener may have remounted the host: keep its claim.
+			if (!hostRecords.has(element)) releaseHostSubtree(element);
 		}
 		reportHostError("[ignite-jsx] Host mount failed.", error);
 	};

@@ -4,6 +4,7 @@ import type { RenderStrategy } from "../RenderStrategy";
 import { readBoundHostRuntime, withIgniteHostRuntime } from "./hostBridge";
 import { isNoDiffDenylistedTag } from "./noDiffDenylist";
 import {
+	detaching,
 	mountIgniteJsx,
 	type NormalizedNode,
 	renderIgniteJsx,
@@ -232,7 +233,7 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 			// snapshot, so a render now would create nodes nothing releases.
 			const was = this.writing;
 			this.writing = true;
-			setOwner(this.contentRoot, { r: true });
+			setOwner(this.contentRoot, detaching);
 			try {
 				unmountIgniteSubtree(this.contentRoot);
 			} finally {

@@ -114,6 +114,9 @@ function renderIgniteJsxNow(
 	options: RenderOptions,
 ): NormalizedNode[] {
 	const epoch = (host as Owned)[owner];
+	// A root being detached takes no new commit: the detach pass could not
+	// release what it acquired.
+	if (epoch === detaching) return [];
 	return commitRender(() => {
 		const frame = commitQueue as unknown as Frame;
 		frame.h = host;
@@ -1547,6 +1550,8 @@ const abort = {};
 type Token = { r?: boolean };
 type Frame = Token & { h?: object; e?: Token; m?: () => boolean };
 type Owned = { [owner]?: Token };
+/** The owner of a root that detach() is tearing down. */
+export const detaching = {};
 export const setOwner = (host: object, token: object) => {
 	(host as Owned)[owner] = token;
 };
