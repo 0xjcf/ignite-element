@@ -296,6 +296,47 @@ Lessons that apply to steps 1-2:
   ask for ordering, lifetime, and scope invariants. Do not trust the judge's
   `holds_without_exceptions` score for code-behavior rules.
 
+### Re-entrancy threat model (JSX renderer and hosts)
+
+This bounds the re-entrancy guidance above and is binding for authors and
+reviewers, including automated review.
+
+Supported re-entrancy. A render (or `ctx.send()`) started synchronously from
+these must leave the newest requested view committed, with no write from the
+superseded commit:
+
+- a ref callback that calls `render()` (or mounts or detaches);
+- a host `select`, `mount` or `update` callback that renders or sends;
+- a custom-element property setter (an own or subclass setter for a
+  non-built-in prop) that renders.
+
+Unsupported, out of scope:
+
+- overrides or Proxies of built-in `Node`, `Element` or `EventTarget` members
+  on renderer-managed nodes: getters such as `isConnected`, `childNodes`,
+  `firstChild`, `children`, `localName`, `ownerDocument`; methods such as
+  `matches`, `getRootNode`, `contains`, `getAttribute`, `setAttribute`,
+  `append`, `addEventListener`;
+- Proxy or custom thenables returned from a host `mount`;
+- a re-entrant console: a `console.*` override that renders;
+- `ctx.signal` abort listeners that render or remount;
+- multiple bundled renderer copies driving the same root.
+
+Guaranteed behaviour in the unsupported class: no crash and no unhandled
+error from the renderer, and the next render corrects the DOM and host state.
+A stale intermediate write, a skipped or repeated host callback, or a
+transient extra mount is not a bug in this class.
+
+Reviewers: do not file findings in the unsupported class, including new
+"fresh evidence" variants such as another overridden getter or a different
+ordering of the same calls. File a finding only when a supported case breaks,
+or when an unsupported case crashes, throws an unhandled error, or fails to
+converge on the next render.
+
+PR #168's re-entrancy hardening is frozen at this boundary. Structural
+follow-ups (a post-commit reporter queue and run-to-completion renders) land
+as separate PRs.
+
 ## Content-addressed validation reuse
 
 A reusable validation receipt should identify all inputs relevant to the result:
