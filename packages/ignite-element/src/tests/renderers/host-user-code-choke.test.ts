@@ -152,7 +152,7 @@ describe("hosts.ts user-code touchpoints", () => {
 		expect(sites).toHaveLength(2);
 		for (const site of sites)
 			expect(site).toMatch(
-				/dropRecord\(element, record\);\s*releaseHostSubtree\(element\);\s*\}\s*$/,
+				/dropRecord\(element, record\);\s*(?:\/\/[^\n]*\s*)?(?:if \(!hostRecords\.has\(element\)\) )?releaseHostSubtree\(element\);\s*\}\s*$/,
 			);
 	});
 });
