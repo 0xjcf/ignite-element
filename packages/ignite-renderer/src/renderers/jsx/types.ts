@@ -53,13 +53,52 @@ type HostNameHandle = {
 	readonly __igniteHost: (map: never) => string;
 };
 
-type IgniteTagProps<T extends Element> = {
-	ref?: IgniteRefCallback<T>;
-	/** Host-name string from the owning core's `hosts` handle. */
-	use?: HostNameHandle;
-	children?: IgniteJsxChild;
-	[attribute: string]: unknown;
+/** JSX cannot set these. They replace or detach children outside the diff. */
+type UnsupportedContentProps = {
+	innerHTML?: never;
+	outerHTML?: never;
+	innerText?: never;
+	outerText?: never;
+	textContent?: never;
 };
+
+type ForbidKeys<Keys extends string> = {
+	[Key in Keys]?: never;
+};
+
+// JSX checks IntrinsicElements, not the jsx() parameter. Each pair is a union
+// so a tag can use one spelling and not both.
+type OneSpelling<Props, Left extends string, Right extends string> =
+	| (Props & ForbidKeys<Left>)
+	| (Props & ForbidKeys<Right>);
+
+type DuplicateSpellingProps<Props> = OneSpelling<
+	OneSpelling<
+		OneSpelling<
+			OneSpelling<
+				OneSpelling<Props, "acceptCharset", "accept-charset">,
+				"htmlFor",
+				"for"
+			>,
+			"onClick",
+			"onclick"
+		>,
+		"ariaLabel",
+		"aria-label"
+	>,
+	"className",
+	"class"
+>;
+
+type IgniteTagProps<T extends Element> = DuplicateSpellingProps<
+	UnsupportedContentProps & {
+		ref?: IgniteRefCallback<T>;
+		/** Host-name string from the owning core's `hosts` handle. */
+		use?: HostNameHandle;
+		children?: IgniteJsxChild;
+		[attribute: string]: unknown;
+	}
+>;
 
 type IgniteKnownTags = {
 	[Tag in keyof HTMLElementTagNameMap]: IgniteTagProps<

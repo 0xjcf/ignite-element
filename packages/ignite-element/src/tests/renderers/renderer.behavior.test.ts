@@ -195,7 +195,7 @@ describe("renderer core behavior", () => {
 		expect(div.getAttribute("style")).toBe("");
 
 		tree = renderIgniteJsx(host, jsx("div", {}), tree);
-		expect(div.getAttribute("style")).toBe("");
+		expect(div.getAttribute("style")).toBeNull();
 	});
 
 	it("updates event listeners and removes stale props/attributes", () => {
@@ -231,9 +231,12 @@ describe("renderer core behavior", () => {
 
 		const inputTree = mountIgniteJsx(host, jsx("input", { value: "x" }));
 		const input = host.querySelector("input") as HTMLInputElement;
-		(input as HTMLInputElement & { isComposing?: boolean }).isComposing = true;
+		document.body.append(host);
+		input.focus();
+		input.dispatchEvent(new Event("compositionstart"));
 		renderIgniteJsx(host, jsx("input", { value: "y" }), inputTree);
 		expect(input.value).toBe("x");
+		host.remove();
 	});
 
 	it("handles denylisted tags and tag mismatches with fallback replace", () => {

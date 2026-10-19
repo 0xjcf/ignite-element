@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { jsx } from "../../renderers/jsx/jsx-runtime";
-import { mountIgniteJsx, renderIgniteJsx } from "../../renderers/jsx/renderer";
+import {
+	mountIgniteJsx,
+	renderIgniteJsx,
+	unmountIgniteSubtree,
+} from "../../renderers/jsx/renderer";
+import { unsupportedJsxProps } from "./unsupported-jsx-props";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
@@ -15,16 +20,47 @@ function mount(view: ReturnType<typeof jsx>) {
 	return { host, tree };
 }
 
+function withSetter(
+	prototype: object,
+	key: string,
+	run: (assigned: unknown[]) => void,
+) {
+	const descriptor = Object.getOwnPropertyDescriptor(prototype, key);
+	const set = descriptor?.set;
+	const get = descriptor?.get;
+	if (!descriptor || !set || !get) {
+		throw new Error(`missing setter ${key}`);
+	}
+	const assigned: unknown[] = [];
+	Object.defineProperty(prototype, key, {
+		configurable: true,
+		enumerable: descriptor.enumerable,
+		get,
+		set(value: unknown) {
+			assigned.push(value);
+			set.call(this, value);
+		},
+	});
+	try {
+		run(assigned);
+	} finally {
+		Object.defineProperty(prototype, key, descriptor);
+	}
+}
+
 describe("blocked markup sinks", () => {
 	it.each(["innerHTML", "INNERHTML", "outerHTML", "srcdoc", "SRCDOC"])(
 		"does not apply %s",
 		(key) => {
 			const { host } = mount(
-				jsx("section", {
-					id: "stay",
-					[key]: "<p>injected</p><img src=x onerror=alert(1)>",
-					children: "visible",
-				}),
+				jsx(
+					"section",
+					unsupportedJsxProps({
+						id: "stay",
+						[key]: "<p>injected</p><img src=x onerror=alert(1)>",
+						children: "visible",
+					}),
+				),
 			);
 			const section = host.querySelector("section");
 
@@ -52,10 +88,13 @@ describe("blocked markup sinks", () => {
 
 	it("keeps JSX children when an innerHTML prop is removed", () => {
 		const { host, tree } = mount(
-			jsx("div", {
-				innerHTML: "<p>no</p>",
-				children: "kept",
-			}),
+			jsx(
+				"div",
+				unsupportedJsxProps({
+					innerHTML: "<p>no</p>",
+					children: "kept",
+				}),
+			),
 		);
 
 		renderIgniteJsx(host, jsx("div", { children: "kept" }), tree);
@@ -64,24 +103,29 @@ describe("blocked markup sinks", () => {
 		expect(host.querySelector("p")).toBeNull();
 	});
 
-	it("still applies textContent and warns that it is deprecated", () => {
+	it("does not apply textContent and warns that it is ignored", () => {
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-		const { host } = mount(jsx("div", { textContent: "plain" }));
+		const { host } = mount(
+			jsx("div", unsupportedJsxProps({ textContent: "plain" })),
+		);
 
-		expect(host.querySelector("div")?.textContent).toBe("plain");
+		expect(host.querySelector("div")?.textContent).toBe("");
 		expect(warn).toHaveBeenCalledWith(
-			"[ignite-jsx] `textContent` is deprecated and will be removed in the next major release. Use JSX children for text, and hosts for trusted rich content.",
+			"[ignite-jsx] `textContent` is ignored and not applied. Use JSX children for text, and hosts for trusted rich content.",
 		);
 	});
 
 	it("warns once in development for each blocked markup prop", () => {
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		const { host, tree } = mount(
-			jsx("div", {
-				innerHTML: "<p>no</p>",
-				outerHTML: "<p>no</p>",
-				srcdoc: "<p>no</p>",
-			}),
+			jsx(
+				"div",
+				unsupportedJsxProps({
+					innerHTML: "<p>no</p>",
+					outerHTML: "<p>no</p>",
+					srcdoc: "<p>no</p>",
+				}),
+			),
 		);
 
 		expect(warn).toHaveBeenCalledWith(
@@ -98,11 +142,14 @@ describe("blocked markup sinks", () => {
 		warn.mockClear();
 		renderIgniteJsx(
 			host,
-			jsx("div", {
-				innerHTML: "<p>no</p>",
-				outerHTML: "<p>no</p>",
-				srcdoc: "<p>no</p>",
-			}),
+			jsx(
+				"div",
+				unsupportedJsxProps({
+					innerHTML: "<p>no</p>",
+					outerHTML: "<p>no</p>",
+					srcdoc: "<p>no</p>",
+				}),
+			),
 			tree,
 		);
 		expect(warn).not.toHaveBeenCalled();
@@ -148,7 +195,10 @@ describe("URL scheme guard", () => {
 	it("does not assign outerHTML", () => {
 		const setter = vi.spyOn(Element.prototype, "outerHTML", "set");
 		const { host } = mount(
-			jsx("section", { id: "stay", outerHTML: "<p>injected</p>" }),
+			jsx(
+				"section",
+				unsupportedJsxProps({ id: "stay", outerHTML: "<p>injected</p>" }),
+			),
 		);
 
 		expect(setter).not.toHaveBeenCalled();
@@ -316,7 +366,7 @@ describe("URL scheme guard", () => {
 		);
 	});
 
-	it("clears a coerced checked property when the prop is removed", () => {
+	it("leaves a coerced checked property when the prop is removed", () => {
 		const { host, tree } = mount(
 			jsx("input", { type: "checkbox", checked: 1 }),
 		);
@@ -325,10 +375,10 @@ describe("URL scheme guard", () => {
 
 		renderIgniteJsx(host, jsx("input", { type: "checkbox" }), tree);
 
-		expect(input?.checked).toBe(false);
+		expect(input?.checked).toBe(true);
 	});
 
-	it("resets checked to false instead of undefined", () => {
+	it("does not assign checked when the prop is removed", () => {
 		const descriptor = Object.getOwnPropertyDescriptor(
 			HTMLInputElement.prototype,
 			"checked",
@@ -359,32 +409,793 @@ describe("URL scheme guard", () => {
 			assigned.length = 0;
 			renderIgniteJsx(host, jsx("input", { type: "checkbox" }), tree);
 
-			expect(assigned).toContain(false);
+			expect(assigned).not.toContain(false);
 			expect(assigned).not.toContain(undefined);
-			expect(host.querySelector("input")?.checked).toBe(false);
+			expect(host.querySelector("input")?.checked).toBe(true);
 		} finally {
 			Object.defineProperty(HTMLInputElement.prototype, "checked", descriptor);
 		}
 	});
 
-	it("resets a coerced value to an empty string", () => {
+	it("leaves a coerced value when the prop is removed", () => {
 		const { host, tree } = mount(jsx("input", { value: 1 }));
 		const input = host.querySelector("input");
 		expect(input?.value).toBe("1");
 
 		renderIgniteJsx(host, jsx("input", {}), tree);
 
-		expect(input?.value).toBe("");
+		expect(input?.value).toBe("1");
 	});
 
-	it("resets a string value to an empty string", () => {
+	it("leaves a string value when the prop is removed", () => {
 		const { host, tree } = mount(jsx("input", { value: "hello" }));
 		const input = host.querySelector("input");
 		expect(input?.value).toBe("hello");
 
 		renderIgniteJsx(host, jsx("input", {}), tree);
 
-		expect(input?.value).toBe("");
+		expect(input?.value).toBe("hello");
+	});
+
+	it("leaves a dropped checked untouched and keeps the attribute", () => {
+		for (const type of ["checkbox", "radio"] as const) {
+			const { host, tree } = mount(
+				jsx("input", { type, defaultChecked: true, checked: true }),
+			);
+			const input = host.querySelector("input") as HTMLInputElement;
+			expect(input.checked).toBe(true);
+			expect(input.defaultChecked).toBe(true);
+			expect(input.hasAttribute("checked")).toBe(true);
+
+			input.checked = false;
+			expect(input.checked).toBe(false);
+			expect(input.defaultChecked).toBe(true);
+
+			renderIgniteJsx(host, jsx("input", { type, defaultChecked: true }), tree);
+
+			expect(input.checked).toBe(false);
+			expect(input.defaultChecked).toBe(true);
+			expect(input.hasAttribute("checked")).toBe(true);
+		}
+	});
+
+	it("keeps a dropped value when defaultValue changes in the same render", () => {
+		const { host, tree } = mount(
+			jsx("input", { defaultValue: "foo", value: "bar" }),
+		);
+		const input = host.querySelector("input") as HTMLInputElement;
+
+		renderIgniteJsx(host, jsx("input", { defaultValue: "baz" }), tree);
+
+		expect(input.value).toBe("bar");
+		expect(input.defaultValue).toBe("baz");
+		expect(input.getAttribute("value")).toBe("baz");
+	});
+
+	it("leaves a dropped value on the rendered defaultValue", () => {
+		const { host, tree } = mount(
+			jsx("input", { defaultValue: "foo", value: "bar" }),
+		);
+		const input = host.querySelector("input") as HTMLInputElement;
+		expect(input.value).toBe("bar");
+		expect(input.defaultValue).toBe("foo");
+		expect(input.getAttribute("value")).toBe("foo");
+
+		renderIgniteJsx(host, jsx("input", { defaultValue: "foo" }), tree);
+
+		expect(input.value).toBe("bar");
+		expect(input.defaultValue).toBe("foo");
+		expect(input.getAttribute("value")).toBe("foo");
+	});
+
+	it("leaves a dropped textarea value on its defaultValue", () => {
+		const { host, tree } = mount(
+			jsx("textarea", { defaultValue: "foo", value: "bar" }),
+		);
+		const area = host.querySelector("textarea") as HTMLTextAreaElement;
+		expect(area.value).toBe("bar");
+		expect(area.defaultValue).toBe("foo");
+
+		renderIgniteJsx(host, jsx("textarea", { defaultValue: "foo" }), tree);
+
+		expect(area.value).toBe("bar");
+		expect(area.defaultValue).toBe("foo");
+	});
+
+	it("leaves a textarea defaultValue b unchanged when it is dropped", () => {
+		const { host, tree } = mount(
+			jsx("textarea", {
+				title: "222",
+				lang: "dca",
+				spellcheck: true,
+				defaultValue: "b",
+				rows: 3,
+			}),
+		);
+		const area = host.querySelector("textarea") as HTMLTextAreaElement;
+		expect(area.value).toBe("b");
+		expect(area.defaultValue).toBe("b");
+
+		renderIgniteJsx(
+			host,
+			jsx("textarea", {
+				title: "222",
+				lang: "dca",
+				spellcheck: true,
+				rows: 3,
+			}),
+			tree,
+		);
+
+		expect(area.value).toBe("b");
+		expect(area.defaultValue).toBe("b");
+		expect(area.textContent).toBe("b");
+		expect(area.title).toBe("222");
+		expect(area.lang).toBe("dca");
+		expect(area.getAttribute("spellcheck")).toBe("true");
+		expect(area.rows).toBe(3);
+	});
+
+	it("leaves an input defaultValue unchanged when it is dropped", () => {
+		const kept = mount(jsx("input", { defaultValue: "b", value: "live" }));
+		const keptInput = kept.host.querySelector("input") as HTMLInputElement;
+		renderIgniteJsx(kept.host, jsx("input", { value: "live" }), kept.tree);
+		expect(keptInput.value).toBe("live");
+		expect(keptInput.defaultValue).toBe("b");
+		expect(keptInput.getAttribute("value")).toBe("b");
+
+		const dropped = mount(jsx("input", { defaultValue: "b" }));
+		const input = dropped.host.querySelector("input") as HTMLInputElement;
+		renderIgniteJsx(dropped.host, jsx("input", {}), dropped.tree);
+		expect(input.value).toBe("b");
+		expect(input.defaultValue).toBe("b");
+		expect(input.getAttribute("value")).toBe("b");
+	});
+
+	it("leaves defaultChecked unchanged when it is dropped", () => {
+		for (const type of ["checkbox", "radio"] as const) {
+			const kept = mount(
+				jsx("input", { type, defaultChecked: true, checked: true }),
+			);
+			const keptInput = kept.host.querySelector("input") as HTMLInputElement;
+			renderIgniteJsx(
+				kept.host,
+				jsx("input", { type, checked: true }),
+				kept.tree,
+			);
+			expect(keptInput.checked).toBe(true);
+			expect(keptInput.defaultChecked).toBe(true);
+			expect(keptInput.hasAttribute("checked")).toBe(true);
+
+			const dropped = mount(jsx("input", { type, defaultChecked: true }));
+			const input = dropped.host.querySelector("input") as HTMLInputElement;
+			expect(input.checked).toBe(true);
+			renderIgniteJsx(dropped.host, jsx("input", { type }), dropped.tree);
+			expect(input.checked).toBe(true);
+			expect(input.defaultChecked).toBe(true);
+			expect(input.hasAttribute("checked")).toBe(true);
+		}
+	});
+
+	it("leaves defaultSelected unchanged when it is dropped", () => {
+		const { host, tree } = mount(
+			jsx("option", { value: "b", defaultSelected: true, children: "B" }),
+		);
+		const option = host.querySelector("option") as HTMLOptionElement;
+		expect(option.defaultSelected).toBe(true);
+		expect(option.selected).toBe(true);
+
+		renderIgniteJsx(host, jsx("option", { value: "b", children: "B" }), tree);
+
+		expect(option.defaultSelected).toBe(true);
+		expect(option.selected).toBe(true);
+		expect(option.hasAttribute("selected")).toBe(true);
+		expect(option.value).toBe("b");
+	});
+
+	it("leaves a dropped select value selected", () => {
+		const options = () => [
+			jsx("option", { value: "a", children: "A" }),
+			jsx("option", { value: "b", defaultSelected: true, children: "B" }),
+		];
+		const { host, tree } = mount(jsx("select", { children: options() }));
+		const select = host.querySelector("select") as HTMLSelectElement;
+		const selected = select.querySelector("option:last-child");
+		expect(select.value).toBe("b");
+		expect(selected?.hasAttribute("selected")).toBe(true);
+
+		const chosen = renderIgniteJsx(
+			host,
+			jsx("select", { value: "a", children: options() }),
+			tree,
+		);
+		expect(select.value).toBe("a");
+		expect(selected?.hasAttribute("selected")).toBe(true);
+
+		renderIgniteJsx(host, jsx("select", { children: options() }), chosen);
+
+		expect(select.value).toBe("a");
+		expect(selected?.hasAttribute("selected")).toBe(true);
+	});
+
+	it("leaves a multiple select on the dropped value", () => {
+		const options = () => [
+			jsx("option", { value: "a", defaultSelected: true, children: "A" }),
+			jsx("option", { value: "b", defaultSelected: true, children: "B" }),
+			jsx("option", { value: "c", children: "C" }),
+		];
+		const { host, tree } = mount(
+			jsx("select", { multiple: true, children: options() }),
+		);
+		const select = host.querySelector("select") as HTMLSelectElement;
+		expect(
+			Array.from(select.selectedOptions).map((option) => option.value),
+		).toEqual(["a", "b"]);
+
+		const chosen = renderIgniteJsx(
+			host,
+			jsx("select", { multiple: true, value: "c", children: options() }),
+			tree,
+		);
+		expect(
+			Array.from(select.selectedOptions).map((option) => option.value),
+		).toEqual(["c"]);
+
+		renderIgniteJsx(
+			host,
+			jsx("select", { multiple: true, children: options() }),
+			chosen,
+		);
+		expect(
+			Array.from(select.selectedOptions).map((option) => option.value),
+		).toEqual(["c"]);
+	});
+
+	it("leaves option nodes untouched when length is dropped", () => {
+		let mounts = 0;
+		let unmounts = 0;
+		const ref = () => {
+			mounts += 1;
+			return () => {
+				unmounts += 1;
+			};
+		};
+		const options = () => [
+			jsx("option", { ref, value: "a", children: "A" }),
+			jsx("option", { ref, value: "b", children: "B" }),
+		];
+		const { host, tree } = mount(
+			jsx("select", { length: 0, children: options() }),
+		);
+		const select = host.querySelector("select") as HTMLSelectElement;
+		const first = select.options.item(0);
+		const second = select.options.item(1);
+		expect(select.options).toHaveLength(2);
+		expect(mounts).toBe(2);
+
+		renderIgniteJsx(host, jsx("select", { children: options() }), tree);
+
+		expect(select.options).toHaveLength(2);
+		expect(select.options.item(0)).toBe(first);
+		expect(select.options.item(1)).toBe(second);
+		expect(mounts).toBe(2);
+		expect(unmounts).toBe(0);
+	});
+
+	it("mounts a child once when a content prop is dropped", () => {
+		const previous = Object.getOwnPropertyDescriptor(
+			HTMLElement.prototype,
+			"innerText",
+		);
+		Object.defineProperty(HTMLElement.prototype, "innerText", {
+			configurable: true,
+			enumerable: true,
+			get() {
+				return this.textContent ?? "";
+			},
+			set(value: string) {
+				this.textContent = value == null ? "" : String(value);
+			},
+		});
+		try {
+			let mounts = 0;
+			let unmounts = 0;
+			const ref = () => {
+				mounts += 1;
+				return () => {
+					unmounts += 1;
+				};
+			};
+			const child = () => jsx("span", { ref, children: "kept" });
+			const { host, tree } = mount(
+				jsx(
+					"div",
+					unsupportedJsxProps({ innerText: "gone", children: child() }),
+				),
+			);
+			const span = host.querySelector("span");
+			expect(span?.textContent).toBe("kept");
+			expect(mounts).toBe(1);
+
+			renderIgniteJsx(host, jsx("div", { children: child() }), tree);
+
+			expect(host.querySelector("span")).toBe(span);
+			expect(mounts).toBe(1);
+			expect(unmounts).toBe(0);
+
+			unmountIgniteSubtree(host);
+			expect(mounts).toBe(1);
+			expect(unmounts).toBe(1);
+		} finally {
+			if (previous) {
+				Object.defineProperty(HTMLElement.prototype, "innerText", previous);
+			} else {
+				Reflect.deleteProperty(HTMLElement.prototype, "innerText");
+			}
+		}
+	});
+
+	it("resets a dropped prop as if it had never been set", () => {
+		const card = "x-drop-card";
+		const raw = "x-drop-raw";
+		const inherit = "x-drop-inherit";
+		const boom = "x-drop-boom";
+		if (!customElements.get(card)) {
+			class CardElement extends HTMLElement {
+				hrefLog: unknown[] = [];
+				codebaseLog: unknown[] = [];
+				blankLog: unknown[] = [];
+				#count: number | null = null;
+				#flag: boolean | null = null;
+				#label = "";
+				#blank: string | null = null;
+				#href = "";
+				#codebase = "";
+				get count() {
+					return this.#count;
+				}
+				set count(value: unknown) {
+					if (value == null) {
+						this.#count = null;
+						return;
+					}
+					this.#count = Number(value);
+				}
+				get flag() {
+					return this.#flag;
+				}
+				set flag(value: unknown) {
+					this.#flag = value == null ? null : Boolean(value);
+				}
+				get label() {
+					return this.#label;
+				}
+				set label(value: unknown) {
+					this.#label = value == null ? "" : String(value).trim();
+				}
+				get blank() {
+					return this.#blank;
+				}
+				set blank(value: unknown) {
+					this.blankLog.push(value);
+					this.#blank = value == null ? null : String(value);
+				}
+				get href() {
+					return this.#href;
+				}
+				set href(value: unknown) {
+					this.hrefLog.push(value);
+					if (value == null || value === "") {
+						this.#href = "";
+						return;
+					}
+					this.#href = new URL(String(value), location.href).href;
+				}
+				get codebase() {
+					return this.#codebase;
+				}
+				set codebase(value: unknown) {
+					this.codebaseLog.push(value);
+					if (value == null || value === "") {
+						this.#codebase = "";
+						return;
+					}
+					this.#codebase = new URL(String(value), location.href).href;
+				}
+			}
+			customElements.define(card, CardElement);
+		}
+		if (!customElements.get(raw)) {
+			class RawUrlElement extends HTMLElement {
+				hrefLog: unknown[] = [];
+				#href = "";
+				get href() {
+					return this.#href;
+				}
+				set href(value: unknown) {
+					this.hrefLog.push(value);
+					this.#href = new URL(String(value), location.href).href;
+				}
+			}
+			customElements.define(raw, RawUrlElement);
+		}
+		if (!customElements.get(inherit)) {
+			customElements.define(inherit, class extends HTMLElement {});
+		}
+		if (!customElements.get(boom)) {
+			class BoomElement extends HTMLElement {
+				#count: number | null = null;
+				get count() {
+					return this.#count;
+				}
+				set count(value: unknown) {
+					if (value == null) {
+						this.#count = null;
+						return;
+					}
+					this.#count = Number(value);
+				}
+				get locked() {
+					return 4;
+				}
+				set boom(value: unknown) {
+					if (value === undefined) throw new Error("boom");
+				}
+			}
+			customElements.define(boom, BoomElement);
+		}
+
+		const read = (host: HTMLElement, tag: string) =>
+			host.querySelector(tag) as HTMLElement & Record<string, unknown>;
+
+		for (const value of [1, true] as const) {
+			for (const row of [
+				["input", "checked", HTMLInputElement.prototype, { type: "checkbox" }],
+				["input", "disabled", HTMLInputElement.prototype, {}],
+				["option", "selected", HTMLOptionElement.prototype, {}],
+				["select", "multiple", HTMLSelectElement.prototype, {}],
+				["div", "hidden", HTMLElement.prototype, {}],
+			] as const) {
+				const [tag, prop, prototype, extra] = row;
+				withSetter(prototype, prop, (assigned) => {
+					const { host, tree } = mount(jsx(tag, { ...extra, [prop]: value }));
+					const element = read(host, tag);
+					expect(element[prop], prop).toBe(true);
+					assigned.length = 0;
+					renderIgniteJsx(host, jsx(tag, { ...extra }), tree);
+					const live = prop === "checked" || prop === "selected";
+					expect(element[prop], `${prop} ${String(value)}`).toBe(live);
+					if (live) {
+						expect(assigned, prop).not.toContain(false);
+					} else {
+						expect(assigned, prop).toContain(false);
+					}
+					expect(assigned, prop).not.toContain(undefined);
+				});
+			}
+		}
+
+		const strings = mount(
+			jsx("div", { id: "keep", title: "named", lang: "en", slot: "body" }),
+		);
+		renderIgniteJsx(strings.host, jsx("div", {}), strings.tree);
+		const named = read(strings.host, "div");
+		for (const prop of ["id", "title", "lang", "slot"] as const) {
+			expect(named[prop], prop).toBe("");
+			expect(named.getAttribute(prop), prop).toBeNull();
+			expect(named[prop], prop).not.toBe("undefined");
+		}
+
+		const classed = mount(jsx("div", { className: "on" }));
+		renderIgniteJsx(classed.host, jsx("div", {}), classed.tree);
+		const className = read(classed.host, "div");
+		expect(className.className).toBe("");
+		expect(className.getAttribute("class")).toBeNull();
+
+		for (const value of ["hello", 1, ""] as const) {
+			const viewed = mount(jsx("input", { value }));
+			const input = read(viewed.host, "input");
+			const kept = input.value;
+			renderIgniteJsx(viewed.host, jsx("input", {}), viewed.tree);
+			expect(input.value, `value ${String(value)}`).toBe(kept);
+			expect(String(input.value)).not.toBe("undefined");
+		}
+
+		withSetter(HTMLInputElement.prototype, "value", (assigned) => {
+			const viewed = mount(jsx("input", { type: "file", value: "" }));
+			const input = viewed.host.querySelector("input");
+			assigned.length = 0;
+			renderIgniteJsx(viewed.host, jsx("input", { type: "file" }), viewed.tree);
+			expect(input?.value).toBe("");
+			expect(assigned).not.toContain(undefined);
+		});
+
+		for (const tag of ["div", inherit] as const) {
+			const viewed = mount(jsx(tag, { tabIndex: 3 }));
+			const element = read(viewed.host, tag);
+			expect(element.tabIndex).toBe(3);
+			renderIgniteJsx(viewed.host, jsx(tag, {}), viewed.tree);
+			expect(element.tabIndex, tag).toBe(-1);
+			expect(element.getAttribute("tabindex"), tag).toBeNull();
+		}
+
+		const scrolled = mount(
+			jsx("div", {
+				style: "height:40px;width:40px;overflow:auto",
+				scrollTop: "10",
+				scrollLeft: "8",
+				children: jsx("div", { style: "height:400px;width:400px" }),
+			}),
+		);
+		const box = read(scrolled.host, "div");
+		expect(box.scrollTop).toBe(10);
+		expect(box.scrollLeft).toBe(8);
+		renderIgniteJsx(
+			scrolled.host,
+			jsx("div", {
+				style: "height:40px;width:40px;overflow:auto",
+				children: jsx("div", { style: "height:400px;width:400px" }),
+			}),
+			scrolled.tree,
+		);
+		expect(box.scrollTop).toBe(0);
+		expect(box.scrollLeft).toBe(0);
+
+		const zeroScroll = mount(jsx("div", { scrollTop: 0 }));
+		renderIgniteJsx(zeroScroll.host, jsx("div", {}), zeroScroll.tree);
+		expect(read(zeroScroll.host, "div").scrollTop).toBe(0);
+
+		for (const count of ["1", true, "0", 0] as const) {
+			const viewed = mount(jsx(card, { count }));
+			const element = read(viewed.host, card);
+			expect(element.count, `count ${String(count)}`).toBe(
+				count === "0" || count === 0 ? 0 : 1,
+			);
+			renderIgniteJsx(viewed.host, jsx(card, {}), viewed.tree);
+			expect(element.count, `count drop ${String(count)}`).toBeNull();
+		}
+
+		const flagged = mount(jsx(card, { flag: true }));
+		const flag = read(flagged.host, card);
+		expect(flag.flag).toBe(true);
+		renderIgniteJsx(flagged.host, jsx(card, {}), flagged.tree);
+		expect(flag.flag).toBeNull();
+
+		const nan = mount(jsx(card, { count: "nope" }));
+		const nanElement = read(nan.host, card);
+		expect(Number.isNaN(nanElement.count)).toBe(true);
+		renderIgniteJsx(nan.host, jsx(card, {}), nan.tree);
+		expect(nanElement.count).toBeNull();
+
+		const presentBlank = mount(jsx(card, { blank: "x" }));
+		const present = read(presentBlank.host, card);
+		(present.blankLog as unknown[]).length = 0;
+		renderIgniteJsx(
+			presentBlank.host,
+			jsx(card, { blank: "" }),
+			presentBlank.tree,
+		);
+		expect(present.blank).toBe("");
+		expect(present.blankLog).toContain("");
+		expect(present.blankLog).not.toContain(undefined);
+
+		const droppedBlank = mount(jsx(card, { blank: "" }));
+		const blank = read(droppedBlank.host, card);
+		expect(blank.blank).toBe("");
+		(blank.blankLog as unknown[]).length = 0;
+		renderIgniteJsx(droppedBlank.host, jsx(card, {}), droppedBlank.tree);
+		expect(blank.blank).toBeNull();
+		expect(blank.blankLog).toContain(undefined);
+
+		const trimmed = mount(jsx(card, { label: "  keep  " }));
+		const label = read(trimmed.host, card);
+		expect(label.label).toBe("keep");
+		renderIgniteJsx(trimmed.host, jsx(card, {}), trimmed.tree);
+		expect(label.label).toBe("");
+
+		for (const key of ["href", "codebase"] as const) {
+			const viewed = mount(jsx(card, { [key]: "/safe.txt" }));
+			const element = read(viewed.host, card);
+			const logKey = key === "href" ? "hrefLog" : "codebaseLog";
+			expect(String(element[key])).toContain("/safe.txt");
+			renderIgniteJsx(
+				viewed.host,
+				jsx(card, { [key]: "javascript:alert(1)" }),
+				viewed.tree,
+			);
+			expect(element[key], key).toBe("");
+			expect(element[logKey], key).toContain(undefined);
+			expect(element[key], key).not.toBe(new URL("", location.href).href);
+		}
+
+		const unguarded = mount(jsx(raw, { href: "/safe.txt" }));
+		const rawElement = read(unguarded.host, raw);
+		renderIgniteJsx(
+			unguarded.host,
+			jsx(raw, { href: "javascript:alert(1)" }),
+			unguarded.tree,
+		);
+		expect(String(rawElement.href)).toContain("/undefined");
+		expect(rawElement.hrefLog).toContain(undefined);
+		expect(rawElement.hrefLog).not.toContain("");
+
+		withSetter(HTMLIFrameElement.prototype, "src", (assigned) => {
+			const viewed = mount(jsx("iframe", { src: "/safe.txt" }));
+			renderIgniteJsx(
+				viewed.host,
+				jsx("iframe", { src: "javascript:alert(1)" }),
+				viewed.tree,
+			);
+			renderIgniteJsx(viewed.host, jsx("iframe", {}), viewed.tree);
+			expect(
+				assigned.some((value) => String(value).includes("/safe.txt")),
+			).toBe(true);
+			expect(assigned).not.toContain(undefined);
+			expect(
+				viewed.host.querySelector("iframe")?.getAttribute("src"),
+			).toBeNull();
+		});
+
+		for (const row of [
+			["a", "href"],
+			["object", "data"],
+			["embed", "src"],
+		] as const) {
+			const [tag, key] = row;
+			const viewed = mount(jsx(tag, { [key]: "/safe.txt" }));
+			renderIgniteJsx(
+				viewed.host,
+				jsx(tag, { [key]: "javascript:alert(1)" }),
+				viewed.tree,
+			);
+			renderIgniteJsx(viewed.host, jsx(tag, {}), viewed.tree);
+			const element = read(viewed.host, tag);
+			expect(element.getAttribute(key), tag).toBeNull();
+			expect(String(element[key] ?? ""), tag).not.toContain("undefined");
+			expect(String(element[key] ?? ""), tag).not.toContain("javascript:");
+			if (tag === "a") expect(element.href).toBe("");
+		}
+
+		const noted = mount(
+			jsx("meta", { "data-equiv": "refresh", "data-note": "x", content: "0" }),
+		);
+		expect(noted.host.querySelector("meta")?.getAttribute("data-equiv")).toBe(
+			"refresh",
+		);
+		renderIgniteJsx(noted.host, jsx("meta", { content: "0" }), noted.tree);
+		expect(
+			noted.host.querySelector("meta")?.getAttribute("data-equiv"),
+		).toBeNull();
+		expect(
+			noted.host.querySelector("meta")?.getAttribute("data-note"),
+		).toBeNull();
+
+		const labelled = mount(jsx("div", { "aria-label": "x", "data-note": "x" }));
+		renderIgniteJsx(labelled.host, jsx("div", {}), labelled.tree);
+		expect(read(labelled.host, "div").getAttribute("aria-label")).toBeNull();
+		expect(read(labelled.host, "div").getAttribute("data-note")).toBeNull();
+
+		for (const key of [
+			"http-equiv",
+			"httpEquiv",
+			"http-equiv ",
+			" http-equiv",
+			"http-equiv\0",
+			"{http://www.w3.org/1999/xhtml}http-equiv",
+		]) {
+			const viewed = mount(
+				jsx("meta", { [key]: "refresh", content: "0;url=https://example.com" }),
+			);
+			expect(
+				viewed.host.querySelector("meta")?.getAttribute("http-equiv"),
+				key,
+			).toBeNull();
+		}
+		for (const httpEquiv of ["content-type", "Content-Type", "default-style"]) {
+			const viewed = mount(jsx("meta", { httpEquiv, content: "text/html" }));
+			expect(
+				viewed.host.querySelector("meta")?.getAttribute("http-equiv"),
+			).toBe(httpEquiv);
+			renderIgniteJsx(
+				viewed.host,
+				jsx("meta", { content: "text/html" }),
+				viewed.tree,
+			);
+			expect(
+				viewed.host.querySelector("meta")?.getAttribute("http-equiv"),
+				httpEquiv,
+			).toBeNull();
+		}
+
+		const renamedMeta = mount(jsx("meta", { httpEquiv: "content-type" }));
+		renderIgniteJsx(
+			renamedMeta.host,
+			jsx("meta", { "http-equiv": "default-style" }),
+			renamedMeta.tree,
+		);
+		expect(
+			renamedMeta.host.querySelector("meta")?.getAttribute("http-equiv"),
+		).toBe("default-style");
+
+		const renamed = mount(jsx("div", { scrollTop: "10", id: "a" }));
+		renderIgniteJsx(renamed.host, jsx("div", { id: "b" }), renamed.tree);
+		const renamedElement = read(renamed.host, "div");
+		expect(renamedElement.scrollTop).toBe(0);
+		expect(renamedElement.id).toBe("b");
+
+		const spreadDrop = mount(jsx(card, { ...{ scrollTop: "10", count: "1" } }));
+		renderIgniteJsx(spreadDrop.host, jsx(card, { ...{} }), spreadDrop.tree);
+		const spread = read(spreadDrop.host, card);
+		expect(spread.scrollTop).toBe(0);
+		expect(spread.count).toBeNull();
+
+		const spreadKeep = mount(jsx("div", { ...{ id: "a", scrollTop: "10" } }));
+		renderIgniteJsx(
+			spreadKeep.host,
+			jsx("div", { ...{ id: "a" } }),
+			spreadKeep.tree,
+		);
+		const kept = read(spreadKeep.host, "div");
+		expect(kept.id).toBe("a");
+		expect(kept.scrollTop).toBe(0);
+
+		const rejected = mount(jsx("iframe", { src: "javascript:alert(1)" }));
+		renderIgniteJsx(rejected.host, jsx("iframe", {}), rejected.tree);
+		expect(
+			rejected.host.querySelector("iframe")?.getAttribute("src"),
+		).toBeNull();
+		expect(String(read(rejected.host, "iframe").src ?? "")).not.toContain(
+			"undefined",
+		);
+
+		const inherited = mount(
+			jsx(inherit, {
+				id: "keep",
+				title: "named",
+				tabIndex: 3,
+				className: "on",
+			}),
+		);
+		const custom = read(inherited.host, inherit);
+		expect(custom.id).toBe("keep");
+		expect(custom.title).toBe("named");
+		expect(custom.tabIndex).toBe(3);
+		renderIgniteJsx(inherited.host, jsx(inherit, {}), inherited.tree);
+		expect(custom.id).toBe("");
+		expect(custom.title).toBe("");
+		expect(custom.getAttribute("id")).toBeNull();
+		expect(custom.getAttribute("title")).toBeNull();
+		expect(custom.tabIndex).toBe(-1);
+		expect(custom.getAttribute("tabindex")).toBeNull();
+		expect(custom.className).toBe("");
+		expect(custom.getAttribute("class")).toBeNull();
+
+		const media = mount(
+			jsx("audio", {
+				id: "clip",
+				currentTime: 4,
+				volume: 0.25,
+				playbackRate: 0,
+			}),
+		);
+		const audio = read(media.host, "audio");
+		renderIgniteJsx(media.host, jsx("audio", {}), media.tree);
+		expect(audio.currentTime).toBe(4);
+		expect(audio.volume).toBe(0.25);
+		expect(audio.playbackRate).toBe(0);
+		expect(audio.hasAttribute("currenttime")).toBe(false);
+		expect(audio.hasAttribute("volume")).toBe(false);
+		expect(audio.hasAttribute("playbackrate")).toBe(false);
+		expect(audio.id).toBe("");
+		expect(audio.getAttribute("id")).toBeNull();
+
+		const thrown = mount(jsx(boom, { boom: 1, count: "1", locked: 9 }));
+		const thrownElement = read(thrown.host, boom);
+		expect(thrownElement.count).toBe(1);
+		expect(thrownElement.locked).toBe(4);
+		renderIgniteJsx(thrown.host, jsx(boom, {}), thrown.tree);
+		expect(thrownElement.count).toBeNull();
+		expect(thrownElement.locked).toBe(4);
 	});
 
 	it.each(["href", "src", "action", "formAction"] as const)(
@@ -485,28 +1296,250 @@ describe("URL scheme guard", () => {
 		}
 	});
 
-	it("assigns undefined when a custom element drops a reflected property", () => {
+	it("assigns undefined when a custom setter overrides an inherited name", () => {
+		const tag = "x-id-override";
+		if (!customElements.get(tag)) {
+			class IdOverride extends HTMLElement {
+				idLog: unknown[] = [];
+				#id = "";
+				get id() {
+					return this.#id;
+				}
+				set id(value: string) {
+					this.idLog.push(value);
+					// undefined is the drop signal. "" is the native reset.
+					this.#id =
+						(value as unknown) === undefined
+							? "from-undefined"
+							: String(value ?? "");
+				}
+			}
+			customElements.define(tag, IdOverride);
+		}
+
+		const { host, tree } = mount(jsx(tag, { id: "keep" }));
+		const element = host.querySelector(tag) as HTMLElement & {
+			idLog: unknown[];
+		};
+		expect(element.id).toBe("keep");
+		element.idLog.length = 0;
+
+		renderIgniteJsx(host, jsx(tag, {}), tree);
+
+		expect(element.idLog).toContain(undefined);
+		expect(element.id).toBe("from-undefined");
+		expect(element.id).not.toBe("");
+	});
+
+	it("does not construct a custom element to read a native default", () => {
+		const tag = "x-no-construct";
+		let constructed = 0;
+		if (!customElements.get(tag)) {
+			class NoConstruct extends HTMLElement {
+				constructor() {
+					super();
+					constructed += 1;
+				}
+			}
+			customElements.define(tag, NoConstruct);
+		}
+		constructed = 0;
+
+		const { host, tree } = mount(jsx(tag, { title: "named", scrollTop: 4 }));
+		const element = host.querySelector(tag) as HTMLElement;
+		expect(constructed).toBe(1);
+		expect(element.title).toBe("named");
+		expect(element.scrollTop).toBe(4);
+
+		renderIgniteJsx(host, jsx(tag, {}), tree);
+
+		expect(constructed).toBe(1);
+		expect(element.title).toBe("");
+		expect(element.getAttribute("title")).toBeNull();
+		expect(element.scrollTop).toBe(0);
+	});
+
+	it("does not assign a blank width when a loaded image drops width", () => {
+		const descriptor = Object.getOwnPropertyDescriptor(
+			HTMLImageElement.prototype,
+			"width",
+		);
+		if (!descriptor?.get || !descriptor.set) {
+			throw new Error("missing width setter");
+		}
+		const assigned: unknown[] = [];
+		Object.defineProperty(HTMLImageElement.prototype, "width", {
+			configurable: true,
+			enumerable: descriptor.enumerable,
+			get() {
+				const attr = this.getAttribute("width");
+				if (attr != null) return Number(attr);
+				return this.dataset.loaded === "1" ? 48 : 0;
+			},
+			set(value: unknown) {
+				assigned.push(value);
+				const next = Number(value);
+				if (!next) this.removeAttribute("width");
+				else this.setAttribute("width", String(next));
+			},
+		});
+
+		try {
+			const { host, tree } = mount(jsx("img", { width: 40 }));
+			const image = host.querySelector("img") as HTMLImageElement;
+			image.dataset.loaded = "1";
+			expect(image.width).toBe(40);
+			assigned.length = 0;
+
+			renderIgniteJsx(host, jsx("img", {}), tree);
+
+			expect(assigned).not.toContain(0);
+			expect(image.getAttribute("width")).toBeNull();
+			expect(image.width).toBe(48);
+
+			assigned.length = 0;
+			const matched = mount(jsx("img", { width: 48 }));
+			const matchedImage = matched.host.querySelector(
+				"img",
+			) as HTMLImageElement;
+			matchedImage.dataset.loaded = "1";
+			expect(matchedImage.width).toBe(48);
+			assigned.length = 0;
+			renderIgniteJsx(matched.host, jsx("img", {}), matched.tree);
+			expect(assigned).not.toContain(0);
+			expect(matchedImage.getAttribute("width")).toBeNull();
+			expect(matchedImage.width).toBe(48);
+		} finally {
+			Object.defineProperty(HTMLImageElement.prototype, "width", descriptor);
+		}
+	});
+
+	it("still resets scrollTop while a dropped checked stays", () => {
+		const { host, tree } = mount(
+			jsx("div", {
+				scrollTop: 6,
+				children: jsx("input", { type: "checkbox", checked: true }),
+			}),
+		);
+		const box = host.querySelector("div") as HTMLElement;
+		const input = host.querySelector("input") as HTMLInputElement;
+		expect(box.scrollTop).toBe(6);
+		expect(input.checked).toBe(true);
+
+		renderIgniteJsx(
+			host,
+			jsx("div", { children: jsx("input", { type: "checkbox" }) }),
+			tree,
+		);
+
+		expect(box.scrollTop).toBe(0);
+		expect(input.checked).toBe(true);
+	});
+
+	it("clears a later prop when a custom URL setter throws", () => {
+		const tag = "x-href-throws";
+		if (!customElements.get(tag)) {
+			class HrefThrows extends HTMLElement {
+				hrefLog: unknown[] = [];
+				#count: number | null = null;
+				#href = "";
+				get count() {
+					return this.#count;
+				}
+				set count(value: unknown) {
+					this.#count = value == null ? null : Number(value);
+				}
+				get href() {
+					return this.#href;
+				}
+				set href(value: unknown) {
+					this.hrefLog.push(value);
+					if (value === undefined) throw new Error("href boom");
+					this.#href = String(value ?? "");
+				}
+			}
+			customElements.define(tag, HrefThrows);
+		}
+
+		const { host, tree } = mount(jsx(tag, { href: "/safe.txt", count: "1" }));
+		const element = host.querySelector(tag) as HTMLElement & {
+			count: number | null;
+			hrefLog: unknown[];
+		};
+		expect(element.count).toBe(1);
+		element.hrefLog.length = 0;
+
+		expect(() => renderIgniteJsx(host, jsx(tag, {}), tree)).not.toThrow();
+
+		expect(element.hrefLog).toContain(undefined);
+		expect(element.count).toBeNull();
+	});
+
+	it("resets inherited custom id and title by attribute removal", () => {
 		const tag = "x-id-reflected";
 		if (!customElements.get(tag)) {
 			customElements.define(tag, class extends HTMLElement {});
 		}
 
 		const { host, tree } = mount(
-			jsx(tag, { id: "keep", title: "named", className: "on" }),
+			jsx(tag, { id: "keep", title: "named", tabIndex: 3, className: "on" }),
 		);
 		const element = host.querySelector(tag) as HTMLElement;
 		expect(element.id).toBe("keep");
 		expect(element.title).toBe("named");
+		expect(element.tabIndex).toBe(3);
 		expect(element.className).toBe("on");
 
 		renderIgniteJsx(host, jsx(tag, {}), tree);
 
-		// The inherited IDL setter stringifies undefined. className returns
-		// before that assignment and stays on attribute removal.
-		expect(element.id).toBe("undefined");
-		expect(element.title).toBe("undefined");
+		expect(element.id).toBe("");
+		expect(element.title).toBe("");
+		expect(element.getAttribute("id")).toBeNull();
+		expect(element.getAttribute("title")).toBeNull();
+		expect(element.tabIndex).toBe(-1);
+		expect(element.getAttribute("tabindex")).toBeNull();
 		expect(element.className).toBe("");
-		expect(element.getAttribute("id")).toBe("undefined");
+	});
+
+	it("assigns false to an own custom setter", () => {
+		const tag = "x-active-flag";
+		const seen: unknown[] = [];
+		if (!customElements.get(tag)) {
+			class ActiveFlag extends HTMLElement {
+				#active: boolean | null = null;
+				get active() {
+					return this.#active;
+				}
+				set active(value: unknown) {
+					seen.push(value);
+					this.#active =
+						value === false ? false : value == null ? null : Boolean(value);
+				}
+			}
+			customElements.define(tag, ActiveFlag);
+		}
+
+		const mounted = mount(jsx(tag, { active: false }));
+		const element = mounted.host.querySelector(tag) as HTMLElement & {
+			active: boolean | null;
+		};
+		expect(seen).toEqual([false]);
+		expect(element.active).toBe(false);
+
+		const turnedOn = renderIgniteJsx(
+			mounted.host,
+			jsx(tag, { active: true }),
+			mounted.tree,
+		);
+		const turnedOff = renderIgniteJsx(
+			mounted.host,
+			jsx(tag, { active: false }),
+			turnedOn,
+		);
+		expect(seen).toEqual([false, true, false]);
+
+		renderIgniteJsx(mounted.host, jsx(tag, {}), turnedOff);
+		expect(seen[seen.length - 1]).toBe(undefined);
 	});
 
 	it("clears a custom string setter that trimmed the value", () => {

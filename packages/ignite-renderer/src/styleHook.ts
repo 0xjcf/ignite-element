@@ -44,8 +44,9 @@ export function forgetQueuedStyles(root: ShadowRoot): void {
 		return;
 	}
 	if (!Array.isArray(slot)) return;
-	const index = slot.indexOf(root);
-	if (index >= 0) slot.splice(index, 2);
+	for (let index = slot.indexOf(root); index >= 0; index = slot.indexOf(root)) {
+		slot.splice(index, 2);
+	}
 }
 
 export function installStyleInject(inject: StyleInject): void {
