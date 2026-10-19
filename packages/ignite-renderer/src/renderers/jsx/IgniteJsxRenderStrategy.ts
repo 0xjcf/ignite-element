@@ -228,21 +228,25 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 	detach(): void {
 		const rootNode = this.contentRoot?.getRootNode();
 		if (rootNode instanceof ShadowRoot) forgetQueuedStyles(rootNode);
-		if (this.contentRoot) {
+		const root = this.contentRoot;
+		this.previousTree = null;
+		if (root) {
 			// A cleanup that renders must wait: the unmount below already took its
 			// snapshot, so a render now would create nodes nothing releases.
 			const was = this.writing;
 			this.writing = true;
-			setOwner(this.contentRoot, detaching);
+			setOwner(root, detaching);
 			try {
-				unmountIgniteSubtree(this.contentRoot);
+				unmountIgniteSubtree(root);
+				root.parentNode?.removeChild(root);
+				this.contentRoot = null;
 			} finally {
 				this.writing = was;
+				// A teardown that threw keeps its root renderable: the next render
+				// mounts the released view afresh.
+				if (this.contentRoot) setOwner(root, {});
 			}
-			this.contentRoot.parentNode?.removeChild(this.contentRoot);
 		}
-		this.contentRoot = null;
-		this.previousTree = null;
 		// Last: a disposer or hook above may have queued a render of its own.
 		this.next = undefined;
 	}
