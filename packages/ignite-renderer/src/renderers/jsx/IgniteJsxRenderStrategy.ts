@@ -219,9 +219,17 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 	}
 
 	releaseView(): void {
-		if (!this.contentRoot) return;
-		for (const child of Array.from(this.contentRoot.childNodes)) {
-			unmountIgniteSubtree(child);
+		const root = this.contentRoot;
+		if (!root) return;
+		// A commit into the root while it releases is ignored, as in detach():
+		// the release already took its snapshot, so it would never be released.
+		setOwner(root, detaching);
+		try {
+			for (const child of Array.from(root.childNodes)) {
+				unmountIgniteSubtree(child);
+			}
+		} finally {
+			setOwner(root, {});
 		}
 	}
 
@@ -243,8 +251,10 @@ class IgniteJsxRenderStrategy implements RenderStrategy<IgniteJsxChild> {
 			} finally {
 				this.writing = was;
 				// A teardown that threw keeps its root renderable: the next render
-				// mounts the released view afresh.
-				if (this.contentRoot) setOwner(root, {});
+				// mounts the released view afresh. A root it already took out of
+				// the tree is dropped instead, so attach creates a fresh one.
+				if (!root.parentNode) this.contentRoot = null;
+				else setOwner(root, {});
 			}
 		}
 		// Last: a disposer or hook above may have queued a render of its own.

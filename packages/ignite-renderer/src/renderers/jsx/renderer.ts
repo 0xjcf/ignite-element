@@ -1208,7 +1208,13 @@ function patchProps(
 				// Select value is queued after its options. Every other live
 				// field waits for the same flush, so a later default* sibling
 				// cannot clear it.
-				if (key === "value" && element.localName === "select") continue;
+				// A file input's value is the user's selection: never written.
+				if (
+					key === "value" &&
+					(element.localName === "select" ||
+						(element as HTMLInputElement).type === "file")
+				)
+					continue;
 				if (next != null) {
 					queueControlled(element as HTMLElement, key, next);
 				}

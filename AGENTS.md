@@ -272,9 +272,9 @@ not through repeated review rounds.
    caught means the rules or properties need extending, not just a patch.
 
 **Bundle budget.** The ignite-element consumer bundle ceiling is a fixed hard
-budget of 6,260 B gzip, not a moving target (raised from 6,000 B to 6,020 B and then
-to 6,080 B, 6,090 B and then 6,170 B, 6,180 B, 6,200 B, 6,210 B, 6,240 B, 6,250 B and 6,260 B for PR #168 by the maintainer: the round-11 fixes
-cost 54 B, the round-12 fixes 14 B and the round-14 fixes 76 B and the round-15 fixes 12 B and the round-18 fixes 14 B and the round-20 fixes 15 B and the round-21 fixes 33 B and the round-22 fixes 5 B and the round-23/24 detach fixes 15 B; the box and CI agree once the renderer dist
+budget of 6,270 B gzip, not a moving target (raised from 6,000 B to 6,020 B and then
+to 6,080 B, 6,090 B and then 6,170 B, 6,180 B, 6,200 B, 6,210 B, 6,240 B, 6,250 B, 6,260 B and 6,270 B for PR #168 by the maintainer: the round-11 fixes
+cost 54 B, the round-12 fixes 14 B and the round-14 fixes 76 B and the round-15 fixes 12 B and the round-18 fixes 14 B and the round-20 fixes 15 B and the round-21 fixes 33 B and the round-22 fixes 5 B and the round-23/24 detach fixes 15 B and the round-25 fixes 11 B; the box and CI agree once the renderer dist
 is rebuilt). Any change that
 would exceed it must reduce size elsewhere in the same change. Do not bump the ceiling and do
 not open follow-up PRs to raise it.
@@ -325,17 +325,25 @@ Unsupported, out of scope:
 Guaranteed behaviour in the unsupported class: the renderer's own state
 (published trees, host records, subtree claims, queued work) is not corrupted,
 and the next render corrects the DOM and host state. An error thrown by the
-user's own code in that class (an override, a logger, a Proxy trap, a
-thenable) is propagated to the caller of the render, as any other thrown
-error would be; the renderer adds none of its own. A stale intermediate
+user's own code in that class (an override, a Proxy trap, a thenable) is
+propagated to the caller of the render, as any other thrown error would be;
+the renderer adds none of its own. Loggers split by purpose: development
+warnings and fallback diagnostics (`console.warn`, `console.debug`) propagate
+a throwing logger to the caller, while error reporting (`console.error` and
+the host's `handleError`/`onError` from renderer callbacks, and host
+callback failures) is contained by design, so a throwing logger there is
+swallowed and the render continues. A stale intermediate
 write, a skipped or repeated host callback, or a transient extra mount is not
 a bug in this class.
 
 A render, mount or ref acquisition started while `detach()` tears a root down
 (for example from a `ref(null)` or a disposer) is ignored for that root, so
-nothing is acquired that the teardown cannot release. A `detach()` that throws
-part-way (for example from an overridden `removeChild`) propagates the error
-and leaves the root attached; the next render mounts the view afresh.
+nothing is acquired that the teardown cannot release. The same holds while
+`releaseView()` releases a view on a true disconnect; the root takes renders
+again afterwards. A `detach()` that throws part-way (for example from an
+overridden `removeChild`) propagates the error. If the root is still in the
+tree it stays attached and the next render mounts the view afresh; if it was
+already removed it is dropped, and the next `attach()` creates a fresh root.
 
 Reviewers: do not file findings in the unsupported class, including new
 "fresh evidence" variants such as another overridden getter or a different

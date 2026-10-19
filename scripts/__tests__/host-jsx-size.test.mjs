@@ -100,7 +100,9 @@ describe("JSX host runtime size", () => {
 		// act(), stale-read catch and reporter containment read 4781 B.
 		// Then 4800 B (Jose approved up to 4820): the round-23 detach-time
 		// commit guard reads 4793 B.
-		assert.ok(gzip <= 4800, `no-host JSX gzip ${gzip} is above 4800`);
+		// Then 4810 B (Jose approved up to 4820): the round-25 file-input skip
+		// reads 4802 B.
+		assert.ok(gzip <= 4810, `no-host JSX gzip ${gzip} is above 4810`);
 	});
 
 	it("includes the host runtime when the internal module is imported", async () => {
