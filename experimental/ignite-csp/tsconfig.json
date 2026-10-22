@@ -1,0 +1,20 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"strict": true,
+		"noEmit": true,
+		"skipLibCheck": true,
+		"lib": ["ES2022", "DOM"],
+		"types": ["node"],
+		"baseUrl": ".",
+		"paths": {
+			"vitest": ["../../packages/ignite-element/node_modules/vitest"],
+			"@playwright/test": [
+				"../../packages/ignite-element/node_modules/@playwright/test"
+			]
+		}
+	},
+	"include": ["src/**/*.ts", "vitest.config.ts"]
+}
