@@ -1,0 +1,45 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"strict": true,
+		"noEmit": true,
+		"jsx": "react-jsx",
+		"skipLibCheck": true,
+		"isolatedModules": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noFallthroughCasesInSwitch": true,
+		"esModuleInterop": true,
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"types": ["node"],
+		"baseUrl": ".",
+		"paths": {
+			"ignite-element/xstate": ["../../packages/ignite-element/src/xstate.ts"],
+			"ignite-element/react": [
+				"../../packages/ignite-element/src/react/index.ts"
+			],
+			"@ignite-element/core": ["../../packages/ignite-core/src/index.ts"],
+			"@ignite-element/adapters": [
+				"../../packages/ignite-adapters/src/index.ts"
+			],
+			"@ignite-element/adapters/*": ["../../packages/ignite-adapters/src/*"],
+			"@ignite-element/renderer": [
+				"../../packages/ignite-renderer/src/index.ts"
+			],
+			"@ignite-element/renderer/*": ["../../packages/ignite-renderer/src/*"],
+			"xstate": ["../../packages/ignite-element/node_modules/xstate"],
+			"react": [
+				"../../packages/ignite-element/node_modules/@types/react/index.d.ts"
+			],
+			"react/jsx-runtime": [
+				"../../packages/ignite-element/node_modules/@types/react/jsx-runtime.d.ts"
+			],
+			"@testing-library/react": [
+				"../../packages/ignite-element/node_modules/@testing-library/react/types/index.d.ts"
+			]
+		}
+	},
+	"include": ["src/**/*.ts", "src/**/*.tsx"]
+}
