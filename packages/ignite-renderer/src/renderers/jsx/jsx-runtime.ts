@@ -12,6 +12,7 @@ type UnsupportedContentProps = {
 	innerText?: never;
 	outerText?: never;
 	textContent?: never;
+	dangerouslySetInnerHTML?: never;
 };
 
 // An index signature cannot tell two spellings apart. A fresh props object can.

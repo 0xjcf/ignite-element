@@ -1487,6 +1487,20 @@ describe("security re-review of remote loads", () => {
 			host.querySelector("#animate-mask")?.getAttribute("values"),
 		).toBeNull();
 		expect(host.innerHTML).not.toContain("evil.example");
+		let paints = 0;
+		const flipping = {
+			toString() {
+				paints += 1;
+				return paints === 1 ? "#fff" : "url(https://evil.example/x.png)";
+			},
+		};
+		const painted = mount("svg", {
+			children: jsx("rect", { id: "flip-fill", fill: flipping }),
+		});
+		expect(
+			painted.querySelector("#flip-fill")?.getAttribute("fill"),
+		).toBeNull();
+		expect(painted.innerHTML).not.toContain("evil.example");
 	});
 
 	it("guards imagesrcset and manifest, and omits preload links", () => {
@@ -1557,10 +1571,83 @@ describe("security re-review of remote loads", () => {
 				?.getAttribute("src"),
 		).toBe("/safe.txt");
 		expect(
-			mount("link", { rel: "icon", href: "https://cdn.example/favicon.ico" })
-				.querySelector("link")
-				?.getAttribute("rel"),
-		).toBe("icon");
+			mount("object", { data: "https://evil.example/a.svg" })
+				.querySelector("object")
+				?.getAttribute("data"),
+		).toBeNull();
+		expect(
+			mount("object", { DATA: "http://evil.example/a.svg" })
+				.querySelector("object")
+				?.getAttribute("data"),
+		).toBeNull();
+		expect(
+			mount("object", { data: "/same.svg" })
+				.querySelector("object")
+				?.getAttribute("data"),
+		).toBe("/same.svg");
+		expect(
+			mount("embed", { src: "https://evil.example/a.svg" })
+				.querySelector("embed")
+				?.getAttribute("src"),
+		).toBeNull();
+		expect(
+			mount("embed", { src: "/same.svg" })
+				.querySelector("embed")
+				?.getAttribute("src"),
+		).toBe("/same.svg");
+		expect(
+			mount("link", {
+				rel: ["icon", "modulepreload"],
+				href: "https://evil.example/a.js",
+			}).querySelector("link"),
+		).toBeNull();
+		const keptIcon = mount("link", {
+			rel: "icon",
+			href: "https://cdn.example/favicon.ico",
+		}).querySelector("link");
+		expect(keptIcon?.getAttribute("rel")).toBe("icon");
+		expect(keptIcon?.getAttribute("href")).toContain("favicon.ico");
+		for (const rel of ["prefetch", "dns-prefetch", "preconnect", "prerender"]) {
+			const link = mount("link", {
+				rel,
+				href: "https://cdn.example",
+			}).querySelector("link");
+			expect(link?.getAttribute("rel"), rel).toBe(rel);
+			expect(link?.getAttribute("href"), rel).toContain("cdn.example");
+		}
+		let relReads = 0;
+		const flippingRel = {
+			toString() {
+				relReads += 1;
+				return relReads === 1 ? "icon" : "modulepreload";
+			},
+		};
+		const flipped = mount("link", {
+			rel: flippingRel,
+			href: "https://evil.example/x.js",
+		}).querySelector("link");
+		expect(flipped?.getAttribute("href")).toBeNull();
+		expect(`${flipped?.getAttribute("rel") ?? ""}`).not.toMatch(
+			/modulepreload/i,
+		);
+		const button = mount("button", {
+			onValueChanged: () => undefined,
+			children: "x",
+		}).querySelector("button");
+		expect(button?.getAttribute("onvaluechanged")).toBeNull();
+		const handlerHost = document.createElement("div");
+		document.body.append(handlerHost);
+		const withHandler = renderIgniteJsx(
+			handlerHost,
+			jsx("button", { onValueChanged: () => undefined, children: "x" }),
+		);
+		expect(
+			handlerHost.querySelector("button")?.getAttribute("onvaluechanged"),
+		).toBeNull();
+		renderIgniteJsx(handlerHost, jsx("button", { children: "x" }), withHandler);
+		expect(
+			handlerHost.querySelector("button")?.getAttribute("onvaluechanged"),
+		).toBeNull();
 		expect(
 			mount("div", {
 				rel: "stylesheet",
@@ -1627,6 +1714,18 @@ describe("security re-review of remote loads", () => {
 			{ kind: "text", value: "a{color:red;background:blue}" },
 		]).css;
 		expect(declarations).toBe("a{color:red;background:blue}");
+		expect(srcsetCandidates("https://cdn.example/a.png,")).toEqual([
+			"https://cdn.example/a.png",
+		]);
+		expect(srcsetCandidates(",,")).toEqual([]);
+		expect(
+			srcsetCandidates(
+				" https://cdn.example/a.png 1x, https://cdn.example/b.png 2x ",
+			),
+		).toEqual([
+			"https://cdn.example/a.png 1x",
+			"https://cdn.example/b.png 2x ",
+		]);
 		const tail = styleSheetFromChildren([
 			{
 				kind: "text",

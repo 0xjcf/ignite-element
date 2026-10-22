@@ -37,7 +37,7 @@ Text nodes come from string children, number children, and a component that retu
 
 A `script` with a `src`, `href`, or `xlink:href` prop is omitted. Every spelling counts, so `src: false` does not hide `SRC`. That includes a prefixed tag such as `x:script` and an SVG `script`. Comment children (`null`, `true`, `false`) do not keep it. There is no trusted-script value. A `script` with none of those props and neither text nor element children is still created. A `text` prop on a `script` element is a source-bearing prop and is not applied, on mount or on update. `safeSpread` drops `text`, `textContent`, `innerText`, `outerText`, `innerHTML`, `outerHTML`, `srcdoc`, and `dangerouslySetInnerHTML`.
 
-A `link` whose local name is `link` (any ASCII case, with or without a prefix) is omitted when any `rel` or `relList` spelling contains a `stylesheet`, `preload`, `modulepreload`, or `import` token. An array and a `toString` value count. `preload` is omitted for every `as` value. `rel: "icon"` does not hide `REL: "stylesheet"`. Other `link` elements, such as `rel=icon`, stay and their `href` uses XSS-URL. After props are applied, a `link` whose reflected `relList` contains `stylesheet` loses `rel` and `href`.
+A `link` whose local name is `link` (any ASCII case, with or without a prefix) is omitted when any `rel` or `relList` spelling contains a `stylesheet`, `preload`, `modulepreload`, or `import` token. An array and a `toString` value count. `preload` is omitted for every `as` value. `rel: "icon"` does not hide `REL: "stylesheet"`. `prefetch`, `dns-prefetch`, `preconnect`, `prerender`, and `icon` stay, and their `href` uses XSS-URL. After props are applied, a reflected `rel` that contains any blocked token loses `rel` and `href`.
 
 ### XSS-PROTO
 
@@ -53,7 +53,7 @@ The match is the exact key, not a case fold. `__PROTO__` is not the special sett
 
 ### XSS-URL
 
-The shared projection denylist is unchanged. The JSX renderer does not use that denylist for attributes. A guarded string is written only when `safeUrl` allows it: after the same ASCII strip, the value is `http`, `https`, `mailto`, `tel`, or has no scheme and is not protocol-relative (`//`, `\\`, `/\`, `\/`). `javascript:`, `vbscript:`, `data:`, `blob:`, and `ftp:` are not written. `data:` stays refused, including `data:image/svg+xml` and `data:image/png` on anchors and other tags. The exception is a raster `data:image/png`, `jpeg`, `jpg`, `gif`, `webp`, or `avif` on `img` or `source` `src`, `srcset`, or `imagesrcset`. `safeUrl` itself still returns `null` for every `data:` string. An `iframe` or `frame` `src` of `http:` or `https:` is not written. A path such as `/safe.txt` stays. The keys `host`, `hostname`, `protocol`, `port`, `pathname`, `origin`, `username`, `password`, `search`, and `hash` are never assigned.
+The shared projection denylist is unchanged. The JSX renderer does not use that denylist for attributes. A guarded string is written only when `safeUrl` allows it: after the same ASCII strip, the value is `http`, `https`, `mailto`, `tel`, or has no scheme and is not protocol-relative (`//`, `\\`, `/\`, `\/`). `javascript:`, `vbscript:`, `data:`, `blob:`, and `ftp:` are not written. `data:` stays refused, including `data:image/svg+xml` and `data:image/png` on anchors and other tags. The exception is a raster `data:image/png`, `jpeg`, `jpg`, `gif`, `webp`, or `avif` on `img` or `source` `src`, `srcset`, or `imagesrcset`. `safeUrl` itself still returns `null` for every `data:` string. An `iframe`, `frame`, or `embed` `src`, and an `object` `data`, of `http:` or `https:` is not written. A path such as `/safe.txt` stays. The keys `host`, `hostname`, `protocol`, `port`, `pathname`, `origin`, `username`, `password`, `search`, and `hash` are never assigned.
 
 The prop key is lowercased, so `srcSet` is `srcset`. The guarded keys are:
 
@@ -149,7 +149,7 @@ Jose approved these. The rules above are the code.
 2. `safeUrl` refuses protocol-relative `//host`, `\\host`, `/\host`, and `\/host`.
 3. Guarded URL attributes use the `safeUrl` allowlist.
 4. Untrusted style drops `expression(`, a `behavior` token, `-moz-binding`, and `url(` with a comment before the paren. A declaration that contains `\` is dropped without decoding the escape.
-5. A `script` with `src`, and a `link` whose `rel` or `relList` contains `stylesheet`, `preload`, `modulepreload`, or `import`, are omitted.
+5. A `script` with `src`, and a `link` whose `rel` or `relList` contains `stylesheet`, `preload`, `modulepreload`, or `import`, are omitted. `prefetch`, `dns-prefetch`, `preconnect`, `prerender`, and `icon` keep an `https` href.
 6. The bundle budgets are 7,100 B gzip (no-host JSX, level 6) and 8,300 B gzip (consumer, level 9). Jose raised them from 6,500 B and 7,800 B, and before that from 4,810 B and 6,280 B.
 
 ## Scope

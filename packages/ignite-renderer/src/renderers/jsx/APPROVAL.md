@@ -25,6 +25,22 @@ Jose approved the following on PR #180:
 - `.changeset/jsx-xss-guards.md`
 - `scripts/__tests__/host-jsx-size.test.mjs`
 - `scripts/__tests__/renderer-jsx-bundle.test.mjs`
+- `AGENTS.md`
+- `README.md`
+- `packages/ignite-element/README.md`
+- `packages/ignite-element/scripts/verify-exports.mjs`
+- `packages/ignite-renderer/src/renderers/ignite-jsx.ts`
+- `packages/ignite-renderer/src/renderers/jsx/jsx-runtime.ts`
+- `docs/site/scripts/check-handbook.mjs`
+- `docs/site/src/content/docs/index.mdx`
+- `docs/site/src/examples/light-switch/`
+- `docs/site/src/examples/smart-home-explainer/src/`
+- `docs/site/src/pages/examples/light-switch.zip.ts`
+- `examples/frameworks/react/src/counter.ignite.tsx`
+- `experimental/ignite-jsx-xss/`
+- `stryker.config.json`
+- `stryker.renderer.config.json`
+- `stryker.xss.config.json`
 
 ## Authorized actions
 

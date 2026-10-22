@@ -346,13 +346,19 @@ describe("URL scheme guard", () => {
 		expect(object?.getAttribute("type")).toBe("text/html");
 	});
 
-	it("still applies a document URL on object", () => {
+	it("does not apply a remote document URL on object", () => {
 		const { host } = mount(
 			jsx("object", { data: "https://example.com/file.pdf" }),
 		);
 
-		expect(host.querySelector("object")?.getAttribute("data")).toContain(
-			"https://example.com/file.pdf",
+		expect(host.querySelector("object")?.getAttribute("data")).toBeNull();
+	});
+
+	it("still applies a same-document path on object", () => {
+		const { host } = mount(jsx("object", { data: "/file.pdf" }));
+
+		expect(host.querySelector("object")?.getAttribute("data")).toBe(
+			"/file.pdf",
 		);
 	});
 
@@ -1648,14 +1654,12 @@ describe("URL scheme guard", () => {
 		},
 	);
 
-	it("still applies a safe object DATA url", () => {
+	it("does not apply a remote object DATA url", () => {
 		const { host } = mount(
 			jsx("object", { DATA: "https://example.com/file.pdf" }),
 		);
 
-		expect(host.querySelector("object")?.getAttribute("data")).toContain(
-			"https://example.com/file.pdf",
-		);
+		expect(host.querySelector("object")?.getAttribute("data")).toBeNull();
 	});
 
 	it.each([

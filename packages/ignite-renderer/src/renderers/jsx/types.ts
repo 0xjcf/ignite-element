@@ -83,6 +83,7 @@ type UnsupportedContentProps = {
 	innerText?: never;
 	outerText?: never;
 	textContent?: never;
+	dangerouslySetInnerHTML?: never;
 };
 
 type ForbidKeys<Keys extends string> = {

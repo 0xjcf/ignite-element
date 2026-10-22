@@ -24,7 +24,7 @@ import {
 	isHandlerKey,
 	isStylesheetLink,
 	isUrlPartKey,
-	linkReflectsStylesheet,
+	linkReflectsBlocked,
 	readTrustedStyle,
 	scriptElementOmitted,
 	styleSheetFromChildren,
@@ -33,8 +33,6 @@ import {
 
 declare const __IGNITE_DEV_WARNINGS__: boolean;
 declare const __IGNITE_HOST_RUNTIME__: boolean | undefined;
-
-// Stryker disable all
 
 // Example browser configs leave this unset. Library builds replace it.
 const hostRuntimeEnabled =
@@ -249,13 +247,11 @@ function normalizeChild(
 		normalizedChildren.length = 0;
 		normalizedChildren.push(...nextChildren);
 	}
-	// Stryker restore all
 	if (
 		(lowerTag === "script" &&
 			scriptElementOmitted(normalizedChildren, node.props)) ||
 		(lowerTag === "link" && isStylesheetLink(node.props))
 	) {
-		// Stryker disable all
 		if (__IGNITE_DEV_WARNINGS__) {
 			warn(`[ignite-jsx] \`${lowerTag}\` was not created.`);
 		}
@@ -468,8 +464,10 @@ function isEventHandlerKey(key: string): boolean {
 }
 
 function isIgnoredHandlerAttribute(key: string): boolean {
-	const name = key.toLowerCase();
-	return isEventHandlerKey(name) || name.startsWith("xlink:on");
+	// CamelCase custom events match before lowercasing. `onValueChanged`
+	// is a listener, not an `onvaluechanged` attribute.
+	if (isEventHandlerKey(key)) return true;
+	return key.toLowerCase().startsWith("xlink:on");
 }
 
 function strippedUri(value: string): string {
@@ -525,7 +523,6 @@ function settleSmil(
 	}
 }
 
-// Stryker disable all
 function isBlockedUrlValue(
 	element: Element,
 	key: string,
@@ -548,9 +545,7 @@ function isBlockedUrlValue(
 	) {
 		return true;
 	}
-	// Stryker restore all
 	if (decorativeUrlBlocked(tag, name, value)) return true;
-	// Stryker disable all
 	const metaEquiv = metaRefreshKey(element, key);
 	const guarded =
 		name === "attributename" ||
@@ -567,11 +562,9 @@ function isBlockedUrlValue(
 		return strippedUri(value) === "refresh";
 	}
 	if (name === "attributename") return false;
-	// Stryker restore all
 	return urlValueBlocked(name, value, tag);
 }
 
-// Stryker disable all
 function ensureMount(node: Node): ElementMount {
 	let mount = elementMounts.get(node);
 	if (!mount) {
@@ -1246,9 +1239,7 @@ function patchProps(
 				// attribute. Functions bind once per event slot above.
 				continue;
 			}
-			// Stryker restore all
 			if (isUrlPartKey(key)) continue;
-			// Stryker disable all
 			const prev = oldProps[key];
 			if (isBlockedUrlValue(element, key, next, newProps)) {
 				warnBlockedUrl(element, key);
@@ -1358,13 +1349,12 @@ function patchProps(
 			act(element, "setAttribute", attrName, String(next));
 		}
 	}
-	if (linkReflectsStylesheet(element)) {
+	if (linkReflectsBlocked(element)) {
 		act(element, "removeAttribute", "rel");
 		act(element, "removeAttribute", "href");
 	}
 }
 
-// Stryker disable all
 function patchStyle(element: HTMLElement, prev: unknown, next: unknown): void {
 	// An override of style is a user getter: contained, and a non-style value
 	// (undefined, or the throw fallback) leaves the rest of the render alone.

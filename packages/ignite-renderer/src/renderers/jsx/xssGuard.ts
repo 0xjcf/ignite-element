@@ -13,6 +13,7 @@ const SVG_PAINT =
 	/^(?:fill|stroke|filter|mask|clip-?path|marker(?:-?(?:start|mid|end))?|cursor)$/;
 const URL_PART =
 	/^(?:host(?:name)?|protocol|port|pathname|origin|username|password|search|hash)$/i;
+const BLOCKED_REL = /^(?:stylesheet|preload|modulepreload|import)$/;
 const RASTER_DATA = /^data:image\/(?:png|jpe?g|gif|webp|avif)(?![+a-z])/;
 const COMMENT_BLOCK = /\/\*[\s\S]*?\*\//g;
 // A url( whose argument is not a local fragment. Quoted `#id` counts as local.
@@ -142,7 +143,9 @@ export function decorativeUrlBlocked(
 		(name === "from" || name === "to" || name === "by" || name === "values");
 	if (!smil && !SVG_PAINT.test(name)) return false;
 	if (value == null || value === false) return false;
-	return remotePaint(typeof value === "string" ? value : String(value));
+	// One read. A later toString() can swap "#safe" for a remote url().
+	if (typeof value !== "string") return true;
+	return remotePaint(value);
 }
 
 /** True when a guarded URL attribute must not be written. */
@@ -152,14 +155,12 @@ export function urlValueBlocked(
 	tag = "",
 ): boolean {
 	const key = name.toLowerCase();
-	// An https iframe navigates. A same-document path such as `/safe.txt` stays.
-	if (
-		(tag === "iframe" || tag === "frame") &&
-		key === "src" &&
-		/^https?:/.test(stripped(value))
-	) {
-		return true;
-	}
+	// http(s) navigates a nested document. A same-document path stays.
+	const nested =
+		(key === "src" &&
+			(tag === "iframe" || tag === "frame" || tag === "embed")) ||
+		(key === "data" && tag === "object");
+	if (nested && /^https?:/.test(stripped(value))) return true;
 	const image = tag === "img" || tag === "source";
 	if (key === "srcset" || key === "imagesrcset") {
 		for (const candidate of srcsetCandidates(value)) {
@@ -375,15 +376,7 @@ function blockedRelText(value: unknown): boolean {
 	if (!loads(value)) return false;
 	const text = typeof value === "string" ? value : String(value);
 	for (const token of text.split(HTML_SPACE)) {
-		const name = token.toLowerCase();
-		if (
-			name === "stylesheet" ||
-			name === "preload" ||
-			name === "modulepreload" ||
-			name === "import"
-		) {
-			return true;
-		}
+		if (BLOCKED_REL.test(token.toLowerCase())) return true;
 	}
 	return false;
 }
@@ -403,15 +396,11 @@ export function isUrlPartKey(key: string): boolean {
 	return URL_PART.test(key);
 }
 
-/** True after props apply when a link's reflected rel list is a stylesheet. */
-export function linkReflectsStylesheet(element: Element): boolean {
+/** True after props apply when a link's reflected rel is a blocked token. */
+export function linkReflectsBlocked(element: Element): boolean {
 	if (element.localName.toLowerCase() !== "link") return false;
 	const list = (element as HTMLLinkElement).relList;
-	if (!list) return false;
-	for (let index = 0; index < list.length; index += 1) {
-		if (list.item(index)?.toLowerCase() === "stylesheet") return true;
-	}
-	return false;
+	return Boolean(list && blockedRelText(list.value));
 }
 
 /** JSX `onClick`, or `on` plus a real event name in any ASCII case. */

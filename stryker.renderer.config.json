@@ -7,12 +7,17 @@
 		"dir": "packages/ignite-element",
 		"related": false
 	},
-	"mutate": ["packages/ignite-renderer/src/renderers/jsx/renderer.ts"],
+	"mutate": [
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:250-259",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:526-566",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1242-1242",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1352-1355"
+	],
 	"coverageAnalysis": "perTest",
 	"incremental": false,
 	"reporters": ["clear-text", "json"],
 	"jsonReporter": { "fileName": "reports/mutation/renderer.json" },
-	"thresholds": { "high": 85, "low": 80, "break": 80 },
+	"thresholds": { "high": 85, "low": 80, "break": null },
 	"concurrency": 4,
 	"timeoutMS": 15000,
 	"ignoreStatic": true

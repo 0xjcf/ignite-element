@@ -14,7 +14,7 @@ for stable applications.
 pnpm add ignite-element@beta xstate
 ```
 
-Save as `src/light-switch.tsx` in a web project with TypeScript/JSX support:
+Save as `src/light-switch.tsx` in a web project with TypeScript/JSX support. The `?raw` import below is Vite's. The downloadable example includes `src/env.d.ts` for that module. In another toolchain, set `styles` to the stylesheet text and keep the `<style>` element.
 
 ```tsx
 /** @jsxImportSource ignite-element/jsx */
