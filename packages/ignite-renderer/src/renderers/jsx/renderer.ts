@@ -25,6 +25,7 @@ import {
 	isStylesheetLink,
 	isUrlPartKey,
 	linkReflectsBlocked,
+	localName,
 	readTrustedStyle,
 	scriptElementOmitted,
 	styleSheetFromChildren,
@@ -221,7 +222,7 @@ function normalizeChild(
 			);
 	warnInvalidKeys(normalizedChildren);
 
-	const lowerTag = localTag(tagName);
+	const lowerTag = localName(tagName);
 	if (lowerTag === "style") {
 		const sheet = styleSheetFromChildren(normalizedChildren);
 		if (__IGNITE_DEV_WARNINGS__ && sheet.droppedUrl) {
@@ -434,15 +435,9 @@ function warnDuplicateProps(
 	}
 }
 
-function localTag(tagName: string): string {
-	const lower = tagName.toLowerCase();
-	const colon = lower.lastIndexOf(":");
-	return colon < 0 ? lower : lower.slice(colon + 1);
-}
-
 function isBlockedMarkupProp(element: Element, key: string): boolean {
 	const normalized = key.toLowerCase();
-	if (normalized === "text" && localTag(element.localName) === "script") {
+	if (normalized === "text" && localName(element.localName) === "script") {
 		return true;
 	}
 	return (
@@ -1256,7 +1251,11 @@ function patchProps(
 					const keys = committedKeys(element);
 					if (keys.get(key)) dropFallback(element, key);
 					keys.set(key, false);
-					setContained(element, key, next);
+					setContained(
+						element,
+						key,
+						key.toLowerCase() === "style" ? cssTextWithoutUrls(next) : next,
+					);
 				}
 				continue;
 			}
@@ -1409,7 +1408,7 @@ function patchStyle(element: HTMLElement, prev: unknown, next: unknown): void {
 	}
 
 	const raw = String(next);
-	const nextString = cssTextWithoutUrls(raw);
+	const nextString = cssTextWithoutUrls(raw) as string;
 	if (__IGNITE_DEV_WARNINGS__ && nextString !== raw) {
 		warnIgnoredProp(
 			element,

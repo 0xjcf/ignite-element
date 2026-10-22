@@ -1,10 +1,13 @@
 import fc from "fast-check";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+	cssTextWithoutUrls,
 	decorativeUrlBlocked,
+	linkReflectsBlocked,
 	readTrustedStyle,
 	srcsetCandidates,
 	styleSheetFromChildren,
+	trustedStyle,
 	urlValueBlocked,
 } from "../../../../ignite-renderer/src/renderers/jsx/xssGuard";
 import { jsx } from "../../renderers/jsx/jsx-runtime";
@@ -14,6 +17,45 @@ afterEach(() => {
 	document.body.replaceChildren();
 	delete (Object.prototype as { polluted?: boolean }).polluted;
 });
+
+const styleSeen: unknown[] = [];
+const titleSeen: unknown[] = [];
+
+class StyleSinkElement extends HTMLElement {
+	set style(value: unknown) {
+		styleSeen.push(value);
+		const decl = Object.getOwnPropertyDescriptor(
+			HTMLElement.prototype,
+			"style",
+		)?.get?.call(this) as CSSStyleDeclaration | undefined;
+		if (!decl) return;
+		if (typeof value === "string") {
+			decl.cssText = value;
+			return;
+		}
+		decl.cssText = "";
+		if (!value || typeof value !== "object") return;
+		for (const [key, item] of Object.entries(value)) {
+			decl.setProperty(key, String(item));
+		}
+	}
+
+	set title(value: unknown) {
+		titleSeen.push(value);
+	}
+}
+
+if (!customElements.get("x-style-sink")) {
+	customElements.define("x-style-sink", StyleSinkElement);
+}
+
+function nativeStyle(element: HTMLElement): string {
+	const decl = Object.getOwnPropertyDescriptor(
+		HTMLElement.prototype,
+		"style",
+	)?.get?.call(element) as CSSStyleDeclaration | undefined;
+	return decl?.cssText ?? "";
+}
 
 function mount(tag: string, props: Record<string, unknown>) {
 	const host = document.createElement("div");
@@ -1624,6 +1666,118 @@ describe("security re-review of remote loads", () => {
 		).toBeNull();
 		expect(urlValueBlocked("src", png, "source")).toBe(false);
 		expect(urlValueBlocked("src", png, "iframe")).toBe(true);
+	});
+
+	it("filters style before a custom element setter copies it", () => {
+		styleSeen.length = 0;
+		titleSeen.length = 0;
+		const leaked = mount("x-style-sink", {
+			style: "background:url(https://evil.example/leak)",
+			title: "url(https://evil.example/leak)",
+		}).querySelector("x-style-sink") as HTMLElement;
+		expect(styleSeen).toEqual([""]);
+		expect(nativeStyle(leaked).toLowerCase()).not.toContain("url(");
+		expect(leaked.innerHTML).not.toContain("evil.example");
+		expect(titleSeen).toEqual(["url(https://evil.example/leak)"]);
+		styleSeen.length = 0;
+		const mixed = mount("x-style-sink", {
+			style: "color:red;background:url(https://evil.example/leak)",
+		}).querySelector("x-style-sink") as HTMLElement;
+		expect(styleSeen).toEqual(["color:red"]);
+		expect(nativeStyle(mixed).toLowerCase()).not.toContain("evil.example");
+		styleSeen.length = 0;
+		const safeStyle = { color: "red" };
+		mount("x-style-sink", { style: safeStyle });
+		expect(styleSeen).toEqual([safeStyle]);
+		styleSeen.length = 0;
+		const trusted = trustedStyle("background:url(https://cdn.example/a.png)");
+		mount("x-style-sink", { style: trusted });
+		expect(styleSeen).toEqual([trusted]);
+		fc.assert(
+			fc.property(fc.string({ maxLength: 16 }), (css) => {
+				styleSeen.length = 0;
+				const el = mount("x-style-sink", { style: css }).querySelector(
+					"x-style-sink",
+				) as HTMLElement;
+				const safe = cssTextWithoutUrls(css);
+				expect(styleSeen).toEqual([safe]);
+				expect(nativeStyle(el).toLowerCase()).not.toMatch(
+					/url\s*\(|@import|image-set\s*\(/,
+				);
+			}),
+			{ numRuns: 16, seed: 1 },
+		);
+	});
+
+	it("rechecks reflected rel on a prefixed link and a link without relList", () => {
+		fc.assert(
+			fc.property(
+				fc.constantFrom("link", "x:link", "svg:link", "XML:LINK"),
+				fc.constantFrom(
+					"stylesheet",
+					"preload",
+					"modulepreload",
+					"import",
+					"icon",
+				),
+				(name, rel) => {
+					const element = {
+						localName: name,
+						getAttribute: (key: string) => (key === "rel" ? rel : null),
+					} as unknown as Element;
+					const blocked = /^(?:stylesheet|preload|modulepreload|import)$/.test(
+						rel,
+					);
+					expect(linkReflectsBlocked(element)).toBe(blocked);
+				},
+			),
+			{ numRuns: 20, seed: 1 },
+		);
+		const svgLink = document.createElementNS(
+			"http://www.w3.org/2000/svg",
+			"link",
+		);
+		svgLink.setAttribute("rel", "modulepreload");
+		expect(linkReflectsBlocked(svgLink)).toBe(true);
+		for (const rel of ["stylesheet", "preload", "modulepreload", "import"]) {
+			let reads = 0;
+			const value = {
+				toString() {
+					reads += 1;
+					return reads === 1 ? "icon" : rel;
+				},
+			};
+			const prefixed = mount("x:link", {
+				rel: value,
+				href: "https://evil.example/a.js",
+			});
+			const link = prefixed.getElementsByTagName("x:link")[0];
+			expect(link?.getAttribute("href"), rel).toBeNull();
+			expect(link?.getAttribute("rel") ?? "", rel).not.toBe(rel);
+		}
+		let svgReads = 0;
+		const svg = mount("svg", {
+			children: jsx("link", {
+				rel: {
+					toString() {
+						svgReads += 1;
+						return svgReads === 1 ? "icon" : "modulepreload";
+					},
+				},
+				href: "https://evil.example/a.js",
+			}),
+		});
+		const reflected = svg.getElementsByTagName("link")[0];
+		expect(reflected?.getAttribute("href")).toBeNull();
+		expect(reflected?.getAttribute("rel") ?? "").not.toBe("modulepreload");
+		expect(
+			mount("x:div", {
+				rel: "stylesheet",
+				href: "https://cdn.example/a.css",
+			})
+				.getElementsByTagName("x:div")[0]
+				?.getAttribute("href"),
+		).toContain("cdn.example");
 	});
 
 	it("guards imagesrcset and manifest, and omits preload links", () => {

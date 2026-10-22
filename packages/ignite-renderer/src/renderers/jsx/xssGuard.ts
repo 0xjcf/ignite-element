@@ -318,7 +318,8 @@ export function styleSheetFromChildren(
 	return { css, droppedUrl };
 }
 
-export function cssTextWithoutUrls(value: string): string {
+export function cssTextWithoutUrls(value: unknown): unknown {
+	if (typeof value !== "string") return value;
 	return styleSheetFromChildren([{ kind: "text", value, trusted: false }]).css;
 }
 
@@ -390,11 +391,18 @@ export function isUrlPartKey(key: string): boolean {
 	return URL_PART.test(key);
 }
 
+/** Local name with any namespace prefix removed. */
+export function localName(value: string): string {
+	const lower = value.toLowerCase();
+	const colon = lower.lastIndexOf(":");
+	return colon < 0 ? lower : lower.slice(colon + 1);
+}
+
 /** True after props apply when a link's reflected rel is a blocked token. */
 export function linkReflectsBlocked(element: Element): boolean {
-	if (element.localName.toLowerCase() !== "link") return false;
+	if (localName(element.localName) !== "link") return false;
 	const list = (element as HTMLLinkElement).relList;
-	return Boolean(list && blockedRelText(list.value));
+	return blockedRelText(list ? list.value : element.getAttribute("rel"));
 }
 
 /** JSX `onClick`, or `on` plus a real event name in any ASCII case. */

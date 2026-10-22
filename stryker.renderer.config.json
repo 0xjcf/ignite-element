@@ -8,10 +8,10 @@
 		"related": false
 	},
 	"mutate": [
-		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:250-259",
-		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:526-566",
-		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1242-1242",
-		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1352-1355"
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:251-260",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:521-561",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1237-1237",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1351-1354"
 	],
 	"coverageAnalysis": "perTest",
 	"incremental": false,
