@@ -1,6 +1,7 @@
 /** @jsxImportSource ignite-element/jsx */
 import { igniteCore } from "ignite-element/xstate";
 import { assign, createMachine } from "xstate";
+import styles from "./counter.css?raw";
 
 const counterMachine = createMachine({
 	context: { count: 0 },
@@ -32,10 +33,7 @@ const counterCore = igniteCore({
 
 export const counterElement = counterCore("react-demo-counter", (ctx) => (
 	<section class="counter-card" aria-label="Ignite counter">
-		<link
-			rel="stylesheet"
-			href={new URL("./counter.css", import.meta.url).href}
-		/>
+		<style>{styles}</style>
 		<p>Custom element</p>
 		<output aria-label="Element count">{ctx.count}</output>
 		<div class="counter-controls">
