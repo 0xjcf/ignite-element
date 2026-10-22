@@ -22,31 +22,39 @@ afterEach(() => {
 const styleSeen: unknown[] = [];
 const titleSeen: unknown[] = [];
 
-class StyleSinkElement extends HTMLElement {
-	set style(value: unknown) {
-		styleSeen.push(value);
-		const decl = Object.getOwnPropertyDescriptor(
-			HTMLElement.prototype,
-			"style",
-		)?.get?.call(this) as CSSStyleDeclaration | undefined;
-		if (!decl) return;
-		if (typeof value === "string") {
-			decl.cssText = value;
-			return;
-		}
-		decl.cssText = "";
-		if (!value || typeof value !== "object") return;
-		for (const [key, item] of Object.entries(value)) {
-			decl.setProperty(key, String(item));
-		}
-	}
-
-	set title(value: unknown) {
-		titleSeen.push(value);
-	}
-}
+class StyleSinkElement extends HTMLElement {}
 
 if (!customElements.get("x-style-sink")) {
+	// Installed on the prototype so the class stays a valid HTMLElement.
+	// The setters record the raw argument, including a string or style object.
+	Object.defineProperty(StyleSinkElement.prototype, "style", {
+		configurable: true,
+		set(value: unknown) {
+			styleSeen.push(value);
+			const decl = Object.getOwnPropertyDescriptor(
+				HTMLElement.prototype,
+				"style",
+			)?.get?.call(this) as CSSStyleDeclaration | undefined;
+			if (!decl) return;
+			if (typeof value === "string") {
+				decl.cssText = value;
+				return;
+			}
+			decl.cssText = "";
+			if (!value || typeof value !== "object") return;
+			for (const [key, item] of Object.entries(
+				value as Record<string, unknown>,
+			)) {
+				decl.setProperty(key, String(item));
+			}
+		},
+	});
+	Object.defineProperty(StyleSinkElement.prototype, "title", {
+		configurable: true,
+		set(value: unknown) {
+			titleSeen.push(value);
+		},
+	});
 	customElements.define("x-style-sink", StyleSinkElement);
 }
 
