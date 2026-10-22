@@ -2,12 +2,25 @@
 
 Repository: `0xjcf/ignite-element`. Candidate branch: `fix/ignite-jsx-xss`. Base: `beta`. Pull request: #180. This file records the authorization for the slice. It is not a merge, a release, or a lifecycle change.
 
-Jose approved the following on PR #180:
+Jose approved the following on PR #180. The quotes below are his words as recorded in chat on 2026-10-22, not a paraphrase added later.
+
+On 2026-10-22, applied in `23aead7c` (11:15Z), the chat recorded his decisions as:
+
+> Jose approved these decisions himself on PR #180.
+>
+> 1. Size caps: raise no-host JSX gzip cap 4,810 -> 6,500 B and consumer JSX cap 6,280 -> 7,800 B. Note Jose's approval in the PR body and in APPROVAL.md.
+> 2. Approve THREAT-MODEL.md: drop its NEEDS JOSE marker and update it for the changes below.
+
+On 2026-10-22, applied in `74fba5ef` (12:49Z), his own words on the second cap raise were:
+
+> Raise them to 7,100 / 8,300 and push all fixes
+
+Those decisions are:
 
 - Raise the no-host JSX gzip cap from 4,810 B to 6,500 B (level 6).
 - Raise the consumer JSX gzip cap from 6,280 B to 7,800 B (level 9).
-- Raise those caps again, to 7,100 B (no-host, level 6) and 8,300 B (consumer, level 9), and push the security re-review fixes. Jose approved that raise in his own words in chat: "Raise them to 7,100 / 8,300 and push all fixes".
-- Approve `THREAT-MODEL.md`.
+- Raise those caps again, to 7,100 B (no-host, level 6) and 8,300 B (consumer, level 9), and push the security re-review fixes.
+- `THREAT-MODEL.md` is approved.
 - `safeUrl` refuses `//host`, `\\host`, `/\host`, and `\/host`.
 - Guarded URL attributes use the `safeUrl` allowlist.
 - Untrusted style drops `expression(`, a `behavior` token, `-moz-binding`, and `url(` with a comment before the paren. A backslash still drops the declaration and is not decoded.

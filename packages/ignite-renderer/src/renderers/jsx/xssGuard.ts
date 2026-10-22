@@ -16,8 +16,6 @@ const URL_PART =
 const BLOCKED_REL = /^(?:stylesheet|preload|modulepreload|import)$/;
 const RASTER_DATA = /^data:image\/(?:png|jpe?g|gif|webp|avif)(?![+a-z])/;
 const COMMENT_BLOCK = /\/\*[\s\S]*?\*\//g;
-// A url( whose argument is not a local fragment. Quoted `#id` counts as local.
-const REMOTE_URL = /url\s*\(\s*(?!#|['"]\s*#)/i;
 const HTML_SPACE = /[\t\n\f\r ]+/;
 const SCHEME = /^([a-z][a-z0-9+.-]*):/i;
 const ALLOWED_SCHEME = new Set(["http", "https", "mailto", "tel"]);
@@ -128,11 +126,6 @@ function withoutComments(text: string): string {
 	return text.replace(COMMENT_BLOCK, "");
 }
 
-/** True when url( points at something other than a local fragment. */
-function remotePaint(value: string): boolean {
-	return REMOTE_URL.test(value) || REMOTE_URL.test(withoutComments(value));
-}
-
 export function decorativeUrlBlocked(
 	tag: string,
 	name: string,
@@ -145,7 +138,10 @@ export function decorativeUrlBlocked(
 	if (value == null || value === false) return false;
 	// One read. A later toString() can swap "#safe" for a remote url().
 	if (typeof value !== "string") return true;
-	return remotePaint(value);
+	// Drop CSS loaders first. A local fragment url() is the only one that stays.
+	return untrustedCssBlocked(
+		value.replace(/url\s*\(\s*["']?\s*#[^)]*\)/gi, ""),
+	);
 }
 
 /** True when a guarded URL attribute must not be written. */
@@ -211,9 +207,9 @@ export function trustedStyle(css: string): TrustedStyle {
 }
 
 /**
- * Declaration spans. Semicolons and closing braces inside quotes or comments
- * are not splits. A `}` stays with its span so a dropped rule takes that
- * brace with it. `depth` is the net braces in the span.
+ * Declaration spans. Semicolons, `{`, and `}` inside quotes or comments are
+ * not splits. `depth` is the brace depth after the span. It is not reset, so
+ * a later rule stays outside a block whose declaration was dropped.
  */
 function declarationSpans(
 	full: string,
@@ -254,16 +250,11 @@ function declarationSpans(
 			index += 1;
 			continue;
 		}
-		if (char === "{") {
-			depth += 1;
-			index += 1;
-			continue;
-		}
-		if (char === ";" || char === "}") {
-			if (char === "}") depth -= 1;
-			const end = char === "}" ? index + 1 : index;
+		if (char === "{" || char === ";" || char === "}") {
+			if (char === "{") depth += 1;
+			else if (char === "}") depth -= 1;
+			const end = char === ";" ? index : index + 1;
 			if (end > start) spans.push({ start, end, depth });
-			depth = 0;
 			start = index + 1;
 			index += 1;
 			continue;
@@ -278,8 +269,9 @@ function declarationSpans(
  * Style text nodes are concatenated by the CSS parser, including across
  * comments. Filter that joined string. A declaration that loads a URL is
  * kept only when every character of that declaration, including a closing
- * brace, is trustedStyle text. Braces opened by a kept span stay closed
- * when a later declaration in the rule is dropped.
+ * brace, is trustedStyle text. A dropped declaration that closed blocks
+ * writes those closes before the next kept rule, so that rule is not
+ * pulled inside.
  */
 export function styleSheetFromChildren(
 	children: ReadonlyArray<{ kind: string; value?: string; trusted?: boolean }>,
@@ -294,9 +286,9 @@ export function styleSheetFromChildren(
 			trustedAt.push(trusted);
 		}
 	}
-	const kept: string[] = [];
+	let css = "";
 	let droppedUrl = false;
-	let balance = 0;
+	let open = 0;
 	for (const span of declarationSpans(full)) {
 		const part = full.slice(span.start, span.end);
 		let drop = false;
@@ -308,19 +300,20 @@ export function styleSheetFromChildren(
 				}
 			}
 		}
-		if (drop) droppedUrl = true;
-		else {
-			kept.push(part);
-			balance += span.depth;
+		if (drop) {
+			droppedUrl = true;
+			if (span.depth < open) {
+				css += "}".repeat(open - span.depth);
+				open = span.depth;
+			}
+			continue;
 		}
-	}
-	// A semicolon after `}` is not an empty rule. Chromium drops every later rule.
-	let css = "";
-	for (const part of kept) {
-		if (css && !css.endsWith("}")) css += ";";
+		// A semicolon after `{` or `}` is not an empty rule. Chromium drops every later rule.
+		if (css && !css.endsWith("}") && !css.endsWith("{")) css += ";";
 		css += part;
+		open = span.depth;
 	}
-	if (balance > 0) css += "}".repeat(balance);
+	if (open > 0) css += "}".repeat(open);
 	return { css, droppedUrl };
 }
 

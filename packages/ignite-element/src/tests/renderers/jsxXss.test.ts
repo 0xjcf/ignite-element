@@ -535,7 +535,7 @@ describe("gaps", () => {
 			}),
 		);
 		const leakedText = leaked.querySelector("style")?.textContent ?? "";
-		expect(leakedText).toBe(".ok{color:red}");
+		expect(leakedText).toBe(".ok{color:red} .leak{}");
 		expect(leakedText.toLowerCase()).not.toContain("url(");
 
 		const onlyUrl = document.createElement("div");
@@ -548,7 +548,7 @@ describe("gaps", () => {
 				}),
 			}),
 		);
-		expect(onlyUrl.querySelector("style")?.textContent).toBe("");
+		expect(onlyUrl.querySelector("style")?.textContent).toBe("a{}");
 
 		const breakout = document.createElement("div");
 		document.body.append(breakout);
@@ -1476,6 +1476,34 @@ describe("security re-review of remote loads", () => {
 		expect(host.querySelector("#local-fill")?.getAttribute("fill")).toBe(
 			"url(#grad)",
 		);
+		expect(
+			mount("svg", {
+				children: jsx("rect", { fill: 'url("#grad")' }),
+			})
+				.querySelector("rect")
+				?.getAttribute("fill"),
+		).toBe('url("#grad")');
+		const escapes = [
+			"u\\rl(//evil.example/m.png)",
+			"\\75 rl(//evil.example/m.png)",
+			"image-set('//evil.example/m.png' 1x)",
+			"src(//evil.example/m.png)",
+		];
+		for (const value of escapes) {
+			for (const key of ["mask", "filter", "cursor", "fill"] as const) {
+				const painted = mount("svg", {
+					children: jsx("rect", { [key]: value }),
+				}).querySelector("rect");
+				expect(painted?.getAttribute(key), `${key} ${value}`).toBeNull();
+			}
+			const set = mount("svg", {
+				children: jsx("set", {
+					attributeName: "mask",
+					to: value,
+				}),
+			}).querySelector("set");
+			expect(set?.getAttribute("to"), value).toBeNull();
+		}
 		expect(host.querySelector("#filter")?.getAttribute("filter")).toBeNull();
 		expect(host.querySelector("#mask")?.getAttribute("mask")).toBeNull();
 		expect(host.querySelector("#clip")?.getAttribute("clip-path")).toBeNull();
@@ -1732,7 +1760,206 @@ describe("security re-review of remote loads", () => {
 				value: "a{background:url(https://evil.example/a.png);color:blue}",
 			},
 		]).css;
-		expect(tail).toBe("color:blue}");
+		expect(tail).toBe("a{color:blue}");
 		expect(tail).not.toContain("evil.example");
+
+		const sibling = styleSheetFromChildren([
+			{
+				kind: "text",
+				value:
+					"@font-face{unicode-range:U+0-FF;src:url(https://evil.example/a.woff)} b{color:red}",
+			},
+		]).css;
+		expect(sibling).toBe("@font-face{unicode-range:U+0-FF} b{color:red}");
+		expect(sibling.split("{").length).toBe(sibling.split("}").length);
+
+		const media = styleSheetFromChildren([
+			{
+				kind: "text",
+				value: "@media all{a{background:url(//e)}} b{color:red}",
+			},
+		]).css;
+		expect(media).toBe("@media all{a{}} b{color:red}");
+		expect(media.split("{").length).toBe(media.split("}").length);
+
+		const nested = styleSheetFromChildren([
+			{
+				kind: "text",
+				value: "a{ b{background:url(//e)} color:red}",
+			},
+		]).css;
+		expect(nested).toBe("a{ b{} color:red}");
+		expect(nested).not.toContain("url");
+		expect(nested.split("{").length).toBe(nested.split("}").length);
+	});
+
+	it("pins the renderer guard wiring", () => {
+		expect(
+			mount("script", { children: "alert(1)" }).querySelector("script"),
+		).toBeNull();
+		expect(
+			mount("script", { src: "https://evil.example/a.js" }).querySelector(
+				"script",
+			),
+		).toBeNull();
+		expect(
+			mount("link", {
+				rel: "stylesheet",
+				href: "https://evil.example/a.css",
+			}).querySelector("link"),
+		).toBeNull();
+
+		expect(
+			mount("base", { href: "https://evil.example/" })
+				.querySelector("base")
+				?.getAttribute("href"),
+		).toBeNull();
+		expect(
+			mount("base", { target: "_blank" })
+				.querySelector("base")
+				?.getAttribute("target"),
+		).toBe("_blank");
+		expect(
+			mount("a", { href: "https://example.com", children: "x" })
+				.querySelector("a")
+				?.getAttribute("href"),
+		).toContain("https://example.com");
+
+		for (const key of ["to", "from", "by", "values"] as const) {
+			const animated = mount("svg", {
+				children: jsx("animate", {
+					attributeName: "href",
+					[key]: "javascript:alert(1)",
+				}),
+			}).querySelector("animate");
+			expect(animated?.getAttribute(key), key).toBeNull();
+			expect(
+				animated?.getAttribute("attributename") ??
+					animated?.getAttribute("attributeName"),
+			).toBe("href");
+		}
+		expect(
+			mount("svg", {
+				children: jsx("animate", { attributeName: "fill", to: "#fff" }),
+			})
+				.querySelector("animate")
+				?.getAttribute("to"),
+		).toBe("#fff");
+		expect(
+			mount("svg", {
+				children: jsx("set", {
+					attributeName: "href",
+					to: "javascript:alert(1)",
+				}),
+			})
+				.querySelector("set")
+				?.getAttribute("to"),
+		).toBeNull();
+
+		const widened = mount("object", {
+			width: 100,
+			data: "/same.svg",
+		}).querySelector("object");
+		expect(widened?.getAttribute("width")).toBe("100");
+		expect(widened?.getAttribute("data")).toBe("/same.svg");
+		expect(
+			mount("object", { data: "https://evil.example/a.svg" })
+				.querySelector("object")
+				?.getAttribute("data"),
+		).toBeNull();
+		expect(
+			mount("div", { data: "javascript:alert(1)" })
+				.querySelector("div")
+				?.getAttribute("data"),
+		).toBe("javascript:alert(1)");
+		const namedTarget = mount("svg", {
+			children: jsx("animate", {
+				attributeName: "javascript:alert(1)",
+				to: "#fff",
+			}),
+		}).querySelector("animate");
+		expect(namedTarget?.getAttribute("attributeName")).toBe(
+			"javascript:alert(1)",
+		);
+		expect(
+			mount("object", { codebase: "javascript:alert(1)" })
+				.querySelector("object")
+				?.getAttribute("codebase"),
+		).toBeNull();
+		expect(
+			mount("object", { archive: "https://cdn.example/a.jar" })
+				.querySelector("object")
+				?.getAttribute("archive"),
+		).toContain("cdn.example");
+		expect(
+			mount("object", { classid: "https://cdn.example/a.cls" })
+				.querySelector("object")
+				?.getAttribute("classid"),
+		).toContain("cdn.example");
+		expect(
+			mount("embed", { code: "https://cdn.example/a.swf" })
+				.querySelector("embed")
+				?.getAttribute("code"),
+		).toContain("cdn.example");
+		expect(
+			mount("embed", { pluginspage: "https://cdn.example/plugin" })
+				.querySelector("embed")
+				?.getAttribute("pluginspage"),
+		).toContain("cdn.example");
+		expect(
+			mount("param", { name: "movie", value: "https://cdn.example/a.swf" })
+				.querySelector("param")
+				?.getAttribute("value"),
+		).toContain("cdn.example");
+
+		let hrefReads = 0;
+		const flippingHref = {
+			toString() {
+				hrefReads += 1;
+				return hrefReads === 1
+					? "https://cdn.example/ok"
+					: "javascript:alert(1)";
+			},
+		};
+		expect(
+			mount("a", { href: flippingHref, children: "x" })
+				.querySelector("a")
+				?.getAttribute("href"),
+		).toBeNull();
+		const flippingName = {
+			toString() {
+				return "href";
+			},
+		};
+		const named = mount("svg", {
+			children: jsx("animate", {
+				attributeName: flippingName,
+				to: "javascript:alert(1)",
+			}),
+		}).querySelector("animate");
+		expect(
+			named?.getAttribute("attributename") ??
+				named?.getAttribute("attributeName"),
+		).toBeNull();
+		expect(named?.getAttribute("to")).toBeNull();
+
+		expect(
+			mount("meta", {
+				httpEquiv: "refresh",
+				content: "0;url=https://evil.example",
+			})
+				.querySelector("meta")
+				?.getAttribute("http-equiv"),
+		).toBeNull();
+		expect(
+			mount("meta", { httpEquiv: "content-type", content: "text/html" })
+				.querySelector("meta")
+				?.getAttribute("http-equiv"),
+		).toBe("content-type");
+		expect(
+			mount("div", { title: 1, children: "x" })
+				.querySelector("div")
+				?.getAttribute("title"),
+		).toBe("1");
 	});
 });

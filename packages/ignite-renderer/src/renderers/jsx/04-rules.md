@@ -4,7 +4,7 @@ Slice: close the XSS gaps from `spike/ignite-jsx-xss` (`2bc840b`) in the real JS
 
 Jose accepted that gap list as the scope. A rule that maps directly to it is accepted. Anything marked **NEEDS JOSE** is an extra rule or an open choice. It is not implemented unless the rule text says the code does it.
 
-The threat model is `THREAT-MODEL.md` in this directory. Jose approved it on PR #180.
+The threat model is `THREAT-MODEL.md` in this directory. Jose approved it on 2026-10-22. The recorded words are in `APPROVAL.md`.
 
 ## Baseline
 
@@ -76,7 +76,7 @@ The prop key is lowercased, so `srcSet` is `srcset`. The guarded keys are:
 
 `ping` is blocked when the stripped whole value is dangerous, or when any token split on HTML whitespace (tab, line feed, form feed, carriage return, space) is dangerous. The whole-value check catches a scheme that hides a whitespace character. The token check catches a safe URL beside a dangerous one, which the strip would otherwise glue together. If either check fails, the whole attribute is dropped. A NUL inside one token is not a separator, so `java\u0000script:` is still one token and is blocked.
 
-Non-string values on a guarded key are not applied. SMIL `from`, `to`, `by`, and `values` are still blocked when `attributeName` targets `href`. They are also blocked when the value contains a remote `url(`. `url(#fragment)` stays. The same remote-`url(` check applies to `fill`, `stroke`, `filter`, `mask`, `clip-path`, `marker`, `marker-start`, `marker-mid`, `marker-end`, and `cursor`. Meta refresh stays blocked.
+Non-string values on a guarded key are not applied. SMIL `from`, `to`, `by`, and `values` are still blocked when `attributeName` targets `href`. Paint and SMIL values run the untrusted-CSS loader check first, so a backslash, `image-set(`, `src(`, or `@import` is dropped, and only `url(#fragment)` or `url("#id")` stays. That covers `fill`, `stroke`, `filter`, `mask`, `clip-path`, `marker`, `marker-start`, `marker-mid`, `marker-end`, and `cursor`. Meta refresh stays blocked. `object` `archive` and `classid`, `embed` `code` and `pluginspage`, and `param` `value` are not guarded keys: an `https:` URL is written, and Chrome does not load it.
 
 ### XSS-SPREAD
 
@@ -99,7 +99,7 @@ Untrusted style loads no URL and runs no legacy scriptable property. The prop ke
 - `trustedStyle(css)` as the whole `style` prop assigns that CSS, including loaders and backslashes. Its return type is an `IgniteJsxChild`, so it is a legal style child. The type also carries an optional `type` that is absent at runtime. That name overlaps a hosted view, so an element whose children include this token still assigns to the host view.
 - `trustedStyle(css)` as one style-object value is kept, including loaders and backslashes. The brand is `Symbol.for("ignite-element.trustedStyle")`. Any code in the same realm can forge that symbol. JSON cannot.
 
-Declarations split on `;` and `}` outside quotes and comments. A backslash inside a quote skips the next character so `\;` does not end the string. That skip is not CSS-escape decoding. A dropped span does not leave its separator behind. A kept `{` whose `}` was in a dropped span is closed. A sibling rule stays. A sheet that is one span containing a loader becomes empty.
+Declarations split on `{`, `;`, and `}` outside quotes and comments. A backslash inside a quote skips the next character so `\;` does not end the string. That skip is not CSS-escape decoding. A dropped span does not leave its separator behind. A dropped declaration closes the blocks it owed before the next kept rule, so the next rule is not nested inside the dropped block. A selector whose declarations were all dropped stays as an empty rule. A semicolon is not inserted after `{` or `}`.
 
 In a style sheet, `url(#fragment)` is `url(` and is dropped. On the SVG paint attributes in XSS-URL, `url(#fragment)` stays. `expression(` is this rule, as are `behavior` and `-moz-binding`.
 
