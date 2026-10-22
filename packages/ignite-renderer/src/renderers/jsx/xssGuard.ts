@@ -7,7 +7,16 @@ declare const trustedStyleBrand: unique symbol;
 // is stripped. A backslash is rejected separately and is not decoded.
 const CSS_LOADER =
 	/(?:@import\b|(?:-webkit-)?image-set\s*\(|\bsrc\s*\(|\burl\s*\(|expression\s*\(|-moz-binding|(?:^|[^-\w])behavior\b)/i;
-const EXTRA_URL = /^(?:srcset|poster|background|cite|ping)$/;
+const EXTRA_URL =
+	/^(?:srcset|imagesrcset|poster|background|cite|ping|manifest)$/;
+const SVG_PAINT =
+	/^(?:fill|stroke|filter|mask|clip-?path|marker(?:-?(?:start|mid|end))?|cursor)$/;
+const URL_PART =
+	/^(?:host(?:name)?|protocol|port|pathname|origin|username|password|search|hash)$/i;
+const RASTER_DATA = /^data:image\/(?:png|jpe?g|gif|webp|avif)(?![+a-z])/;
+const COMMENT_BLOCK = /\/\*[\s\S]*?\*\//g;
+// A url( whose argument is not a local fragment. Quoted `#id` counts as local.
+const REMOTE_URL = /url\s*\(\s*(?!#|['"]\s*#)/i;
 const HTML_SPACE = /[\t\n\f\r ]+/;
 const SCHEME = /^([a-z][a-z0-9+.-]*):/i;
 const ALLOWED_SCHEME = new Set(["http", "https", "mailto", "tel"]);
@@ -109,15 +118,57 @@ function urlAllowed(value: string): boolean {
 	return safeUrl(value) !== null;
 }
 
+function rasterData(value: string): boolean {
+	return RASTER_DATA.test(stripped(value));
+}
+
+function withoutComments(text: string): string {
+	COMMENT_BLOCK.lastIndex = 0;
+	return text.replace(COMMENT_BLOCK, "");
+}
+
+/** True when url( points at something other than a local fragment. */
+function remotePaint(value: string): boolean {
+	return REMOTE_URL.test(value) || REMOTE_URL.test(withoutComments(value));
+}
+
+export function decorativeUrlBlocked(
+	tag: string,
+	name: string,
+	value: unknown,
+): boolean {
+	const smil =
+		(tag === "animate" || tag === "set" || tag === "animatemotion") &&
+		(name === "from" || name === "to" || name === "by" || name === "values");
+	if (!smil && !SVG_PAINT.test(name)) return false;
+	if (value == null || value === false) return false;
+	return remotePaint(typeof value === "string" ? value : String(value));
+}
+
 /** True when a guarded URL attribute must not be written. */
-export function urlValueBlocked(name: string, value: string): boolean {
+export function urlValueBlocked(
+	name: string,
+	value: string,
+	tag = "",
+): boolean {
 	const key = name.toLowerCase();
-	if (key === "srcset") {
+	// An https iframe navigates. A same-document path such as `/safe.txt` stays.
+	if (
+		(tag === "iframe" || tag === "frame") &&
+		key === "src" &&
+		/^https?:/.test(stripped(value))
+	) {
+		return true;
+	}
+	const image = tag === "img" || tag === "source";
+	if (key === "srcset" || key === "imagesrcset") {
 		for (const candidate of srcsetCandidates(value)) {
+			if (image && rasterData(candidate)) continue;
 			if (!urlAllowed(candidate)) return true;
 		}
 		return false;
 	}
+	if (image && key === "src" && rasterData(value)) return false;
 	if (key === "ping") {
 		// The whole value catches a scheme split by whitespace.
 		// Tokens catch a safe URL beside a dangerous one, which the strip
@@ -159,15 +210,19 @@ export function trustedStyle(css: string): TrustedStyle {
 }
 
 /**
- * Declaration spans. Semicolons inside quotes or comments are not splits.
- * A backslash inside a quote skips the next character and is not decoded.
+ * Declaration spans. Semicolons and closing braces inside quotes or comments
+ * are not splits. A `}` stays with its span so a dropped rule takes that
+ * brace with it. `depth` is the net braces in the span.
  */
-function declarationSpans(full: string): Array<{ start: number; end: number }> {
-	const spans: Array<{ start: number; end: number }> = [];
+function declarationSpans(
+	full: string,
+): Array<{ start: number; end: number; depth: number }> {
+	const spans: Array<{ start: number; end: number; depth: number }> = [];
 	let start = 0;
 	let quote = "";
 	let comment = false;
 	let index = 0;
+	let depth = 0;
 	while (index < full.length) {
 		const char = full[index] ?? "";
 		if (comment) {
@@ -198,20 +253,32 @@ function declarationSpans(full: string): Array<{ start: number; end: number }> {
 			index += 1;
 			continue;
 		}
-		if (char === ";") {
-			spans.push({ start, end: index });
+		if (char === "{") {
+			depth += 1;
+			index += 1;
+			continue;
+		}
+		if (char === ";" || char === "}") {
+			if (char === "}") depth -= 1;
+			const end = char === "}" ? index + 1 : index;
+			if (end > start) spans.push({ start, end, depth });
+			depth = 0;
 			start = index + 1;
+			index += 1;
+			continue;
 		}
 		index += 1;
 	}
-	spans.push({ start, end: full.length });
+	if (full.length > start) spans.push({ start, end: full.length, depth });
 	return spans;
 }
 
 /**
  * Style text nodes are concatenated by the CSS parser, including across
  * comments. Filter that joined string. A declaration that loads a URL is
- * kept only when every character of that declaration is trustedStyle text.
+ * kept only when every character of that declaration, including a closing
+ * brace, is trustedStyle text. Braces opened by a kept span stay closed
+ * when a later declaration in the rule is dropped.
  */
 export function styleSheetFromChildren(
 	children: ReadonlyArray<{ kind: string; value?: string; trusted?: boolean }>,
@@ -228,6 +295,7 @@ export function styleSheetFromChildren(
 	}
 	const kept: string[] = [];
 	let droppedUrl = false;
+	let balance = 0;
 	for (const span of declarationSpans(full)) {
 		const part = full.slice(span.start, span.end);
 		let drop = false;
@@ -240,9 +308,14 @@ export function styleSheetFromChildren(
 			}
 		}
 		if (drop) droppedUrl = true;
-		else kept.push(part);
+		else {
+			kept.push(part);
+			balance += span.depth;
+		}
 	}
-	return { css: kept.join(";"), droppedUrl };
+	let css = kept.join(";");
+	if (balance > 0) css += "}".repeat(balance);
+	return { css, droppedUrl };
 }
 
 export function cssTextWithoutUrls(value: string): string {
@@ -265,7 +338,7 @@ function untrustedCssBlocked(text: string): boolean {
 	return (
 		text.includes("\\") ||
 		CSS_LOADER.test(text) ||
-		CSS_LOADER.test(text.replace(/\/\*[\s\S]*?\*\//g, ""))
+		CSS_LOADER.test(withoutComments(text))
 	);
 }
 
@@ -292,12 +365,20 @@ export function scriptElementOmitted(
 	return false;
 }
 
-function stylesheetText(value: unknown): boolean {
-	if (Array.isArray(value)) return value.some(stylesheetText);
+function blockedRelText(value: unknown): boolean {
+	if (Array.isArray(value)) return value.some(blockedRelText);
 	if (!loads(value)) return false;
 	const text = typeof value === "string" ? value : String(value);
 	for (const token of text.split(HTML_SPACE)) {
-		if (token.toLowerCase() === "stylesheet") return true;
+		const name = token.toLowerCase();
+		if (
+			name === "stylesheet" ||
+			name === "preload" ||
+			name === "modulepreload" ||
+			name === "import"
+		) {
+			return true;
+		}
 	}
 	return false;
 }
@@ -305,7 +386,25 @@ function stylesheetText(value: unknown): boolean {
 export function isStylesheetLink(props: object): boolean {
 	const record = props as Record<string, unknown>;
 	for (const key of Object.keys(record)) {
-		if (key.toLowerCase() === "rel" && stylesheetText(record[key])) return true;
+		const name = key.toLowerCase();
+		if ((name === "rel" || name === "rellist") && blockedRelText(record[key])) {
+			return true;
+		}
+	}
+	return false;
+}
+
+export function isUrlPartKey(key: string): boolean {
+	return URL_PART.test(key);
+}
+
+/** True after props apply when a link's reflected rel list is a stylesheet. */
+export function linkReflectsStylesheet(element: Element): boolean {
+	if (element.localName.toLowerCase() !== "link") return false;
+	const list = (element as HTMLLinkElement).relList;
+	if (!list) return false;
+	for (let index = 0; index < list.length; index += 1) {
+		if (list.item(index)?.toLowerCase() === "stylesheet") return true;
 	}
 	return false;
 }
@@ -356,7 +455,14 @@ export function safeSpread(
 	const source = props as Record<string, unknown>;
 	const out: Record<string, unknown> = {};
 	for (const key of Object.keys(source)) {
-		if (isForbiddenProp(key) || MARKUP_PROP.test(key)) continue;
+		if (
+			isForbiddenProp(key) ||
+			MARKUP_PROP.test(key) ||
+			isUrlPartKey(key) ||
+			key.toLowerCase() === "rellist"
+		) {
+			continue;
+		}
 		const value = source[key];
 		if (isHandlerKey(key)) {
 			if (typeof value === "function" && allowed.has(key)) out[key] = value;

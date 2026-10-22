@@ -1713,7 +1713,7 @@ describe("URL scheme guard", () => {
 		expect(onClick).toHaveBeenCalledOnce();
 	});
 
-	it("does not apply a data image srcset on img or source", () => {
+	it("applies a raster data image srcset on img or source", () => {
 		const { host } = mount(
 			jsx("div", {
 				children: [
@@ -1726,15 +1726,24 @@ describe("URL scheme guard", () => {
 						alt: "net",
 						srcset: "https://cdn.example/a.png 1x",
 					}),
+					jsx("img", {
+						alt: "svg",
+						srcset: "data:image/svg+xml,<svg></svg> 1x",
+					}),
 				],
 			}),
 		);
 
-		expect(host.querySelector("img")?.getAttribute("srcset")).toBeNull();
-		expect(host.querySelector("source")?.getAttribute("srcset")).toBeNull();
+		expect(host.querySelector("img")?.getAttribute("srcset")).toContain(
+			"data:image/png",
+		);
+		expect(host.querySelector("source")?.getAttribute("srcset")).toContain(
+			"data:image/png",
+		);
 		expect(host.querySelectorAll("img")[1]?.getAttribute("srcset")).toContain(
 			"https://cdn.example/a.png",
 		);
+		expect(host.querySelectorAll("img")[2]?.getAttribute("srcset")).toBeNull();
 	});
 
 	it("does not apply an executable codebase", () => {

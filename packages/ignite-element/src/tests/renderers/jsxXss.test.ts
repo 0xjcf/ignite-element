@@ -6,7 +6,7 @@ import {
 	styleSheetFromChildren,
 } from "../../../../ignite-renderer/src/renderers/jsx/xssGuard";
 import { jsx } from "../../renderers/jsx/jsx-runtime";
-import { mountIgniteJsx } from "../../renderers/jsx/renderer";
+import { mountIgniteJsx, renderIgniteJsx } from "../../renderers/jsx/renderer";
 
 afterEach(() => {
 	document.body.replaceChildren();
@@ -129,7 +129,7 @@ describe("locks that already hold", () => {
 			mount("img", { srcset: "data:image/png;base64,aaaa 1x, /b.png 2x" })
 				.querySelector("img")
 				?.getAttribute("srcset"),
-		).toBeNull();
+		).toContain("data:image/png");
 	});
 
 	it("keeps an empty style element and drops url(javascript:) that CSSOM already rejects", () => {
@@ -921,7 +921,7 @@ describe("security review", () => {
 			})
 				.querySelector("img")
 				?.getAttribute("srcset"),
-		).toBeNull();
+		).toContain("data:image/png");
 		expect(
 			mount("img", {
 				srcset: "https://cdn.example/a.png, javascript:alert(1)",
@@ -1201,6 +1201,11 @@ describe("approved url and remote-resource decisions", () => {
 			mount("img", { src: "data:image/png;base64,aaaa" })
 				.querySelector("img")
 				?.getAttribute("src"),
+		).toContain("data:image/png");
+		expect(
+			mount("img", { src: "data:image/svg+xml,<svg></svg>" })
+				.querySelector("img")
+				?.getAttribute("src"),
 		).toBeNull();
 		expect(
 			mount("img", { src: "https://cdn.example/a.png" })
@@ -1329,5 +1334,283 @@ describe("approved url and remote-resource decisions", () => {
 				{ kind: "text", value: readTrustedStyle(token), trusted: true },
 			]).css,
 		).toContain("expression");
+	});
+});
+
+function linkLoadsStylesheet(host: ParentNode): boolean {
+	for (const link of host.querySelectorAll("link")) {
+		const rel = `${link.getAttribute("rel") ?? ""} ${[...link.relList].join(" ")}`;
+		if (rel.toLowerCase().includes("stylesheet") && link.getAttribute("href")) {
+			return true;
+		}
+	}
+	return false;
+}
+
+describe("security re-review of remote loads", () => {
+	it("does not load a stylesheet through relList on mount, update, or safeSpread", async () => {
+		expect(
+			linkLoadsStylesheet(
+				mount("link", {
+					relList: "stylesheet",
+					href: "https://evil.example/x.css",
+				}),
+			),
+		).toBe(false);
+		expect(
+			linkLoadsStylesheet(
+				mount("link", {
+					RELLIST: "styleSheet",
+					href: "https://evil.example/x.css",
+				}),
+			),
+		).toBe(false);
+
+		const host = document.createElement("div");
+		document.body.append(host);
+		const first = renderIgniteJsx(
+			host,
+			jsx("link", { rel: "icon", href: "https://cdn.example/favicon.ico" }),
+		);
+		expect(host.querySelector("link")?.getAttribute("rel")).toBe("icon");
+		renderIgniteJsx(
+			host,
+			jsx("link", {
+				relList: "stylesheet",
+				href: "https://evil.example/x.css",
+			}),
+			first,
+		);
+		expect(linkLoadsStylesheet(host)).toBe(false);
+
+		const { safeSpread } = await loadHelpers();
+		expect(typeof safeSpread).toBe("function");
+		if (typeof safeSpread !== "function") return;
+		const spread = safeSpread({
+			relList: "stylesheet",
+			href: "https://evil.example/spread.css",
+		});
+		expect(spread).not.toHaveProperty("relList");
+		expect(linkLoadsStylesheet(mount("link", spread))).toBe(false);
+		expect(
+			linkLoadsStylesheet(
+				mount("div", {
+					children: jsx("link", {
+						...spread,
+						rel: "stylesheet",
+						href: "https://evil.example/spread.css",
+					}),
+				}),
+			),
+		).toBe(false);
+	});
+
+	it("does not let URL part setters rewrite href", async () => {
+		const parts = [
+			"host",
+			"hostname",
+			"protocol",
+			"port",
+			"pathname",
+			"origin",
+			"username",
+			"password",
+			"search",
+			"hash",
+		];
+		for (const key of parts) {
+			const anchor = mount("a", {
+				href: "/safe",
+				[key]: key === "port" ? "81" : "evil.example",
+				children: "x",
+			}).querySelector("a");
+			expect(anchor?.getAttribute("href"), key).toBe("/safe");
+			expect(anchor?.getAttribute(key), key).toBeNull();
+		}
+		const { safeSpread } = await loadHelpers();
+		expect(typeof safeSpread).toBe("function");
+		if (typeof safeSpread !== "function") return;
+		const spread = safeSpread({ href: "/safe", host: "evil.example" });
+		expect(spread).not.toHaveProperty("host");
+		expect(
+			mount("a", { ...spread, children: "x" })
+				.querySelector("a")
+				?.getAttribute("href"),
+		).toBe("/safe");
+	});
+
+	it("drops remote url() on SVG paint and SMIL, and keeps local fragments", () => {
+		const host = mount("svg", {
+			children: [
+				jsx("rect", {
+					id: "remote-fill",
+					fill: "url(https://evil.example/a.png)",
+				}),
+				jsx("rect", { id: "local-fill", fill: "url(#grad)" }),
+				jsx("rect", {
+					id: "filter",
+					filter: "url(https://evil.example/f.svg)",
+				}),
+				jsx("rect", { id: "mask", mask: "url(https://evil.example/m.svg)" }),
+				jsx("rect", {
+					id: "clip",
+					"clip-path": "url(https://evil.example/c.svg)",
+				}),
+				jsx("rect", {
+					id: "marker",
+					markerStart: "url(https://evil.example/k.svg)",
+				}),
+				jsx("set", {
+					id: "set-fill",
+					attributeName: "fill",
+					to: "url(https://evil.example/s.png)",
+				}),
+				jsx("animate", {
+					id: "animate-mask",
+					attributeName: "mask",
+					values: "url(https://evil.example/a.png);url(#local)",
+				}),
+			],
+		});
+		expect(host.querySelector("#remote-fill")?.getAttribute("fill")).toBeNull();
+		expect(host.querySelector("#local-fill")?.getAttribute("fill")).toBe(
+			"url(#grad)",
+		);
+		expect(host.querySelector("#filter")?.getAttribute("filter")).toBeNull();
+		expect(host.querySelector("#mask")?.getAttribute("mask")).toBeNull();
+		expect(host.querySelector("#clip")?.getAttribute("clip-path")).toBeNull();
+		expect(
+			host.querySelector("#marker")?.getAttribute("marker-start"),
+		).toBeNull();
+		expect(host.querySelector("#set-fill")?.getAttribute("to")).toBeNull();
+		expect(
+			host.querySelector("#animate-mask")?.getAttribute("values"),
+		).toBeNull();
+		expect(host.innerHTML).not.toContain("evil.example");
+	});
+
+	it("guards imagesrcset and manifest, and omits preload links", () => {
+		const icon = mount("link", {
+			rel: "icon",
+			href: "https://cdn.example/favicon.ico",
+			imagesrcset: "https://cdn.example/a.png 1x, //evil.example/b.png 2x",
+		}).querySelector("link");
+		expect(icon?.getAttribute("imagesrcset")).toBeNull();
+		expect(icon?.getAttribute("href")).toContain("favicon.ico");
+		expect(
+			mount("link", {
+				rel: "icon",
+				imagesrcset: "https://cdn.example/a.png 1x",
+			})
+				.querySelector("link")
+				?.getAttribute("imagesrcset"),
+		).toContain("https://cdn.example/a.png");
+		expect(
+			mount("html", { manifest: "//evil.example/app.webmanifest" })
+				.querySelector("html")
+				?.getAttribute("manifest"),
+		).toBeNull();
+		expect(
+			mount("html", { manifest: "https://example.com/app.webmanifest" })
+				.querySelector("html")
+				?.getAttribute("manifest"),
+		).toContain("https://example.com/app.webmanifest");
+		expect(
+			mount("link", {
+				rel: "preload",
+				as: "script",
+				href: "https://evil.example/a.js",
+			}).querySelector("link"),
+		).toBeNull();
+		expect(
+			mount("link", {
+				rel: "modulepreload",
+				href: "https://evil.example/a.js",
+			}).querySelector("link"),
+		).toBeNull();
+		expect(
+			mount("link", {
+				rel: "preload",
+				as: "style",
+				href: "https://evil.example/a.css",
+			}).querySelector("link"),
+		).toBeNull();
+		expect(
+			mount("link", {
+				rel: "import",
+				href: "https://evil.example/a.html",
+			}).querySelector("link"),
+		).toBeNull();
+		expect(
+			mount("iframe", { src: "https://evil.example/a.html" })
+				.querySelector("iframe")
+				?.getAttribute("src"),
+		).toBeNull();
+		expect(
+			mount("frame", { src: "http://evil.example/a.html" })
+				.querySelector("frame")
+				?.getAttribute("src"),
+		).toBeNull();
+		expect(
+			mount("iframe", { src: "/safe.txt" })
+				.querySelector("iframe")
+				?.getAttribute("src"),
+		).toBe("/safe.txt");
+		expect(
+			mount("link", { rel: "icon", href: "https://cdn.example/favicon.ico" })
+				.querySelector("link")
+				?.getAttribute("rel"),
+		).toBe("icon");
+		expect(
+			mount("div", {
+				rel: "stylesheet",
+				href: "https://evil.example/a.css",
+			}).querySelector("div"),
+		).not.toBeNull();
+	});
+
+	it("filters declarations inside rules without dropping the sibling rule", () => {
+		const face = styleSheetFromChildren([
+			{
+				kind: "text",
+				value:
+					"@font-face{unicode-range:U+0-FF;src:url(https://evil.example/a.woff)}",
+			},
+		]).css;
+		expect(face).toContain("unicode-range:U+0-FF");
+		expect(face).not.toContain("evil.example");
+		expect(face.split("{").length).toBe(face.split("}").length);
+
+		const rules = styleSheetFromChildren([
+			{
+				kind: "text",
+				value: "a{color:red} b{background:url(https://evil.example/a.png)}",
+			},
+		]).css;
+		expect(rules).toContain("a{color:red}");
+		expect(rules).not.toContain("evil.example");
+		expect(rules).not.toContain("url(");
+
+		const inside = styleSheetFromChildren([
+			{
+				kind: "text",
+				value: "a{color:red;background:url(https://evil.example/a.png)}",
+			},
+		]).css;
+		expect(inside).toContain("color:red");
+		expect(inside).not.toContain("evil.example");
+		expect(inside.startsWith("a{")).toBe(true);
+		expect(inside.endsWith("}")).toBe(true);
+
+		const quoted = styleSheetFromChildren([
+			{
+				kind: "text",
+				value:
+					".q{content:'a;b'} .q2{background:url(https://evil.example/a.png)}",
+			},
+		]).css;
+		expect(quoted).toContain(".q{content:'a;b'}");
+		expect(quoted).not.toContain("evil.example");
+		expect(quoted).not.toBe("");
 	});
 });

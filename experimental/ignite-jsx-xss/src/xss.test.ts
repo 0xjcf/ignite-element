@@ -216,26 +216,23 @@ describe("gaps", () => {
 		expect(el?.getAttribute("ping")).toBeNull();
 	});
 
-	it(
-		"a spread __proto__ key does not throw or replace the element prototype",
-		() => {
-			const payload = JSON.parse(
-				'{"__proto__": {"polluted": true}, "href": "javascript:alert(1)"}',
-			) as Record<string, unknown>;
-			const host = document.createElement("div");
-			document.body.append(host);
-			expect(() => {
-				mountIgniteJsx(host, jsx("a", { ...payload, children: "x" }));
-			}).not.toThrow();
-			const anchor = host.querySelector("a");
-			expect(anchor).not.toBeNull();
-			expect(Object.getPrototypeOf(anchor)).toBe(HTMLAnchorElement.prototype);
-			expect(anchor?.getAttribute("href")).toBeNull();
-			expect(
-				(Object.prototype as { polluted?: boolean }).polluted,
-			).toBeUndefined();
-		},
-	);
+	it("a spread __proto__ key does not throw or replace the element prototype", () => {
+		const payload = JSON.parse(
+			'{"__proto__": {"polluted": true}, "href": "javascript:alert(1)"}',
+		) as Record<string, unknown>;
+		const host = document.createElement("div");
+		document.body.append(host);
+		expect(() => {
+			mountIgniteJsx(host, jsx("a", { ...payload, children: "x" }));
+		}).not.toThrow();
+		const anchor = host.querySelector("a");
+		expect(anchor).not.toBeNull();
+		expect(Object.getPrototypeOf(anchor)).toBe(HTMLAnchorElement.prototype);
+		expect(anchor?.getAttribute("href")).toBeNull();
+		expect(
+			(Object.prototype as { polluted?: boolean }).polluted,
+		).toBeUndefined();
+	});
 
 	it("a direct onClick still runs; safeSpread is what refuses a spread handler", () => {
 		let ran = false;
@@ -287,7 +284,8 @@ describe("gaps", () => {
 			host,
 			jsx("div", {
 				children: jsx("style", {
-					children: ".leak{color:rgb(1, 2, 3);background:url(https://evil.example/x)}",
+					children:
+						".leak{color:rgb(1, 2, 3);background:url(https://evil.example/x)}",
 				}),
 			}),
 		);

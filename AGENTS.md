@@ -271,13 +271,12 @@ not through repeated review rounds.
    discovery tool. A finding it raises that the earlier steps should have
    caught means the rules or properties need extending, not just a patch.
 
-**Bundle budget.** The ignite-element consumer bundle ceiling is a fixed hard
-budget of 6,280 B gzip, not a moving target (raised from 6,000 B to 6,020 B and then
-to 6,080 B, 6,090 B and then 6,170 B, 6,180 B, 6,200 B, 6,210 B, 6,240 B, 6,250 B, 6,260 B, 6,270 B and 6,280 B for PR #168 by the maintainer: the round-11 fixes
-cost 54 B, the round-12 fixes 14 B and the round-14 fixes 76 B and the round-15 fixes 12 B and the round-18 fixes 14 B and the round-20 fixes 15 B and the round-21 fixes 33 B and the round-22 fixes 5 B and the round-23/24 detach fixes 15 B and the round-25 fixes 11 B and the round-26 parent check 7 B; the box and CI agree once the renderer dist
-is rebuilt). Any change that
-would exceed it must reduce size elsewhere in the same change. Do not bump the ceiling and do
-not open follow-up PRs to raise it.
+**Bundle budget.** Jose approved these JSX production ceilings on PR #180:
+7,100 B gzip for the no-host JSX bundle (level 6) and 8,300 B gzip for the
+ignite-element consumer bundle (level 9). The consumer ceiling was a fixed
+6,280 B through PR #168 (raised from 6,000 B across that PR). Any change that
+would exceed 7,100 B or 8,300 B must reduce size elsewhere in the same change.
+Do not bump either ceiling and do not open follow-up PRs to raise them.
 
 Lessons that apply to steps 1-2:
 

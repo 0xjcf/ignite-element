@@ -6,6 +6,7 @@ Jose approved the following on PR #180:
 
 - Raise the no-host JSX gzip cap from 4,810 B to 6,500 B (level 6).
 - Raise the consumer JSX gzip cap from 6,280 B to 7,800 B (level 9).
+- Raise those caps again, to 7,100 B (no-host, level 6) and 8,300 B (consumer, level 9), and push the security re-review fixes. Jose approved that raise in his own words in chat: "Raise them to 7,100 / 8,300 and push all fixes".
 - Approve `THREAT-MODEL.md`.
 - `safeUrl` refuses `//host`, `\\host`, `/\host`, and `\/host`.
 - Guarded URL attributes use the `safeUrl` allowlist.
@@ -30,7 +31,7 @@ Jose approved the following on PR #180:
 - Commits on `fix/ignite-jsx-xss`. No amend, rebase, or merge.
 - Tests, typecheck, lint, the JSX Stryker run, and production bundle measurement.
 - Push to `fix/ignite-jsx-xss` and update PR #180, kept ready for review.
-- The cap raises listed above. No further raise.
+- The cap raises listed above. No further raise past 7,100 B and 8,300 B.
 
 ## Not authorized
 
@@ -39,4 +40,4 @@ Jose approved the following on PR #180:
 
 ## Stop
 
-Stop if the measured gzip exceeds 6,500 B (no-host, level 6) or 7,800 B (consumer, level 9). Shrink the same change. Do not bump the caps again.
+Stop if the measured gzip exceeds 7,100 B (no-host, level 6) or 8,300 B (consumer, level 9). Shrink the same change. Do not bump the caps again.

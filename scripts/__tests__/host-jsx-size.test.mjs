@@ -103,7 +103,8 @@ describe("JSX host runtime size", () => {
 		// Then 4810 B (Jose approved up to 4820): the round-25 file-input skip
 		// reads 4802 B.
 		// Then 6500 B (Jose approved on PR #180): the JSX XSS guard.
-		assert.ok(gzip <= 6500, `no-host JSX gzip ${gzip} is above 6500`);
+		// Then 7100 B (Jose approved in chat on PR #180): the re-review fixes.
+		assert.ok(gzip <= 7100, `no-host JSX gzip ${gzip} is above 7100`);
 	});
 
 	it("includes the host runtime when the internal module is imported", async () => {
