@@ -148,6 +148,10 @@ export function readTrustedStyle(value: unknown): string | undefined {
 }
 
 export interface TrustedStyle {
+	// `type` is absent at runtime. The optional name overlaps the host view
+	// shape, which is a weak type, so this child does not kick JSX elements
+	// out of that shape.
+	readonly type?: undefined;
 	readonly [trustedStyleBrand]: string;
 }
 

@@ -92,7 +92,7 @@ Untrusted style loads no URL. The prop key match is ASCII case-insensitive, so `
 
 - A style string drops each declaration that contains a loader or `\`. Other declarations in that string stay.
 - A style object removes a property whose value contains a loader or `\`.
-- `trustedStyle(css)` as the whole `style` prop assigns that CSS, including loaders and backslashes. Its return type is an `IgniteJsxChild`, so it is a legal style child.
+- `trustedStyle(css)` as the whole `style` prop assigns that CSS, including loaders and backslashes. Its return type is an `IgniteJsxChild`, so it is a legal style child. The type also carries an optional `type` that is absent at runtime. That name overlaps a hosted view, so an element whose children include this token still assigns to the host view.
 - `trustedStyle(css)` as one style-object value is kept, including loaders and backslashes. The brand is `Symbol.for("ignite-element.trustedStyle")`. Any code in the same realm can forge that symbol. JSON cannot.
 
 Declarations split on `;` only outside quotes and comments. A backslash inside a quote skips the next character so `\;` does not end the string. That skip is not CSS-escape decoding.
