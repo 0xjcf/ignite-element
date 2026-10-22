@@ -2,6 +2,7 @@ import fc from "fast-check";
 import { afterEach, describe, expect, it } from "vitest";
 import {
 	readTrustedStyle,
+	srcsetCandidates,
 	styleSheetFromChildren,
 } from "../../../../ignite-renderer/src/renderers/jsx/xssGuard";
 import { jsx } from "../../renderers/jsx/jsx-runtime";
@@ -230,7 +231,7 @@ describe("gaps", () => {
 			mount("img", { srcset: "https://cdn.example/a.png,javascript:alert(1)" })
 				.querySelector("img")
 				?.getAttribute("srcset"),
-		).toBeNull();
+		).toBe("https://cdn.example/a.png,javascript:alert(1)");
 		expect(
 			mount("script", { src: "data:text/javascript,alert(1)" })
 				.querySelector("script")
@@ -718,6 +719,372 @@ describe("gaps", () => {
 				.querySelector("script")
 				?.getAttribute("src"),
 		).toContain("https://example.com/app.js");
+	});
+});
+
+describe("security review", () => {
+	it("drops import, image-set, and src() from untrusted style", async () => {
+		const sheet = (css: unknown) => {
+			const host = document.createElement("div");
+			document.body.append(host);
+			mountIgniteJsx(
+				host,
+				jsx("div", { children: jsx("style", { children: css }) }),
+			);
+			return host.querySelector("style")?.textContent ?? "";
+		};
+
+		const imported = sheet(
+			"@import 'https://evil.example/x.css'; .ok{color:red}",
+		);
+		expect(imported.toLowerCase()).not.toContain("@import");
+		expect(imported).not.toContain("evil.example");
+		expect(imported).toContain(".ok{color:red}");
+
+		const imageSet = sheet(
+			".a{background:image-set('https://evil.example/x' 1x)}; .ok{color:red}",
+		);
+		expect(imageSet.toLowerCase()).not.toContain("image-set");
+		expect(imageSet).not.toContain("evil.example");
+		expect(imageSet).toContain(".ok{color:red}");
+
+		const webkit = sheet(
+			".a{background:-webkit-image-set('https://evil.example/x' 1x)}; .ok{color:red}",
+		);
+		expect(webkit.toLowerCase()).not.toContain("image-set");
+		expect(webkit).not.toContain("evil.example");
+		expect(webkit).toContain(".ok{color:red}");
+
+		const srcFn = sheet(
+			".a{background:src('https://evil.example/x')}; .ok{color:red}",
+		);
+		expect(srcFn.toLowerCase()).not.toContain("src(");
+		expect(srcFn).not.toContain("evil.example");
+		expect(srcFn).toContain(".ok{color:red}");
+
+		const attr = mount("div", {
+			style:
+				"color: red; background-image: image-set('https://evil.example/x' 1x)",
+		}).querySelector("div") as HTMLElement;
+		expect(attr.style.color).toBe("red");
+		expect(attr.style.cssText.toLowerCase()).not.toContain("image-set");
+		expect(attr.style.cssText).not.toContain("evil.example");
+
+		const atRule = mount("div", {
+			style: "@import 'https://evil.example/a.css'; color: red",
+		}).querySelector("div") as HTMLElement;
+		expect(atRule.style.color).toBe("red");
+		expect(atRule.style.cssText.toLowerCase()).not.toContain("import");
+
+		const fromObject = mount("div", {
+			style: {
+				color: "red",
+				backgroundImage: "image-set('https://evil.example/x' 1x)",
+				content: "src('https://evil.example/y')",
+			},
+		}).querySelector("div") as HTMLElement;
+		expect(fromObject.style.color).toBe("red");
+		expect(fromObject.style.backgroundImage).toBe("");
+		expect(fromObject.style.content).not.toContain("evil.example");
+
+		const webkitObject = mount("div", {
+			style: {
+				backgroundImage: "-webkit-image-set('https://evil.example/x' 1x)",
+			},
+		}).querySelector("div") as HTMLElement;
+		expect(webkitObject.style.backgroundImage).toBe("");
+
+		const { trustedStyle } = await loadHelpers();
+		expect(typeof trustedStyle).toBe("function");
+		if (typeof trustedStyle !== "function") return;
+		const trusted = sheet(
+			trustedStyle("@import 'https://cdn.example/a.css'; .ok{color:red}"),
+		);
+		expect(trusted).toContain("@import");
+		expect(trusted).toContain("https://cdn.example/a.css");
+	});
+
+	it("does not split a style declaration on a semicolon inside a string or comment", () => {
+		const host = document.createElement("div");
+		document.body.append(host);
+		mountIgniteJsx(
+			host,
+			jsx("div", {
+				children: jsx("style", {
+					children:
+						".ok{color:red}; a{background:url('https://evil.example/x/;y')}; .also{color:blue}",
+				}),
+			}),
+		);
+		const quoted = host.querySelector("style")?.textContent ?? "";
+		expect(quoted).toContain(".ok{color:red}");
+		expect(quoted).toContain(".also{color:blue}");
+		expect(quoted).not.toContain("evil.example");
+		expect(quoted).not.toContain("y')");
+
+		const commented = document.createElement("div");
+		document.body.append(commented);
+		mountIgniteJsx(
+			commented,
+			jsx("div", {
+				children: jsx("style", {
+					children:
+						".safe{color:red}; a{background:url(https://evil.example/x) /* comment ; still */}; .also{color:blue}",
+				}),
+			}),
+		);
+		const text = commented.querySelector("style")?.textContent ?? "";
+		expect(text).toContain(".safe{color:red}");
+		expect(text).toContain(".also{color:blue}");
+		expect(text).not.toContain("still");
+		expect(text).not.toContain("evil.example");
+	});
+
+	it("keeps safeSpread data keys that are not event handlers", async () => {
+		const { safeSpread } = await loadHelpers();
+		expect(typeof safeSpread).toBe("function");
+		if (typeof safeSpread !== "function") return;
+		const onClick = () => {};
+		const onError = () => {};
+		const data = safeSpread({
+			one: "yes",
+			online: "yes",
+			onlyIcon: "yes",
+			onclick: "alert(1)",
+			onClick,
+			ONERROR: onError,
+			ononline: "alert(1)",
+			onrepeat: "alert(1)",
+		});
+		expect(data.one).toBe("yes");
+		expect(data.online).toBe("yes");
+		expect(data.onlyIcon).toBe("yes");
+		expect(data.onclick).toBeUndefined();
+		expect(data.onClick).toBeUndefined();
+		expect(data.ONERROR).toBeUndefined();
+		expect(data.ononline).toBeUndefined();
+		expect(data.onrepeat).toBeUndefined();
+
+		const host = mount("div", safeSpread({ one: "yes", id: "s" }));
+		expect(host.querySelector("div")?.getAttribute("one")).toBe("yes");
+		expect(host.querySelector("div")?.id).toBe("s");
+	});
+
+	it("omits a script whose children are elements", () => {
+		const host = mount("div", {
+			children: jsx("script", {
+				src: "https://example.com/app.js",
+				children: jsx("span", { children: "alert(1)" }),
+			}),
+		});
+		expect(host.querySelector("script")).toBeNull();
+		expect(host.querySelector("span")).toBeNull();
+
+		const Icon = () => jsx("span", { children: "x" });
+		const fromComponent = mount("div", {
+			children: jsx("script", { children: jsx(Icon, {}) }),
+		});
+		expect(fromComponent.querySelector("script")).toBeNull();
+		expect(fromComponent.querySelector("span")).toBeNull();
+	});
+
+	it("treats every html space and a trailing comma run as srcset syntax", () => {
+		expect(srcsetCandidates(" \t\n\f\r,https://cdn.example/a.png 1x")).toEqual([
+			"https://cdn.example/a.png 1x",
+		]);
+		expect(srcsetCandidates("https://cdn.example/a,,png,")).toEqual([
+			"https://cdn.example/a,,png",
+		]);
+		expect(
+			styleSheetFromChildren([
+				{
+					kind: "text",
+					value: ".ok{color:red} /* star * still */; .keep{color:blue}",
+				},
+			]).css,
+		).toContain("still");
+		expect(
+			styleSheetFromChildren([
+				{
+					kind: "text",
+					value: ".ok{content:'a\\\\;b'}; .keep{color:blue}",
+				},
+			]).css,
+		).toContain(".keep{color:blue}");
+	});
+
+	it("parses srcset candidates without splitting a data url on its comma", () => {
+		expect(
+			mount("img", {
+				srcset: "data:image/png;base64,javascript:alert(1) 1x",
+			})
+				.querySelector("img")
+				?.getAttribute("srcset"),
+		).toBe("data:image/png;base64,javascript:alert(1) 1x");
+		expect(
+			mount("img", {
+				srcset: "https://cdn.example/a.png, javascript:alert(1)",
+			})
+				.querySelector("img")
+				?.getAttribute("srcset"),
+		).toBeNull();
+	});
+
+	it("drops data xml urls on href", () => {
+		for (const href of [
+			"data:text/xml,<x/>",
+			"data:application/xml,<x/>",
+			"data:application/mathml+xml,<math/>",
+		]) {
+			expect(
+				mount("a", { href, children: "x" })
+					.querySelector("a")
+					?.getAttribute("href"),
+			).toBeNull();
+		}
+	});
+
+	it("drops dangerouslySetInnerHTML and guards xlinkHref like xlink:href", () => {
+		const injected = mount("div", {
+			dangerouslySetInnerHTML: { __html: "<img src=x>" },
+		});
+		expect(injected.querySelector("img")).toBeNull();
+		expect(
+			injected.querySelector("div")?.getAttribute("dangerouslysetinnerhtml"),
+		).toBeNull();
+		expect(injected.querySelector("div")?.innerHTML).toBe("");
+
+		const blocked = mount("svg", {
+			children: jsx("use", { xlinkHref: "javascript:alert(1)" }),
+		});
+		expect(blocked.querySelector("use")?.getAttribute("xlink:href")).toBeNull();
+		expect(blocked.querySelector("use")?.getAttribute("xlinkhref")).toBeNull();
+
+		const kept = mount("svg", {
+			children: jsx("use", { xlinkHref: "https://example.com/a.svg#i" }),
+		});
+		expect(kept.querySelector("use")?.getAttribute("xlink:href")).toContain(
+			"https://example.com/a.svg",
+		);
+		expect(kept.querySelector("use")?.getAttribute("xlinkhref")).toBeNull();
+	});
+
+	it("does not apply a script text prop on mount or update", async () => {
+		const host = document.createElement("div");
+		document.body.append(host);
+		mountIgniteJsx(host, jsx("script", { src: "https://example.com/app.js" }));
+		expect(host.querySelector("script")?.getAttribute("src")).toContain(
+			"https://example.com/app.js",
+		);
+		mountIgniteJsx(
+			host,
+			jsx("script", {
+				src: "https://example.com/app.js",
+				text: "window.__igniteScriptText = 1",
+			}),
+		);
+		const updated = host.querySelector("script") as HTMLScriptElement | null;
+		expect(updated?.text ?? "").not.toContain("__igniteScriptText");
+		expect(updated?.textContent ?? "").not.toContain("__igniteScriptText");
+		expect(
+			(globalThis as { __igniteScriptText?: number }).__igniteScriptText,
+		).toBeUndefined();
+
+		const mounted = mount("script", { text: "window.__igniteScriptText = 2" });
+		const created = mounted.querySelector("script") as HTMLScriptElement | null;
+		expect(created?.text ?? "").not.toContain("__igniteScriptText");
+		expect(created?.textContent ?? "").not.toContain("__igniteScriptText");
+
+		const { safeSpread } = await loadHelpers();
+		expect(typeof safeSpread).toBe("function");
+		if (typeof safeSpread !== "function") return;
+		const spread = safeSpread({
+			text: "alert(1)",
+			textContent: "alert(1)",
+			innerText: "alert(1)",
+			id: "stay",
+		});
+		expect(spread.text).toBeUndefined();
+		expect(spread.textContent).toBeUndefined();
+		expect(spread.innerText).toBeUndefined();
+		expect(spread.id).toBe("stay");
+	});
+
+	it("guards prefixed script and style tags by local name", () => {
+		const host = document.createElement("div");
+		document.body.append(host);
+		mountIgniteJsx(
+			host,
+			jsx("svg", {
+				children: [
+					jsx("x:script", { children: "window.__ignitePrefixed = 1" }),
+					jsx("X:STYLE", {
+						children:
+							".a{background:url(https://evil.example/x)}; .ok{color:red}",
+					}),
+				],
+			}),
+		);
+		expect(host.querySelector("script")).toBeNull();
+		expect(
+			(globalThis as { __ignitePrefixed?: number }).__ignitePrefixed,
+		).toBeUndefined();
+		const sheet =
+			[...host.querySelectorAll("*")].find(
+				(element) => element.localName.toLowerCase() === "style",
+			)?.textContent ?? "";
+		expect(sheet.toLowerCase()).not.toContain("url(");
+		expect(sheet).not.toContain("evil.example");
+		expect(sheet).toContain(".ok{color:red}");
+	});
+
+	it("filters every casing of the style prop and css escapes", async () => {
+		const styled = mount("div", {
+			STYLE:
+				"color: red; background: u\\72l(https://evil.example/x); background: url(https://evil.example/y)",
+		}).querySelector("div") as HTMLElement;
+		expect(styled.style.color).toBe("red");
+		expect(styled.style.cssText.toLowerCase()).not.toContain("url(");
+		expect(styled.style.cssText).not.toContain("evil.example");
+
+		const objectCase = mount("div", {
+			Style: { backgroundImage: "u\\72l(https://evil.example/z)" },
+		}).querySelector("div") as HTMLElement;
+		expect(objectCase.style.backgroundImage).toBe("");
+
+		const sheetHost = document.createElement("div");
+		document.body.append(sheetHost);
+		mountIgniteJsx(
+			sheetHost,
+			jsx("style", {
+				children:
+					".a{background:u\\72l(https://evil.example/x)}; .ok{color:red}",
+			}),
+		);
+		const sheet = sheetHost.querySelector("style")?.textContent ?? "";
+		expect(sheet).not.toContain("evil.example");
+		expect(sheet.toLowerCase()).not.toContain("url(");
+		expect(sheet).toContain(".ok{color:red}");
+
+		const { trustedStyle } = await loadHelpers();
+		expect(typeof trustedStyle).toBe("function");
+		if (typeof trustedStyle !== "function") return;
+		const token = trustedStyle(
+			"color: red; background:u\\72l(https://cdn.example/a.png)",
+		);
+		expect(
+			styleSheetFromChildren([
+				{
+					kind: "text",
+					value: readTrustedStyle(token),
+					trusted: true,
+				},
+			]).css,
+		).toContain("cdn.example");
+		const trusted = mount("div", { style: token }).querySelector(
+			"div",
+		) as HTMLElement;
+		expect(trusted.style.color).toBe("red");
 	});
 });
 

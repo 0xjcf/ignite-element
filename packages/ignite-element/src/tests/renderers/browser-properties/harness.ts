@@ -6,6 +6,10 @@ import {
 } from "../../../../../ignite-renderer/src/renderers/jsx/renderer";
 import { isIgniteJsxElement } from "../../../../../ignite-renderer/src/renderers/jsx/types";
 import {
+	isHandlerKey,
+	srcsetCandidates,
+} from "../../../../../ignite-renderer/src/renderers/jsx/xssGuard";
+import {
 	type AliasReport,
 	type AliasScenario,
 	type ClassReport,
@@ -511,7 +515,9 @@ const urlAttributes = new Set([
 
 function attributeArmed(name: string, raw: string): boolean {
 	if (name === "srcset") {
-		return raw.split(",").some((candidate) => isExecutableUri(candidate));
+		return srcsetCandidates(raw).some((candidate) =>
+			isExecutableUri(candidate),
+		);
 	}
 	if (name === "ping") {
 		return raw
@@ -528,7 +534,7 @@ function collectArmed(host: ParentNode): string[] {
 		for (const name of element.getAttributeNames()) {
 			const lower = name.toLowerCase();
 			const raw = element.getAttribute(name) ?? "";
-			if (lower.startsWith("on")) armed.push(`handler ${name}`);
+			if (isHandlerKey(name)) armed.push(`handler ${name}`);
 			if (urlAttributes.has(lower) && attributeArmed(lower, raw)) {
 				armed.push(`attribute ${element.localName} ${name}=${raw}`);
 			}

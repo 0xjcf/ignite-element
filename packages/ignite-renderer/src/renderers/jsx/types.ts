@@ -1,6 +1,9 @@
+import type { TrustedStyle } from "./xssGuard";
+
 export type IgniteJsxChild =
 	| IgniteJsxElement
 	| PrimitiveChild
+	| TrustedStyle
 	| IgniteJsxChild[];
 
 type PrimitiveChild = string | number | boolean | null | undefined;

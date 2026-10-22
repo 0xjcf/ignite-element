@@ -5,7 +5,10 @@ export type {
 	IgniteJsxProps,
 } from "../renderers/jsx/types";
 export { Fragment } from "../renderers/jsx/types";
-export type { SafeSpreadOptions } from "../renderers/jsx/xssGuard";
+export type {
+	SafeSpreadOptions,
+	TrustedStyle,
+} from "../renderers/jsx/xssGuard";
 export {
 	safeSpread,
 	safeUrl,

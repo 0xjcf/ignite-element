@@ -31,11 +31,11 @@ SLICE-1. One row per baseline id.
 
 ### XSS-SCRIPT
 
-A `script` element is omitted when its normalized children include any text node. The tag match is ASCII case-insensitive, so `script` and `SCRIPT` are the same rule.
+A `script` element is omitted when its normalized children include any text node or any element. The tag match uses the local name after the last `:`, then ASCII case, so `script`, `SCRIPT`, and `x:script` are the same rule.
 
-Text nodes come from string children, number children, and a component that returns either. An empty string is still a text node, so the element is omitted.
+Text nodes come from string children, number children, and a component that returns either. An empty string is still a text node, so the element is omitted. Element children include a nested tag and a component that returns an element. Those children are not created either.
 
-A `script` with no text node is still created. That includes no children, comment children (`null`, `true`, `false`), and a `src` URL with no text. `src` stays under XSS-URL. There is no trusted-script value.
+A `script` with neither text nor element children is still created. That includes no children, comment children (`null`, `true`, `false`), and a `src` URL with only those. `src` stays under XSS-URL. There is no trusted-script value. A `text` prop on a `script` element is a source-bearing prop and is not applied, on mount or on update. `safeSpread` drops `text`, `textContent`, `innerText`, `outerText`, `innerHTML`, `outerHTML`, `srcdoc`, and `dangerouslySetInnerHTML`.
 
 ### XSS-PROTO
 
@@ -51,7 +51,7 @@ The match is the exact key, not a case fold. `__PROTO__` is not the special sett
 
 ### XSS-URL
 
-The renderer denylist is unchanged. After ASCII space and the controls at or below U+0020, plus DEL, are stripped, a value is blocked when it is `javascript:`, `vbscript:`, `data:text/html`, `data:image/svg+xml`, or `data:application/xhtml+xml`. `script`, `iframe`, `frame`, `object`, `embed`, and `applet` also reject every other `data:` URL.
+The shared projection denylist is unchanged. After ASCII space and the controls at or below U+0020, plus DEL, are stripped, a value is blocked when it is `javascript:`, `vbscript:`, `data:text/html`, `data:image/svg+xml`, or `data:application/xhtml+xml`. The JSX guard also blocks `data:text/xml`, `data:application/xml`, and any `data:` type whose subtype ends in `+xml`. `script`, `iframe`, `frame`, `object`, `embed`, and `applet` also reject every other `data:` URL.
 
 The prop key is lowercased, so `srcSet` is `srcset`. The guarded keys are:
 
@@ -59,7 +59,7 @@ The prop key is lowercased, so `srcSet` is `srcset`. The guarded keys are:
 - `src`
 - `action`
 - `formaction` (`formAction` is the same key)
-- `xlink:href`
+- `xlink:href` (`xlinkHref` is the same sink and is written as `xlink:href`)
 - `codebase`
 - `data` on `object` only
 - `srcset` on every element, including `img` and `source`
@@ -68,7 +68,7 @@ The prop key is lowercased, so `srcSet` is `srcset`. The guarded keys are:
 - `cite` on every element, including `blockquote`, `q`, `del`, and `ins`
 - `ping` on every element, including `a` and `area`
 
-`srcset` is a comma-separated candidate list. Each candidate is checked with the same strip. A descriptor such as `1x` stays glued to the URL after the strip, which still leaves a leading scheme visible. If any candidate is blocked, the whole attribute is dropped. It is not rewritten into a shorter list. A `data:image/png` candidate is not on the denylist, so a PNG `srcset` still applies.
+`srcset` uses the HTML candidate parser. The URL is a run of non-whitespace. A comma inside that run stays in the URL, so `data:image/png;base64,…` is one candidate. A comma after the URL, including a URL that ends with a comma, separates candidates. Descriptors stay with their candidate. Each full candidate is checked with the same strip, so a scheme split by whitespace is still blocked and a descriptor such as `1x` stays glued on after the strip. If any candidate is blocked, the whole attribute is dropped. It is not rewritten into a shorter list. A `data:image/png` candidate is not on the denylist, so a PNG `srcset` still applies. A candidate with no space, such as `https://cdn.example/a.png,javascript:alert(1)`, is one URL token and is kept.
 
 `ping` is blocked when the stripped whole value is dangerous, or when any token split on HTML whitespace (tab, line feed, form feed, carriage return, space) is dangerous. The whole-value check catches a scheme that hides a whitespace character. The token check catches a safe URL beside a dangerous one, which the strip would otherwise glue together. If either check fails, the whole attribute is dropped. A NUL inside one token is not a separator, so `java\u0000script:` is still one token and is blocked.
 
@@ -76,9 +76,9 @@ Non-string values on a guarded key are not applied. SMIL `from`, `to`, `by`, `va
 
 ### XSS-SPREAD
 
-`safeSpread(props, options?)` copies enumerable own string keys, except the three XSS-PROTO keys.
+`safeSpread(props, options?)` copies enumerable own string keys, except the three XSS-PROTO keys and the source-bearing keys `text`, `textContent`, `innerText`, `outerText`, `innerHTML`, `outerHTML`, `srcdoc`, and `dangerouslySetInnerHTML`. The match for those keys is ASCII case-insensitive.
 
-A key is a handler key when its lowercase form starts with `on` and the key is longer than `on`. `onClick`, `onclick`, and `ONERROR` are handler keys. `xlink:onclick` is not a handler key here; the renderer already drops that string attribute.
+A key is a handler key when it matches `/^on[A-Z]/`, or when its lowercase form is `on` plus a real event name. The name is real when `on` plus that name is on `HTMLElement`, `Window`, `Document`, or `SVGElement`, or when it is in the guard's list of names those prototypes sometimes lack, such as `animationend` and `begin`. `onClick`, `onclick`, `ONERROR`, and `ononline` are handler keys. `one`, `online`, and `onlyIcon` are not. `xlink:onclick` is not a handler key here; the renderer already drops that string attribute.
 
 A handler key is copied only when the value is a function and `options.handlers` lists that exact key. `onClick` does not allow `onclick`. A string handler is never copied, even if the key is listed.
 
@@ -88,26 +88,28 @@ Other keys are copied as they are. The renderer still applies XSS-URL and the st
 
 ### XSS-STYLE-URL
 
-Untrusted style applies no `url(`. The match is case-insensitive and allows whitespace before `(`.
+Untrusted style loads no URL. The prop key match is ASCII case-insensitive, so `style`, `Style`, and `STYLE` are the same sink. The loader match is case-insensitive and allows whitespace before `(`. It covers `url(`, `@import`, `image-set(`, `-webkit-image-set(`, and `src(`. A declaration that contains `\` is dropped too. The backslash is not decoded.
 
-- A style string drops each `;` declaration that contains `url(`. Other declarations in that string stay.
-- A style object removes a property whose value contains `url(`.
-- `trustedStyle(css)` as the whole `style` prop assigns that CSS, including `url(`.
-- `trustedStyle(css)` as one style-object value is kept, including `url(`.
+- A style string drops each declaration that contains a loader or `\`. Other declarations in that string stay.
+- A style object removes a property whose value contains a loader or `\`.
+- `trustedStyle(css)` as the whole `style` prop assigns that CSS, including loaders and backslashes. Its return type is an `IgniteJsxChild`, so it is a legal style child.
+- `trustedStyle(css)` as one style-object value is kept, including loaders and backslashes. The brand is `Symbol.for("ignite-element.trustedStyle")`. Any code in the same realm can forge that symbol. JSON cannot.
+
+Declarations split on `;` only outside quotes and comments. A backslash inside a quote skips the next character so `\;` does not end the string. That skip is not CSS-escape decoding.
 
 `url(#fragment)` is `url(` and is included. `expression(` is not this rule. The CSS parser already drops it in the engines the existing sink tests use.
 
 ### XSS-STYLE-ELEMENT
 
-Decision: a `style` element is created, including for ordinary component CSS such as `.count { color: rebeccapurple; }`. The spike's proposal to omit the element would delete those stylesheets.
+Decision: a `style` element is created, including for ordinary component CSS such as `.count { color: rebeccapurple; }`. The spike's proposal to omit the element would delete those stylesheets. The tag match uses the local name after the last `:`, then ASCII case, so `style` and `x:style` are the same rule.
 
-Children are `createTextNode` values. They are not parsed as HTML, so `</style><img>` stays text and creates no `img`. The CSS parser concatenates those text nodes, and a comment between them does not break the join. The `url(` filter runs on that joined string, same match as a style attribute, split on `;`. A declaration that contains `url(` is kept only when every character of that declaration is `trustedStyle` text. A `url(` split across children (`url` in one, `(https://…)` in the next) shares one declaration and is dropped. A declaration that is only `url(` becomes empty text. The element stays. One text node holds the filtered sheet.
+Children are `createTextNode` values. They are not parsed as HTML, so `</style><img>` stays text and creates no `img`. The CSS parser concatenates those text nodes, and a comment between them does not break the join. The loader filter runs on that joined string, same match as a style attribute, including `\`. The `;` split ignores semicolons inside quotes and comments. A declaration that contains a loader or `\` is kept only when every character of that declaration is `trustedStyle` text. A loader split across children (`url` in one, `(https://…)` in the next) shares one declaration and is dropped. A declaration that is only a loader becomes empty text. The element stays. One text node holds the filtered sheet.
 
 ### XSS-SAFE-URL
 
-`safeUrl(value)` returns the original string when, after the same ASCII strip as XSS-URL, the value has no scheme, or the scheme is `http`, `https`, `mailto`, or `tel`. Otherwise it returns `null`. An empty string after the strip is `null`.
+`safeUrl` is an allowlist. It returns the original string when, after the same ASCII strip as XSS-URL, the value has no scheme, or the scheme is `http`, `https`, `mailto`, or `tel`. Otherwise it returns `null`. An empty string after the strip is `null`.
 
-No scheme includes a path, a query, a hash, and a protocol-relative `//host`. **NEEDS JOSE** whether `//host` should be refused. The code allows it, as a relative URL, until Jose says otherwise.
+No scheme includes a path, a query, a hash, and, today, a protocol-relative `//host`. `\\host` and `/\host` also have no scheme match, so they pass too. **NEEDS JOSE** whether those should be refused. The code allows them until Jose says otherwise.
 
 `safeUrl` is stricter than XSS-URL. It is not applied automatically to attributes. `blob:` and `data:image/png` still render when passed to `jsx`. **NEEDS JOSE** whether the renderer denylist should become this allowlist. The code does not do that.
 
@@ -116,7 +118,7 @@ No scheme includes a path, a query, a hash, and a protocol-relative `//host`. **
 1. XSS-PROTO keys are skipped before a URL check reads `localName` and before any `Reflect.set`.
 2. XSS-URL runs before the attribute or property is written.
 3. XSS-SCRIPT and XSS-STYLE-ELEMENT run while normalizing, before `createElement`.
-4. `trustedStyle` is recognized before the `url(` filter.
+4. `trustedStyle` is recognized before the loader filter.
 5. `safeSpread` runs in application code before `jsx`. The renderer rules still run.
 
 ### XSS-SUPER
@@ -129,23 +131,22 @@ No scheme includes a path, a query, a hash, and a protocol-relative `//host`. **
 
 ### XSS-NO-HTML
 
-There is no HTML writer. Nothing in this API assigns `innerHTML`, `outerHTML`, `srcdoc`, or parses a string as HTML. The existing content-prop bans stay.
+There is no HTML writer. Nothing in this API assigns `innerHTML`, `outerHTML`, `srcdoc`, or parses a string as HTML. `dangerouslySetInnerHTML` is on that same ban: it is not written and its `__html` is not parsed. The existing content-prop bans stay.
 
 ### XSS-LOG
 
-Development warnings for a blocked URL, an omitted `script`, or a dropped style `url(` name the key or the tag. They do not include the rejected value. Style elements are not omitted.
+Development warnings for a blocked URL, an omitted `script`, or a dropped style loader name the key or the tag. They do not include the rejected value. The style-element warning still says `url()` for every dropped loader. Style elements are not omitted.
 
 ## NEEDS JOSE
 
 These are not implemented. They are listed so they are not silent.
 
 1. Approve `THREAT-MODEL.md`.
-2. Should `safeUrl` refuse protocol-relative `//host`?
-3. Should the renderer switch from the denylist to the `safeUrl` allowlist for the guarded keys?
-4. Should untrusted style also drop `expression(`, `behavior`, and `-moz-binding`, instead of relying on the CSS parser for `expression(`?
-5. Should CSS escapes that spell `url(` (`\75 rl(`) be rejected? The check is a string search, not a CSS parser.
-6. Should a `script` with only `src` be omitted too? XSS-SCRIPT still creates it.
-7. The bundle budgets are 4,810 B gzip (no-host JSX, level 6) and 6,280 B gzip (consumer, level 9). This slice's production checks will be measured against both. A raise is Jose's.
+2. Should `safeUrl` refuse protocol-relative `//host`, and the same open redirect spelled `\\host` or `/\host`? Security's recommendation, not implemented: before the no-scheme return, reject a stripped value matching `/^[\\/]{2}|^\/\\|^\\//`. Optionally add `safeUrl(value, { allowHosts })`. Verifier reproduced `//evil.com` unchanged and treats it as an open P2. The code still returns those strings until Jose decides.
+3. Should the renderer switch from the denylist to the `safeUrl` allowlist for the guarded keys? Security's recommendation, not implemented: keep the renderer denylist as the always-on floor, keep `safeUrl` as the documented path for untrusted input, and consider a later allowlist for `script src`, `iframe src`, `object data`, `embed src`, and `form action`.
+4. Should untrusted style also drop `expression(`, `behavior`, and `-moz-binding`, instead of relying on the CSS parser for `expression(`? A CSS comment inside a loader token (`url/*x*/(`) is the same class of gap: the filter is a string search, not a tokenizer. Element children inside `style` are not a stylesheet in Chromium (the sheet stays empty), so they are not a load.
+5. Should a `script` with only `src`, or a `link rel=stylesheet`, be omitted too? XSS-SCRIPT still creates a src-only script. A `link` `href` is still written when it passes XSS-URL, so an `https` script or stylesheet from props still loads. Security's recommendation, not implemented: refuse a non-trusted `script src` and a stylesheet `link`. Verifier confirmed a stylesheet link loads.
+6. The bundle budgets are 4,810 B gzip (no-host JSX, level 6) and 6,280 B gzip (consumer, level 9). This slice's production checks are measured against both. Do not raise them. A raise is Jose's. CSS escapes that spell a loader are not an open question: untrusted CSS drops any declaration that contains `\`, without decoding it.
 
 ## Scope
 

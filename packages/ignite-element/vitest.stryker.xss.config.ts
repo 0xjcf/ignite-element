@@ -1,4 +1,3 @@
-import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 import baseConfig from "./vitest.stryker.config";
 

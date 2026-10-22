@@ -20,6 +20,7 @@ import {
 	cssValueForStyle,
 	isExtraUrlName,
 	isForbiddenProp,
+	isHandlerKey,
 	readTrustedStyle,
 	scriptElementOmitted,
 	styleSheetFromChildren,
@@ -216,7 +217,7 @@ function normalizeChild(
 			);
 	warnInvalidKeys(normalizedChildren);
 
-	const lowerTag = tagName.toLowerCase();
+	const lowerTag = localTag(tagName);
 	if (lowerTag === "style") {
 		const sheet = styleSheetFromChildren(normalizedChildren);
 		if (__IGNITE_DEV_WARNINGS__ && sheet.droppedUrl) {
@@ -245,7 +246,7 @@ function normalizeChild(
 	if (lowerTag === "script" && scriptElementOmitted(normalizedChildren)) {
 		if (__IGNITE_DEV_WARNINGS__) {
 			warn(
-				"[ignite-jsx] `script` was not created because it has text children.",
+				"[ignite-jsx] `script` was not created because it has text or element children.",
 			);
 		}
 		return [];
@@ -427,9 +428,19 @@ function warnDuplicateProps(
 	}
 }
 
-function isBlockedMarkupProp(key: string): boolean {
+function localTag(tagName: string): string {
+	const lower = tagName.toLowerCase();
+	const colon = lower.lastIndexOf(":");
+	return colon < 0 ? lower : lower.slice(colon + 1);
+}
+
+function isBlockedMarkupProp(element: Element, key: string): boolean {
 	const normalized = key.toLowerCase();
+	if (normalized === "text" && localTag(element.localName) === "script") {
+		return true;
+	}
 	return (
+		normalized === "dangerouslysetinnerhtml" ||
 		normalized === "innerhtml" ||
 		normalized === "outerhtml" ||
 		normalized === "innertext" ||
@@ -443,8 +454,7 @@ function isBlockedMarkupProp(key: string): boolean {
 }
 
 function isEventHandlerKey(key: string): boolean {
-	const name = key.toLowerCase();
-	return name.length > 2 && name.startsWith("on");
+	return isHandlerKey(key);
 }
 
 function isIgnoredHandlerAttribute(key: string): boolean {
@@ -512,7 +522,8 @@ function isBlockedUrlValue(
 	props?: IgniteJsxProps,
 ): boolean {
 	if (value == null || value === false) return false;
-	const name = key.toLowerCase();
+	const name =
+		key.toLowerCase() === "xlinkhref" ? "xlink:href" : key.toLowerCase();
 	const tag = element.localName.toLowerCase();
 	// <base href> retargets relative URLs, so it is never written.
 	if (tag === "base" && name === "href") return true;
@@ -1180,7 +1191,11 @@ function patchProps(
 	for (const key of Object.keys(oldProps)) {
 		if (hostRuntimeEnabled && key === "use") continue;
 		if (isForbiddenProp(key)) continue;
-		if (key === "children" || key === "ref" || isBlockedMarkupProp(key))
+		if (
+			key === "children" ||
+			key === "ref" ||
+			isBlockedMarkupProp(element, key)
+		)
 			continue;
 		// Listeners are diffed by event slot, not by each spelling.
 		if (isEventHandlerKey(key)) continue;
@@ -1204,7 +1219,7 @@ function patchProps(
 			if (hostRuntimeEnabled && key === "use") continue;
 			if (isForbiddenProp(key)) continue;
 			if (key === "children" || key === "ref") continue;
-			if (isBlockedMarkupProp(key)) {
+			if (isBlockedMarkupProp(element, key)) {
 				if (next !== undefined && next !== null && next !== false) {
 					warnBlockedMarkupProp(element, key);
 				}
@@ -1238,7 +1253,7 @@ function patchProps(
 			// Any other commit is a fallback: the renderer owns that attribute.
 			if (next != null) committedKeys(element).set(key, true);
 
-			if (key === "style") {
+			if (key.toLowerCase() === "style") {
 				patchStyle(element as HTMLElement, prev, next);
 				continue;
 			}
@@ -1441,6 +1456,7 @@ function propAttributeName(
 	isSvg: boolean,
 ): string {
 	const lower = key.toLowerCase();
+	if (lower === "xlinkhref") return "xlink:href";
 	if (lower === "class" || lower === "classname") return "class";
 	if (lower === "htmlfor") return "for";
 	if (lower === "acceptcharset") return "accept-charset";
