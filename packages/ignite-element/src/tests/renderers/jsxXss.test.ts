@@ -1612,5 +1612,28 @@ describe("security re-review of remote loads", () => {
 		expect(quoted).toContain(".q{content:'a;b'}");
 		expect(quoted).not.toContain("evil.example");
 		expect(quoted).not.toBe("");
+
+		const ruleset = styleSheetFromChildren([
+			{
+				kind: "text",
+				value:
+					"button:focus-visible{outline:3px solid currentColor}.thumb{width:1rem}",
+			},
+		]).css;
+		expect(ruleset).toBe(
+			"button:focus-visible{outline:3px solid currentColor}.thumb{width:1rem}",
+		);
+		const declarations = styleSheetFromChildren([
+			{ kind: "text", value: "a{color:red;background:blue}" },
+		]).css;
+		expect(declarations).toBe("a{color:red;background:blue}");
+		const tail = styleSheetFromChildren([
+			{
+				kind: "text",
+				value: "a{background:url(https://evil.example/a.png);color:blue}",
+			},
+		]).css;
+		expect(tail).toBe("color:blue}");
+		expect(tail).not.toContain("evil.example");
 	});
 });

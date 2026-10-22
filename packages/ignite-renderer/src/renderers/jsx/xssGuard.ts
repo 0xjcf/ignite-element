@@ -313,7 +313,12 @@ export function styleSheetFromChildren(
 			balance += span.depth;
 		}
 	}
-	let css = kept.join(";");
+	// A semicolon after `}` is not an empty rule. Chromium drops every later rule.
+	let css = "";
+	for (const part of kept) {
+		if (css && !css.endsWith("}")) css += ";";
+		css += part;
+	}
 	if (balance > 0) css += "}".repeat(balance);
 	return { css, droppedUrl };
 }
