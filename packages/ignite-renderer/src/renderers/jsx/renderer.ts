@@ -21,6 +21,7 @@ import {
 	isExtraUrlName,
 	isForbiddenProp,
 	isHandlerKey,
+	isStylesheetLink,
 	readTrustedStyle,
 	scriptElementOmitted,
 	styleSheetFromChildren,
@@ -243,11 +244,13 @@ function normalizeChild(
 		normalizedChildren.length = 0;
 		normalizedChildren.push(...nextChildren);
 	}
-	if (lowerTag === "script" && scriptElementOmitted(normalizedChildren)) {
+	if (
+		(lowerTag === "script" &&
+			scriptElementOmitted(normalizedChildren, node.props)) ||
+		(lowerTag === "link" && isStylesheetLink(node.props))
+	) {
 		if (__IGNITE_DEV_WARNINGS__) {
-			warn(
-				"[ignite-jsx] `script` was not created because it has text or element children.",
-			);
+			warn(`[ignite-jsx] \`${lowerTag}\` was not created.`);
 		}
 		return [];
 	}
@@ -553,7 +556,7 @@ function isBlockedUrlValue(
 		return strippedUri(value) === "refresh";
 	}
 	if (name === "attributename") return false;
-	return urlValueBlocked(name, value, tag);
+	return urlValueBlocked(name, value);
 }
 
 function ensureMount(node: Node): ElementMount {

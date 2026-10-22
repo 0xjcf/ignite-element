@@ -225,7 +225,7 @@ describe("URL scheme guard", () => {
 					jsx("a", { href: "https://example.com/path", children: "web" }),
 					jsx("a", { href: "/relative", children: "rel" }),
 					jsx("a", { href: "mailto:a@example.com", children: "mail" }),
-					jsx("img", { alt: "pixel", src: "data:image/png;base64,aaaa" }),
+					jsx("img", { alt: "pixel", src: "https://example.com/pixel.png" }),
 					jsx("form", { action: "https://example.com/submit" }),
 					jsx("button", { formAction: "https://example.com/go" }),
 				],
@@ -242,7 +242,7 @@ describe("URL scheme guard", () => {
 			"mailto:a@example.com",
 		);
 		expect(host.querySelector("img")?.getAttribute("src")).toContain(
-			"data:image/png",
+			"https://example.com/pixel.png",
 		);
 		expect(host.querySelector("form")?.getAttribute("action")).toContain(
 			"https://example.com/submit",
@@ -1589,20 +1589,18 @@ describe("URL scheme guard", () => {
 		"data:text/ecmascript,alert(1)",
 		"data:application/ecmascript,alert(1)",
 		"data:\ntext/javascript,alert(1)",
-	])("does not apply %s on script", (src) => {
+	])("does not create a script for %s", (src) => {
 		const { host } = mount(jsx("script", { src }));
 
-		expect(host.querySelector("script")?.getAttribute("src")).toBeNull();
+		expect(host.querySelector("script")).toBeNull();
 	});
 
-	it("still applies a network script src", () => {
+	it("does not create a network script src", () => {
 		const { host } = mount(
 			jsx("script", { src: "https://example.com/app.js" }),
 		);
 
-		expect(host.querySelector("script")?.getAttribute("src")).toContain(
-			"https://example.com/app.js",
-		);
+		expect(host.querySelector("script")).toBeNull();
 	});
 
 	it.each(["iframe", "frame", "embed"] as const)(
@@ -1715,7 +1713,7 @@ describe("URL scheme guard", () => {
 		expect(onClick).toHaveBeenCalledOnce();
 	});
 
-	it("still applies a data image srcset on img and source", () => {
+	it("does not apply a data image srcset on img or source", () => {
 		const { host } = mount(
 			jsx("div", {
 				children: [
@@ -1724,15 +1722,18 @@ describe("URL scheme guard", () => {
 						srcset: "data:image/png;base64,aaaa 1x",
 					}),
 					jsx("source", { srcset: "data:image/png;base64,bbbb 1x" }),
+					jsx("img", {
+						alt: "net",
+						srcset: "https://cdn.example/a.png 1x",
+					}),
 				],
 			}),
 		);
 
-		expect(host.querySelector("img")?.getAttribute("srcset")).toContain(
-			"data:image/png",
-		);
-		expect(host.querySelector("source")?.getAttribute("srcset")).toContain(
-			"data:image/png",
+		expect(host.querySelector("img")?.getAttribute("srcset")).toBeNull();
+		expect(host.querySelector("source")?.getAttribute("srcset")).toBeNull();
+		expect(host.querySelectorAll("img")[1]?.getAttribute("srcset")).toContain(
+			"https://cdn.example/a.png",
 		);
 	});
 

@@ -90,11 +90,9 @@ describe("locks that already hold", () => {
 		expect(ran).toBe(true);
 	});
 
-	it("still creates a script that has a network src and no text", () => {
+	it("omits a script that has a src and no text", () => {
 		const host = mount("script", { src: "https://example.com/app.js" });
-		expect(host.querySelector("script")?.getAttribute("src")).toContain(
-			"https://example.com/app.js",
-		);
+		expect(host.querySelector("script")).toBeNull();
 	});
 
 	it("keeps an https poster, cite, background, ping, and a png srcset", () => {
@@ -123,10 +121,15 @@ describe("locks that already hold", () => {
 				?.getAttribute("ping"),
 		).toContain("https://example.com/ping");
 		expect(
+			mount("img", { srcset: "https://cdn.example/a.png 1x, /b.png 2x" })
+				.querySelector("img")
+				?.getAttribute("srcset"),
+		).toContain("https://cdn.example/a.png");
+		expect(
 			mount("img", { srcset: "data:image/png;base64,aaaa 1x, /b.png 2x" })
 				.querySelector("img")
 				?.getAttribute("srcset"),
-		).toContain("data:image/png;base64,aaaa");
+		).toBeNull();
 	});
 
 	it("keeps an empty style element and drops url(javascript:) that CSSOM already rejects", () => {
@@ -233,9 +236,9 @@ describe("gaps", () => {
 				?.getAttribute("srcset"),
 		).toBe("https://cdn.example/a.png,javascript:alert(1)");
 		expect(
-			mount("script", { src: "data:text/javascript,alert(1)" })
-				.querySelector("script")
-				?.getAttribute("src"),
+			mount("script", { src: "data:text/javascript,alert(1)" }).querySelector(
+				"script",
+			),
 		).toBeNull();
 		expect(
 			mount("iframe", { src: "data:application/octet-stream,hi" })
@@ -243,10 +246,11 @@ describe("gaps", () => {
 				?.getAttribute("src"),
 		).toBeNull();
 		expect(
-			mount("script", { src: "https://example.com/app.js", children: null })
-				.querySelector("script")
-				?.getAttribute("src"),
-		).toContain("https://example.com/app.js");
+			mount("script", {
+				src: "https://example.com/app.js",
+				children: null,
+			}).querySelector("script"),
+		).toBeNull();
 	});
 
 	it("poster does not keep a javascript or data:text/html url", () => {
@@ -709,16 +713,13 @@ describe("gaps", () => {
 		});
 		expect(componentHost.querySelector("script")).toBeNull();
 
-		// A comment child is not text. true/null become comments, and the
-		// network src must still be created.
+		// A comment child is not text. A src still omits the element.
 		expect(
 			mount("script", {
 				src: "https://example.com/app.js",
 				children: true,
-			})
-				.querySelector("script")
-				?.getAttribute("src"),
-		).toContain("https://example.com/app.js");
+			}).querySelector("script"),
+		).toBeNull();
 	});
 });
 
@@ -920,7 +921,7 @@ describe("security review", () => {
 			})
 				.querySelector("img")
 				?.getAttribute("srcset"),
-		).toBe("data:image/png;base64,javascript:alert(1) 1x");
+		).toBeNull();
 		expect(
 			mount("img", {
 				srcset: "https://cdn.example/a.png, javascript:alert(1)",
@@ -973,9 +974,7 @@ describe("security review", () => {
 		const host = document.createElement("div");
 		document.body.append(host);
 		mountIgniteJsx(host, jsx("script", { src: "https://example.com/app.js" }));
-		expect(host.querySelector("script")?.getAttribute("src")).toContain(
-			"https://example.com/app.js",
-		);
+		expect(host.querySelector("script")).toBeNull();
 		mountIgniteJsx(
 			host,
 			jsx("script", {
@@ -983,9 +982,7 @@ describe("security review", () => {
 				text: "window.__igniteScriptText = 1",
 			}),
 		);
-		const updated = host.querySelector("script") as HTMLScriptElement | null;
-		expect(updated?.text ?? "").not.toContain("__igniteScriptText");
-		expect(updated?.textContent ?? "").not.toContain("__igniteScriptText");
+		expect(host.querySelector("script")).toBeNull();
 		expect(
 			(globalThis as { __igniteScriptText?: number }).__igniteScriptText,
 		).toBeUndefined();
@@ -1103,7 +1100,11 @@ describe("deny-by-default helpers", () => {
 		expect(safeUrl("../a")).toBe("../a");
 		expect(safeUrl("?q=1")).toBe("?q=1");
 		expect(safeUrl("#hash")).toBe("#hash");
-		expect(safeUrl("//cdn.example/a")).toBe("//cdn.example/a");
+		expect(safeUrl("//cdn.example/a")).toBeNull();
+		expect(safeUrl("\\\\cdn.example\\a")).toBeNull();
+		expect(safeUrl("/\\cdn.example\\a")).toBeNull();
+		expect(safeUrl("\\/cdn.example/a")).toBeNull();
+		expect(safeUrl(" \t//cdn.example/a")).toBeNull();
 		expect(safeUrl("javascript:alert(1)")).toBeNull();
 		expect(safeUrl("java\nscript:alert(1)")).toBeNull();
 		expect(safeUrl(" \tVbScript:alert(1)")).toBeNull();
@@ -1176,5 +1177,157 @@ describe("deny-by-default helpers", () => {
 		expect(() => trustedStyle(1 as unknown as string)).toThrow(
 			"trustedStyle expects a string",
 		);
+	});
+});
+
+describe("approved url and remote-resource decisions", () => {
+	it("drops protocol-relative hrefs and schemes outside the allowlist", () => {
+		for (const href of [
+			"//evil.com",
+			"\\\\evil.com",
+			"/\\evil.com",
+			"\\/evil.com",
+			"ftp://example.com/a",
+			"data:image/png;base64,aaaa",
+			"blob:https://example.com/id",
+		]) {
+			expect(
+				mount("a", { href, children: "x" })
+					.querySelector("a")
+					?.getAttribute("href"),
+			).toBeNull();
+		}
+		expect(
+			mount("img", { src: "data:image/png;base64,aaaa" })
+				.querySelector("img")
+				?.getAttribute("src"),
+		).toBeNull();
+		expect(
+			mount("img", { src: "https://cdn.example/a.png" })
+				.querySelector("img")
+				?.getAttribute("src"),
+		).toContain("https://cdn.example/a.png");
+	});
+
+	it("omits src scripts and stylesheet links in any case or prefix", () => {
+		const host = mount("div", {
+			children: [
+				jsx("script", {}),
+				jsx("script", { src: "https://cdn.example/a.js" }),
+				jsx("SCRIPT", { SRC: "/a.js" }),
+				jsx("x:script", { src: "https://cdn.example/b.js" }),
+				jsx("link", {
+					rel: "stylesheet",
+					href: "https://cdn.example/a.css",
+				}),
+				jsx("link", { rel: "StyleSheet", href: "/a.css" }),
+				jsx("X:LINK", { REL: "preload stylesheet", href: "/b.css" }),
+				jsx("link", { rel: "icon", href: "https://cdn.example/favicon.ico" }),
+			],
+		});
+		const tags = [...host.querySelectorAll("*")].map((element) =>
+			element.localName.toLowerCase(),
+		);
+		expect(
+			tags.filter((tag) => tag === "script" || tag.endsWith(":script")),
+		).toHaveLength(1);
+		expect(
+			[...host.querySelectorAll("*")].some((element) =>
+				(element.getAttribute("rel") ?? "")
+					.toLowerCase()
+					.includes("stylesheet"),
+			),
+		).toBe(false);
+		expect(host.querySelector("link")?.getAttribute("rel")).toBe("icon");
+		expect(host.querySelector("link")?.getAttribute("href")).toContain(
+			"favicon.ico",
+		);
+
+		expect(
+			mount("script", {
+				src: false,
+				SRC: "https://evil.example/dup.js",
+			}).querySelector("script"),
+		).toBeNull();
+		expect(
+			mount("svg", {
+				children: jsx("script", { href: "https://evil.example/svg.js" }),
+			}).querySelector("script"),
+		).toBeNull();
+		expect(
+			mount("svg", {
+				children: jsx("script", {
+					xlinkHref: "https://evil.example/svg.js",
+				}),
+			}).querySelector("script"),
+		).toBeNull();
+
+		const spellings = mount("div", {
+			children: [
+				jsx("link", {
+					rel: ["stylesheet"],
+					href: "https://evil.example/a.css",
+				}),
+				jsx("link", {
+					rel: { toString: () => "stylesheet" },
+					href: "/a.css",
+				}),
+				jsx("link", { rel: "icon", REL: "stylesheet", href: "/b.css" }),
+			],
+		});
+		expect(spellings.querySelector("link")).toBeNull();
+	});
+
+	it("drops expression, behavior, moz-binding, and commented url() from untrusted style", async () => {
+		const css =
+			"color: red; width: expression(alert(1)); behavior: none; -moz-binding: none; scroll-behavior: smooth; background: url/**/(https://evil.example/a.png); background: url /*c*/ (https://evil.example/b.png); color: blue";
+		const filtered = styleSheetFromChildren([{ kind: "text", value: css }]).css;
+		expect(filtered).toContain("color: red");
+		expect(filtered).toContain("color: blue");
+		expect(filtered).toContain("scroll-behavior: smooth");
+		expect(filtered.toLowerCase()).not.toContain("expression");
+		expect(filtered.toLowerCase()).not.toContain("behavior: none");
+		expect(filtered.toLowerCase()).not.toContain("moz-binding");
+		expect(filtered).not.toContain("evil.example");
+		const hidden = styleSheetFromChildren([
+			{
+				kind: "text",
+				value:
+					'body::before{content:"/*" url(https://evil.example/pixel.png) "*/"}',
+			},
+		]).css;
+		expect(hidden).not.toContain("evil.example");
+		expect(hidden.toLowerCase()).not.toContain("url(");
+
+		const host = document.createElement("div");
+		document.body.append(host);
+		mountIgniteJsx(host, jsx("style", { children: css }));
+		const sheet = host.querySelector("style")?.textContent ?? "";
+		expect(sheet).toContain("color: red");
+		expect(sheet).not.toContain("evil.example");
+		expect(sheet.toLowerCase()).not.toContain("expression");
+
+		const styled = mount("div", {
+			style: {
+				color: "red",
+				width: "expression(alert(1))",
+				behavior: "url(#x)",
+			},
+		}).querySelector("div") as HTMLElement;
+		expect(styled.style.color).toBe("red");
+		expect(styled.style.cssText.toLowerCase()).not.toContain("expression");
+		expect(styled.getAttribute("style")?.toLowerCase() ?? "").not.toContain(
+			"behavior",
+		);
+
+		const { trustedStyle } = await loadHelpers();
+		expect(typeof trustedStyle).toBe("function");
+		if (typeof trustedStyle !== "function") return;
+		const token = trustedStyle("width: expression(1); color: red");
+		expect(
+			styleSheetFromChildren([
+				{ kind: "text", value: readTrustedStyle(token), trusted: true },
+			]).css,
+		).toContain("expression");
 	});
 });

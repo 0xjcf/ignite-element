@@ -1,23 +1,22 @@
-import { executableUriPattern, uriSpacePattern } from "./executableUri";
+import { uriSpacePattern } from "./executableUri";
 import type { IgniteJsxChild } from "./types";
 
 const TRUSTED_STYLE = Symbol.for("ignite-element.trustedStyle");
 declare const trustedStyleBrand: unique symbol;
-// url( plus the other CSS ways to load a remote resource. A backslash
-// escape that spells one of these is intentionally not decoded.
+// Remote CSS loads, old scriptable properties, and url( after a comment
+// is stripped. A backslash is rejected separately and is not decoded.
 const CSS_LOADER =
-	/(?:@import\b|(?:-webkit-)?image-set\s*\(|\bsrc\s*\(|\burl\s*\()/i;
+	/(?:@import\b|(?:-webkit-)?image-set\s*\(|\bsrc\s*\(|\burl\s*\(|expression\s*\(|-moz-binding|(?:^|[^-\w])behavior\b)/i;
 const EXTRA_URL = /^(?:srcset|poster|background|cite|ping)$/;
-const DATA_DOCUMENT = /^(?:script|iframe|frame|object|embed|applet)$/;
-const DATA_XML =
-	/^data:(?:text\/xml|application\/xml|[a-z0-9.+-]+\/[a-z0-9.+-]+\+xml)(?:;|,|$)/;
 const HTML_SPACE = /[\t\n\f\r ]+/;
 const SCHEME = /^([a-z][a-z0-9+.-]*):/i;
 const ALLOWED_SCHEME = new Set(["http", "https", "mailto", "tel"]);
-// Event names this renderer's DOM may not expose on HTMLElement, Window,
-// Document, or SVGElement. Names those prototypes do expose are handlers too.
+// //host, \\host, /\host, and \/host. Checked on the stripped value.
+const PROTOCOL_RELATIVE = /^[\\/]{2}/;
+// Names current browsers do not put on HTMLElement, Window, Document,
+// SVGElement, window, or document. The prototype check covers the rest.
 const RARE_EVENTS =
-	" animationcancel animationend animationiteration animationstart appinstalled beforecopy beforecut beforeinstallprompt beforepaste beforexrselect begin bounce command compositionend compositionstart compositionupdate contentvisibilityautostatechange encrypted end enterpictureinpicture finish focusin focusout freeze fullscreenchange fullscreenerror gamepadconnected gamepaddisconnected leavepictureinpicture loadend mousewheel pagereveal pageswap pointerlockchange pointerlockerror prerenderingchange repeat resume scrollsnapchange scrollsnapchanging search selectionchange selectstart slotchange start transitioncancel transitionend transitionrun transitionstart waitingforkey webkitfullscreenchange webkitfullscreenerror ";
+	" animationcancel begin bounce compositionend compositionstart compositionupdate encrypted end enterpictureinpicture finish focusin focusout leavepictureinpicture loadend repeat start waitingforkey ";
 
 export type SafeSpreadOptions = {
 	/** Function handlers kept by exact key, for example "onClick". */
@@ -35,15 +34,6 @@ export function isExtraUrlName(name: string): boolean {
 function stripped(value: string): string {
 	uriSpacePattern.lastIndex = 0;
 	return value.replace(uriSpacePattern, "").toLowerCase();
-}
-
-function executable(value: string, tag: string): boolean {
-	const normalized = stripped(value);
-	return (
-		executableUriPattern.test(normalized) ||
-		DATA_XML.test(normalized) ||
-		(normalized.startsWith("data:") && DATA_DOCUMENT.test(tag))
-	);
 }
 
 function isHtmlSpace(char: string): boolean {
@@ -115,30 +105,30 @@ export function srcsetCandidates(value: string): string[] {
 	return candidates;
 }
 
+function urlAllowed(value: string): boolean {
+	return safeUrl(value) !== null;
+}
+
 /** True when a guarded URL attribute must not be written. */
-export function urlValueBlocked(
-	name: string,
-	value: string,
-	tag: string,
-): boolean {
+export function urlValueBlocked(name: string, value: string): boolean {
 	const key = name.toLowerCase();
 	if (key === "srcset") {
 		for (const candidate of srcsetCandidates(value)) {
-			if (executable(candidate, tag)) return true;
+			if (!urlAllowed(candidate)) return true;
 		}
 		return false;
 	}
 	if (key === "ping") {
-		// The stripped whole value catches a scheme split by whitespace.
+		// The whole value catches a scheme split by whitespace.
 		// Tokens catch a safe URL beside a dangerous one, which the strip
 		// would glue into a single harmless-looking string.
-		if (executable(value, tag)) return true;
+		if (!urlAllowed(value)) return true;
 		for (const token of value.split(HTML_SPACE)) {
-			if (token && executable(token, tag)) return true;
+			if (token && !urlAllowed(token)) return true;
 		}
 		return false;
 	}
-	return executable(value, tag);
+	return !urlAllowed(value);
 }
 
 export function readTrustedStyle(value: unknown): string | undefined {
@@ -241,7 +231,7 @@ export function styleSheetFromChildren(
 	for (const span of declarationSpans(full)) {
 		const part = full.slice(span.start, span.end);
 		let drop = false;
-		if (CSS_LOADER.test(part) || part.includes("\\")) {
+		if (untrustedCssBlocked(part)) {
 			for (let index = span.start; index < span.end; index += 1) {
 				if (!trustedAt[index]) {
 					drop = true;
@@ -265,16 +255,59 @@ export function cssValueForStyle(value: unknown): string | false | undefined {
 	if (trusted !== undefined) return trusted;
 	if (value == null) return undefined;
 	const text = String(value);
-	if (CSS_LOADER.test(text) || text.includes("\\")) return false;
+	if (untrustedCssBlocked(text)) return false;
 	return text;
+}
+
+function untrustedCssBlocked(text: string): boolean {
+	// Raw text catches a loader a string-delimited `/*` would hide.
+	// Comment removal catches `url /**/ (`.
+	return (
+		text.includes("\\") ||
+		CSS_LOADER.test(text) ||
+		CSS_LOADER.test(text.replace(/\/\*[\s\S]*?\*\//g, ""))
+	);
+}
+
+const SCRIPT_URL = /^(?:src|href|xlinkhref|xlink:href)$/;
+
+function loads(value: unknown): boolean {
+	return value != null && value !== false;
 }
 
 export function scriptElementOmitted(
 	children: ReadonlyArray<{ kind: string }>,
+	props?: object,
 ): boolean {
-	return children.some(
-		(child) => child.kind === "text" || child.kind === "element",
-	);
+	if (
+		children.some((child) => child.kind === "text" || child.kind === "element")
+	) {
+		return true;
+	}
+	if (!props) return false;
+	const record = props as Record<string, unknown>;
+	for (const key of Object.keys(record)) {
+		if (SCRIPT_URL.test(key.toLowerCase()) && loads(record[key])) return true;
+	}
+	return false;
+}
+
+function stylesheetText(value: unknown): boolean {
+	if (Array.isArray(value)) return value.some(stylesheetText);
+	if (!loads(value)) return false;
+	const text = typeof value === "string" ? value : String(value);
+	for (const token of text.split(HTML_SPACE)) {
+		if (token.toLowerCase() === "stylesheet") return true;
+	}
+	return false;
+}
+
+export function isStylesheetLink(props: object): boolean {
+	const record = props as Record<string, unknown>;
+	for (const key of Object.keys(record)) {
+		if (key.toLowerCase() === "rel" && stylesheetText(record[key])) return true;
+	}
+	return false;
 }
 
 /** JSX `onClick`, or `on` plus a real event name in any ASCII case. */
@@ -303,6 +336,7 @@ export function safeUrl(value: string): string | null {
 	if (typeof value !== "string") return null;
 	const normalized = stripped(value);
 	if (normalized.length === 0) return null;
+	if (PROTOCOL_RELATIVE.test(normalized)) return null;
 	const match = SCHEME.exec(normalized);
 	if (!match) return value;
 	const scheme = match[1];

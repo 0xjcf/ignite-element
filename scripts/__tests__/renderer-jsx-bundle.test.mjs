@@ -81,12 +81,13 @@ const EVENT_ORIGIN_WARNING = "observed from both native and effect";
 // Then 6,270 B (Jose's cap): the round-25 file-input skip, releaseView guard and
 // removed-root drop read 6,268 B.
 // Then 6,280 B (Jose approved up to 6,280 B): the round-26 original-parent check reads 6,275 B.
+// Then 7,800 B (Jose approved on PR #180): the JSX XSS guard.
 // Dropped checked, value, and selected stay.
 // Native defaultValue, defaultChecked, and defaultSelected stay on drop.
 // Explicit false for the last two is a set. Own custom setters get undefined
 // and stay case-sensitive. There is no cached built-in element and no
 // fresh-element default reset.
-const TODAY_CONSUMER_GZIP = 6280;
+const TODAY_CONSUMER_GZIP = 7800;
 
 function consumerEntry() {
 	return `import { jsx, mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";
