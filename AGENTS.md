@@ -272,10 +272,12 @@ not through repeated review rounds.
    caught means the rules or properties need extending, not just a patch.
 
 **Bundle budget.** Jose approved these JSX production ceilings on PR #180:
-7,100 B gzip for the no-host JSX bundle (level 6) and 8,300 B gzip for the
-ignite-element consumer bundle (level 9). The consumer ceiling was a fixed
+7,200 B gzip for the no-host JSX bundle (level 6) and 8,400 B gzip for the
+ignite-element consumer bundle (level 9). On 2026-10-22 his words were
+"settle the object-style gap first and increase the budget", raising the
+previous 7,100 B and 8,300 B ceilings. The consumer ceiling was a fixed
 6,280 B through PR #168 (raised from 6,000 B across that PR). Any change that
-would exceed 7,100 B or 8,300 B must reduce size elsewhere in the same change.
+would exceed 7,200 B or 8,400 B must reduce size elsewhere in the same change.
 Do not bump either ceiling and do not open follow-up PRs to raise them.
 
 Lessons that apply to steps 1-2:

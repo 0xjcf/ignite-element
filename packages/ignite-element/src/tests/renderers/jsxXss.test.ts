@@ -2,6 +2,7 @@ import fc from "fast-check";
 import { afterEach, describe, expect, it } from "vitest";
 import {
 	cssTextWithoutUrls,
+	cssValueForStyle,
 	decorativeUrlBlocked,
 	linkReflectsBlocked,
 	readTrustedStyle,
@@ -47,6 +48,17 @@ class StyleSinkElement extends HTMLElement {
 
 if (!customElements.get("x-style-sink")) {
 	customElements.define("x-style-sink", StyleSinkElement);
+}
+
+const REMOTE_LOADER =
+	/(?:@import\b|(?:-webkit-)?image-set\s*\(|\bsrc\s*\(|\burl\s*\(|expression\s*\(|-moz-binding|(?:^|[^-\w])behavior\b)/i;
+
+function styleAsCss(value: unknown): string {
+	if (typeof value === "string") return value;
+	if (!value || typeof value !== "object") return "";
+	return Object.entries(value as Record<string, unknown>)
+		.map(([key, item]) => `${key}:${String(item)}`)
+		.join(";");
 }
 
 function nativeStyle(element: HTMLElement): string {
@@ -1689,10 +1701,37 @@ describe("security re-review of remote loads", () => {
 		const safeStyle = { color: "red" };
 		mount("x-style-sink", { style: safeStyle });
 		expect(styleSeen).toEqual([safeStyle]);
+		expect(styleSeen[0]).toBe(safeStyle);
 		styleSeen.length = 0;
 		const trusted = trustedStyle("background:url(https://cdn.example/a.png)");
 		mount("x-style-sink", { style: trusted });
 		expect(styleSeen).toEqual([trusted]);
+		expect(styleSeen[0]).toBe(trusted);
+		for (const value of [false, 0, 7]) {
+			styleSeen.length = 0;
+			mount("x-style-sink", { style: value });
+			expect(styleSeen).toEqual([value]);
+		}
+		styleSeen.length = 0;
+		const painted = mount("x-style-sink", {
+			style: {
+				color: "red",
+				backgroundImage: "url(https://evil.example/leak)",
+				BACKGROUND: "image-set(url(https://evil.example/a) 1x)",
+			},
+		}).querySelector("x-style-sink") as HTMLElement;
+		expect(styleSeen).toEqual([{ color: "red" }]);
+		expect(styleAsCss(styleSeen[0])).not.toMatch(REMOTE_LOADER);
+		expect(nativeStyle(painted)).not.toMatch(REMOTE_LOADER);
+		styleSeen.length = 0;
+		const described = mount("x-style-sink", {
+			style: {
+				color: "blue",
+				background: { toString: () => "url(https://evil.example/leak)" },
+			},
+		}).querySelector("x-style-sink") as HTMLElement;
+		expect(styleSeen).toEqual([{ color: "blue" }]);
+		expect(nativeStyle(described)).not.toMatch(REMOTE_LOADER);
 		fc.assert(
 			fc.property(fc.string({ maxLength: 16 }), (css) => {
 				styleSeen.length = 0;
@@ -1706,6 +1745,50 @@ describe("security re-review of remote loads", () => {
 				);
 			}),
 			{ numRuns: 16, seed: 1 },
+		);
+		fc.assert(
+			fc.property(
+				fc.dictionary(
+					fc.stringMatching(/^[A-Za-z][A-Za-z0-9]{0,8}$/),
+					fc.oneof(
+						fc.constantFrom(
+							"red",
+							"1px",
+							"none",
+							"url(https://evil.example/a)",
+							"url(//evil.example/a)",
+							"@import 'https://evil.example/a.css'",
+							"image-set(url(https://evil.example/a) 1x)",
+							"-webkit-image-set(url(https://evil.example/a) 1x)",
+							"expression(alert(1))",
+							"-moz-binding:url(https://evil.example/a)",
+						),
+						fc.string({ maxLength: 24 }),
+					),
+					{ maxKeys: 4 },
+				),
+				(style) => {
+					styleSeen.length = 0;
+					const el = mount("x-style-sink", { style }).querySelector(
+						"x-style-sink",
+					) as HTMLElement;
+					const received = styleSeen[0];
+					expect(styleAsCss(received)).not.toMatch(REMOTE_LOADER);
+					expect(nativeStyle(el)).not.toMatch(REMOTE_LOADER);
+					if (received && typeof received === "object") {
+						for (const value of Object.values(
+							received as Record<string, unknown>,
+						)) {
+							expect(cssValueForStyle(value)).not.toBe(false);
+						}
+					}
+					const blocked = Object.values(style).some(
+						(value) => cssValueForStyle(value) === false,
+					);
+					if (!blocked) expect(received).toBe(style);
+				},
+			),
+			{ numRuns: 24, seed: 1 },
 		);
 	});
 

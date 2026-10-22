@@ -319,8 +319,29 @@ export function styleSheetFromChildren(
 }
 
 export function cssTextWithoutUrls(value: unknown): unknown {
-	if (typeof value !== "string") return value;
-	return styleSheetFromChildren([{ kind: "text", value, trusted: false }]).css;
+	if (typeof value === "string") {
+		return styleSheetFromChildren([{ kind: "text", value, trusted: false }])
+			.css;
+	}
+	// A trusted style, a number, false, or null is the setter's value as given.
+	if (
+		!value ||
+		typeof value !== "object" ||
+		readTrustedStyle(value) !== undefined
+	) {
+		return value;
+	}
+	const source = value as Record<string, unknown>;
+	const out: Record<string, unknown> = {};
+	let dropped = false;
+	for (const name of Object.keys(source)) {
+		if (cssValueForStyle(source[name]) === false) {
+			dropped = true;
+			continue;
+		}
+		out[name] = source[name];
+	}
+	return dropped ? out : value;
 }
 
 /** `false` drops the property. `undefined` leaves it alone. A string is set. */

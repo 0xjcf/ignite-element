@@ -150,7 +150,7 @@ Jose approved these. The rules above are the code.
 3. Guarded URL attributes use the `safeUrl` allowlist.
 4. Untrusted style drops `expression(`, a `behavior` token, `-moz-binding`, and `url(` with a comment before the paren. A declaration that contains `\` is dropped without decoding the escape.
 5. A `script` with `src`, and a `link` whose `rel` or `relList` contains `stylesheet`, `preload`, `modulepreload`, or `import`, are omitted. `prefetch`, `dns-prefetch`, `preconnect`, `prerender`, and `icon` keep an `https` href.
-6. The bundle budgets are 7,100 B gzip (no-host JSX, level 6) and 8,300 B gzip (consumer, level 9). Jose raised them from 6,500 B and 7,800 B, and before that from 4,810 B and 6,280 B.
+6. The bundle budgets are 7,200 B gzip (no-host JSX, level 6) and 8,400 B gzip (consumer, level 9). On 2026-10-22 Jose's words were "settle the object-style gap first and increase the budget". He had raised them to 7,100 B and 8,300 B, before that from 6,500 B and 7,800 B, and before that from 4,810 B and 6,280 B.
 
 ## Scope
 
