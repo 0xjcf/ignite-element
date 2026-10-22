@@ -11,6 +11,8 @@ const EXTRA_URL =
 	/^(?:srcset|imagesrcset|poster|background|cite|ping|manifest)$/;
 const SVG_PAINT =
 	/^(?:fill|stroke|filter|mask|clip-?path|marker(?:-?(?:start|mid|end))?|cursor)$/;
+// The whole value, not a span up to the first ")". Id has no space, quote, or paren.
+const LOCAL_FRAGMENT = /^url\((?:#[^)\s'"(]*|(["'])#[^)\s'"(]*\1)\)$/i;
 const URL_PART =
 	/^(?:host(?:name)?|protocol|port|pathname|origin|username|password|search|hash)$/i;
 const BLOCKED_REL = /^(?:stylesheet|preload|modulepreload|import)$/;
@@ -138,10 +140,9 @@ export function decorativeUrlBlocked(
 	if (value == null || value === false) return false;
 	// One read. A later toString() can swap "#safe" for a remote url().
 	if (typeof value !== "string") return true;
-	// Drop CSS loaders first. A local fragment url() is the only one that stays.
-	return untrustedCssBlocked(
-		value.replace(/url\s*\(\s*["']?\s*#[^)]*\)/gi, ""),
-	);
+	// url(#id), url("#id"), or url('#id'). Every other value takes the loader check.
+	if (LOCAL_FRAGMENT.test(value)) return false;
+	return untrustedCssBlocked(value);
 }
 
 /** True when a guarded URL attribute must not be written. */

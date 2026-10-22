@@ -1,9 +1,11 @@
 import fc from "fast-check";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+	decorativeUrlBlocked,
 	readTrustedStyle,
 	srcsetCandidates,
 	styleSheetFromChildren,
+	urlValueBlocked,
 } from "../../../../ignite-renderer/src/renderers/jsx/xssGuard";
 import { jsx } from "../../renderers/jsx/jsx-runtime";
 import { mountIgniteJsx, renderIgniteJsx } from "../../renderers/jsx/renderer";
@@ -1483,6 +1485,37 @@ describe("security re-review of remote loads", () => {
 				.querySelector("rect")
 				?.getAttribute("fill"),
 		).toBe('url("#grad")');
+		expect(
+			mount("svg", {
+				children: jsx("rect", { fill: "url('#grad')" }),
+			})
+				.querySelector("rect")
+				?.getAttribute("fill"),
+		).toBe("url('#grad')");
+		expect(
+			mount("svg", {
+				children: jsx("rect", { fill: "URL(#grad)" }),
+			})
+				.querySelector("rect")
+				?.getAttribute("fill"),
+		).toBe("URL(#grad)");
+		const hidden = [
+			"url(#a url(https://evil.example/a.png))",
+			"url('#a', url(https://evil.example/a.png))",
+			'url("#a" url(https://evil.example/a.png))',
+			"url(#grad)url(https://evil.example/a.png)",
+			"url(https://evil.example/a.png)url(#grad)",
+			"url( #grad )",
+			'url( "#grad" )',
+		];
+		for (const value of hidden) {
+			for (const key of ["fill", "filter", "mask", "cursor"] as const) {
+				const painted = mount("svg", {
+					children: jsx("rect", { [key]: value }),
+				}).querySelector("rect");
+				expect(painted?.getAttribute(key), `${key} ${value}`).toBeNull();
+			}
+		}
 		const escapes = [
 			"u\\rl(//evil.example/m.png)",
 			"\\75 rl(//evil.example/m.png)",
@@ -1529,6 +1562,68 @@ describe("security re-review of remote loads", () => {
 			painted.querySelector("#flip-fill")?.getAttribute("fill"),
 		).toBeNull();
 		expect(painted.innerHTML).not.toContain("evil.example");
+	});
+
+	it("blocks a remote url hidden in a fragment paint", () => {
+		fc.assert(
+			fc.property(
+				fc.constantFrom("fill", "filter", "mask", "cursor"),
+				fc.constantFrom("", " ", ",", "/**/", "\0", "\n", "a"),
+				(attr, junk) => {
+					expect(
+						decorativeUrlBlocked(
+							"rect",
+							attr,
+							`url(#a${junk}url(http://e/x.svg#f))`,
+						),
+					).toBe(true);
+					expect(
+						decorativeUrlBlocked(
+							"rect",
+							attr,
+							`url('#a${junk}', url(http://e/x.svg#f))`,
+						),
+					).toBe(true);
+				},
+			),
+			{ numRuns: 24, seed: 1 },
+		);
+	});
+
+	it("pins SMIL loader names and the raster data image exception", () => {
+		const loader = "u\\rl(//e)";
+		for (const tag of ["animate", "set", "animatemotion"]) {
+			for (const name of ["from", "to", "by", "values"]) {
+				expect(decorativeUrlBlocked(tag, name, loader), `${tag} ${name}`).toBe(
+					true,
+				);
+			}
+		}
+		expect(decorativeUrlBlocked("rect", "values", loader)).toBe(false);
+		expect(decorativeUrlBlocked("animate", "dur", loader)).toBe(false);
+		expect(decorativeUrlBlocked("set", "begin", loader)).toBe(false);
+		const motion = mount("svg", {
+			children: jsx("animateMotion", { to: loader }),
+		}).querySelector("animateMotion");
+		expect(motion?.getAttribute("to")).toBeNull();
+		const png = "data:image/png;base64,aaaa";
+		expect(
+			mount("source", { srcset: `${png} 1x` })
+				.querySelector("source")
+				?.getAttribute("srcset"),
+		).toContain("data:image/png");
+		expect(
+			mount("iframe", { src: png })
+				.querySelector("iframe")
+				?.getAttribute("src"),
+		).toBeNull();
+		expect(
+			mount("img", { poster: png })
+				.querySelector("img")
+				?.getAttribute("poster"),
+		).toBeNull();
+		expect(urlValueBlocked("src", png, "source")).toBe(false);
+		expect(urlValueBlocked("src", png, "iframe")).toBe(true);
 	});
 
 	it("guards imagesrcset and manifest, and omits preload links", () => {
@@ -1791,6 +1886,18 @@ describe("security re-review of remote loads", () => {
 		expect(nested).toBe("a{ b{} color:red}");
 		expect(nested).not.toContain("url");
 		expect(nested.split("{").length).toBe(nested.split("}").length);
+
+		expect(
+			styleSheetFromChildren([{ kind: "text", value: "a{color:red" }]).css,
+		).toBe("a{color:red}");
+		expect(
+			styleSheetFromChildren([{ kind: "text", value: "a{color:red}}" }]).css,
+		).toBe("a{color:red}}");
+		expect(
+			styleSheetFromChildren([
+				{ kind: "text", value: "a{background:url(//e){color:red}" },
+			]).css,
+		).toBe("a{color:red}}");
 	});
 
 	it("pins the renderer guard wiring", () => {
