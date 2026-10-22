@@ -8,7 +8,7 @@ For the supported cases below, the renderer will not:
 
 - parse a child string as HTML
 - create a `script` element that has text children
-- create a `style` element from text that is not `trustedStyle`
+- apply `url(` from untrusted `style` text or a style attribute, including a `url(` split across text children
 - assign `__proto__`, `constructor`, or `prototype`
 - write a guarded URL attribute whose stripped scheme is on the denylist, including each `srcset` candidate and each `ping` token
 - apply `url(` in untrusted style

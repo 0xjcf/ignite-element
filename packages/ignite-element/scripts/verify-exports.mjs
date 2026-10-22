@@ -107,6 +107,9 @@ const requiredExports = [
 			jsx: "function",
 			jsxDEV: "function",
 			jsxs: "function",
+			safeSpread: "function",
+			safeUrl: "function",
+			trustedStyle: "function",
 		},
 	],
 	[

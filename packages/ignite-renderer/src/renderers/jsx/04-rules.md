@@ -17,7 +17,7 @@ SLICE-1. One row per baseline id.
 | RPL-1 | not applicable | No signed request, challenge, or spent set. | — |
 | RPL-2 | not applicable | The renderer does not read a clock and records no time. | — |
 | LOG-1 | not applicable | No actor move. A development warning is not an audit trail. | — |
-| LOG-2 | applies | A warning may name the prop key. It must not include the rejected URL, CSS text, script source, or handler body. | XSS-LOG. `jsxXss.test.ts` asserts a blocked URL warning does not contain the payload. |
+| LOG-2 | applies | A warning may name the prop key or the tag. It must not include the rejected URL, CSS text, script source, or handler body. | XSS-LOG. `jsxXss.test.ts` asserts a blocked URL warning does not contain the payload. |
 | HW-1 | not applicable | No irreversible move and no hardware key. | — |
 | HW-2 | not applicable | Nothing is signed and nothing is shown as a canonical payload. | — |
 | UNT-1 | not applicable | No LLM client, prompt, or tool description. | — |
@@ -70,7 +70,7 @@ The prop key is lowercased, so `srcSet` is `srcset`. The guarded keys are:
 
 `srcset` is a comma-separated candidate list. Each candidate is checked with the same strip. A descriptor such as `1x` stays glued to the URL after the strip, which still leaves a leading scheme visible. If any candidate is blocked, the whole attribute is dropped. It is not rewritten into a shorter list. A `data:image/png` candidate is not on the denylist, so a PNG `srcset` still applies.
 
-`ping` is split on HTML whitespace first (tab, line feed, form feed, carriage return, space), then each token is stripped and checked. If any token is blocked, the whole attribute is dropped. A NUL inside one token is not a separator, so `java\u0000script:` is still one token and is blocked.
+`ping` is blocked when the stripped whole value is dangerous, or when any token split on HTML whitespace (tab, line feed, form feed, carriage return, space) is dangerous. The whole-value check catches a scheme that hides a whitespace character. The token check catches a safe URL beside a dangerous one, which the strip would otherwise glue together. If either check fails, the whole attribute is dropped. A NUL inside one token is not a separator, so `java\u0000script:` is still one token and is blocked.
 
 Non-string values on a guarded key are not applied. SMIL `from`, `to`, `by`, `values`, and meta refresh stay as they are today.
 
@@ -99,9 +99,9 @@ Untrusted style applies no `url(`. The match is case-insensitive and allows whit
 
 ### XSS-STYLE-ELEMENT
 
-Decision for `<style>` children: the element is omitted when any normalized child is an element, or a text node that did not come from `trustedStyle`. `trustedStyle` children become text nodes and the element is created. Comment children (`null`, `true`, `false`) and an empty element do not omit it. Mixed trusted and untrusted text omits the whole element.
+Decision: a `style` element is created, including for ordinary component CSS such as `.count { color: rebeccapurple; }`. The spike's proposal to omit the element would delete those stylesheets.
 
-The text is a `createTextNode` child. It is not parsed as HTML. A trusted string that contains `</style>` stays text.
+Children are `createTextNode` values. They are not parsed as HTML, so `</style><img>` stays text and creates no `img`. The CSS parser concatenates those text nodes, and a comment between them does not break the join. The `url(` filter runs on that joined string, same match as a style attribute, split on `;`. A declaration that contains `url(` is kept only when every character of that declaration is `trustedStyle` text. A `url(` split across children (`url` in one, `(https://…)` in the next) shares one declaration and is dropped. A declaration that is only `url(` becomes empty text. The element stays. One text node holds the filtered sheet.
 
 ### XSS-SAFE-URL
 
@@ -133,7 +133,7 @@ There is no HTML writer. Nothing in this API assigns `innerHTML`, `outerHTML`, `
 
 ### XSS-LOG
 
-Development warnings for a blocked URL, an omitted `script`, or an omitted `style` name the key or the tag. They do not include the rejected value.
+Development warnings for a blocked URL, an omitted `script`, or a dropped style `url(` name the key or the tag. They do not include the rejected value. Style elements are not omitted.
 
 ## NEEDS JOSE
 

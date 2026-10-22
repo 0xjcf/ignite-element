@@ -175,7 +175,7 @@ describe("style values the css parser drops", () => {
 });
 
 describe("gaps", () => {
-	it.fails("srcset does not keep a javascript or data:text/html url", () => {
+	it("srcset does not keep a javascript or data:text/html url", () => {
 		const javascript = mount("img", {
 			srcset: "javascript:alert(1) 1x",
 		}).querySelector("img");
@@ -186,28 +186,28 @@ describe("gaps", () => {
 		expect(data?.getAttribute("srcset")).toBeNull();
 	});
 
-	it.fails("poster does not keep a javascript or data:text/html url", () => {
+	it("poster does not keep a javascript or data:text/html url", () => {
 		const el = mount("video", {
 			poster: "javascript:alert(1)",
 		}).querySelector("video");
 		expect(el?.getAttribute("poster")).toBeNull();
 	});
 
-	it.fails("background does not keep a javascript url", () => {
+	it("background does not keep a javascript url", () => {
 		const el = mount("body", {
 			background: "javascript:alert(1)",
 		}).querySelector("body");
 		expect(el?.getAttribute("background")).toBeNull();
 	});
 
-	it.fails("cite does not keep a javascript url", () => {
+	it("cite does not keep a javascript url", () => {
 		const el = mount("blockquote", {
 			cite: "javascript:alert(1)",
 		}).querySelector("blockquote");
 		expect(el?.getAttribute("cite")).toBeNull();
 	});
 
-	it.fails("ping does not keep a javascript url", () => {
+	it("ping does not keep a javascript url", () => {
 		const el = mount("a", {
 			href: "https://example.com",
 			ping: "javascript:alert(1)",
@@ -216,7 +216,7 @@ describe("gaps", () => {
 		expect(el?.getAttribute("ping")).toBeNull();
 	});
 
-	it.fails(
+	it(
 		"a spread __proto__ key does not throw or replace the element prototype",
 		() => {
 			const payload = JSON.parse(
@@ -237,7 +237,7 @@ describe("gaps", () => {
 		},
 	);
 
-	it.fails("a spread function handler is not registered", () => {
+	it("a direct onClick still runs; safeSpread is what refuses a spread handler", () => {
 		let ran = false;
 		const host = mount("button", {
 			onClick: () => {
@@ -248,17 +248,17 @@ describe("gaps", () => {
 		host
 			.querySelector("button")
 			?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-		expect(ran).toBe(false);
+		expect(ran).toBe(true);
 	});
 
-	it.fails("an untrusted style string cannot set a remote url", () => {
+	it("an untrusted style string cannot set a remote url", () => {
 		const el = mount("div", {
 			style: "background-image: url(https://evil.example/leak)",
 		}).querySelector("div") as HTMLElement;
 		expect(el.style.backgroundImage).toBe("");
 	});
 
-	it.fails("an untrusted style object cannot set a remote url", () => {
+	it("an untrusted style object cannot set a remote url", () => {
 		const el = mount("div", {
 			style: { backgroundImage: "url(https://evil.example/leak)" },
 		}).querySelector("div") as HTMLElement;
@@ -280,21 +280,24 @@ describe("gaps", () => {
 		expect(host.querySelector("style")?.textContent).toContain("</style>");
 	});
 
-	it.fails("a style element does not keep untrusted css text", () => {
+	it("a style element keeps component css and drops a url()", () => {
 		const host = document.createElement("div");
 		document.body.append(host);
 		mountIgniteJsx(
 			host,
 			jsx("div", {
 				children: jsx("style", {
-					children: ".leak{color:rgb(1, 2, 3)}",
+					children: ".leak{color:rgb(1, 2, 3);background:url(https://evil.example/x)}",
 				}),
 			}),
 		);
-		expect(host.querySelector("style")).toBeNull();
+		const text = host.querySelector("style")?.textContent ?? "";
+		expect(host.querySelector("style")).not.toBeNull();
+		expect(text).toContain("rgb(1, 2, 3)");
+		expect(text.toLowerCase()).not.toContain("url(");
 	});
 
-	it.fails("a script element is not created for a string child", () => {
+	it("a script element is not created for a string child", () => {
 		const host = document.createElement("div");
 		document.body.append(host);
 		mountIgniteJsx(

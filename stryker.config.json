@@ -9,7 +9,8 @@
 	},
 	"mutate": [
 		"packages/ignite-renderer/src/renderers/jsx/renderer.ts",
-		"packages/ignite-renderer/src/renderers/jsx/IgniteJsxRenderStrategy.ts"
+		"packages/ignite-renderer/src/renderers/jsx/IgniteJsxRenderStrategy.ts",
+		"packages/ignite-renderer/src/renderers/jsx/xssGuard.ts"
 	],
 	"coverageAnalysis": "perTest",
 	"incremental": true,

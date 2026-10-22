@@ -1,5 +1,9 @@
 import fc from "fast-check";
 import { afterEach, describe, expect, it } from "vitest";
+import {
+	readTrustedStyle,
+	styleSheetFromChildren,
+} from "../../../../ignite-renderer/src/renderers/jsx/xssGuard";
 import { jsx } from "../../renderers/jsx/jsx-runtime";
 import { mountIgniteJsx } from "../../renderers/jsx/renderer";
 
@@ -222,6 +226,26 @@ describe("gaps", () => {
 				.querySelector("img")
 				?.getAttribute("srcset"),
 		).toBeNull();
+		expect(
+			mount("img", { srcset: "https://cdn.example/a.png,javascript:alert(1)" })
+				.querySelector("img")
+				?.getAttribute("srcset"),
+		).toBeNull();
+		expect(
+			mount("script", { src: "data:text/javascript,alert(1)" })
+				.querySelector("script")
+				?.getAttribute("src"),
+		).toBeNull();
+		expect(
+			mount("iframe", { src: "data:application/octet-stream,hi" })
+				.querySelector("iframe")
+				?.getAttribute("src"),
+		).toBeNull();
+		expect(
+			mount("script", { src: "https://example.com/app.js", children: null })
+				.querySelector("script")
+				?.getAttribute("src"),
+		).toContain("https://example.com/app.js");
 	});
 
 	it("poster does not keep a javascript or data:text/html url", () => {
@@ -234,6 +258,15 @@ describe("gaps", () => {
 			const el = mount("video", {
 				poster: "javascript:alert(1)",
 			}).querySelector("video");
+			// poster is one URL. A space is not a second candidate, which is
+			// the ping rule. Tokenizing here would drop a harmless poster.
+			expect(
+				mount("video", {
+					poster: "https://cdn.example/a.png javascript:alert(1)",
+				})
+					.querySelector("video")
+					?.getAttribute("poster"),
+			).toBe("https://cdn.example/a.png javascript:alert(1)");
 			expect(el?.getAttribute("poster")).toBeNull();
 			expect(
 				mount("video", { poster: "data:text/html,hi" })
@@ -302,7 +335,10 @@ describe("gaps", () => {
 			expect(anchor?.id).toBe("stay");
 			expect(anchor?.getAttribute("href")).toBeNull();
 			expect(anchor?.getAttribute(key)).toBeNull();
-			expect(Object.hasOwn(anchor, key)).toBe(false);
+			// biome-ignore lint/suspicious/noPrototypeBuiltins: test tsconfig lib predates Object.hasOwn
+			expect(Object.prototype.hasOwnProperty.call(anchor ?? {}, key)).toBe(
+				false,
+			);
 			expect(
 				(Object.prototype as { polluted?: boolean }).polluted,
 			).toBeUndefined();
@@ -313,7 +349,7 @@ describe("gaps", () => {
 		fc.assert(
 			fc.property(
 				fc.constantFrom("__proto__", "constructor", "prototype"),
-				fc.string(),
+				fc.string({ minLength: 1, maxLength: 12 }),
 				(key, title) => {
 					const props = ownKey(key, { polluted: true });
 					props.title = title;
@@ -375,10 +411,17 @@ describe("gaps", () => {
 			?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 		expect(allowed).toBe(true);
 
-		const namedString = mount(
-			"div",
-			safeSpread({ onclick: "alert(1)", id: "x" }, { handlers: ["onclick"] }),
+		const named = safeSpread(
+			{ onclick: "alert(1)", id: "x", title: "stay", on: "nope" },
+			{ handlers: ["onclick"] },
 		);
+		expect(named.onclick).toBeUndefined();
+		expect(named.title).toBe("stay");
+		expect(named.on).toBe("nope");
+		expect(safeSpread(null as unknown as object)).toEqual({});
+		expect(safeSpread(1 as unknown as object)).toEqual({});
+		expect(safeSpread("ab" as unknown as object)).toEqual({});
+		const namedString = mount("div", named);
 		expect(
 			namedString.querySelector("div")?.getAttribute("onclick"),
 		).toBeNull();
@@ -400,33 +443,241 @@ describe("gaps", () => {
 		}).querySelector("div") as HTMLElement;
 		expect(el.style.color).toBe("red");
 		expect(el.style.backgroundImage).toBe("");
+
+		const spaced = mount("div", {
+			style: "color: red; background-image: uRl (https://evil.example/leak)",
+		}).querySelector("div") as HTMLElement;
+		expect(spaced.style.color).toBe("red");
+		expect(spaced.style.backgroundImage).toBe("");
 	});
 
 	it("an untrusted style object cannot set a remote url", () => {
-		const el = mount("div", {
-			style: {
-				color: "red",
-				backgroundImage: "url(https://evil.example/leak)",
-			},
-		}).querySelector("div") as HTMLElement;
-		expect(el.style.color).toBe("red");
-		expect(el.style.backgroundImage).toBe("");
+		const calls: string[] = [];
+		const set = CSSStyleDeclaration.prototype.setProperty;
+		const remove = CSSStyleDeclaration.prototype.removeProperty;
+		CSSStyleDeclaration.prototype.setProperty = function (
+			name: string,
+			value: string,
+			priority?: string,
+		) {
+			calls.push(`set:${name}:${String(value)}`);
+			return set.call(this, name, value, priority);
+		};
+		CSSStyleDeclaration.prototype.removeProperty = function (name: string) {
+			calls.push(`remove:${name}`);
+			return remove.call(this, name);
+		};
+		try {
+			const el = mount("div", {
+				style: {
+					color: "red",
+					backgroundImage: "url(https://evil.example/leak)",
+					opacity: null,
+				},
+			}).querySelector("div") as HTMLElement;
+			expect(el.style.color).toBe("red");
+			expect(el.style.backgroundImage).toBe("");
+			expect(el.style.opacity).not.toBe("null");
+			expect(calls.some((call) => call.startsWith("set:opacity:"))).toBe(false);
+			expect(calls).toContain("remove:background-image");
+			expect(
+				calls.some((call) => call.startsWith("set:background-image:")),
+			).toBe(false);
+		} finally {
+			CSSStyleDeclaration.prototype.setProperty = set;
+			CSSStyleDeclaration.prototype.removeProperty = remove;
+		}
+
+		const fake = {
+			[Symbol.for("ignite-element.trustedStyle")]: 1,
+		};
+		expect(readTrustedStyle(fake)).toBeUndefined();
+		expect(readTrustedStyle(Symbol("style"))).toBeUndefined();
+		expect(readTrustedStyle("color: red")).toBeUndefined();
+		const brandedFn = (() => {}) as unknown as Record<symbol, string>;
+		brandedFn[Symbol.for("ignite-element.trustedStyle")] = "color: red";
+		expect(readTrustedStyle(brandedFn)).toBeUndefined();
+		const branded = mount("div", { style: fake }).querySelector(
+			"div",
+		) as HTMLElement;
+		expect(branded.style.cssText).not.toBe("1");
 	});
 
-	it("a style element does not keep untrusted css text", () => {
-		const host = document.createElement("div");
-		document.body.append(host);
+	it("a style element keeps component css, drops url(), and does not parse html", async () => {
+		const component = document.createElement("div");
+		document.body.append(component);
 		mountIgniteJsx(
-			host,
+			component,
 			jsx("div", {
 				children: jsx("style", {
-					children:
-						".leak{color:rgb(1, 2, 3)}</style><img src=x onerror=alert(1)>",
+					children: ".count { color: rebeccapurple; }",
 				}),
 			}),
 		);
-		expect(host.querySelector("style")).toBeNull();
-		expect(host.querySelector("img")).toBeNull();
+		expect(component.querySelector("style")?.textContent).toContain(
+			"rebeccapurple",
+		);
+
+		const leaked = document.createElement("div");
+		document.body.append(leaked);
+		mountIgniteJsx(
+			leaked,
+			jsx("div", {
+				children: jsx("style", {
+					children:
+						".ok{color:red}; .leak{background:url(https://evil.example/x)}",
+				}),
+			}),
+		);
+		const leakedText = leaked.querySelector("style")?.textContent ?? "";
+		expect(leakedText).toBe(".ok{color:red}");
+		expect(leakedText.toLowerCase()).not.toContain("url(");
+
+		const onlyUrl = document.createElement("div");
+		document.body.append(onlyUrl);
+		mountIgniteJsx(
+			onlyUrl,
+			jsx("div", {
+				children: jsx("style", {
+					children: "a{background:url(https://evil.example/x)}",
+				}),
+			}),
+		);
+		expect(onlyUrl.querySelector("style")?.textContent).toBe("");
+
+		const breakout = document.createElement("div");
+		document.body.append(breakout);
+		mountIgniteJsx(
+			breakout,
+			jsx("div", {
+				children: jsx("style", {
+					children: "</style><img src=x onerror=alert(1)>",
+				}),
+			}),
+		);
+		expect(breakout.querySelector("img")).toBeNull();
+		expect(breakout.querySelector("style")?.textContent).toContain("</style>");
+
+		const split = document.createElement("div");
+		document.body.append(split);
+		mountIgniteJsx(
+			split,
+			jsx("div", {
+				children: jsx("style", {
+					children: ["body{background:url", null, "(https://evil.example/x)}"],
+				}),
+			}),
+		);
+		expect(
+			split.querySelector("style")?.textContent?.toLowerCase() ?? "",
+		).not.toContain("url(");
+
+		const { trustedStyle: trust } = await loadHelpers();
+		expect(typeof trust).toBe("function");
+		if (typeof trust !== "function") return;
+		const mixed = document.createElement("div");
+		document.body.append(mixed);
+		mountIgniteJsx(
+			mixed,
+			jsx("div", {
+				children: jsx("style", {
+					children: [
+						trust(".a{background:url(https://cdn.example/a.png)};"),
+						"body{background:url",
+						"(https://evil.example/x)}",
+						trust("url("),
+						"https://evil.example/y)",
+					],
+				}),
+			}),
+		);
+		const mixedText = mixed.querySelector("style")?.textContent ?? "";
+		expect(mixedText).toContain("https://cdn.example/a.png");
+		expect(mixedText.toLowerCase()).not.toContain("evil.example");
+
+		const paired = document.createElement("div");
+		document.body.append(paired);
+		mountIgniteJsx(
+			paired,
+			jsx("div", {
+				children: jsx("style", {
+					children: trust(
+						".ok{color:red};.a{background:url(https://cdn.example/a.png)}",
+					),
+				}),
+			}),
+		);
+		expect(paired.querySelector("style")?.textContent).toContain(
+			"https://cdn.example/a.png",
+		);
+
+		const afterSafe = document.createElement("div");
+		document.body.append(afterSafe);
+		mountIgniteJsx(
+			afterSafe,
+			jsx("div", {
+				children: jsx("style", {
+					children: [
+						".ok{color:red};",
+						trust(".a{background:url(https://cdn.example/a.png)}"),
+					],
+				}),
+			}),
+		);
+		expect(afterSafe.querySelector("style")?.textContent).toContain(
+			"https://cdn.example/a.png",
+		);
+
+		const tail = document.createElement("div");
+		document.body.append(tail);
+		mountIgniteJsx(
+			tail,
+			jsx("div", {
+				children: jsx("style", {
+					children: [
+						trust(".a{background:url(https://cdn.example/a.png)"),
+						"}",
+					],
+				}),
+			}),
+		);
+		expect(tail.querySelector("style")?.textContent ?? "").not.toContain(
+			"cdn.example",
+		);
+
+		const warnings: string[] = [];
+		const previous = console.warn;
+		console.warn = (...args: unknown[]) => {
+			warnings.push(args.map((part) => String(part)).join(" "));
+		};
+		try {
+			mount("style", { children: ".count { color: rebeccapurple; }" });
+			expect(warnings.join("\n")).not.toContain("dropped a url");
+			warnings.length = 0;
+			mount("style", {
+				children:
+					".ok{color:red}; .leak{background:url(https://evil.example/x)}",
+			});
+			const warningText = warnings.join("\n");
+			expect(warningText).toContain("dropped a url");
+			expect(warningText).not.toContain("evil.example");
+		} finally {
+			console.warn = previous;
+		}
+
+		expect(
+			styleSheetFromChildren([
+				{
+					kind: "comment",
+					value: "a{background:url(https://evil.example/z)}",
+				},
+				{ kind: "text", value: ".ok{color:red}" },
+			]),
+		).toEqual({ css: ".ok{color:red}", droppedUrl: false });
+		expect(styleSheetFromChildren([{ kind: "text" }])).toEqual({
+			css: "",
+			droppedUrl: false,
+		});
 	});
 
 	it("a script element is not created for a string or number child", () => {
@@ -447,6 +698,26 @@ describe("gaps", () => {
 			}),
 		);
 		expect(host.querySelector("script")).toBeNull();
+
+		const empty = mount("script", { children: "" });
+		expect(empty.querySelector("script")).toBeNull();
+
+		const fromComponent = () => "alert(1)";
+		const componentHost = mount("div", {
+			children: jsx("script", { children: jsx(fromComponent, {}) }),
+		});
+		expect(componentHost.querySelector("script")).toBeNull();
+
+		// A comment child is not text. true/null become comments, and the
+		// network src must still be created.
+		expect(
+			mount("script", {
+				src: "https://example.com/app.js",
+				children: true,
+			})
+				.querySelector("script")
+				?.getAttribute("src"),
+		).toContain("https://example.com/app.js");
 	});
 });
 
@@ -473,6 +744,7 @@ describe("deny-by-default helpers", () => {
 		expect(safeUrl("blob:https://example.com/id")).toBeNull();
 		expect(safeUrl("ftp://example.com")).toBeNull();
 		expect(safeUrl("")).toBeNull();
+		expect(safeUrl(1 as unknown as string)).toBeNull();
 
 		fc.assert(
 			fc.property(dangerousUrl, (value) => {
@@ -507,7 +779,10 @@ describe("deny-by-default helpers", () => {
 		);
 
 		const fromObject = mount("div", {
-			style: { backgroundImage: trustedStyle(css), color: "red" },
+			style: {
+				backgroundImage: trustedStyle("url(https://cdn.example/a.png)"),
+				color: "red",
+			},
 		}).querySelector("div") as HTMLElement;
 		expect(fromObject.style.backgroundImage).toContain(
 			"https://cdn.example/a.png",
@@ -519,12 +794,20 @@ describe("deny-by-default helpers", () => {
 		mountIgniteJsx(
 			host,
 			jsx("div", {
-				children: jsx("style", { children: trustedStyle(".a{color:red}") }),
+				children: jsx("style", {
+					children: trustedStyle(
+						".a{background:url(https://cdn.example/a.png)}",
+					),
+				}),
 			}),
 		);
-		expect(host.querySelector("style")?.textContent).toContain(".a{color:red}");
+		expect(host.querySelector("style")?.textContent).toContain(
+			"url(https://cdn.example/a.png)",
+		);
 		expect(host.querySelector("img")).toBeNull();
 
-		expect(() => trustedStyle(1 as unknown as string)).toThrow(TypeError);
+		expect(() => trustedStyle(1 as unknown as string)).toThrow(
+			"trustedStyle expects a string",
+		);
 	});
 });
