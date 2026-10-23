@@ -34,7 +34,7 @@ Direct `onClick={fn}` still runs. That is application code, not a spread of untr
 - `safeUrl` and `safeSpread` at the call site.
 - The bans on `innerHTML`, `outerHTML`, `innerText`, `outerText`, `textContent`, `srcdoc`, and `dangerouslySetInnerHTML`. `safeSpread` also drops `text`.
 
-`trustedStyle` brands the string with `Symbol.for("ignite-element.trustedStyle")`. Code in the same realm can forge that symbol. JSON cannot. It is the way to keep a CSS load, a backslash, `expression(`, `behavior`, or `-moz-binding`.
+`trustedStyle` brands the string with `Symbol.for("ignite-element.trustedStyle")` and records the object it created. A style-object entry is kept only for that object, so a copied symbol is dropped. JSON cannot forge it. As the whole `style` value, the symbol alone is still accepted. It is the way to keep a CSS load, a backslash, `expression(`, `behavior`, or `-moz-binding`. A custom `style` setter must write `key:value` declarations. Joining values only can rebuild a loader from a trusted fragment and an untrusted neighbour.
 
 ## Unsupported, and the guarantee there
 
@@ -48,6 +48,7 @@ It does not promise the result is inert when:
 
 - A host `mount` assigns `innerHTML` or inserts nodes itself. That callback is the existing escape hatch for trusted markup.
 - A custom element setter runs on some other property and navigates or writes markup.
+- A custom `style` setter joins declaration values and drops the property names. `key:value` text does not rebuild a loader from a trusted fragment beside an untrusted neighbour. A values-only join can.
 - Application code changes the DOM after commit.
 - The caller does not use `safeSpread` and passes a function handler as a direct prop.
 - Projection documents read model data. Their URI key list is not this slice. The projection denylist is unchanged.

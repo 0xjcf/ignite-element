@@ -49,6 +49,10 @@ Host pages can then set `--card-bg` outside the shadow root without rewriting co
 
 Inline `<style>` tags can conflict with strict `style-src` CSP settings. The renderer omits stylesheet links, so a strict host policy has to allow the component `<style>` element from the example above (a nonce or a hash).
 
+## Custom style setters
+
+A custom element's `style` setter receives a plain object of checked declarations. Write each own entry as a `key:value` declaration, for example `setProperty(key, value)` or a `cssText` string of `key:value` pairs. Joining the values alone can rebuild a loader from a trusted fragment next to an untrusted neighbour (`trustedStyle("url")` beside `"(//evil)"`).
+
 ## Light-DOM page styles
 
 Keep page-shell layout and typography in your app entry stylesheet or `index.html`. Styles inside a component shadow root do not style the host page.

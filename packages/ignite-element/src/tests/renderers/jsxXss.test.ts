@@ -697,7 +697,7 @@ describe("gaps", () => {
 		expect(typeof trust).toBe("function");
 		if (typeof trust !== "function") return;
 		expect(() => trust("</style><img src=x onerror=alert(1)>")).toThrow(
-			"trustedStyle expects a string",
+			"</style",
 		);
 		const trustedRange = trust("@media (width < 600px){.a{color:red}}");
 		const trustedHost = document.createElement("div");
@@ -900,7 +900,7 @@ describe("gaps", () => {
 		fc.assert(
 			fc.property(space, space, word, (before, afterSlash, tag) => {
 				const marker = `.a{color:red}<${before}/${afterSlash}${tag}>`;
-				expect(() => trust(marker)).toThrow("trustedStyle expects a string");
+				expect(() => trust(marker)).toThrow("</style");
 			}),
 			{ numRuns: 12, seed: 1 },
 		);
@@ -2458,6 +2458,8 @@ describe("security re-review of remote loads", () => {
 		expect(
 			cssTextWithoutUrls({ content: '"/* note */"', color: "red" }),
 		).toEqual({ color: "red" });
+		expect(cssValueForStyle("a/*b")).toBe("a/*b");
+		expect(cssValueForStyle("a/*b", "content")).toBe(false);
 		expect(cssTextWithoutUrls({ "a/*": "red", color: "blue" })).toEqual({
 			color: "blue",
 		});
@@ -2553,6 +2555,95 @@ describe("security re-review of remote loads", () => {
 			),
 			{ numRuns: 16, seed: 1 },
 		);
+	});
+
+	it("keeps genuine trusted style entries for a custom setter", () => {
+		const image = "url(https://cdn.example/a.png)";
+		const trusted = trustedStyle(image);
+		styleSeen.length = 0;
+		mount("x-style-sink", {
+			style: { color: "red", backgroundImage: trusted },
+		});
+		expect(styleSeen[0]).toEqual({ color: "red", backgroundImage: image });
+		const plain = mount("div", {
+			style: { color: "red", backgroundImage: trusted },
+		}).querySelector("div") as HTMLElement;
+		expect(plain.style.backgroundImage).toContain("cdn.example");
+		expect(plain.style.color).toBe("red");
+
+		const cssValues = [
+			image,
+			"url(//cdn.example/a.png)",
+			"@import 'https://cdn.example/a.css'",
+			"expression(alert(1))",
+			"u\\72l(https://cdn.example/a.png)",
+		];
+		fc.assert(
+			fc.property(
+				fc.constantFrom(...cssValues),
+				fc.constantFrom("red", "1px", "none", "blue"),
+				(css, color) => {
+					styleSeen.length = 0;
+					mount("x-style-sink", {
+						style: { color, backgroundImage: trustedStyle(css) },
+					});
+					expect(styleSeen[0]).toEqual({ color, backgroundImage: css });
+
+					styleSeen.length = 0;
+					mount("x-style-sink", {
+						style: { color, backgroundImage: css },
+					});
+					expect(styleSeen[0]).toEqual({ color });
+					expect(styleAsCss(styleSeen[0])).not.toMatch(REMOTE_LOADER);
+
+					const forged = Object.freeze({
+						[Symbol.for("ignite-element.trustedStyle")]: css,
+					});
+					styleSeen.length = 0;
+					mount("x-style-sink", {
+						style: { color, backgroundImage: forged },
+					});
+					expect(styleSeen[0]).toEqual({ color });
+
+					const real = trustedStyle(css);
+					const stolen: Record<symbol, string> = {};
+					for (const key of Object.getOwnPropertySymbols(real)) {
+						stolen[key] = "url(https://evil.example/stolen.png)";
+					}
+					styleSeen.length = 0;
+					mount("x-style-sink", {
+						style: { color, backgroundImage: stolen },
+					});
+					expect(styleSeen[0]).toEqual({ color });
+					expect(styleAsCss(styleSeen[0])).not.toMatch(REMOTE_LOADER);
+				},
+			),
+			{ numRuns: 12, seed: 1 },
+		);
+
+		expect(
+			cssTextWithoutUrls({
+				"a\\b": trustedStyle(image),
+				color: "red",
+			}),
+		).toEqual({ color: "red" });
+		expect(
+			cssTextWithoutUrls({ a: "u/*", b: "*/rl(//e)", color: "red" }),
+		).toEqual({ color: "red" });
+		expect(
+			cssTextWithoutUrls({
+				background: "u/*",
+				"*/rl/*": "*/(https://evil.example/x)",
+			}),
+		).toEqual({});
+		expect(cssTextWithoutUrls({ p: "u/*", "*/rl(": "x" })).toEqual({});
+		// The pair check is `key:value`. `url` + `(` is not `url(`.
+		expect(cssTextWithoutUrls({ url: "(" })).toEqual({ url: "(" });
+		expect(
+			joinedValues(
+				cssTextWithoutUrls({ a: "u/*", b: "*/rl(//e)", color: "red" }),
+			),
+		).not.toMatch(REMOTE_LOADER);
 	});
 
 	it("passes null through to a custom style setter", () => {

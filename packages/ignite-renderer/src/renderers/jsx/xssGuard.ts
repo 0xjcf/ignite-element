@@ -2,6 +2,7 @@ import { uriSpacePattern } from "./executableUri";
 import type { IgniteJsxChild } from "./types";
 
 const TRUSTED_STYLE = Symbol.for("ignite-element.trustedStyle");
+const trustedSeen = new WeakSet<object>();
 declare const trustedStyleBrand: unique symbol;
 // Remote CSS loads, old scriptable properties, and url( after a comment
 // is stripped. A backslash is rejected separately and is not decoded.
@@ -204,13 +205,15 @@ type _AssertChild<T extends IgniteJsxChild> = T;
 export type TrustedStyleIsChild = _AssertChild<TrustedStyle>;
 
 export function trustedStyle(css: string): TrustedStyle {
-	// No valid CSS needs a style end tag. Reject it before it is branded.
-	if (typeof css !== "string" || STYLE_END.test(css)) {
+	if (typeof css !== "string") {
 		throw new TypeError("trustedStyle expects a string");
 	}
+	// No valid CSS needs a style end tag.
+	if (STYLE_END.test(css)) throw new TypeError("</style");
 	const branded: TrustedStyle = Object.freeze({
 		[TRUSTED_STYLE]: css,
 	}) as unknown as TrustedStyle;
+	trustedSeen.add(branded);
 	return branded;
 }
 
@@ -354,26 +357,32 @@ export function cssTextWithoutUrls(value: unknown): unknown {
 			out[name] = null;
 			continue;
 		}
-		const checked = cssValueForStyle(raw);
-		// `background:u/*` plus `*/rl(...)` is a loader only after the join.
-		if (
-			typeof checked === "string" &&
-			!commentSplit(checked) &&
-			!untrustedCssBlocked(`${name}:${checked}`)
-		) {
-			out[name] = checked;
-		}
+		// Name is passed so a genuine brand can skip the loader check.
+		// A forged symbol is false. Untrusted values keep the comment and pair checks.
+		const checked = cssValueForStyle(raw, name);
+		if (typeof checked === "string") out[name] = checked;
 	}
 	return out;
 }
 
 /** `false` drops the property. `undefined` leaves it alone. A string is set. */
-export function cssValueForStyle(value: unknown): string | false | undefined {
+export function cssValueForStyle(
+	value: unknown,
+	name?: string,
+): string | false | undefined {
 	const trusted = readTrustedStyle(value);
-	if (trusted !== undefined) return trusted;
+	if (trusted !== undefined) return trustedSeen.has(value as object) && trusted;
 	if (value == null) return undefined;
 	const text = String(value);
-	if (untrustedCssBlocked(text)) return false;
+	// A missing name cannot form a loader the value check would keep.
+	// Concatenation stays: a template literal is one byte over the gzip cap.
+	if (
+		untrustedCssBlocked(text) ||
+		(name !== undefined && commentSplit(text)) ||
+		untrustedCssBlocked(name + ":" + text)
+	) {
+		return false;
+	}
 	return text;
 }
 
