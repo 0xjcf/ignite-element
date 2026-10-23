@@ -4,8 +4,10 @@ import {
 	cssTextWithoutUrls,
 	cssValueForStyle,
 	decorativeUrlBlocked,
+	isHandlerKey,
 	linkReflectsBlocked,
 	readTrustedStyle,
+	safeSpread,
 	srcsetCandidates,
 	styleSheetFromChildren,
 	trustedStyle,
@@ -1944,6 +1946,90 @@ describe("security re-review of remote loads", () => {
 			),
 			{ numRuns: 16, seed: 1 },
 		);
+	});
+
+	it("drops style-object keys that carry a loader", () => {
+		styleSeen.length = 0;
+		const painted = mount("x-style-sink", {
+			style: {
+				color: "blue",
+				"background:url(https://evil.example/x);color": "red",
+				"a\\75": "red",
+			},
+		}).querySelector("x-style-sink") as HTMLElement;
+		expect(styleSeen[0]).toEqual({ color: "blue" });
+		expect(styleAsCss(styleSeen[0])).not.toMatch(REMOTE_LOADER);
+		expect(styleAsCss(styleSeen[0])).not.toContain("\\");
+		expect(nativeStyle(painted)).not.toMatch(REMOTE_LOADER);
+		const safeNames = ["color", "margin", "opacity"];
+		const loaderNames = [
+			"background:url(https://evil.example/x);color",
+			"url(https://evil.example/a)",
+			"image-set(url(https://evil.example/a) 1x)",
+			"-webkit-image-set(url(https://evil.example/a) 1x)",
+			"@import 'https://evil.example/a.css'",
+			"expression(alert(1))",
+			"-moz-binding:url(https://evil.example/a)",
+			"a\\75rl(https://evil.example/a)",
+		];
+		fc.assert(
+			fc.property(
+				fc.uniqueArray(
+					fc.record({
+						key: fc.oneof(
+							fc.constantFrom(...safeNames),
+							fc.constantFrom(...loaderNames),
+							fc.string({ maxLength: 20 }),
+						),
+						value: fc.constantFrom("red", "1px", "none", "blue"),
+					}),
+					{ maxLength: 4, selector: (entry) => entry.key },
+				),
+				(fields) => {
+					const style: Record<string, string> = {};
+					for (const field of fields) style[field.key] = field.value;
+					styleSeen.length = 0;
+					const el = mount("x-style-sink", { style }).querySelector(
+						"x-style-sink",
+					) as HTMLElement;
+					const received = styleSeen[0];
+					expect(styleAsCss(received)).not.toMatch(REMOTE_LOADER);
+					expect(styleAsCss(received)).not.toContain("\\");
+					expect(nativeStyle(el)).not.toMatch(REMOTE_LOADER);
+					if (received && typeof received === "object") {
+						for (const key of Object.keys(received)) {
+							expect(cssValueForStyle(key)).not.toBe(false);
+						}
+					}
+				},
+			),
+			{ numRuns: 16, seed: 1 },
+		);
+	});
+
+	it("does not write a Chromium onsearch handler", () => {
+		fc.assert(
+			fc.property(
+				fc.constantFrom(
+					"onsearch",
+					"ONSEARCH",
+					"OnSearch",
+					"onSearch",
+					"oNsEaRcH",
+				),
+				(key) => {
+					expect(isHandlerKey(key)).toBe(true);
+					const props: Record<string, unknown> = { type: "search" };
+					props[key] = "alert(1)";
+					const input = mount("input", props).querySelector("input");
+					expect(input?.getAttribute("onsearch")).toBeNull();
+					expect(input?.hasAttribute(key)).toBe(false);
+					expect(safeSpread(props)[key]).toBeUndefined();
+				},
+			),
+			{ numRuns: 5, seed: 1 },
+		);
+		expect(safeSpread({ one: "yes", ONSEARCH: "alert(1)" }).one).toBe("yes");
 	});
 
 	it("rechecks reflected rel on a prefixed link and a link without relList", () => {

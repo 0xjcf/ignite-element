@@ -26,7 +26,7 @@ const PROTOCOL_RELATIVE = /^[\\/]{2}/;
 // Names current browsers do not put on HTMLElement, Window, Document,
 // SVGElement, window, or document. The prototype check covers the rest.
 const RARE_EVENTS =
-	" animationcancel begin bounce compositionend compositionstart compositionupdate encrypted end enterpictureinpicture finish focusin focusout leavepictureinpicture loadend repeat start waitingforkey ";
+	" animationcancel begin bounce compositionend compositionstart compositionupdate encrypted end enterpictureinpicture finish focusin focusout leavepictureinpicture loadend repeat search start waitingforkey ";
 
 export type SafeSpreadOptions = {
 	/** Function handlers kept by exact key, for example "onClick". */
@@ -336,6 +336,8 @@ export function cssTextWithoutUrls(value: unknown): unknown {
 	// or a prototype that still holds a loader.
 	const out: Record<string, string> = {};
 	for (const name of Object.keys(source)) {
+		// A key is serialized as a declaration. `background:url(...);color` is a load.
+		if (untrustedCssBlocked(name)) continue;
 		const checked = cssValueForStyle(source[name]);
 		if (typeof checked === "string") out[name] = checked;
 	}
