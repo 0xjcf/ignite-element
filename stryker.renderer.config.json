@@ -8,6 +8,7 @@
 		"related": false
 	},
 	"mutate": [
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:233-245",
 		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:247-259",
 		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:266-266",
 		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:521-560",

@@ -83,6 +83,17 @@ function commentStrippedCss(value: unknown): string {
 	return styleAsCss(value).replace(/\/\*[\s\S]*?\*\//g, "");
 }
 
+/** Values only, the way a setter can rebuild `url(` without the property names. */
+function joinedValues(value: unknown): string {
+	if (!value || typeof value !== "object") return "";
+	let css = "";
+	for (const key of Object.keys(value as Record<string, unknown>)) {
+		const raw = (value as Record<string, unknown>)[key];
+		if (typeof raw === "string") css += raw;
+	}
+	return css.replace(/\/\*[\s\S]*?\*\//g, "");
+}
+
 function nativeStyle(element: HTMLElement): string {
 	const decl = Object.getOwnPropertyDescriptor(
 		HTMLElement.prototype,
@@ -639,7 +650,34 @@ describe("gaps", () => {
 			}),
 		);
 		expect(breakout.querySelector("img")).toBeNull();
-		expect(breakout.querySelector("style")?.textContent).toContain("</style>");
+		const breakoutText = breakout.querySelector("style")?.textContent ?? "";
+		expect(breakoutText).not.toContain("<");
+		const reparsed = document.createElement("div");
+		reparsed.innerHTML = breakout.innerHTML;
+		expect(reparsed.querySelector("img")).toBeNull();
+
+		const mixedBreak = document.createElement("div");
+		document.body.append(mixedBreak);
+		mountIgniteJsx(
+			mixedBreak,
+			jsx("div", {
+				children: jsx("style", {
+					children: ".ok{color:red}</STYLE><img src=x onerror=alert(1)>",
+				}),
+			}),
+		);
+		const mixedBreakText = mixedBreak.querySelector("style")?.textContent ?? "";
+		expect(mixedBreakText).toBe(".ok{color:red}");
+		expect(mixedBreakText).not.toContain("<");
+		expect(mixedBreak.querySelector("img")).toBeNull();
+		expect(
+			styleSheetFromChildren([{ kind: "text", value: "a{color:red}<b" }]).css,
+		).not.toContain("<");
+		expect(
+			styleSheetFromChildren([
+				{ kind: "text", value: "</style><img src=x>", trusted: true },
+			]).css,
+		).toContain("</style>");
 
 		const split = document.createElement("div");
 		document.body.append(split);
@@ -658,6 +696,20 @@ describe("gaps", () => {
 		const { trustedStyle: trust } = await loadHelpers();
 		expect(typeof trust).toBe("function");
 		if (typeof trust !== "function") return;
+		const trustedBreak = document.createElement("div");
+		document.body.append(trustedBreak);
+		mountIgniteJsx(
+			trustedBreak,
+			jsx("div", {
+				children: jsx("style", {
+					children: trust("</style><img src=x onerror=alert(1)>"),
+				}),
+			}),
+		);
+		expect(trustedBreak.querySelector("img")).toBeNull();
+		expect(trustedBreak.querySelector("style")?.textContent).toContain(
+			"</style>",
+		);
 		const mixed = document.createElement("div");
 		document.body.append(mixed);
 		mountIgniteJsx(
@@ -781,6 +833,33 @@ describe("gaps", () => {
 		expect(host.innerHTML).not.toContain("evil.example");
 		expect(style?.childNodes).toHaveLength(1);
 		expect(style?.firstChild?.nodeType).toBe(Node.TEXT_NODE);
+
+		const imageFirst = mount("div", {
+			children: jsx("style", {
+				children: [
+					jsx("img", { src: "https://evil.example/first.png", alt: "" }),
+					".a{color:red}",
+					".b{color:blue}",
+				],
+			}),
+		});
+		const imageFirstStyle = imageFirst.querySelector("style");
+		expect(imageFirstStyle?.querySelector("img")).toBeNull();
+		expect(imageFirst.querySelector("img")).toBeNull();
+		expect(imageFirstStyle?.childNodes).toHaveLength(1);
+		expect(imageFirstStyle?.firstChild?.nodeType).toBe(Node.TEXT_NODE);
+		expect(imageFirstStyle?.textContent).toBe(".a{color:red}.b{color:blue}");
+		expect(imageFirst.innerHTML).not.toContain("evil.example");
+
+		const commentFirst = mount("div", {
+			children: jsx("style", {
+				children: [null, ".ok{color:red}"],
+			}),
+		});
+		const commentStyle = commentFirst.querySelector("style");
+		expect(commentStyle?.childNodes).toHaveLength(1);
+		expect(commentStyle?.firstChild?.nodeType).toBe(Node.TEXT_NODE);
+		expect(commentStyle?.textContent).toBe(".ok{color:red}");
 
 		const onlyImage = mount("style", {
 			children: jsx("img", { src: "/pixel.png" }),
@@ -2278,7 +2357,61 @@ describe("security re-review of remote loads", () => {
 		}
 		expect(
 			cssTextWithoutUrls({ content: '"/* note */"', color: "red" }),
-		).toEqual({ content: '"/* note */"', color: "red" });
+		).toEqual({ color: "red" });
+		expect(cssTextWithoutUrls({ "a/*": "red", color: "blue" })).toEqual({
+			color: "blue",
+		});
+		expect(cssTextWithoutUrls({ "a*/b": "red", color: "blue" })).toEqual({
+			color: "blue",
+		});
+		expect(cssTextWithoutUrls({ a: "u/*", color: "red" })).toEqual({
+			color: "red",
+		});
+		expect(cssTextWithoutUrls({ b: "*/x", color: "red" })).toEqual({
+			color: "red",
+		});
+		expect(
+			cssTextWithoutUrls({ a: "u/*", b: "*/rl(//e)", color: "red" }),
+		).toEqual({ color: "red" });
+		expect(
+			joinedValues(
+				cssTextWithoutUrls({ a: "u/*", b: "*/rl(//e)", color: "red" }),
+			),
+		).not.toMatch(REMOTE_LOADER);
+
+		const valueJoinLoaders = [
+			"url(//e)",
+			"url(https://evil.example/x)",
+			"@import 'https://evil.example/a.css'",
+			"expression(alert(1))",
+			"image-set(url(https://evil.example/x) 1x)",
+		];
+		fc.assert(
+			fc.property(
+				fc.constantFrom(...valueJoinLoaders),
+				fc.integer({ min: 1, max: 40 }),
+				fc.boolean(),
+				(loader, cut, inKey) => {
+					const at = (cut % (loader.length - 1)) + 1;
+					const left = `${loader.slice(0, at)}/*`;
+					const right = `*/${loader.slice(at)}`;
+					const style = inKey
+						? { color: "red", [left]: right }
+						: { color: "red", a: left, b: right };
+					const received = cssTextWithoutUrls(style);
+					expect(joinedValues(received)).not.toMatch(REMOTE_LOADER);
+					expect(received).toEqual({ color: "red" });
+					styleSeen.length = 0;
+					const el = mount("x-style-sink", { style }).querySelector(
+						"x-style-sink",
+					) as HTMLElement;
+					expect(joinedValues(styleSeen[0])).not.toMatch(REMOTE_LOADER);
+					expect(styleSeen[0]).toEqual({ color: "red" });
+					expect(nativeStyle(el)).not.toMatch(REMOTE_LOADER);
+				},
+			),
+			{ numRuns: 16, seed: 1 },
+		);
 
 		const shapes = [
 			(target: string) => ({

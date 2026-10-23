@@ -295,7 +295,8 @@ export function styleSheetFromChildren(
 	for (const span of declarationSpans(full)) {
 		const part = full.slice(span.start, span.end);
 		let drop = false;
-		if (untrustedCssBlocked(part)) {
+		// `<` covers `</style` in any case. Trusted text may keep it.
+		if (untrustedCssBlocked(part) || part.includes("<")) {
 			for (let index = span.start; index < span.end; index += 1) {
 				if (!trustedAt[index]) {
 					drop = true;
@@ -340,7 +341,8 @@ export function cssTextWithoutUrls(value: unknown): unknown {
 	const out: Record<string, string | null> = {};
 	for (const name of Object.keys(source)) {
 		// A key is serialized as a declaration. `background:url(...);color` is a load.
-		if (untrustedCssBlocked(name)) continue;
+		// `/*` or `*/` in a key or value rebuilds `url(` when a setter joins values.
+		if (untrustedCssBlocked(name) || commentSplit(name)) continue;
 		const raw = source[name];
 		if (raw === null) {
 			out[name] = null;
@@ -350,6 +352,7 @@ export function cssTextWithoutUrls(value: unknown): unknown {
 		// `background:u/*` plus `*/rl(...)` is a loader only after the join.
 		if (
 			typeof checked === "string" &&
+			!commentSplit(checked) &&
 			!untrustedCssBlocked(`${name}:${checked}`)
 		) {
 			out[name] = checked;
@@ -371,6 +374,10 @@ export function cssValueForStyle(value: unknown): string | false | undefined {
 	const text = String(value);
 	if (untrustedCssBlocked(text)) return false;
 	return text;
+}
+
+function commentSplit(text: string): boolean {
+	return /\/\*|\*\//.test(text);
 }
 
 function untrustedCssBlocked(text: string): boolean {
