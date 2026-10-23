@@ -20,6 +20,7 @@ afterEach(() => {
 });
 
 const styleSeen: unknown[] = [];
+const styleCaseSeen: unknown[] = [];
 const titleSeen: unknown[] = [];
 
 class StyleSinkElement extends HTMLElement {}
@@ -42,11 +43,16 @@ if (!customElements.get("x-style-sink")) {
 			}
 			decl.cssText = "";
 			if (!value || typeof value !== "object") return;
-			for (const [key, item] of Object.entries(
-				value as Record<string, unknown>,
-			)) {
-				decl.setProperty(key, String(item));
+			// A custom setter that walks the prototype and stringifies each value.
+			for (const key in value as Record<string, unknown>) {
+				decl.setProperty(key, String((value as Record<string, unknown>)[key]));
 			}
+		},
+	});
+	Object.defineProperty(StyleSinkElement.prototype, "Style", {
+		configurable: true,
+		set(value: unknown) {
+			styleCaseSeen.push(value);
 		},
 	});
 	Object.defineProperty(StyleSinkElement.prototype, "title", {
@@ -64,9 +70,11 @@ const REMOTE_LOADER =
 function styleAsCss(value: unknown): string {
 	if (typeof value === "string") return value;
 	if (!value || typeof value !== "object") return "";
-	return Object.entries(value as Record<string, unknown>)
-		.map(([key, item]) => `${key}:${String(item)}`)
-		.join(";");
+	let css = "";
+	for (const key in value as Record<string, unknown>) {
+		css += `${key}:${String((value as Record<string, unknown>)[key])};`;
+	}
+	return css;
 }
 
 function nativeStyle(element: HTMLElement): string {
@@ -1708,8 +1716,12 @@ describe("security re-review of remote loads", () => {
 		styleSeen.length = 0;
 		const safeStyle = { color: "red" };
 		mount("x-style-sink", { style: safeStyle });
-		expect(styleSeen).toEqual([safeStyle]);
-		expect(styleSeen[0]).toBe(safeStyle);
+		expect(styleSeen).toEqual([{ color: "red" }]);
+		expect(styleSeen[0]).not.toBe(safeStyle);
+		expect(Object.getPrototypeOf(styleSeen[0])).toBe(Object.prototype);
+		for (const value of Object.values(styleSeen[0] as object)) {
+			expect(typeof value).toBe("string");
+		}
 		styleSeen.length = 0;
 		const trusted = trustedStyle("background:url(https://cdn.example/a.png)");
 		mount("x-style-sink", { style: trusted });
@@ -1783,20 +1795,154 @@ describe("security re-review of remote loads", () => {
 					const received = styleSeen[0];
 					expect(styleAsCss(received)).not.toMatch(REMOTE_LOADER);
 					expect(nativeStyle(el)).not.toMatch(REMOTE_LOADER);
+					expect(received).not.toBe(style);
 					if (received && typeof received === "object") {
+						expect(Object.getPrototypeOf(received)).toBe(Object.prototype);
 						for (const value of Object.values(
 							received as Record<string, unknown>,
 						)) {
+							expect(typeof value).toBe("string");
 							expect(cssValueForStyle(value)).not.toBe(false);
 						}
 					}
-					const blocked = Object.values(style).some(
-						(value) => cssValueForStyle(value) === false,
-					);
-					if (!blocked) expect(received).toBe(style);
 				},
 			),
 			{ numRuns: 24, seed: 1 },
+		);
+	});
+
+	it("copies checked style strings before an own setter", () => {
+		expect(cssTextWithoutUrls(null)).toBe(null);
+		expect(cssTextWithoutUrls(false)).toBe(false);
+		expect(cssTextWithoutUrls(0)).toBe(0);
+		expect(cssTextWithoutUrls(7)).toBe(7);
+		const trusted = trustedStyle("background:url(https://cdn.example/a.png)");
+		expect(cssTextWithoutUrls(trusted)).toBe(trusted);
+
+		let reads = 0;
+		const color = {
+			toString() {
+				reads += 1;
+				return reads === 1 ? "red" : "url(https://evil.example/second)";
+			},
+		};
+		styleSeen.length = 0;
+		const flipped = mount("x-style-sink", {
+			style: { color },
+		}).querySelector("x-style-sink") as HTMLElement;
+		expect(reads).toBe(1);
+		expect(styleSeen[0]).toEqual({ color: "red" });
+		expect((styleSeen[0] as { color: unknown }).color).not.toBe(color);
+		expect(typeof (styleSeen[0] as { color: unknown }).color).toBe("string");
+		expect(styleAsCss(styleSeen[0])).not.toMatch(REMOTE_LOADER);
+		expect(nativeStyle(flipped)).not.toMatch(REMOTE_LOADER);
+
+		let inheritedReads = 0;
+		const proto = {};
+		Object.defineProperty(proto, "backgroundImage", {
+			enumerable: true,
+			get() {
+				inheritedReads += 1;
+				return "url(https://evil.example/inherited)";
+			},
+		});
+		const inheritedStyle = Object.create(proto) as { color: string };
+		inheritedStyle.color = "red";
+		styleSeen.length = 0;
+		const inherited = mount("x-style-sink", {
+			style: inheritedStyle,
+		}).querySelector("x-style-sink") as HTMLElement;
+		expect(inheritedReads).toBe(0);
+		expect(styleSeen[0]).toEqual({ color: "red" });
+		expect(styleSeen[0]).not.toBe(inheritedStyle);
+		expect(Object.getPrototypeOf(styleSeen[0])).toBe(Object.prototype);
+		expect(styleAsCss(styleSeen[0])).not.toMatch(REMOTE_LOADER);
+		expect(nativeStyle(inherited)).not.toMatch(REMOTE_LOADER);
+
+		styleCaseSeen.length = 0;
+		mount("x-style-sink", {
+			Style: "background:url(https://evil.example/leak)",
+		});
+		expect(styleCaseSeen).toEqual([""]);
+
+		const safeText = ["red", "1px", "none", "blue"];
+		const loaders = [
+			"url(https://evil.example/a)",
+			"url(//evil.example/a)",
+			"@import 'https://evil.example/a.css'",
+			"image-set(url(https://evil.example/a) 1x)",
+			"-webkit-image-set(url(https://evil.example/a) 1x)",
+			"expression(alert(1))",
+			"-moz-binding:url(https://evil.example/a)",
+		];
+		fc.assert(
+			fc.property(
+				fc.uniqueArray(
+					fc.record({
+						key: fc.stringMatching(/^[A-Za-z][A-Za-z0-9]{0,6}$/),
+						kind: fc.constantFrom("plain", "flip", "getter"),
+						text: fc.constantFrom(...safeText, ...loaders),
+					}),
+					{ maxLength: 3, selector: (entry) => entry.key },
+				),
+				fc.boolean(),
+				(fields, inherit) => {
+					const protoChain = Object.create({
+						background: "url(https://evil.example/proto)",
+					}) as Record<string, unknown>;
+					Object.defineProperty(protoChain, "backgroundImage", {
+						enumerable: true,
+						value: "url(https://evil.example/inherited)",
+					});
+					const input: Record<string, unknown> = inherit
+						? Object.create(protoChain)
+						: {};
+					for (const field of fields) {
+						if (field.kind === "plain") {
+							input[field.key] = field.text;
+							continue;
+						}
+						const first = safeText.includes(field.text) ? field.text : "red";
+						if (field.kind === "flip") {
+							let seen = 0;
+							input[field.key] = {
+								toString() {
+									seen += 1;
+									return seen === 1
+										? first
+										: "url(https://evil.example/second)";
+								},
+							};
+							continue;
+						}
+						let seen = 0;
+						Object.defineProperty(input, field.key, {
+							configurable: true,
+							enumerable: true,
+							get() {
+								seen += 1;
+								return seen === 1 ? first : "url(https://evil.example/getter)";
+							},
+						});
+					}
+					styleSeen.length = 0;
+					const el = mount("x-style-sink", { style: input }).querySelector(
+						"x-style-sink",
+					) as HTMLElement;
+					const received = styleSeen[0];
+					expect(styleAsCss(received)).not.toMatch(REMOTE_LOADER);
+					expect(nativeStyle(el)).not.toMatch(REMOTE_LOADER);
+					expect(received).not.toBe(input);
+					expect(received && typeof received === "object").toBe(true);
+					expect(Object.getPrototypeOf(received)).toBe(Object.prototype);
+					for (const value of Object.values(
+						received as Record<string, unknown>,
+					)) {
+						expect(typeof value).toBe("string");
+					}
+				},
+			),
+			{ numRuns: 16, seed: 1 },
 		);
 	});
 

@@ -332,16 +332,14 @@ export function cssTextWithoutUrls(value: unknown): unknown {
 		return value;
 	}
 	const source = value as Record<string, unknown>;
-	const out: Record<string, unknown> = {};
-	let dropped = false;
+	// One read per own key. The setter gets those strings, not a live toString
+	// or a prototype that still holds a loader.
+	const out: Record<string, string> = {};
 	for (const name of Object.keys(source)) {
-		if (cssValueForStyle(source[name]) === false) {
-			dropped = true;
-			continue;
-		}
-		out[name] = source[name];
+		const checked = cssValueForStyle(source[name]);
+		if (typeof checked === "string") out[name] = checked;
 	}
-	return dropped ? out : value;
+	return out;
 }
 
 /** `false` drops the property. `undefined` leaves it alone. A string is set. */

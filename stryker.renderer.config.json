@@ -11,6 +11,7 @@
 		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:251-260",
 		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:521-561",
 		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1237-1237",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1257-1257",
 		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1351-1354"
 	],
 	"coverageAnalysis": "perTest",
