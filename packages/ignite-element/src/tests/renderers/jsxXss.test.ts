@@ -667,17 +667,17 @@ describe("gaps", () => {
 			}),
 		);
 		const mixedBreakText = mixedBreak.querySelector("style")?.textContent ?? "";
-		expect(mixedBreakText).toBe(".ok{color:red}");
-		expect(mixedBreakText).not.toContain("<");
+		expect(mixedBreakText).toBe("");
 		expect(mixedBreak.querySelector("img")).toBeNull();
+		const keptRange = "@media (width < 600px){.a{color:red}} a<b{color:blue}";
 		expect(
-			styleSheetFromChildren([{ kind: "text", value: "a{color:red}<b" }]).css,
-		).not.toContain("<");
+			styleSheetFromChildren([{ kind: "text", value: keptRange }]).css,
+		).toBe(keptRange);
 		expect(
 			styleSheetFromChildren([
 				{ kind: "text", value: "</style><img src=x>", trusted: true },
 			]).css,
-		).toContain("</style>");
+		).toBe("");
 
 		const split = document.createElement("div");
 		document.body.append(split);
@@ -696,19 +696,20 @@ describe("gaps", () => {
 		const { trustedStyle: trust } = await loadHelpers();
 		expect(typeof trust).toBe("function");
 		if (typeof trust !== "function") return;
-		const trustedBreak = document.createElement("div");
-		document.body.append(trustedBreak);
+		expect(() => trust("</style><img src=x onerror=alert(1)>")).toThrow(
+			"trustedStyle expects a string",
+		);
+		const trustedRange = trust("@media (width < 600px){.a{color:red}}");
+		const trustedHost = document.createElement("div");
+		document.body.append(trustedHost);
 		mountIgniteJsx(
-			trustedBreak,
+			trustedHost,
 			jsx("div", {
-				children: jsx("style", {
-					children: trust("</style><img src=x onerror=alert(1)>"),
-				}),
+				children: jsx("style", { children: trustedRange }),
 			}),
 		);
-		expect(trustedBreak.querySelector("img")).toBeNull();
-		expect(trustedBreak.querySelector("style")?.textContent).toContain(
-			"</style>",
+		expect(trustedHost.querySelector("style")?.textContent).toBe(
+			"@media (width < 600px){.a{color:red}}",
 		);
 		const mixed = document.createElement("div");
 		document.body.append(mixed);
@@ -813,6 +814,105 @@ describe("gaps", () => {
 			css: "",
 			droppedUrl: false,
 		});
+	});
+
+	it("keeps style comparisons and drops markup breakouts whole", async () => {
+		const range =
+			"@media (width < 600px){.a{color:red}} a<b{color:blue} .c{color:green}";
+		const host = mount("div", {
+			children: jsx("style", { children: range }),
+		});
+		expect(host.querySelector("style")?.textContent).toBe(range);
+		expect(host.querySelector("img")).toBeNull();
+
+		const space = fc.constantFrom("", " ", "\t", "\n", "\r", "\f", "\u00a0");
+		const safe = fc.constantFrom(
+			".ok{color:red}",
+			"@media (width < 600px){.a{color:red}}",
+			"a<b{color:red} .c{color:blue}",
+			"(x<1)",
+		);
+		fc.assert(
+			fc.property(
+				fc.constantFrom("width", "height", "aspect-ratio", "x"),
+				fc.constantFrom("<", " < ", "< ", " <"),
+				fc.integer({ min: 0, max: 2000 }),
+				fc.constantFrom("", "px", "em"),
+				(name, op, size, unit) => {
+					const css = `@media (${name}${op}${size}${unit}){.a{color:red}}`;
+					expect(
+						styleSheetFromChildren([{ kind: "text", value: css }]).css,
+					).toBe(css);
+					expect(cssTextWithoutUrls(css)).toBe(css);
+				},
+			),
+			{ numRuns: 16, seed: 1 },
+		);
+		fc.assert(
+			fc.property(safe, (css) => {
+				expect(styleSheetFromChildren([{ kind: "text", value: css }]).css).toBe(
+					css,
+				);
+			}),
+			{ numRuns: 8, seed: 1 },
+		);
+
+		const word = fc.constantFrom("style", "STYLE", "Style", "sTyLe");
+		fc.assert(
+			fc.property(
+				safe,
+				space,
+				space,
+				word,
+				fc.boolean(),
+				(css, before, afterSlash, tag, after) => {
+					const marker = `<${before}/${afterSlash}${tag}>`;
+					const text = after ? `${css}${marker}<img src=x>` : `${marker}${css}`;
+					expect(
+						styleSheetFromChildren([{ kind: "text", value: text }]).css,
+					).toBe("");
+					const painted = mount("div", {
+						children: jsx("style", { children: text }),
+					});
+					expect(painted.querySelector("style")?.textContent ?? "").toBe("");
+					expect(painted.querySelector("img")).toBeNull();
+					const reparsed = document.createElement("div");
+					reparsed.innerHTML = painted.innerHTML;
+					expect(reparsed.querySelector("img")).toBeNull();
+				},
+			),
+			{ numRuns: 16, seed: 1 },
+		);
+		fc.assert(
+			fc.property(safe, space, fc.boolean(), (css, gap, after) => {
+				const marker = `<${gap}!--`;
+				const text = after ? `${css}${marker}><img src=x>` : `${marker}${css}`;
+				expect(
+					styleSheetFromChildren([{ kind: "text", value: text }]).css,
+				).toBe("");
+			}),
+			{ numRuns: 12, seed: 1 },
+		);
+
+		const { trustedStyle: trust } = await loadHelpers();
+		expect(typeof trust).toBe("function");
+		if (typeof trust !== "function") return;
+		fc.assert(
+			fc.property(space, space, word, (before, afterSlash, tag) => {
+				const marker = `.a{color:red}<${before}/${afterSlash}${tag}>`;
+				expect(() => trust(marker)).toThrow("trustedStyle expects a string");
+			}),
+			{ numRuns: 12, seed: 1 },
+		);
+		expect(readTrustedStyle(trust("@media (x < 1){.a{color:red}}"))).toBe(
+			"@media (x < 1){.a{color:red}}",
+		);
+		expect(
+			styleSheetFromChildren([
+				{ kind: "text", value: ".ok{color:red}", trusted: true },
+				{ kind: "text", value: "</style><img src=x>" },
+			]).css,
+		).toBe("");
 	});
 
 	it("drops non-text children inside style so they cannot fetch", () => {

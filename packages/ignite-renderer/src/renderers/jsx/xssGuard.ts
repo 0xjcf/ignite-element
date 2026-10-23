@@ -18,6 +18,10 @@ const URL_PART =
 const BLOCKED_REL = /^(?:stylesheet|preload|modulepreload|import)$/;
 const RASTER_DATA = /^data:image\/(?:png|jpe?g|gif|webp|avif)(?![+a-z])/;
 const COMMENT_BLOCK = /\/\*[\s\S]*?\*\//g;
+// `</style` and `<!` break out of a style element when HTML is reparsed.
+// Whitespace may sit between the characters. A `<` comparison stays.
+const STYLE_END = /<\s*\/\s*style/i;
+const STYLE_BREAK = /<\s*[/!]/;
 const HTML_SPACE = /[\t\n\f\r ]+/;
 const SCHEME = /^([a-z][a-z0-9+.-]*):/i;
 const ALLOWED_SCHEME = new Set(["http", "https", "mailto", "tel"]);
@@ -200,7 +204,8 @@ type _AssertChild<T extends IgniteJsxChild> = T;
 export type TrustedStyleIsChild = _AssertChild<TrustedStyle>;
 
 export function trustedStyle(css: string): TrustedStyle {
-	if (typeof css !== "string") {
+	// No valid CSS needs a style end tag. Reject it before it is branded.
+	if (typeof css !== "string" || STYLE_END.test(css)) {
 		throw new TypeError("trustedStyle expects a string");
 	}
 	const branded: TrustedStyle = Object.freeze({
@@ -289,14 +294,15 @@ export function styleSheetFromChildren(
 			trustedAt.push(trusted);
 		}
 	}
+	// `</` or `<!` drops the whole sheet. A `<` comparison is not a breakout.
+	if (STYLE_BREAK.test(full)) return { css: "", droppedUrl: true };
 	let css = "";
 	let droppedUrl = false;
 	let open = 0;
 	for (const span of declarationSpans(full)) {
 		const part = full.slice(span.start, span.end);
 		let drop = false;
-		// `<` covers `</style` in any case. Trusted text may keep it.
-		if (untrustedCssBlocked(part) || part.includes("<")) {
+		if (untrustedCssBlocked(part)) {
 			for (let index = span.start; index < span.end; index += 1) {
 				if (!trustedAt[index]) {
 					drop = true;
@@ -358,11 +364,6 @@ export function cssTextWithoutUrls(value: unknown): unknown {
 			out[name] = checked;
 		}
 	}
-	// A setter that joins every entry can rebuild url( across two of them.
-	// `u/*` beside `*/rl(` is `url(` once the comment is gone.
-	let joined = "";
-	for (const name of Object.keys(out)) joined += `${name}:${out[name]};`;
-	if (untrustedCssBlocked(joined)) return {};
 	return out;
 }
 
