@@ -190,7 +190,7 @@ export function urlValueBlocked(
 export function readTrustedStyle(value: unknown): string | undefined {
 	if (!value || typeof value !== "object") return undefined;
 	const css = (value as Record<symbol, unknown>)[TRUSTED_STYLE];
-	return typeof css === "string" ? css : undefined;
+	return trustedSeen.has(value) && typeof css === "string" ? css : undefined;
 }
 
 export interface TrustedStyle {
@@ -351,7 +351,7 @@ export function cssTextWithoutUrls(value: unknown): unknown {
 	for (const name of Object.keys(source)) {
 		// A key is serialized as a declaration. `background:url(...);color` is a load.
 		// `/*` or `*/` in a key or value rebuilds `url(` when a setter joins values.
-		if (untrustedCssBlocked(name) || commentSplit(name)) continue;
+		if (untrustedCssBlocked(name) || /\/\*|\*\//.test(name)) continue;
 		const raw = source[name];
 		if (raw === null) {
 			out[name] = null;
@@ -371,23 +371,20 @@ export function cssValueForStyle(
 	name?: string,
 ): string | false | undefined {
 	const trusted = readTrustedStyle(value);
-	if (trusted !== undefined) return trustedSeen.has(value as object) && trusted;
+	if (trusted != null) return trusted;
 	if (value == null) return undefined;
 	const text = String(value);
 	// A missing name cannot form a loader the value check would keep.
 	// Concatenation stays: a template literal is one byte over the gzip cap.
 	if (
+		typeof (value as Record<symbol, unknown>)[TRUSTED_STYLE] === "string" ||
 		untrustedCssBlocked(text) ||
-		(name !== undefined && commentSplit(text)) ||
+		(name != null && /\/\*|\*\//.test(text)) ||
 		untrustedCssBlocked(name + ":" + text)
 	) {
 		return false;
 	}
 	return text;
-}
-
-function commentSplit(text: string): boolean {
-	return /\/\*|\*\//.test(text);
 }
 
 function untrustedCssBlocked(text: string): boolean {

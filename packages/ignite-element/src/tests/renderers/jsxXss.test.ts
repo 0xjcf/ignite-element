@@ -2646,6 +2646,40 @@ describe("security re-review of remote loads", () => {
 		).not.toMatch(REMOTE_LOADER);
 	});
 
+	it("drops a forged brand as a style child and as the whole style value", () => {
+		const evil = "background-image: url(https://evil.example/forged.png)";
+		const forged = Object.freeze({
+			[Symbol.for("ignite-element.trustedStyle")]: evil,
+		});
+		expect(readTrustedStyle(forged)).toBeUndefined();
+
+		const plain = mount("div", { style: forged }).querySelector(
+			"div",
+		) as HTMLElement;
+		expect(plain.style.backgroundImage).not.toContain("evil.example");
+		expect(plain.style.cssText).not.toContain("evil.example");
+
+		styleSeen.length = 0;
+		mount("x-style-sink", { style: forged });
+		expect(styleSeen[0]).toEqual({});
+		expect(styleAsCss(styleSeen[0])).not.toContain("evil.example");
+
+		const host = document.createElement("div");
+		document.body.append(host);
+		mountIgniteJsx(
+			host,
+			jsx("div", {
+				children: jsx("style", {
+					children: forged,
+				}),
+			}),
+		);
+		expect(host.querySelector("style")?.textContent ?? "").not.toContain(
+			"evil.example",
+		);
+		expect(host.querySelector("img")).toBeNull();
+	});
+
 	it("passes null through to a custom style setter", () => {
 		styleSeen.length = 0;
 		titleSeen.length = 0;
