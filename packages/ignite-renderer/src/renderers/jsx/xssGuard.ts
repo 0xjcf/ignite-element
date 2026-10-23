@@ -332,13 +332,19 @@ export function cssTextWithoutUrls(value: unknown): unknown {
 		return value;
 	}
 	const source = value as Record<string, unknown>;
-	// One read per own key. The setter gets those strings, not a live toString
-	// or a prototype that still holds a loader.
-	const out: Record<string, string> = {};
+	// One read per own key. The setter gets that copy, not a live toString
+	// or a prototype that still holds a loader. Null stays null. A number
+	// is the string from that single read, so 0 arrives as "0".
+	const out: Record<string, string | null> = {};
 	for (const name of Object.keys(source)) {
 		// A key is serialized as a declaration. `background:url(...);color` is a load.
 		if (untrustedCssBlocked(name)) continue;
-		const checked = cssValueForStyle(source[name]);
+		const raw = source[name];
+		if (raw === null) {
+			out[name] = null;
+			continue;
+		}
+		const checked = cssValueForStyle(raw);
 		if (typeof checked === "string") out[name] = checked;
 	}
 	return out;
@@ -364,10 +370,14 @@ function untrustedCssBlocked(text: string): boolean {
 	);
 }
 
-const SCRIPT_URL = /^(?:src|href|xlinkhref|xlink:href)$/;
-
 function loads(value: unknown): boolean {
 	return value != null && value !== false;
+}
+
+/** Own `src`, `href`, or `xlink:href`, including a namespace prefix. */
+function isScriptSourceKey(key: string): boolean {
+	const name = localName(key);
+	return name === "src" || name === "href" || name === "xlinkhref";
 }
 
 export function scriptElementOmitted(
@@ -380,9 +390,9 @@ export function scriptElementOmitted(
 		return true;
 	}
 	if (!props) return false;
-	const record = props as Record<string, unknown>;
-	for (const key of Object.keys(record)) {
-		if (SCRIPT_URL.test(key.toLowerCase()) && loads(record[key])) return true;
+	for (const key of Object.keys(props)) {
+		// Presence omits the element. false, null, undefined, "", and 0 count.
+		if (isScriptSourceKey(key)) return true;
 	}
 	return false;
 }

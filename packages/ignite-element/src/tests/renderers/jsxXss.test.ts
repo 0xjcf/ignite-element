@@ -1357,6 +1357,76 @@ describe("approved url and remote-resource decisions", () => {
 		expect(spellings.querySelector("link")).toBeNull();
 	});
 
+	it("omits a script when an own source key is present, whatever the value", () => {
+		expect(mount("script", {}).querySelector("script")).not.toBeNull();
+		expect(
+			mount("script", { id: "keep", type: "module" }).querySelector("script"),
+		).not.toBeNull();
+		expect(
+			mount("script", { srcset: false }).querySelector("script"),
+		).not.toBeNull();
+		// rel is a token check. A present false is not a stylesheet.
+		expect(
+			mount("link", {
+				rel: false,
+				href: "https://cdn.example/a.css",
+			}).querySelector("link"),
+		).not.toBeNull();
+
+		const spellings = [
+			"src",
+			"SRC",
+			"Src",
+			"href",
+			"HREF",
+			"xlink:href",
+			"xlinkHref",
+			"XLINK:HREF",
+			"xlinkhref",
+			"svg:src",
+			"XML:HREF",
+			"foo:xlink:href",
+			"ns:Src",
+		];
+		const falsy = [false, null, undefined, "", 0] as const;
+		for (const key of spellings) {
+			for (const value of falsy) {
+				const props: Record<string, unknown> = { id: "keep" };
+				props[key] = value;
+				expect(
+					mount("script", props).querySelector("script"),
+					`${key}=${String(value)}`,
+				).toBeNull();
+			}
+		}
+		expect(
+			mount("svg", {
+				children: jsx("script", { href: null }),
+			}).querySelector("script"),
+		).toBeNull();
+		expect(
+			mount("x:script", { src: false }).querySelector("script"),
+		).toBeNull();
+
+		fc.assert(
+			fc.property(
+				fc.constantFrom(...spellings),
+				fc.constantFrom(...falsy),
+				fc.constantFrom("script", "SCRIPT", "x:script", "svg:script"),
+				(key, value, tag) => {
+					const props: Record<string, unknown> = { id: "keep" };
+					props[key] = value;
+					const host =
+						tag === "svg:script"
+							? mount("svg", { children: jsx("script", props) })
+							: mount(tag, props);
+					expect(host.querySelector("script")).toBeNull();
+				},
+			),
+			{ numRuns: 48, seed: 1 },
+		);
+	});
+
 	it("drops expression, behavior, moz-binding, and commented url() from untrusted style", async () => {
 		const css =
 			"color: red; width: expression(alert(1)); behavior: none; -moz-binding: none; scroll-behavior: smooth; background: url/**/(https://evil.example/a.png); background: url /*c*/ (https://evil.example/b.png); color: blue";
@@ -1946,6 +2016,46 @@ describe("security re-review of remote loads", () => {
 			),
 			{ numRuns: 16, seed: 1 },
 		);
+	});
+
+	it("gives an own style setter null entries as null and numbers as strings", () => {
+		styleSeen.length = 0;
+		mount("x-style-sink", {
+			style: {
+				color: "red",
+				opacity: null,
+				lineHeight: 0,
+				missing: undefined,
+			},
+		});
+		const received = styleSeen[0] as Record<string, unknown>;
+		expect(received).toEqual({
+			color: "red",
+			opacity: null,
+			lineHeight: "0",
+		});
+		expect(received.opacity).toBeNull();
+		expect(received.lineHeight).toBe("0");
+		expect("missing" in received).toBe(false);
+
+		let reads = 0;
+		const style: Record<string, unknown> = { color: "red" };
+		Object.defineProperty(style, "opacity", {
+			configurable: true,
+			enumerable: true,
+			get() {
+				reads += 1;
+				return reads === 1 ? null : "url(https://evil.example/second)";
+			},
+		});
+		styleSeen.length = 0;
+		const flipped = mount("x-style-sink", { style }).querySelector(
+			"x-style-sink",
+		) as HTMLElement;
+		expect(reads).toBe(1);
+		expect((styleSeen[0] as { opacity: unknown }).opacity).toBeNull();
+		expect(styleAsCss(styleSeen[0])).not.toMatch(REMOTE_LOADER);
+		expect(nativeStyle(flipped)).not.toMatch(REMOTE_LOADER);
 	});
 
 	it("drops style-object keys that carry a loader", () => {
