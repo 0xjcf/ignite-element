@@ -12,8 +12,13 @@ const { JSDOM } = requireFromElement("jsdom");
 const elementDist = fileURLToPath(
 	new URL("../../packages/ignite-element/dist/", import.meta.url),
 );
+const rendererDist = fileURLToPath(
+	new URL("../../packages/ignite-renderer/dist/", import.meta.url),
+);
 
+let installedWindow;
 function installDom() {
+	if (installedWindow) return installedWindow;
 	const dom = new JSDOM("<!DOCTYPE html><body></body>", {
 		url: "https://example.test/",
 	});
@@ -27,6 +32,7 @@ function installDom() {
 			// Node owns a few names. The renderer only needs the DOM ones.
 		}
 	}
+	installedWindow = window;
 	return window;
 }
 
@@ -106,5 +112,82 @@ describe("published trustedStyle registry", () => {
 		const style = child.querySelector("style");
 		assert.equal((style?.textContent ?? "").includes("evil.example"), false);
 		assert.equal(child.querySelector("img"), null);
+	});
+
+	it("drops trustedStyle from @ignite-element/renderer and warns in dev", async () => {
+		const window = installDom();
+		const seen = [];
+		const warnings = [];
+		const previousWarn = console.warn;
+		console.warn = (...args) => {
+			warnings.push(args.map((part) => String(part)).join(" "));
+		};
+		try {
+			class StyleSink extends window.HTMLElement {}
+			Object.defineProperty(StyleSink.prototype, "style", {
+				configurable: true,
+				set(value) {
+					seen.push(value);
+				},
+			});
+			window.customElements.define("x-dist-foreign-sink", StyleSink);
+
+			const rendererJsx = await import(
+				pathToFileURL(`${rendererDist}jsx.es.js`).href
+			);
+			const elementDev = await import(
+				pathToFileURL(`${elementDist}jsx/index.development.es.js`).href
+			);
+			const coreDev = await import(
+				pathToFileURL(`${elementDist}ignite-element.development.es.js`).href
+			);
+			const foreign = rendererJsx.trustedStyle(
+				"url(https://evil.example/renderer.png)",
+			);
+			const register = coreDev.igniteCore();
+			const { jsx } = elementDev;
+			register("x-dist-foreign-setter", () =>
+				jsx("x-dist-foreign-sink", {
+					style: { color: "red", backgroundImage: foreign },
+				}),
+			);
+			register("x-dist-foreign-plain", () =>
+				jsx("div", {
+					style: { color: "red", backgroundImage: foreign },
+				}),
+			);
+			register("x-dist-foreign-proxy", () =>
+				jsx("div", {
+					style: new Proxy(foreign, {
+						get() {
+							throw new TypeError("lying style");
+						},
+					}),
+				}),
+			);
+
+			const mount = (tag) => {
+				const host = document.createElement(tag);
+				document.body.append(host);
+				return host.shadowRoot;
+			};
+
+			mount("x-dist-foreign-setter");
+			assert.deepEqual(seen[0], { color: "red" });
+			assert.equal(
+				warnings.some((line) => line.includes("ignite-element/jsx")),
+				true,
+			);
+
+			const plain = mount("x-dist-foreign-plain");
+			const div = plain.querySelector("div");
+			assert.equal(div.style.backgroundImage.includes("evil.example"), false);
+
+			const proxied = mount("x-dist-foreign-proxy");
+			const proxyDiv = proxied.querySelector("div");
+			assert.equal(proxyDiv.style.cssText.includes("evil.example"), false);
+		} finally {
+			console.warn = previousWarn;
+		}
 	});
 });

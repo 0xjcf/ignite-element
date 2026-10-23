@@ -51,7 +51,7 @@ Inline `<style>` tags can conflict with strict `style-src` CSP settings. The ren
 
 ## Custom style setters
 
-A custom element's `style` setter receives a plain object of checked declarations. Write each own entry as a `key:value` declaration, for example `setProperty(key, value)` or a `cssText` string of `key:value` pairs. A `trustedStyle` value must be a complete CSS value, not a partial token. A duplicate install of `ignite-element` drops trusted styles (it fails closed across copies). Joining the values alone can rebuild a loader from a trusted fragment next to an untrusted neighbour (`trustedStyle("url")` beside `"(//evil)"`).
+A custom element's `style` setter receives a plain object of checked declarations. Write each own entry as a `key:value` declaration, for example `setProperty(key, value)` or a `cssText` string of `key:value` pairs. A `trustedStyle` value must be a complete CSS value, not a partial token. A duplicate install of `ignite-element` drops trusted styles (it fails closed across copies). Import `trustedStyle` from `ignite-element/jsx`. The copy on `@ignite-element/renderer` has its own registry, so a value from that import is dropped. Joining the values alone can rebuild a loader from a trusted fragment next to an untrusted neighbour (`trustedStyle("url")` beside `"(//evil)"`).
 
 ## Light-DOM page styles
 

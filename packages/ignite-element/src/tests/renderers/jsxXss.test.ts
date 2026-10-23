@@ -2637,8 +2637,13 @@ describe("security re-review of remote loads", () => {
 			}),
 		).toEqual({});
 		expect(cssTextWithoutUrls({ p: "u/*", "*/rl(": "x" })).toEqual({});
-		// The pair check is `key:value`. `url` + `(` is not `url(`.
-		expect(cssTextWithoutUrls({ url: "(" })).toEqual({ url: "(" });
+		// A value that starts with "(" is dropped, so it cannot join a trusted
+		// neighbour into `url(`. The colon in the pair check still matters for
+		// a loader that only appears when the colon is removed.
+		expect(cssTextWithoutUrls({ url: "(" })).toEqual({});
+		expect(cssTextWithoutUrls({ "-moz-bindin": "g" })).toEqual({
+			"-moz-bindin": "g",
+		});
 		expect(
 			joinedValues(
 				cssTextWithoutUrls({ a: "u/*", b: "*/rl(//e)", color: "red" }),
@@ -2678,6 +2683,108 @@ describe("security re-review of remote loads", () => {
 			"evil.example",
 		);
 		expect(host.querySelector("img")).toBeNull();
+	});
+
+	it("warns in dev when a trustedStyle brand comes from another copy", () => {
+		const warnings: string[] = [];
+		const previous = console.warn;
+		console.warn = (...args: unknown[]) => {
+			warnings.push(args.map((part) => String(part)).join(" "));
+		};
+		try {
+			const foreign = Object.freeze({
+				[Symbol.for("ignite-element.trustedStyle")]:
+					"url(https://evil.example/other.png)",
+			});
+			mount("div", {
+				style: { color: "red", backgroundImage: foreign },
+			});
+			expect(warnings).toContain(
+				"[ignite-jsx] trustedStyle from another copy was dropped. Import it from ignite-element/jsx.",
+			);
+		} finally {
+			console.warn = previous;
+		}
+	});
+
+	it("drops a proxy around a trusted style instead of throwing", () => {
+		const image = "url(https://cdn.example/a.png)";
+		const trusted = trustedStyle(image);
+		const lying = new Proxy(trusted, {
+			get() {
+				throw new TypeError("lying style");
+			},
+		});
+		const plain = mount("div", { style: lying }).querySelector(
+			"div",
+		) as HTMLElement;
+		expect(plain.style.backgroundImage).not.toContain("cdn.example");
+		expect(plain.style.cssText).not.toContain("cdn.example");
+
+		styleSeen.length = 0;
+		mount("x-style-sink", {
+			style: { color: "red", backgroundImage: lying },
+		});
+		expect(styleSeen[0]).toEqual({ color: "red" });
+		const entry = mount("div", {
+			style: { color: "red", backgroundImage: lying },
+		}).querySelector("div") as HTMLElement;
+		expect(entry.style.color).toBe("red");
+		expect(entry.style.backgroundImage).toBe("");
+
+		const host = document.createElement("div");
+		document.body.append(host);
+		mountIgniteJsx(
+			host,
+			jsx("div", {
+				children: jsx("style", { children: lying }),
+			}),
+		);
+		expect(host.querySelector("style")?.textContent ?? "").not.toContain(
+			"cdn.example",
+		);
+		expect(host.querySelector("img")).toBeNull();
+	});
+
+	it("drops untrusted style values that start with a parenthesis", () => {
+		const opened = cssTextWithoutUrls({
+			a: trustedStyle("url"),
+			b: "(//evil)",
+			color: "red",
+		});
+		expect(opened).toEqual({ a: "url", color: "red" });
+		expect(joinedValues(opened)).not.toMatch(REMOTE_LOADER);
+		expect(cssTextWithoutUrls({ color: " (//evil)" })).toEqual({});
+		expect(cssTextWithoutUrls({ width: "calc(1px + 2px)" })).toEqual({
+			width: "calc(1px + 2px)",
+		});
+		expect(
+			cssTextWithoutUrls({
+				width: trustedStyle("(width < 600px)"),
+			}),
+		).toEqual({ width: "(width < 600px)" });
+
+		const range = "@media (width < 600px){.a{color:red}}";
+		const host = document.createElement("div");
+		document.body.append(host);
+		mountIgniteJsx(
+			host,
+			jsx("div", {
+				children: jsx("style", { children: range }),
+			}),
+		);
+		expect(host.querySelector("style")?.textContent).toBe(range);
+
+		styleSeen.length = 0;
+		mount("x-style-sink", {
+			style: { color: "red", backgroundImage: "(//evil)" },
+		});
+		expect(styleSeen[0]).toEqual({ color: "red" });
+		const plain = mount("div", {
+			style: { color: "red", backgroundImage: "(//evil)" },
+		}).querySelector("div") as HTMLElement;
+		expect(plain.style.color).toBe("red");
+		expect(plain.style.backgroundImage).toBe("");
 	});
 
 	it("passes null through to a custom style setter", () => {

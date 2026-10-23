@@ -3,6 +3,7 @@ import type { IgniteJsxChild } from "./types";
 
 const TRUSTED_STYLE = Symbol.for("ignite-element.trustedStyle");
 const trustedSeen = new WeakSet<object>();
+declare const __IGNITE_DEV_WARNINGS__: boolean;
 declare const trustedStyleBrand: unique symbol;
 // Remote CSS loads, old scriptable properties, and url( after a comment
 // is stripped. A backslash is rejected separately and is not decoded.
@@ -187,10 +188,35 @@ export function urlValueBlocked(
 	return !urlAllowed(value);
 }
 
-export function readTrustedStyle(value: unknown): string | undefined {
+/**
+ * A string is a brand this copy created. `false` drops the value: another
+ * copy's brand, or a proxy whose property read throws. `undefined` is not a
+ * brand. Membership is checked before any property read.
+ */
+function trustedLookup(value: unknown): string | false | undefined {
 	if (!value || typeof value !== "object") return undefined;
-	const css = (value as Record<symbol, unknown>)[TRUSTED_STYLE];
-	return trustedSeen.has(value) && typeof css === "string" ? css : undefined;
+	const brand = value as Record<symbol, unknown>;
+	if (trustedSeen.has(value)) {
+		const css = brand[TRUSTED_STYLE];
+		return typeof css === "string" ? css : undefined;
+	}
+	try {
+		if (typeof brand[TRUSTED_STYLE] !== "string") return undefined;
+	} catch {
+		return false;
+	}
+	// Dev builds only. Production defines the flag false and strips this.
+	if (__IGNITE_DEV_WARNINGS__) {
+		console.warn(
+			"[ignite-jsx] trustedStyle from another copy was dropped. Import it from ignite-element/jsx.",
+		);
+	}
+	return false;
+}
+
+export function readTrustedStyle(value: unknown): string | undefined {
+	const css = trustedLookup(value);
+	return typeof css === "string" ? css : undefined;
 }
 
 export interface TrustedStyle {
@@ -370,17 +396,20 @@ export function cssValueForStyle(
 	value: unknown,
 	name?: string,
 ): string | false | undefined {
-	const trusted = readTrustedStyle(value);
-	if (trusted != null) return trusted;
+	const trusted = trustedLookup(value);
+	if (typeof trusted === "string") return trusted;
+	if (trusted === false) return false;
 	if (value == null) return undefined;
 	const text = String(value);
 	// A missing name cannot form a loader the value check would keep.
 	// Concatenation stays: a template literal is one byte over the gzip cap.
+	// Values that start with "(" are dropped here, not in untrustedCssBlocked,
+	// so a style sheet can still hold a range query such as (width < 600px).
 	if (
-		typeof (value as Record<symbol, unknown>)[TRUSTED_STYLE] === "string" ||
 		untrustedCssBlocked(text) ||
 		(name != null && /\/\*|\*\//.test(text)) ||
-		untrustedCssBlocked(name + ":" + text)
+		untrustedCssBlocked(name + ":" + text) ||
+		/^\s*\(/.test(text)
 	) {
 		return false;
 	}

@@ -30,6 +30,7 @@ Those decisions are:
 - Raise those caps again, to 7,100 B (no-host, level 6) and 8,300 B (consumer, level 9), and push the security re-review fixes.
 - Raise those caps again, to 7,200 B (no-host, level 6) and 8,400 B (consumer, level 9), and filter each value of a style object before a custom element's own `style` setter sees it.
 - Raise those caps again, to 7,500 B (no-host, level 6) and 8,750 B (consumer, level 9), and ship the fixed handler-name list.
+- On 2026-10-23, Jose approved the four Security P3s at `18ce1a49` and raising each cap only as far as those fixes need. Node 22 measures 7,544 B and 8,790 B. The caps are 7,564 B and 8,810 B.
 - `THREAT-MODEL.md` is approved.
 - `safeUrl` refuses `//host`, `\\host`, `/\host`, and `\/host`.
 - Guarded URL attributes use the `safeUrl` allowlist.
@@ -70,7 +71,7 @@ Those decisions are:
 - Commits on `fix/ignite-jsx-xss`. No amend, rebase, or merge.
 - Tests, typecheck, lint, the JSX Stryker run, and production bundle measurement.
 - Push to `fix/ignite-jsx-xss` and update PR #180, kept ready for review.
-- The cap raises listed above. No further raise past 7,500 B and 8,750 B.
+- The cap raises listed above. No further raise past 7,564 B and 8,810 B.
 
 ## Not authorized
 
@@ -79,4 +80,4 @@ Those decisions are:
 
 ## Stop
 
-Stop if the measured gzip exceeds 7,500 B (no-host, level 6) or 8,750 B (consumer, level 9). Shrink the same change. Do not bump the caps again.
+Stop if the measured gzip exceeds 7,564 B (no-host, level 6) or 8,810 B (consumer, level 9). Shrink the same change. Do not bump the caps again.
