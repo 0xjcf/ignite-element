@@ -22,12 +22,12 @@ import {
 	isExtraUrlName,
 	isForbiddenProp,
 	isHandlerKey,
-	isStylesheetLink,
 	isUrlPartKey,
 	linkReflectsBlocked,
 	localName,
 	readTrustedStyle,
 	scriptElementOmitted,
+	snapshotLinkRel,
 	styleSheetFromChildren,
 	urlValueBlocked,
 } from "./xssGuard";
@@ -248,10 +248,14 @@ function normalizeChild(
 		normalizedChildren.length = 0;
 		normalizedChildren.push(...nextChildren);
 	}
+	const checked =
+		lowerTag === "link" && node.props
+			? snapshotLinkRel(node.props)
+			: node.props;
 	if (
 		(lowerTag === "script" &&
 			scriptElementOmitted(normalizedChildren, node.props)) ||
-		(lowerTag === "link" && isStylesheetLink(node.props))
+		checked === false
 	) {
 		if (__IGNITE_DEV_WARNINGS__) {
 			warn(`[ignite-jsx] \`${lowerTag}\` was not created.`);
@@ -263,7 +267,7 @@ function normalizeChild(
 		{
 			kind: "element",
 			tag: tagName,
-			props: node.props,
+			props: checked as IgniteJsxProps,
 			namespace: useSvgNamespace ? SVG_NAMESPACE : undefined,
 			children: normalizedChildren,
 			key: node.key ?? null,
@@ -1244,25 +1248,25 @@ function patchProps(
 			// An own setter may have side effects its getter does not show, so a
 			// present value is assigned exactly once per render, here, before any
 			// equality skip and without the default*/live reapply below.
+			// `style={null}` is the setter's value. undefined still clears.
+			const styleKey = key.toLowerCase() === "style";
 			if (!isSvgElement && hasOwnCustomSetter(element as HTMLElement, key)) {
-				if (next == null) removeProp(element, key, false);
-				else {
+				if (next == null && !(next === null && styleKey)) {
+					removeProp(element, key, false);
+				} else {
 					// A fallback attribute written before the upgrade is replaced.
 					const keys = committedKeys(element);
 					if (keys.get(key)) dropFallback(element, key);
 					keys.set(key, false);
-					setContained(
-						element,
-						key,
-						key.toLowerCase() === "style" ? cssTextWithoutUrls(next) : next,
-					);
+					// biome-ignore format: line breaks here show up in the minified gzip budget
+					setContained(element, key, styleKey ? cssTextWithoutUrls(next) : next);
 				}
 				continue;
 			}
 			// Any other commit is a fallback: the renderer owns that attribute.
 			if (next != null) committedKeys(element).set(key, true);
 
-			if (key.toLowerCase() === "style") {
+			if (styleKey) {
 				patchStyle(element as HTMLElement, prev, next);
 				continue;
 			}

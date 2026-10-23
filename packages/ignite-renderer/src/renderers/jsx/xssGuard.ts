@@ -347,7 +347,13 @@ export function cssTextWithoutUrls(value: unknown): unknown {
 			continue;
 		}
 		const checked = cssValueForStyle(raw);
-		if (typeof checked === "string") out[name] = checked;
+		// `background:u/*` plus `*/rl(...)` is a loader only after the join.
+		if (
+			typeof checked === "string" &&
+			!untrustedCssBlocked(`${name}:${checked}`)
+		) {
+			out[name] = checked;
+		}
 	}
 	return out;
 }
@@ -409,15 +415,15 @@ function blockedRelText(value: unknown): boolean {
 	return false;
 }
 
-export function isStylesheetLink(props: object): boolean {
-	const record = props as Record<string, unknown>;
-	for (const key of Object.keys(record)) {
-		const name = key.toLowerCase();
-		if ((name === "rel" || name === "rellist") && blockedRelText(record[key])) {
-			return true;
-		}
+// biome-ignore format: line breaks here show up in the minified gzip budget
+export function snapshotLinkRel(props: object): object | false {
+	const next = { ...(props as Record<string, unknown>) };
+	for (const key of Object.keys(next)) if (/^(?:rel|rellist)$/i.test(key)) {
+		const value = next[key];
+		if (typeof value !== "string" && loads(value)) next[key] = String(value).replace(/,/g, " ");
+		if (blockedRelText(next[key])) return false;
 	}
-	return false;
+	return next;
 }
 
 export function isUrlPartKey(key: string): boolean {

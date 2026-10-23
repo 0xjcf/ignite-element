@@ -1549,6 +1549,96 @@ describe("security re-review of remote loads", () => {
 		).toBe(false);
 	});
 
+	it("reads a mounted link rel once and does not write href when that read is blocked", () => {
+		const host = document.createElement("div");
+		document.body.append(host);
+		const href = "https://cdn.example/favicon.ico";
+		const evil = "https://evil.example/a.css";
+		let tree = renderIgniteJsx(host, jsx("link", { rel: "icon", href }));
+		const link = host.querySelector("link");
+		expect(link?.getAttribute("rel")).toBe("icon");
+		expect(link?.getAttribute("href")).toContain("favicon.ico");
+
+		const writes: string[] = [];
+		const setAttribute = Element.prototype.setAttribute;
+		Element.prototype.setAttribute = function (
+			this: Element,
+			name: string,
+			value: string,
+		) {
+			if (this.localName === "link") writes.push(`${name}=${String(value)}`);
+			return setAttribute.call(this, name, value);
+		};
+		try {
+			const blocked = ["stylesheet", "preload", "modulepreload", "import"];
+			let reads = 0;
+			const rel = {
+				toString() {
+					reads += 1;
+					return reads === 1 ? "icon" : "stylesheet";
+				},
+			};
+			writes.length = 0;
+			tree = renderIgniteJsx(host, jsx("link", { rel, href: evil }), tree);
+			expect(reads).toBe(1);
+			expect(host.querySelector("link")?.getAttribute("rel")).toBe("icon");
+			expect(
+				writes.some((write) =>
+					/^(?:rel|rellist)=(?:stylesheet|preload|modulepreload|import)$/i.test(
+						write,
+					),
+				),
+			).toBe(false);
+
+			fc.assert(
+				fc.property(
+					fc.constantFrom("rel", "REL", "Rel"),
+					fc.constantFrom("icon", "prefetch", "dns-prefetch", "preconnect"),
+					fc.constantFrom(...blocked, "StyleSheet", "ModulePreload"),
+					(key, safe, blockedRel) => {
+						reads = 0;
+						const flipping = {
+							toString() {
+								reads += 1;
+								return reads === 1 ? safe : blockedRel;
+							},
+						};
+						writes.length = 0;
+						const props: Record<string, unknown> = { href: evil };
+						props[key] = flipping;
+						tree = renderIgniteJsx(host, jsx("link", props), tree);
+						expect(reads).toBe(1);
+						expect(
+							writes.some((write) => write.endsWith(`=${blockedRel}`)),
+						).toBe(false);
+						expect(host.querySelector("link")?.getAttribute("rel")).toBe(safe);
+					},
+				),
+				{ numRuns: 12, seed: 1 },
+			);
+
+			reads = 0;
+			writes.length = 0;
+			const blockedRel = {
+				toString() {
+					reads += 1;
+					return reads === 1 ? "preload" : "icon";
+				},
+			};
+			renderIgniteJsx(host, jsx("link", { rel: blockedRel, href: evil }), tree);
+			expect(reads).toBe(1);
+			expect(
+				writes.some(
+					(write) =>
+						write.startsWith("href=") && write.includes("evil.example"),
+				),
+			).toBe(false);
+			expect(linkLoadsStylesheet(host)).toBe(false);
+		} finally {
+			Element.prototype.setAttribute = setAttribute;
+		}
+	});
+
 	it("does not let URL part setters rewrite href", async () => {
 		const parts = [
 			"host",
@@ -2058,6 +2148,74 @@ describe("security re-review of remote loads", () => {
 		expect(nativeStyle(flipped)).not.toMatch(REMOTE_LOADER);
 	});
 
+	it("drops a style entry whose key and value join into a loader", () => {
+		const key = "background:u/*";
+		const value = "*/rl(https://evil.example/x)";
+		styleSeen.length = 0;
+		const painted = mount("x-style-sink", {
+			style: { color: "red", [key]: value },
+		}).querySelector("x-style-sink") as HTMLElement;
+		const received = styleSeen[0] as Record<string, unknown>;
+		expect(received).toEqual({ color: "red" });
+		expect(key in received).toBe(false);
+		expect(styleAsCss(received).replace(/\/\*[\s\S]*?\*\//g, "")).not.toMatch(
+			REMOTE_LOADER,
+		);
+		expect(nativeStyle(painted)).not.toMatch(REMOTE_LOADER);
+
+		const loaders = [
+			"url(https://evil.example/x)",
+			"url(//evil.example/x)",
+			"@import 'https://evil.example/a.css'",
+			"image-set(url(https://evil.example/x) 1x)",
+			"-webkit-image-set(url(https://evil.example/x) 1x)",
+			"expression(alert(1))",
+			"-moz-binding:url(https://evil.example/x)",
+		];
+		fc.assert(
+			fc.property(
+				fc.constantFrom(...loaders),
+				fc.integer({ min: 1, max: 20 }),
+				(loader, cut) => {
+					const at = (cut % (loader.length - 1)) + 1;
+					const splitKey = `prop:${loader.slice(0, at)}/*`;
+					const splitValue = `*/${loader.slice(at)}`;
+					styleSeen.length = 0;
+					const el = mount("x-style-sink", {
+						style: { color: "red", [splitKey]: splitValue },
+					}).querySelector("x-style-sink") as HTMLElement;
+					const next = styleSeen[0] as Record<string, unknown>;
+					expect(splitKey in next).toBe(false);
+					expect(styleAsCss(next).replace(/\/\*[\s\S]*?\*\//g, "")).not.toMatch(
+						REMOTE_LOADER,
+					);
+					expect(nativeStyle(el)).not.toMatch(REMOTE_LOADER);
+					expect(next.color).toBe("red");
+				},
+			),
+			{ numRuns: 14, seed: 1 },
+		);
+	});
+
+	it("passes null through to a custom style setter", () => {
+		styleSeen.length = 0;
+		mount("x-style-sink", { style: null });
+		expect(styleSeen).toEqual([null]);
+		expect(styleSeen[0]).toBeNull();
+
+		const host = document.createElement("div");
+		document.body.append(host);
+		const first = renderIgniteJsx(
+			host,
+			jsx("x-style-sink", { style: { color: "red" } }),
+		);
+		expect(styleSeen[styleSeen.length - 1]).toEqual({ color: "red" });
+		styleSeen.length = 0;
+		renderIgniteJsx(host, jsx("x-style-sink", { style: null }), first);
+		expect(styleSeen).toEqual([null]);
+		expect(styleSeen[0]).toBeNull();
+	});
+
 	it("drops style-object keys that carry a loader", () => {
 		styleSeen.length = 0;
 		const painted = mount("x-style-sink", {
@@ -2295,8 +2453,9 @@ describe("security re-review of remote loads", () => {
 				href: "https://evil.example/a.js",
 			});
 			const link = prefixed.getElementsByTagName("x:link")[0];
-			expect(link?.getAttribute("href"), rel).toBeNull();
-			expect(link?.getAttribute("rel") ?? "", rel).not.toBe(rel);
+			expect(reads, rel).toBe(1);
+			expect(link?.getAttribute("rel"), rel).toBe("icon");
+			expect(link?.getAttribute("href"), rel).toContain("evil.example");
 		}
 		let svgReads = 0;
 		const svg = mount("svg", {
@@ -2311,8 +2470,9 @@ describe("security re-review of remote loads", () => {
 			}),
 		});
 		const reflected = svg.getElementsByTagName("link")[0];
-		expect(reflected?.getAttribute("href")).toBeNull();
-		expect(reflected?.getAttribute("rel") ?? "").not.toBe("modulepreload");
+		expect(svgReads).toBe(1);
+		expect(reflected?.getAttribute("rel")).toBe("icon");
+		expect(reflected?.getAttribute("href")).toContain("evil.example");
 		expect(
 			mount("x:div", {
 				rel: "stylesheet",
@@ -2446,7 +2606,9 @@ describe("security re-review of remote loads", () => {
 			rel: flippingRel,
 			href: "https://evil.example/x.js",
 		}).querySelector("link");
-		expect(flipped?.getAttribute("href")).toBeNull();
+		expect(relReads).toBe(1);
+		expect(flipped?.getAttribute("rel")).toBe("icon");
+		expect(flipped?.getAttribute("href")).toContain("evil.example");
 		expect(`${flipped?.getAttribute("rel") ?? ""}`).not.toMatch(
 			/modulepreload/i,
 		);
