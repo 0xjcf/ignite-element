@@ -19,12 +19,17 @@ On 2026-10-22, his own words on the object-style gap and the third cap raise wer
 
 > settle the object-style gap first and increase the budget
 
+On 2026-10-23, his own words on the handler list and the fourth cap raise were:
+
+> Yes to the replies, raise the caps and ship N11
+
 Those decisions are:
 
 - Raise the no-host JSX gzip cap from 4,810 B to 6,500 B (level 6).
 - Raise the consumer JSX gzip cap from 6,280 B to 7,800 B (level 9).
 - Raise those caps again, to 7,100 B (no-host, level 6) and 8,300 B (consumer, level 9), and push the security re-review fixes.
 - Raise those caps again, to 7,200 B (no-host, level 6) and 8,400 B (consumer, level 9), and filter each value of a style object before a custom element's own `style` setter sees it.
+- Raise those caps again, to 7,500 B (no-host, level 6) and 8,750 B (consumer, level 9), and ship the fixed handler-name list.
 - `THREAT-MODEL.md` is approved.
 - `safeUrl` refuses `//host`, `\\host`, `/\host`, and `\/host`.
 - Guarded URL attributes use the `safeUrl` allowlist.
@@ -65,7 +70,7 @@ Those decisions are:
 - Commits on `fix/ignite-jsx-xss`. No amend, rebase, or merge.
 - Tests, typecheck, lint, the JSX Stryker run, and production bundle measurement.
 - Push to `fix/ignite-jsx-xss` and update PR #180, kept ready for review.
-- The cap raises listed above. No further raise past 7,200 B and 8,400 B.
+- The cap raises listed above. No further raise past 7,500 B and 8,750 B.
 
 ## Not authorized
 
@@ -74,4 +79,4 @@ Those decisions are:
 
 ## Stop
 
-Stop if the measured gzip exceeds 7,200 B (no-host, level 6) or 8,400 B (consumer, level 9). Shrink the same change. Do not bump the caps again.
+Stop if the measured gzip exceeds 7,500 B (no-host, level 6) or 8,750 B (consumer, level 9). Shrink the same change. Do not bump the caps again.

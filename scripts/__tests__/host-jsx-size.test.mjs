@@ -105,7 +105,8 @@ describe("JSX host runtime size", () => {
 		// Then 6500 B (Jose approved on PR #180): the JSX XSS guard.
 		// Then 7100 B (Jose approved in chat on PR #180): the re-review fixes.
 		// Then 7200 B (Jose, 2026-10-22): "settle the object-style gap first and increase the budget".
-		assert.ok(gzip <= 7200, `no-host JSX gzip ${gzip} is above 7200`);
+		// Then 7500 B (Jose, 2026-10-23): "Yes to the replies, raise the caps and ship N11".
+		assert.ok(gzip <= 7500, `no-host JSX gzip ${gzip} is above 7500`);
 	});
 
 	it("includes the host runtime when the internal module is imported", async () => {

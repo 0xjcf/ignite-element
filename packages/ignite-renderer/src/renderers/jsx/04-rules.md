@@ -82,7 +82,7 @@ Non-string values on a guarded key are not applied. SMIL `from`, `to`, `by`, and
 
 `safeSpread(props, options?)` copies enumerable own string keys, except the three XSS-PROTO keys, the source-bearing keys `text`, `textContent`, `innerText`, `outerText`, `innerHTML`, `outerHTML`, `srcdoc`, and `dangerouslySetInnerHTML`, the URL property setters (`host`, `hostname`, `protocol`, `port`, `pathname`, `origin`, `username`, `password`, `search`, `hash`), and `relList`. The match for those keys is ASCII case-insensitive.
 
-A key is a handler key when it matches `/^on[A-Z]/`, or when its lowercase form is `on` plus a real event name. The name is real when `on` plus that name is on `HTMLElement`, `Window`, `Document`, `SVGElement`, `window`, or `document`, or when it is in the guard's list of names those objects do not expose, such as `begin`, `repeat`, and `search`. `search` is the Chromium `onsearch` handler, which is not on `HTMLElement`. `onClick`, `onclick`, `ONERROR`, and `ononline` are handler keys. `one`, `online`, and `onlyIcon` are not. `xlink:onclick` is not a handler key here; the renderer already drops that string attribute.
+A key is a handler key when it matches `/^on[A-Z]/`, or when its lowercase form is `on` plus a real event name. The name is real when it is in the guard's fixed list, or when `on` plus that name is on `HTMLElement`, `Window`, `Document`, `SVGElement`, `window`, or `document`. The fixed list is the WHATWG `GlobalEventHandlers` names plus `animationend`, `transitionend`, `selectstart`, `command`, and `pagereveal`, and the names those objects do not expose, such as `begin`, `repeat`, and `search`. `search` is the Chromium `onsearch` handler, which is not on `HTMLElement`. The prototype check is the fallback for a name the list does not have. `onClick`, `onclick`, `ONERROR`, and `ononline` are handler keys. `one`, `online`, and `onlyIcon` are not. `xlink:onclick` is not a handler key here; the renderer already drops that string attribute.
 
 A handler key is copied only when the value is a function and `options.handlers` lists that exact key. `onClick` does not allow `onclick`. A string handler is never copied, even if the key is listed.
 
@@ -150,7 +150,7 @@ Jose approved these. The rules above are the code.
 3. Guarded URL attributes use the `safeUrl` allowlist.
 4. Untrusted style drops `expression(`, a `behavior` token, `-moz-binding`, and `url(` with a comment before the paren. A declaration that contains `\` is dropped without decoding the escape.
 5. A `script` with `src`, and a `link` whose `rel` or `relList` contains `stylesheet`, `preload`, `modulepreload`, or `import`, are omitted. `prefetch`, `dns-prefetch`, `preconnect`, `prerender`, and `icon` keep an `https` href.
-6. The bundle budgets are 7,200 B gzip (no-host JSX, level 6) and 8,400 B gzip (consumer, level 9). On 2026-10-22 Jose's words were "settle the object-style gap first and increase the budget". He had raised them to 7,100 B and 8,300 B, before that from 6,500 B and 7,800 B, and before that from 4,810 B and 6,280 B.
+6. The bundle budgets are 7,500 B gzip (no-host JSX, level 6) and 8,750 B gzip (consumer, level 9). On 2026-10-23 Jose's words were "Yes to the replies, raise the caps and ship N11". On 2026-10-22 his words were "settle the object-style gap first and increase the budget", which raised them to 7,200 B and 8,400 B. He had raised them to 7,100 B and 8,300 B, before that from 6,500 B and 7,800 B, and before that from 4,810 B and 6,280 B.
 
 ## Scope
 

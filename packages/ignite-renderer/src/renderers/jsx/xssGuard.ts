@@ -23,10 +23,12 @@ const SCHEME = /^([a-z][a-z0-9+.-]*):/i;
 const ALLOWED_SCHEME = new Set(["http", "https", "mailto", "tel"]);
 // //host, \\host, /\host, and \/host. Checked on the stripped value.
 const PROTOCOL_RELATIVE = /^[\\/]{2}/;
-// Names current browsers do not put on HTMLElement, Window, Document,
-// SVGElement, window, or document. The prototype check covers the rest.
+// WHATWG GlobalEventHandlers, plus animationend, transitionend,
+// selectstart, command, and pagereveal, plus names current browsers do
+// not put on HTMLElement, Window, Document, SVGElement, window, or
+// document. The prototype check covers anything this list misses.
 const RARE_EVENTS =
-	" animationcancel begin bounce compositionend compositionstart compositionupdate encrypted end enterpictureinpicture finish focusin focusout leavepictureinpicture loadend repeat search start waitingforkey ";
+	" abort auxclick beforeinput beforematch beforetoggle blur cancel canplay canplaythrough change click close command contextlost contextmenu contextrestored copy cuechange cut dblclick drag dragend dragenter dragleave dragover dragstart drop durationchange emptied ended error focus formdata input invalid keydown keypress keyup load loadeddata loadedmetadata loadstart mousedown mouseenter mouseleave mousemove mouseout mouseover mouseup paste pause play playing progress ratechange reset resize scroll scrollend securitypolicyviolation seeked seeking select slotchange stalled submit suspend timeupdate toggle volumechange waiting webkitanimationend webkitanimationiteration webkitanimationstart webkittransitionend wheel animationend transitionend selectstart pagereveal animationcancel begin bounce compositionend compositionstart compositionupdate encrypted end enterpictureinpicture finish focusin focusout leavepictureinpicture loadend repeat search start waitingforkey ";
 
 export type SafeSpreadOptions = {
 	/** Function handlers kept by exact key, for example "onClick". */

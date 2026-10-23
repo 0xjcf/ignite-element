@@ -2142,6 +2142,116 @@ describe("security re-review of remote loads", () => {
 		expect(safeSpread({ one: "yes", ONSEARCH: "alert(1)" }).one).toBe("yes");
 	});
 
+	it("treats every standard handler name as a handler", () => {
+		// WHATWG GlobalEventHandlers from html.spec.whatwg.org on 2026-10-23,
+		// plus animationend, transitionend, selectstart, command, and pagereveal.
+		const names = [
+			"abort",
+			"auxclick",
+			"beforeinput",
+			"beforematch",
+			"beforetoggle",
+			"blur",
+			"cancel",
+			"canplay",
+			"canplaythrough",
+			"change",
+			"click",
+			"close",
+			"command",
+			"contextlost",
+			"contextmenu",
+			"contextrestored",
+			"copy",
+			"cuechange",
+			"cut",
+			"dblclick",
+			"drag",
+			"dragend",
+			"dragenter",
+			"dragleave",
+			"dragover",
+			"dragstart",
+			"drop",
+			"durationchange",
+			"emptied",
+			"ended",
+			"error",
+			"focus",
+			"formdata",
+			"input",
+			"invalid",
+			"keydown",
+			"keypress",
+			"keyup",
+			"load",
+			"loadeddata",
+			"loadedmetadata",
+			"loadstart",
+			"mousedown",
+			"mouseenter",
+			"mouseleave",
+			"mousemove",
+			"mouseout",
+			"mouseover",
+			"mouseup",
+			"paste",
+			"pause",
+			"play",
+			"playing",
+			"progress",
+			"ratechange",
+			"reset",
+			"resize",
+			"scroll",
+			"scrollend",
+			"securitypolicyviolation",
+			"seeked",
+			"seeking",
+			"select",
+			"slotchange",
+			"stalled",
+			"submit",
+			"suspend",
+			"timeupdate",
+			"toggle",
+			"volumechange",
+			"waiting",
+			"webkitanimationend",
+			"webkitanimationiteration",
+			"webkitanimationstart",
+			"webkittransitionend",
+			"wheel",
+			"animationend",
+			"transitionend",
+			"selectstart",
+			"pagereveal",
+		];
+		for (const name of names) {
+			expect(isHandlerKey(`on${name}`), name).toBe(true);
+			expect(isHandlerKey(`ON${name.toUpperCase()}`), name).toBe(true);
+		}
+		expect(isHandlerKey("one")).toBe(false);
+		expect(isHandlerKey("online")).toBe(false);
+		expect(isHandlerKey("onlyIcon")).toBe(false);
+		for (const name of [
+			"animationend",
+			"transitionend",
+			"selectstart",
+			"command",
+			"pagereveal",
+		]) {
+			const key = `on${name}`;
+			const props: Record<string, unknown> = { id: "stay" };
+			props[key] = "alert(1)";
+			expect(safeSpread(props)[key], name).toBeUndefined();
+			expect(
+				mount("div", props).querySelector("div")?.hasAttribute(key),
+				name,
+			).toBe(false);
+		}
+	});
+
 	it("rechecks reflected rel on a prefixed link and a link without relList", () => {
 		fc.assert(
 			fc.property(
