@@ -355,6 +355,11 @@ export function cssTextWithoutUrls(value: unknown): unknown {
 			out[name] = checked;
 		}
 	}
+	// A setter that joins every entry can rebuild url( across two of them.
+	// `u/*` beside `*/rl(` is `url(` once the comment is gone.
+	let joined = "";
+	for (const name of Object.keys(out)) joined += `${name}:${out[name]};`;
+	if (untrustedCssBlocked(joined)) return {};
 	return out;
 }
 
@@ -420,7 +425,9 @@ export function snapshotLinkRel(props: object): object | false {
 	const next = { ...(props as Record<string, unknown>) };
 	for (const key of Object.keys(next)) if (/^(?:rel|rellist)$/i.test(key)) {
 		const value = next[key];
-		if (typeof value !== "string" && loads(value)) next[key] = String(value).replace(/,/g, " ");
+		// toString that returns an object makes String() throw. Omit the link.
+		try { if (typeof value !== "string" && loads(value)) next[key] = String(value).replace(/,/g, " "); }
+		catch { return false; }
 		if (blockedRelText(next[key])) return false;
 	}
 	return next;

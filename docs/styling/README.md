@@ -27,8 +27,7 @@ If your bundler can import CSS as text, you can replace `cardCss` with that impo
 
 ## Reuse a stylesheet
 
-Link the same stylesheet inside each component's shadow root, as shown in the
-[light switch](https://0xjcf.github.io/ignite-element/#build-a-component).
+Repeat the same CSS string in each component's `<style>` element, as the example above does. The [light switch](https://0xjcf.github.io/ignite-element/#build-a-component) uses that `<style>` element.
 
 ## CSS variables across shadow boundaries
 
@@ -48,7 +47,7 @@ Host pages can then set `--card-bg` outside the shadow root without rewriting co
 
 ## CSP note
 
-Inline `<style>` tags can conflict with strict `style-src` CSP settings. If your host app forbids inline styles, link an external stylesheet from the component, as the light-switch example does.
+Inline `<style>` tags can conflict with strict `style-src` CSP settings. The renderer omits stylesheet links, so a strict host policy has to allow the component `<style>` element from the example above (a nonce or a hash).
 
 ## Light-DOM page styles
 

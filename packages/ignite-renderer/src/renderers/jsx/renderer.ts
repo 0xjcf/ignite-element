@@ -23,7 +23,6 @@ import {
 	isForbiddenProp,
 	isHandlerKey,
 	isUrlPartKey,
-	linkReflectsBlocked,
 	localName,
 	readTrustedStyle,
 	scriptElementOmitted,
@@ -230,14 +229,11 @@ function normalizeChild(
 				"[ignite-jsx] `style` text dropped a url(). Pass trustedStyle() to keep it.",
 			);
 		}
+		// An img or SVG image inside style is a real element and would fetch.
 		let wroteText = false;
 		const nextChildren: NormalizedNode[] = [];
 		for (const child of normalizedChildren) {
-			if (child.kind !== "text") {
-				nextChildren.push(child);
-				continue;
-			}
-			if (wroteText) continue;
+			if (child.kind !== "text" || wroteText) continue;
 			wroteText = true;
 			nextChildren.push({
 				kind: "text",
@@ -1351,10 +1347,6 @@ function patchProps(
 			const attrName = propAttributeName(element, key, isSvgElement);
 			act(element, "setAttribute", attrName, String(next));
 		}
-	}
-	if (linkReflectsBlocked(element)) {
-		act(element, "removeAttribute", "rel");
-		act(element, "removeAttribute", "href");
 	}
 }
 

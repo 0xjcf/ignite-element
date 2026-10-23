@@ -79,6 +79,10 @@ function styleAsCss(value: unknown): string {
 	return css;
 }
 
+function commentStrippedCss(value: unknown): string {
+	return styleAsCss(value).replace(/\/\*[\s\S]*?\*\//g, "");
+}
+
 function nativeStyle(element: HTMLElement): string {
 	const decl = Object.getOwnPropertyDescriptor(
 		HTMLElement.prototype,
@@ -757,6 +761,55 @@ describe("gaps", () => {
 			css: "",
 			droppedUrl: false,
 		});
+	});
+
+	it("drops non-text children inside style so they cannot fetch", () => {
+		const host = mount("div", {
+			children: jsx("style", {
+				children: [
+					".ok{color:red}",
+					jsx("img", { src: "https://evil.example/pixel.png", alt: "" }),
+					null,
+				],
+			}),
+		});
+		const style = host.querySelector("style");
+		expect(style).not.toBeNull();
+		expect(style?.querySelector("img")).toBeNull();
+		expect(host.querySelector("img")).toBeNull();
+		expect(style?.textContent).toContain("color:red");
+		expect(host.innerHTML).not.toContain("evil.example");
+		expect(style?.childNodes).toHaveLength(1);
+		expect(style?.firstChild?.nodeType).toBe(Node.TEXT_NODE);
+
+		const onlyImage = mount("style", {
+			children: jsx("img", { src: "/pixel.png" }),
+		});
+		expect(onlyImage.querySelector("style")).not.toBeNull();
+		expect(onlyImage.querySelector("img")).toBeNull();
+		expect(onlyImage.querySelector("style")?.childNodes).toHaveLength(0);
+
+		const svg = mount("svg", {
+			children: jsx("style", {
+				children: [
+					"svg{fill:red}",
+					jsx("image", { href: "https://evil.example/pixel.png" }),
+				],
+			}),
+		});
+		expect(svg.querySelector("image")).toBeNull();
+		expect(svg.querySelector("style")?.textContent).toContain("fill:red");
+		expect(svg.innerHTML.toLowerCase()).not.toContain("evil.example");
+
+		const prefixed = mount("svg", {
+			children: jsx("x:style", {
+				children: jsx("image", {
+					href: "https://evil.example/prefixed.png",
+				}),
+			}),
+		});
+		expect(prefixed.querySelector("image")).toBeNull();
+		expect(prefixed.innerHTML.toLowerCase()).not.toContain("evil.example");
 	});
 
 	it("a script element is not created for a string or number child", () => {
@@ -2109,14 +2162,23 @@ describe("security re-review of remote loads", () => {
 	});
 
 	it("gives an own style setter null entries as null and numbers as strings", () => {
+		const entries = {
+			color: "red",
+			opacity: null,
+			lineHeight: 0,
+			missing: undefined,
+		};
+		expect(cssTextWithoutUrls(entries)).toEqual({
+			color: "red",
+			opacity: null,
+			lineHeight: "0",
+		});
+		expect(
+			"missing" in (cssTextWithoutUrls(entries) as Record<string, unknown>),
+		).toBe(false);
 		styleSeen.length = 0;
 		mount("x-style-sink", {
-			style: {
-				color: "red",
-				opacity: null,
-				lineHeight: 0,
-				missing: undefined,
-			},
+			style: entries,
 		});
 		const received = styleSeen[0] as Record<string, unknown>;
 		expect(received).toEqual({
@@ -2197,23 +2259,111 @@ describe("security re-review of remote loads", () => {
 		);
 	});
 
+	it("drops a loader assembled across style entries before a setter joins them", () => {
+		const across = {
+			background: "u/*",
+			"*/rl/*": "*/(https://evil.example/x)",
+		};
+		const split = { p: "u/*", "*/rl(": "x" };
+		for (const style of [across, split]) {
+			expect(commentStrippedCss(cssTextWithoutUrls(style))).not.toMatch(
+				REMOTE_LOADER,
+			);
+			styleSeen.length = 0;
+			const el = mount("x-style-sink", { style }).querySelector(
+				"x-style-sink",
+			) as HTMLElement;
+			expect(commentStrippedCss(styleSeen[0])).not.toMatch(REMOTE_LOADER);
+			expect(nativeStyle(el)).not.toMatch(REMOTE_LOADER);
+		}
+		expect(
+			cssTextWithoutUrls({ content: '"/* note */"', color: "red" }),
+		).toEqual({ content: '"/* note */"', color: "red" });
+
+		const shapes = [
+			(target: string) => ({
+				background: "u/*",
+				"*/rl/*": `*/(${target})`,
+			}),
+			(target: string) => ({
+				background: "u/*",
+				"*/rl /*": `*/(${target})`,
+			}),
+			(target: string) => ({
+				a: "@imp/*",
+				"*/ort": ` '${target}'`,
+			}),
+			(target: string) => ({
+				a: "express/*",
+				"*/ion": `(${target})`,
+			}),
+		];
+		fc.assert(
+			fc.property(
+				fc.constantFrom(...shapes),
+				fc.constantFrom(
+					"https://evil.example/x",
+					"http://evil.example/x",
+					"//evil.example/x",
+				),
+				(shape, target) => {
+					const style = { color: "red", ...shape(target) };
+					const received = cssTextWithoutUrls(style);
+					expect(commentStrippedCss(received)).not.toMatch(REMOTE_LOADER);
+					styleSeen.length = 0;
+					const el = mount("x-style-sink", { style }).querySelector(
+						"x-style-sink",
+					) as HTMLElement;
+					expect(commentStrippedCss(styleSeen[0])).not.toMatch(REMOTE_LOADER);
+					expect(nativeStyle(el)).not.toMatch(REMOTE_LOADER);
+				},
+			),
+			{ numRuns: 16, seed: 1 },
+		);
+	});
+
 	it("passes null through to a custom style setter", () => {
 		styleSeen.length = 0;
-		mount("x-style-sink", { style: null });
+		titleSeen.length = 0;
+		styleCaseSeen.length = 0;
+		mount("x-style-sink", { style: null, title: null, Style: null });
 		expect(styleSeen).toEqual([null]);
 		expect(styleSeen[0]).toBeNull();
+		expect(styleCaseSeen).toEqual([null]);
+		expect(titleSeen).toEqual([]);
+
+		styleSeen.length = 0;
+		titleSeen.length = 0;
+		mount("x-style-sink", { style: undefined, title: "kept" });
+		expect(styleSeen).toEqual([]);
+		expect(titleSeen).toEqual(["kept"]);
 
 		const host = document.createElement("div");
 		document.body.append(host);
 		const first = renderIgniteJsx(
 			host,
-			jsx("x-style-sink", { style: { color: "red" } }),
+			jsx("x-style-sink", { style: { color: "red" }, title: "kept" }),
 		);
 		expect(styleSeen[styleSeen.length - 1]).toEqual({ color: "red" });
 		styleSeen.length = 0;
-		renderIgniteJsx(host, jsx("x-style-sink", { style: null }), first);
+		titleSeen.length = 0;
+		const cleared = renderIgniteJsx(
+			host,
+			jsx("x-style-sink", { style: null, title: null }),
+			first,
+		);
 		expect(styleSeen).toEqual([null]);
 		expect(styleSeen[0]).toBeNull();
+		expect(titleSeen).toEqual([undefined]);
+
+		styleSeen.length = 0;
+		renderIgniteJsx(
+			host,
+			jsx("x-style-sink", { style: undefined, title: "again" }),
+			cleared,
+		);
+		expect(styleSeen).toEqual([undefined]);
+		expect(titleSeen[titleSeen.length - 1]).toBe("again");
 	});
 
 	it("drops style-object keys that carry a loader", () => {
@@ -2408,6 +2558,83 @@ describe("security re-review of remote loads", () => {
 				name,
 			).toBe(false);
 		}
+	});
+
+	it("reads rel and relList only, and omits a link whose rel toString throws", () => {
+		const kept = mount("link", {
+			rel: "icon",
+			xrel: "stylesheet",
+			rels: "modulepreload",
+			href: "https://cdn.example/favicon.ico",
+		}).querySelector("link");
+		expect(kept).not.toBeNull();
+		expect(kept?.getAttribute("rel")).toBe("icon");
+		expect(kept?.getAttribute("xrel")).toBe("stylesheet");
+		expect(kept?.getAttribute("rels")).toBe("modulepreload");
+		expect(kept?.getAttribute("href")).toContain("favicon.ico");
+
+		expect(
+			mount("link", {
+				rel: "icon,shortcut",
+				href: "https://cdn.example/a.ico",
+			})
+				.querySelector("link")
+				?.getAttribute("rel"),
+		).toBe("icon,shortcut");
+		expect(
+			mount("link", {
+				rel: { toString: () => "icon,shortcut" },
+				href: "https://cdn.example/a.ico",
+			})
+				.querySelector("link")
+				?.getAttribute("rel"),
+		).toBe("icon shortcut");
+		expect(
+			mount("link", {
+				rel: false,
+				href: "https://cdn.example/a.css",
+			})
+				.querySelector("link")
+				?.hasAttribute("rel"),
+		).toBe(false);
+		expect(
+			mount("link", {
+				rel: null,
+				href: "https://cdn.example/a.css",
+			})
+				.querySelector("link")
+				?.getAttribute("rel"),
+		).toBeNull();
+		expect(
+			mount("link", {
+				rel: { toString: () => "x,y,stylesheet" },
+				href: "https://evil.example/a.css",
+			}).querySelector("link"),
+		).toBeNull();
+
+		const host = mount("div", {
+			children: [
+				jsx("link", {
+					rel: {
+						toString() {
+							return {};
+						},
+					},
+					href: "https://evil.example/a.css",
+				}),
+				jsx("link", {
+					rel: {
+						toString() {
+							return Object("stylesheet");
+						},
+					},
+					href: "https://evil.example/b.css",
+				}),
+				jsx("span", { children: "stay" }),
+			],
+		});
+		expect(host.querySelector("link")).toBeNull();
+		expect(host.querySelector("span")?.textContent).toBe("stay");
 	});
 
 	it("rechecks reflected rel on a prefixed link and a link without relList", () => {
