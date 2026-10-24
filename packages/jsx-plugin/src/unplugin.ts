@@ -77,6 +77,29 @@ function rendererRoot(from: NodeRequire): string | null {
 	}
 }
 
+function monorepoRendererRoot(importer: string | undefined): string | null {
+	if (!importer) return null;
+	let dir = path.dirname(filePath(importer));
+	for (let depth = 0; depth < 8; depth += 1) {
+		const root = path.join(dir, "packages", "ignite-renderer");
+		const manifest = path.join(root, "package.json");
+		if (existsSync(manifest)) {
+			try {
+				const parsed = JSON.parse(readFileSync(manifest, "utf8")) as {
+					name?: string;
+				};
+				if (parsed.name === "@ignite-element/renderer") return root;
+			} catch {
+				// A broken package.json is not this package.
+			}
+		}
+		const parent = path.dirname(dir);
+		if (parent === dir) return null;
+		dir = parent;
+	}
+	return null;
+}
+
 function markFile(root: string, importer: string | undefined): string | null {
 	const source = path.join(root, "src/renderers/jsx/authorStyle.ts");
 	const dist = path.join(root, "dist/jsx/author-style-mark.es.js");
@@ -97,6 +120,15 @@ export function resolveAuthorMark(importer: string | undefined): string | null {
 	// The plugin's own bundler fixture shims this specifier. App files,
 	// including the docs site, need the real mark module.
 	if (norm.includes("/packages/jsx-plugin/")) return null;
+	// Example installs resolve the published renderer, which has no mark file.
+	// Their Vite aliases point at this repo's source, so the mark does too.
+	if (norm.includes("/examples/")) {
+		const root = monorepoRendererRoot(importer);
+		if (root) {
+			const mark = markFile(root, importer);
+			if (mark) return mark;
+		}
+	}
 	const bases = [importer, fileURLToPath(import.meta.url)];
 	for (const base of bases) {
 		if (!base) continue;

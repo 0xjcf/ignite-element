@@ -85,7 +85,7 @@ export default defineConfig({
 				replacement: `${igniteElementSourceRoot}$1`,
 			},
 			{
-				find: "ignite-element",
+				find: /^ignite-element$/,
 				replacement: resolvePath(
 					"../../../packages/ignite-element/src/index.ts",
 				),

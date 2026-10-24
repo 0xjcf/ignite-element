@@ -189,6 +189,25 @@ describe("bundler fixtures", () => {
 		assertMarked(printed.outputText, "typescript");
 	}, 120000);
 
+	it("resolves the compiler mark from an example file", () => {
+		const entry = fileURLToPath(
+			new URL(
+				"../../../examples/agents/voice-workbench/src/parity.tsx",
+				import.meta.url,
+			),
+		);
+		expect(resolveAuthorMark(entry)).toMatch(
+			/packages\/ignite-renderer\/src\/renderers\/jsx\/authorStyle\.ts$/,
+		);
+		const dashboard = fileURLToPath(
+			new URL(
+				"../../../examples/apps/dashboard-with-shared-state/src/dashboard.tsx",
+				import.meta.url,
+			),
+		);
+		expect(resolveAuthorMark(dashboard)).toBe(resolveAuthorMark(entry));
+	});
+
 	it("resolves the compiler mark from a docs-site file", async () => {
 		const docs = fileURLToPath(new URL("../../../docs/site/", import.meta.url));
 		const dir = mkdtempSync(path.join(docs, ".mark-resolve-"));

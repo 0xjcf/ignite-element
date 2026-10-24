@@ -77,7 +77,7 @@ export default defineConfig({
 				replacement: `${igniteElementSrc}$1`,
 			},
 			{
-				find: "ignite-element",
+				find: /^ignite-element$/,
 				replacement: `${igniteElementSrc}index.ts`,
 			},
 		],
