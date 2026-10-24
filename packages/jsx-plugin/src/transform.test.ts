@@ -1,12 +1,23 @@
+import { parse } from "@babel/parser";
+import * as t from "@babel/types";
 import { describe, expect, it } from "vitest";
-import { transformSource } from "./transform.js";
+import {
+	markerCallee,
+	markerLocalName,
+	markFile,
+	transformSource,
+} from "./transform.js";
 
 const AUTHOR = "ignite-jsx:author-style";
+
+function localPattern(code: string): string {
+	return markerCallee(code).replace(/\$/g, "\\$");
+}
 
 function marks(code: string): string[] {
 	const found: string[] = [];
 	let index = 0;
-	const token = "igniteAuthorStyle(";
+	const token = `${markerCallee(code)}(`;
 	while (index < code.length) {
 		const start = code.indexOf(token, index);
 		if (start < 0) break;
@@ -62,6 +73,7 @@ describe("author style transform", () => {
 		`;
 		const output = transformSource(source, "Card.tsx");
 		expect(output).toContain(AUTHOR);
+		expect(markerCallee(output)).toMatch(/^_igniteAuthor\$[0-9a-f]{8}$/);
 		const wrapped = marks(output);
 		expect(
 			wrapped.some((call) => call.includes("cdn.example/static.png")),
@@ -74,18 +86,21 @@ describe("author style transform", () => {
 		expect(wrapped.some((call) => call.includes("cardCss"))).toBe(true);
 		expect(wrapped.some((call) => call.includes("\\"))).toBe(true);
 		expect(output).toContain("props.image");
+		const name = localPattern(output);
 		expect(output).not.toMatch(
-			/igniteAuthorStyle\(\s*`[^`]*\$\{props\.image\}/,
+			new RegExp(`${name}\\(\\s*\`[^\`]*\\$\\{props\\.image\\}`),
 		);
-		expect(output).not.toMatch(/igniteAuthorStyle\(\s*props\.cardCss\s*\)/);
-		expect(output).not.toMatch(/igniteAuthorStyle\(\s*shadow\s*\)/);
-		expect(output).not.toMatch(/igniteAuthorStyle\(\s*other\s*\)/);
-		expect(output).not.toMatch(/igniteAuthorStyle\(\s*sheet\s*\)/);
-		expect(output).not.toMatch(/igniteAuthorStyle\(\s*ns\./);
-		expect(output).not.toMatch(/igniteAuthorStyle\(\s*joined\s*\)/);
+		expect(output).not.toMatch(
+			new RegExp(`${name}\\(\\s*props\\.cardCss\\s*\\)`),
+		);
+		expect(output).not.toMatch(new RegExp(`${name}\\(\\s*shadow\\s*\\)`));
+		expect(output).not.toMatch(new RegExp(`${name}\\(\\s*other\\s*\\)`));
+		expect(output).not.toMatch(new RegExp(`${name}\\(\\s*sheet\\s*\\)`));
+		expect(output).not.toMatch(new RegExp(`${name}\\(\\s*ns\\.`));
+		expect(output).not.toMatch(new RegExp(`${name}\\(\\s*joined\\s*\\)`));
 		expect(output).not.toContain("card.css?inline");
 		const shadowFn = output.slice(output.indexOf("function Shadow"));
-		expect(shadowFn).not.toContain("igniteAuthorStyle(");
+		expect(shadowFn).not.toContain(`${markerCallee(output)}(`);
 	});
 
 	it("Security P2: a hand-written author import cannot bless CSS", () => {
@@ -98,14 +113,21 @@ describe("author style transform", () => {
 			),
 		).toThrow(/cannot mark CSS/);
 
-		expect(() =>
-			transformSource(
-				`const igniteAuthorStyle = (css: string) => css;
-				const local = ".a{}";
-				export const view = <style>{local}</style>;`,
-				"conflict.tsx",
-			),
-		).toThrow(/already declared/);
+		const conflict = transformSource(
+			`const igniteAuthorStyle = (css: string) => css;
+			const local = ".a{background:url(https://cdn.example/a.png)}";
+			export const view = <style>{local}</style>;
+			export const stolen = igniteAuthorStyle(".b{background:url(http://127.0.0.1:9/x.png)}");`,
+			"conflict.tsx",
+		);
+		expect(markerCallee(conflict)).not.toBe("igniteAuthorStyle");
+		expect(marks(conflict).some((call) => call.includes("local"))).toBe(true);
+		expect(conflict).toContain(
+			'igniteAuthorStyle(".b{background:url(http://127.0.0.1:9/x.png)}")',
+		);
+		expect(conflict).not.toContain(
+			`${markerCallee(conflict)}(".b{background:url(http://127.0.0.1:9/x.png)}")`,
+		);
 	});
 
 	it("does not treat card.css?inline as author CSS", () => {
@@ -154,7 +176,7 @@ describe("author style transform", () => {
 		const styleLine = source
 			.split("\n")
 			.findIndex((line) => line.includes("<style>"));
-		expect(output.split("\n")[styleLine]).toContain("igniteAuthorStyle");
+		expect(output.split("\n")[styleLine]).toContain(markerCallee(output));
 	});
 
 	it("leaves a file without a style element unchanged", () => {
@@ -214,14 +236,15 @@ describe("author style transform", () => {
 			(call) => call.includes('"a"') || call.includes("'a'"),
 		);
 		expect(joined).toMatch(/local/);
-		expect(output).not.toMatch(/igniteAuthorStyle\(\s*\)/);
+		const name = localPattern(output);
+		expect(output).not.toMatch(new RegExp(`${name}\\(\\s*\\)`));
 		const div = output.slice(
 			output.indexOf("<div>{"),
 			output.indexOf("</div>"),
 		);
-		expect(div).not.toContain("igniteAuthorStyle(");
-		expect(output).not.toMatch(/<Foo\.style>\{igniteAuthorStyle\(/);
-		expect(output).not.toMatch(/<ns:div>\{igniteAuthorStyle\(/);
+		expect(div).not.toContain(`${markerCallee(output)}(`);
+		expect(output).not.toMatch(new RegExp(`<Foo\\.style>\\{${name}\\(`));
+		expect(output).not.toMatch(new RegExp(`<ns:div>\\{${name}\\(`));
 	});
 
 	it("does not mark dynamic, empty, cyclic, or non-author bindings", () => {
@@ -265,9 +288,6 @@ describe("author style transform", () => {
 			`import { other as igniteAuthorStyle } from "ignite-element/jsx/author-style";
 			const local = ".a{}";
 			export const view = <style>{local}</style>;`,
-			`import { igniteAuthorStyle } from "elsewhere";
-			const local = ".a{}";
-			export const view = <style>{local}</style>;`,
 			`import igniteAuthorStyle from "ignite-element/jsx/author-style";
 			const local = ".a{}";
 			export const view = <style>{local}</style>;`,
@@ -277,11 +297,19 @@ describe("author style transform", () => {
 			try {
 				output = transformSource(source, "reject.tsx");
 			} catch (error) {
-				expect(String(error)).toMatch(/already declared|cannot mark CSS/);
+				expect(String(error)).toMatch(/cannot mark CSS/);
 				continue;
 			}
-			expect(output, source).not.toContain("igniteAuthorStyle(");
+			expect(output, source).not.toContain(`${markerCallee(output)}(`);
 		}
+		const elsewhere = transformSource(
+			`import { igniteAuthorStyle } from "elsewhere";
+			const local = ".a{}";
+			export const view = <style>{local}</style>;`,
+			"elsewhere.tsx",
+		);
+		expect(marks(elsewhere)).toEqual(["local"]);
+		expect(markerCallee(elsewhere)).not.toBe("igniteAuthorStyle");
 	});
 
 	it("Security P2: every hand-written author import is rejected", () => {
@@ -340,5 +368,124 @@ describe("author style transform", () => {
 		expect(allowed.startsWith('"use strict"')).toBe(true);
 		expect(allowed).toContain("ignite-jsx:author-style");
 		expect(allowed).not.toContain("ignite-element/jsx/author-style");
+	});
+
+	it("does not mark a binding in a scope that contains direct eval", () => {
+		const output = transformSource(
+			`const sheet = ".a{background:url(http://127.0.0.1:9/x.png)}";
+			eval("sheet = '.stolen{}'");
+			function sibling() {
+				const kept = ".kept{color:red}";
+				return <style>{kept}</style>;
+			}
+			export const view = (
+				<div>
+					<style>{sheet}</style>
+					<style>{".literal{background:url(https://cdn.example/a.png)}"}</style>
+					{sibling()}
+				</div>
+			);`,
+			"eval.tsx",
+		);
+		const wrapped = marks(output);
+		expect(wrapped.some((call) => call.trim() === "sheet")).toBe(false);
+		expect(wrapped.some((call) => call.includes("cdn.example/a.png"))).toBe(
+			true,
+		);
+		expect(wrapped.some((call) => call.trim() === "kept")).toBe(true);
+	});
+
+	it("fails when a free reference uses the generated marker name", () => {
+		const filename = "extra.tsx";
+		const local = markerLocalName(filename);
+		expect(() =>
+			transformSource(
+				`const local = ".a{color:red}";
+				void ${local};
+				export const view = <style>{local}</style>;`,
+				filename,
+			),
+		).toThrow(
+			/Marker references \(2\) outnumber marked <style> elements \(1\)/,
+		);
+	});
+
+	it("rejects a template whose static parts name the author mark", () => {
+		expect(() =>
+			transformSource(
+				`const part = "mark";
+				const mod = import(\`../node_modules/@ignite-element/renderer/dist/jsx/author-style-\${part}.es.js\`);
+				export const view = <style>{".a{color:red}"}</style>;`,
+				"template.tsx",
+			),
+		).toThrow(/author-style-\$\{...}\.es\.js" cannot mark CSS/);
+	});
+
+	it("rejects a specifier that only matches the author-style text", () => {
+		expect(() =>
+			transformSource(
+				`import sheet from "lib/authorStyle.js";
+				export const view = <style>{".a{color:red}"}</style>;`,
+				"author-style-text.tsx",
+			),
+		).toThrow(/lib\/authorStyle\.js" cannot mark CSS/);
+	});
+
+	it("does not treat an ordinary call as an author import", () => {
+		const output = transformSource(
+			`helper("ignite-element/jsx/author-style");
+			export const view = <style>{".a{color:red}"}</style>;`,
+			"ordinary-call.tsx",
+		);
+		expect(marks(output).some((call) => call.includes("color:red"))).toBe(true);
+	});
+
+	it("still marks a const when eval is optional", () => {
+		const output = transformSource(
+			`const sheet = ".a{background:url(http://127.0.0.1:9/x.png)}";
+			eval?.("sheet = '.stolen{}'");
+			export const view = <style>{sheet}</style>;`,
+			"optional-eval.tsx",
+		);
+		expect(marks(output).some((call) => call.trim() === "sheet")).toBe(true);
+	});
+
+	it("rejects a Babel ImportExpression that names the author mark", () => {
+		const ast = parse(`export const view = <style>{".a{color:red}"}</style>;`, {
+			sourceType: "module",
+			plugins: ["typescript", "jsx"],
+		});
+		ast.program.body.push(
+			t.expressionStatement(
+				t.importExpression(t.stringLiteral("ignite-element/jsx/author-style")),
+			),
+		);
+		expect(() => markFile(ast, "import-expression.tsx")).toThrow(
+			/cannot mark CSS/,
+		);
+		const templated = parse(
+			`export const view = <style>{".a{color:red}"}</style>;`,
+			{ sourceType: "module", plugins: ["typescript", "jsx"] },
+		);
+		templated.program.body.push(
+			t.expressionStatement(
+				t.importExpression(
+					t.templateLiteral(
+						[
+							t.templateElement({
+								raw: "../node_modules/@ignite-element/renderer/dist/jsx/author-style-",
+								cooked:
+									"../node_modules/@ignite-element/renderer/dist/jsx/author-style-",
+							}),
+							t.templateElement({ raw: ".es.js", cooked: ".es.js" }, true),
+						],
+						[t.identifier("part")],
+					),
+				),
+			),
+		);
+		expect(() => markFile(templated, "import-template.tsx")).toThrow(
+			/cannot mark CSS/,
+		);
 	});
 });

@@ -1,41 +1,27 @@
-import {
-	existsSync,
-	mkdirSync,
-	readFileSync,
-	readlinkSync,
-	rmSync,
-	symlinkSync,
-} from "node:fs";
+import { lstatSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { defineConfig, type Plugin } from "vite";
 import { createLibConfig } from "../../configs/vite/lib";
 
-// From dist/<chunk>.js, the published package and a pnpm install both keep
-// the renderer beside ignite-element. A path through ignite-element/node_modules
-// is only the workspace symlink, and packed consumers do not have it.
-const authorMarkId =
-	"../../@ignite-element/renderer/dist/jsx/author-style-mark.es.js";
+// Node resolves @ignite-element/renderer from this file. A hard-coded
+// ../../ path misses nested npm, PnP, and vendored layouts. The file is
+// generated into dist and is not a package export.
+const authorBridgeId = "./author-style-resolve.js";
 
-function linkWorkspaceRenderer(): void {
-	const packageDir = path.resolve(process.cwd());
-	const manifestPath = path.join(packageDir, "package.json");
-	if (!existsSync(manifestPath)) return;
-	const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
-		name?: string;
-	};
-	if (manifest.name !== "ignite-element") return;
-	const linkDir = path.resolve(packageDir, "../@ignite-element");
-	const linkPath = path.join(linkDir, "renderer");
-	const target = "../ignite-renderer";
-	mkdirSync(linkDir, { recursive: true });
+const authorBridgeSource = `const entry = import.meta.resolve("@ignite-element/renderer");
+const markUrl = new URL("jsx/author-style-mark.es.js", entry);
+const marked = await import(markUrl.href);
+export const readAuthorStyle = marked.readAuthorStyle;
+`;
+
+function removeWorkspaceRendererLink(): void {
+	const linkPath = path.resolve(process.cwd(), "../@ignite-element/renderer");
 	try {
-		if (readlinkSync(linkPath) === target) return;
-		rmSync(linkPath, { force: true });
-	} catch (error) {
-		const code = (error as NodeJS.ErrnoException).code;
-		if (code !== "ENOENT") throw error;
+		if (!lstatSync(linkPath).isSymbolicLink()) return;
+	} catch {
+		return;
 	}
-	symlinkSync(target, linkPath, "dir");
+	rmSync(linkPath, { force: true });
 }
 
 type ViteCommand = "build" | "serve";
@@ -80,7 +66,7 @@ export default defineConfig(({ command }) => {
 		external: [
 			"@ignite-element/core",
 			"@ignite-element/renderer",
-			authorMarkId,
+			authorBridgeId,
 			"@ignite-element/adapters",
 			"@ignite-element/adapters/actor-web",
 			"lit-html",
@@ -105,7 +91,8 @@ export default defineConfig(({ command }) => {
 		},
 	});
 	const warningsOn = command !== "build" || devArtifact;
-	linkWorkspaceRenderer();
+	removeWorkspaceRendererLink();
+	let outDir = "dist";
 	return {
 		...libConfig,
 		define: {
@@ -119,23 +106,29 @@ export default defineConfig(({ command }) => {
 				name: "externalize-author-style",
 				apply: "build",
 				enforce: "pre",
+				configResolved(config) {
+					outDir = config.build.outDir;
+				},
+				buildStart() {
+					removeWorkspaceRendererLink();
+				},
 				resolveId(source, importer) {
 					if (!importer) return null;
 					if (
 						source === "@ignite-element/renderer/jsx/author-style" ||
 						/(?:^|\/)authorStyle(?:\.ts|\.js)?$/.test(source) ||
-						/(?:^|\/)author-style(?:\.[^/]+)?\.js$/.test(source)
+						/(?:^|\/)author-style-mark(?:\.development)?\.es\.js$/.test(source)
 					) {
-						// Same file as the renderer's dist/jsx/author-style-mark.es.js.
-						// Not a package export. The sibling path is how npm and pnpm
-						// lay out the two packages. linkWorkspaceRenderer() mirrors
-						// that layout in this repo so the built chunk still loads.
 						return {
-							id: authorMarkId,
+							id: authorBridgeId,
 							external: true,
 						};
 					}
 					return null;
+				},
+				closeBundle() {
+					const file = path.resolve(outDir, "author-style-resolve.js");
+					writeFileSync(file, authorBridgeSource);
 				},
 			} satisfies Plugin,
 			...(libConfig.plugins ?? []),

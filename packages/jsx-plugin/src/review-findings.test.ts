@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { transformSync } from "@babel/core";
 import { describe, expect, it } from "vitest";
 import igniteJsxBabel from "./babel.js";
-import { transformSource } from "./transform.js";
+import { markerCallee, transformSource } from "./transform.js";
 
 function packageJson(relative: string) {
 	return JSON.parse(
@@ -63,12 +63,13 @@ describe("review findings", () => {
 			`,
 			"chain.tsx",
 		);
-		expect(output).not.toMatch(/igniteAuthorStyle\(\s*live\s*\)/);
-		expect(output).not.toMatch(/igniteAuthorStyle\(\s*old\s*\)/);
-		expect(output).not.toMatch(/igniteAuthorStyle\(\s*s\s*\)/);
-		expect(output).not.toMatch(/igniteAuthorStyle\(\s*moduleSheet\s*\)/);
-		expect(output).not.toMatch(/igniteAuthorStyle\(\s*alias\s*\)/);
-		expect(output).toMatch(/igniteAuthorStyle\(\s*kept\s*\)/);
+		const name = markerCallee(output).replace(/\$/g, "\\$");
+		expect(output).not.toMatch(new RegExp(`${name}\\(\\s*live\\s*\\)`));
+		expect(output).not.toMatch(new RegExp(`${name}\\(\\s*old\\s*\\)`));
+		expect(output).not.toMatch(new RegExp(`${name}\\(\\s*s\\s*\\)`));
+		expect(output).not.toMatch(new RegExp(`${name}\\(\\s*moduleSheet\\s*\\)`));
+		expect(output).not.toMatch(new RegExp(`${name}\\(\\s*alias\\s*\\)`));
+		expect(output).toMatch(new RegExp(`${name}\\(\\s*kept\\s*\\)`));
 	});
 
 	it("Security P2: author-style is not a public typed export and an app import cannot bless CSS", () => {
@@ -128,6 +129,33 @@ describe("review findings", () => {
 		const code = result?.code ?? "";
 		expect(code).toContain("ignite-element/jsx/jsx-runtime");
 		expect(code).toContain("igniteAuthorStyle");
+		expect(markerCallee(code)).not.toBe("igniteAuthorStyle");
 		expect(code).not.toContain("<style>");
+	});
+
+	it("states that direct eval makes a marked const assignable", () => {
+		const model = readFileSync(
+			new URL(
+				"../../ignite-renderer/src/renderers/jsx/THREAT-MODEL.md",
+				import.meta.url,
+			),
+			"utf8",
+		);
+		const bullet = model
+			.split("\n")
+			.find((line) => line.includes("Direct `eval`"));
+		expect(bullet, model).toBeTruthy();
+		expect(bullet).toMatch(/esbuild emits that `const` as `var`/);
+		expect(bullet).toMatch(/user CSS written into that binding is trusted/);
+		expect(bullet?.toLowerCase()).not.toMatch(/minor|theoretical|out of scope/);
+	});
+
+	it("does not call babel or typescript enough on their own", () => {
+		const note = readFileSync(
+			new URL("../../../.changeset/jsx-xss-guards.md", import.meta.url),
+			"utf8",
+		);
+		expect(note).toMatch(/not standalone/);
+		expect(note).toMatch(/not enough on their own/);
 	});
 });

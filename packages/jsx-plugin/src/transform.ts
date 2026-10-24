@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import generateModule from "@babel/generator";
 import { parse } from "@babel/parser";
 import type { Binding, NodePath } from "@babel/traverse";
@@ -86,6 +87,9 @@ function isStaticRef(
 	// a let fails when this walk reaches the let.
 	if (binding.constant === false) return false;
 	if (binding.constantViolations?.length) return false;
+	// esbuild emits a marked const as var. Direct eval in this scope can
+	// assign user CSS into that binding, and the renderer would trust it.
+	if (directEvalBlocks?.has(evalScope(binding.scope).block)) return false;
 	stack.add(name);
 	if (isRawImport(binding)) return true;
 	if (binding.kind !== "const") return false;
@@ -157,23 +161,45 @@ function buildArg(parts: Part[]): t.Expression {
 		);
 }
 
-function resolveCallee(path: NodePath<t.JSXElement>): string {
-	const local = "igniteAuthorStyle";
-	const binding = path.scope.getBinding(local);
-	if (!binding) return local;
-	throw new Error(
-		`igniteAuthorStyle is already declared in this file. The ignite JSX plugin will not mark <style>. Rename the other binding.`,
-	);
+let directEvalBlocks: Set<t.Node> | null = null;
+
+type EvalScope = { block: t.Node; parent: EvalScope | null };
+
+function evalScope(scope: NodePath["scope"]): EvalScope {
+	return scope as unknown as EvalScope;
 }
 
-function ensureImport(program: t.Program, callee: string): void {
+function scopesWithDirectEval(ast: t.Node): Set<t.Node> {
+	const blocks = new Set<t.Node>();
+	const visit = traverse as (node: t.Node, visitors: object) => void;
+	visit(ast, {
+		CallExpression(path: NodePath<t.CallExpression>) {
+			if (path.node.optional) return;
+			const callee = unwrap(path.node.callee);
+			if (callee.type !== "Identifier" || callee.name !== "eval") return;
+			let scope: EvalScope | null = evalScope(path.scope);
+			while (scope) {
+				blocks.add(scope.block);
+				scope = scope.parent;
+			}
+		},
+	});
+	return blocks;
+}
+
+export function markerLocalName(filename: string): string {
+	const hash = createHash("sha256").update(filename).digest("hex").slice(0, 8);
+	return `_igniteAuthor$${hash}`;
+}
+
+export function markerCallee(code: string): string {
+	const alias = code.match(/igniteAuthorStyle as ([A-Za-z0-9_$]+)/);
+	return alias?.[1] ?? "igniteAuthorStyle";
+}
+
+function ensureImport(program: t.Program, local: string): void {
 	const decl = t.importDeclaration(
-		[
-			t.importSpecifier(
-				t.identifier(callee),
-				t.identifier("igniteAuthorStyle"),
-			),
-		],
+		[t.importSpecifier(t.identifier(local), t.identifier("igniteAuthorStyle"))],
 		t.stringLiteral(AUTHOR_VIRTUAL),
 	);
 	let insertAt = 0;
@@ -215,10 +241,54 @@ function specifierOf(node: t.Node | null | undefined): string | null {
 }
 
 function rejectSpecifier(value: string): void {
-	if (!isBlockedAuthorSpecifier(value)) return;
+	if (
+		!isBlockedAuthorSpecifier(value) &&
+		!/author-style|authorStyle/.test(value)
+	) {
+		return;
+	}
 	throw new Error(
 		`An application import from "${value}" cannot mark CSS. The ignite JSX plugin marks static <style> text itself.`,
 	);
+}
+
+function rejectTemplate(node: t.TemplateLiteral): void {
+	const parts = node.quasis.map(
+		(quasi) => quasi.value.cooked ?? quasi.value.raw ?? "",
+	);
+	if (!parts.some((part) => /author-style|authorStyle/.test(part))) return;
+	throw new Error(
+		`An application import from "${parts.join("${" + "...}")}" cannot mark CSS. The ignite JSX plugin marks static <style> text itself.`,
+	);
+}
+
+function rejectImportSource(node: t.Node | null | undefined): void {
+	const value = specifierOf(node);
+	if (value) {
+		rejectSpecifier(value);
+		return;
+	}
+	if (!node) return;
+	const expr = unwrap(node);
+	if (expr.type === "TemplateLiteral") rejectTemplate(expr);
+}
+
+function countMarkerUses(ast: t.Node, name: string): number {
+	let count = 0;
+	const visit = traverse as (node: t.Node, visitors: object) => void;
+	visit(ast, {
+		Identifier(path: NodePath<t.Identifier>) {
+			if (path.node.name !== name) return;
+			if (
+				path.parent.type === "ImportSpecifier" &&
+				path.parent.local === path.node
+			) {
+				return;
+			}
+			count += 1;
+		},
+	});
+	return count;
 }
 
 function rejectHandWrittenAuthorImport(ast: t.File): void {
@@ -239,34 +309,55 @@ function rejectHandWrittenAuthorImport(ast: t.File): void {
 			const isRequire =
 				callee.type === "Identifier" && callee.name === "require";
 			if (!isImport && !isRequire) return;
-			const value = specifierOf(path.node.arguments[0]);
-			if (value) rejectSpecifier(value);
+			rejectImportSource(path.node.arguments[0]);
+		},
+		// Babel 7.29 parses import() as ImportExpression, not CallExpression.
+		ImportExpression(path: NodePath<t.CallExpression> & { node: t.Node }) {
+			const source = (path.node as { source?: t.Node }).source;
+			rejectImportSource(source);
 		},
 	});
 }
 
-export function markFile(ast: t.File): boolean {
+export function markFile(ast: t.File, filename = "component.tsx"): boolean {
 	rejectHandWrittenAuthorImport(ast);
-	const hits: Array<{ element: t.JSXElement; parts: Part[]; callee: string }> =
-		[];
-	traverse(ast, {
-		JSXElement(path) {
-			if (!isStyleTag(path.node.openingElement.name)) return;
-			const parts = readParts(path);
-			if (!parts) return;
-			hits.push({ element: path.node, parts, callee: resolveCallee(path) });
-		},
-	});
-	if (hits.length === 0) return false;
-	for (const hit of hits) {
-		hit.element.children = [
-			t.jsxExpressionContainer(
-				t.callExpression(t.identifier(hit.callee), [buildArg(hit.parts)]),
-			),
-		];
+	directEvalBlocks = scopesWithDirectEval(ast);
+	try {
+		const local = markerLocalName(filename);
+		const hits: Array<{ element: t.JSXElement; parts: Part[] }> = [];
+		traverse(ast, {
+			JSXElement(path) {
+				if (!isStyleTag(path.node.openingElement.name)) return;
+				const parts = readParts(path);
+				if (!parts) return;
+				hits.push({ element: path.node, parts });
+			},
+		});
+		if (hits.length === 0) return false;
+		const already = countMarkerUses(ast, local);
+		if (already > 0) {
+			throw new Error(
+				`Marker references (${already + hits.length}) outnumber marked <style> elements (${hits.length}).`,
+			);
+		}
+		for (const hit of hits) {
+			hit.element.children = [
+				t.jsxExpressionContainer(
+					t.callExpression(t.identifier(local), [buildArg(hit.parts)]),
+				),
+			];
+		}
+		ensureImport(ast.program, local);
+		const uses = countMarkerUses(ast, local);
+		if (uses !== hits.length) {
+			throw new Error(
+				`Marker references (${uses}) outnumber marked <style> elements (${hits.length}).`,
+			);
+		}
+		return true;
+	} finally {
+		directEvalBlocks = null;
 	}
-	ensureImport(ast.program, hits[0].callee);
-	return true;
 }
 
 export function transformSource(
@@ -278,6 +369,6 @@ export function transformSource(
 		sourceType: "module",
 		plugins: ["typescript", "jsx"],
 	});
-	if (!markFile(ast)) return code;
+	if (!markFile(ast, filename)) return code;
 	return generate(ast, { comments: true, retainLines: true }, code).code;
 }

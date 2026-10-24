@@ -12,7 +12,8 @@ export default function igniteJsxTypeScript(): ts.TransformerFactory<ts.SourceFi
 			true,
 			scriptKind(sourceFile.fileName),
 		);
-		const marked = markedStyles(parsed);
+		const localName = authorLocalName(parsed);
+		const marked = markedStyles(parsed, localName);
 		let index = 0;
 		const visitor = (node: ts.Node): ts.Node => {
 			if (!ts.isJsxElement(node) || !isStyleTag(node.openingElement.tagName)) {
@@ -24,13 +25,13 @@ export default function igniteJsxTypeScript(): ts.TransformerFactory<ts.SourceFi
 			return context.factory.updateJsxElement(
 				node,
 				node.openingElement,
-				[adoptCall(context, call)],
+				[adoptCall(context, call, localName)],
 				node.closingElement,
 			);
 		};
 		const visited =
 			ts.visitNode(sourceFile, visitor, ts.isSourceFile) ?? sourceFile;
-		return insertImport(context, visited, parsed);
+		return insertImport(context, visited, parsed, localName);
 	};
 }
 
@@ -42,13 +43,28 @@ function scriptKind(fileName: string): ts.ScriptKind {
 	return ts.ScriptKind.TS;
 }
 
+function authorLocalName(sourceFile: ts.SourceFile): string {
+	for (const statement of sourceFile.statements) {
+		if (!isAuthorImport(statement)) continue;
+		const clause = statement.importClause;
+		if (!clause?.namedBindings || !ts.isNamedImports(clause.namedBindings))
+			continue;
+		for (const element of clause.namedBindings.elements) {
+			const imported = element.propertyName ?? element.name;
+			if (imported.text === "igniteAuthorStyle") return element.name.text;
+		}
+	}
+	return "igniteAuthorStyle";
+}
+
 function markedStyles(
 	sourceFile: ts.SourceFile,
+	localName: string,
 ): Array<ts.CallExpression | undefined> {
 	const calls: Array<ts.CallExpression | undefined> = [];
 	const visit = (node: ts.Node): void => {
 		if (ts.isJsxElement(node) && isStyleTag(node.openingElement.tagName)) {
-			calls.push(authorCall(node));
+			calls.push(authorCall(node, localName));
 		}
 		ts.forEachChild(node, visit);
 	};
@@ -56,12 +72,15 @@ function markedStyles(
 	return calls;
 }
 
-function authorCall(element: ts.JsxElement): ts.CallExpression | undefined {
+function authorCall(
+	element: ts.JsxElement,
+	localName: string,
+): ts.CallExpression | undefined {
 	for (const child of element.children) {
 		if (!ts.isJsxExpression(child) || !child.expression) continue;
 		if (!ts.isCallExpression(child.expression)) continue;
 		const callee = child.expression.expression;
-		if (ts.isIdentifier(callee) && callee.text === "igniteAuthorStyle")
+		if (ts.isIdentifier(callee) && callee.text === localName)
 			return child.expression;
 	}
 	return undefined;
@@ -74,25 +93,27 @@ function isStyleTag(name: ts.JsxTagNameExpression): boolean {
 function adoptCall(
 	context: ts.TransformationContext,
 	call: ts.CallExpression,
+	localName: string,
 ): ts.JsxExpression {
 	return context.factory.createJsxExpression(
 		undefined,
-		adoptExpression(context, call),
+		adoptExpression(context, call, localName),
 	);
 }
 
 function adoptExpression(
 	context: ts.TransformationContext,
 	node: ts.Expression,
+	localName: string,
 ): ts.Expression {
 	if (ts.isCallExpression(node)) {
 		const callee = node.expression;
 		if (!ts.isIdentifier(callee))
-			return context.factory.createIdentifier("igniteAuthorStyle");
+			return context.factory.createIdentifier(localName);
 		return context.factory.createCallExpression(
 			context.factory.createIdentifier(callee.text),
 			undefined,
-			node.arguments.map((arg) => adoptExpression(context, arg)),
+			node.arguments.map((arg) => adoptExpression(context, arg, localName)),
 		);
 	}
 	if (ts.isIdentifier(node)) return context.factory.createIdentifier(node.text);
@@ -103,27 +124,32 @@ function adoptExpression(
 	}
 	if (ts.isBinaryExpression(node)) {
 		return context.factory.createBinaryExpression(
-			adoptExpression(context, node.left),
+			adoptExpression(context, node.left, localName),
 			node.operatorToken.kind,
-			adoptExpression(context, node.right),
+			adoptExpression(context, node.right, localName),
 		);
 	}
 	if (ts.isParenthesizedExpression(node)) {
 		return context.factory.createParenthesizedExpression(
-			adoptExpression(context, node.expression),
+			adoptExpression(context, node.expression, localName),
 		);
 	}
-	return context.factory.createIdentifier("igniteAuthorStyle");
+	return context.factory.createIdentifier(localName);
 }
 
 function insertImport(
 	context: ts.TransformationContext,
 	sourceFile: ts.SourceFile,
 	parsed: ts.SourceFile,
+	localName: string,
 ): ts.SourceFile {
 	if (hasAuthorImport(sourceFile)) return sourceFile;
 	if (!parsed.statements.some((statement) => isAuthorImport(statement)))
 		return sourceFile;
+	const imported =
+		localName === "igniteAuthorStyle"
+			? undefined
+			: context.factory.createIdentifier("igniteAuthorStyle");
 	const created = context.factory.createImportDeclaration(
 		undefined,
 		context.factory.createImportClause(
@@ -132,8 +158,8 @@ function insertImport(
 			context.factory.createNamedImports([
 				context.factory.createImportSpecifier(
 					false,
-					undefined,
-					context.factory.createIdentifier("igniteAuthorStyle"),
+					imported,
+					context.factory.createIdentifier(localName),
 				),
 			]),
 		),
@@ -152,7 +178,9 @@ function hasAuthorImport(sourceFile: ts.SourceFile): boolean {
 	return sourceFile.statements.some((statement) => isAuthorImport(statement));
 }
 
-function isAuthorImport(statement: ts.Statement): boolean {
+function isAuthorImport(
+	statement: ts.Statement,
+): statement is ts.ImportDeclaration {
 	if (!ts.isImportDeclaration(statement)) return false;
 	if (!ts.isStringLiteral(statement.moduleSpecifier)) return false;
 	if (statement.moduleSpecifier.text !== AUTHOR_VIRTUAL) return false;

@@ -33,6 +33,8 @@ const fixture = path.join(fixtureDir, "Card.tsx");
 const source = readFileSync(fixture, "utf8");
 
 function markerName(code: string): string {
+	const alias = code.match(/igniteAuthorStyle as ([A-Za-z0-9_$]+)/);
+	if (alias?.[1]) return alias[1];
 	if (
 		/[.)]igniteAuthorStyle\)?\(/.test(code) ||
 		/\bigniteAuthorStyle\(/.test(code)
@@ -46,7 +48,7 @@ function markerName(code: string): string {
 }
 
 function assertMarked(code: string, bundler: string) {
-	const name = markerName(code);
+	const name = markerName(code).replace(/\$/g, "\\$");
 	const calls = code.match(new RegExp(`\\b${name}\\)?\\(`, "g")) ?? [];
 	expect(calls.length, `${bundler} via ${name}`).toBeGreaterThanOrEqual(4);
 	expect(

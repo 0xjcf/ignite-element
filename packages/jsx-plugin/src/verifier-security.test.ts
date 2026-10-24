@@ -74,93 +74,92 @@ async function bundleApp(
 	}
 }
 
-async function shipped(files: Record<string, string>, entry?: string) {
-	try {
-		return await bundleApp(files, entry);
-	} catch (error) {
-		return error instanceof Error ? error.message : String(error);
-	}
-}
-
 describe("P2-1 private author mark", () => {
 	it("P2-1: an export-from re-export cannot keep a user url", async () => {
-		const code = await shipped({
-			"bridge.js": `export { igniteAuthorStyle } from "ignite-element/jsx/author-style";\n`,
-			"entry.tsx": `import { igniteAuthorStyle } from "./bridge.js";
+		await expect(
+			bundleApp({
+				"bridge.js": `export { igniteAuthorStyle } from "ignite-element/jsx/author-style";\n`,
+				"entry.tsx": `import { igniteAuthorStyle } from "./bridge.js";
 export const view = igniteAuthorStyle(${JSON.stringify(CSS)});
 `,
-		});
-		expect(code).not.toContain(PAYLOAD);
+			}),
+		).rejects.toThrow(/cannot mark CSS/);
 	});
 
 	it("P2-1: dynamic import() cannot keep a user url", async () => {
-		const code = await shipped({
-			"entry.tsx": `const mod = await import("ignite-element/jsx/author-style");
+		await expect(
+			bundleApp({
+				"entry.tsx": `const mod = await import("ignite-element/jsx/author-style");
 export const view = mod.igniteAuthorStyle(${JSON.stringify(CSS)});
 `,
-		});
-		expect(code).not.toContain(PAYLOAD);
-		expect(code).not.toContain("ignite-element.authorStyle");
+			}),
+		).rejects.toThrow(/cannot mark CSS/);
 	});
 
 	it("P2-1: a node_modules package that re-exports the mark cannot keep a user url", async () => {
-		const code = await shipped({
-			"node_modules/evil-mark/package.json": `${JSON.stringify({ name: "evil-mark", type: "module" })}\n`,
-			"node_modules/evil-mark/index.js": `export { igniteAuthorStyle } from "ignite-element/jsx/author-style";\n`,
-			"entry.tsx": `import { igniteAuthorStyle } from "evil-mark";
+		await expect(
+			bundleApp({
+				"node_modules/evil-mark/package.json": `${JSON.stringify({ name: "evil-mark", type: "module" })}\n`,
+				"node_modules/evil-mark/index.js": `export { igniteAuthorStyle } from "ignite-element/jsx/author-style";\n`,
+				"entry.tsx": `import { igniteAuthorStyle } from "evil-mark";
 export const view = igniteAuthorStyle(${JSON.stringify(CSS)});
 `,
-		});
-		expect(code).not.toContain(PAYLOAD);
+			}),
+		).rejects.toThrow(/cannot mark CSS/);
 	});
 
 	it("P2-1: a relative deep path to the mark file cannot keep a user url", async () => {
-		const code = await shipped({
-			"entry.tsx": `import { igniteAuthorStyle } from ${JSON.stringify(markDist)};
+		await expect(
+			bundleApp({
+				"entry.tsx": `import { igniteAuthorStyle } from ${JSON.stringify(markDist)};
 export const view = igniteAuthorStyle(${JSON.stringify(CSS)});
 `,
-		});
-		expect(code).not.toContain(PAYLOAD);
+			}),
+		).rejects.toThrow(/cannot mark CSS/);
 	});
 
 	it("P2-1: a new app-side route does not resolve to the mark", async () => {
-		const code = await shipped({
-			"entry.tsx": `import { igniteAuthorStyle } from ${JSON.stringify(markSource)};
+		await expect(
+			bundleApp({
+				"entry.tsx": `import { igniteAuthorStyle } from ${JSON.stringify(markSource)};
 export const view = igniteAuthorStyle(${JSON.stringify(CSS)});
 `,
-		});
-		expect(code).not.toContain(PAYLOAD);
+			}),
+		).rejects.toThrow(/cannot mark CSS/);
 	});
 
 	it("P2-1: export * and require() cannot keep a user url", async () => {
-		const starred = await shipped({
-			"bridge.js": `export * from "ignite-element/jsx/author-style";\n`,
-			"entry.tsx": `import { igniteAuthorStyle } from "./bridge.js";
+		await expect(
+			bundleApp({
+				"bridge.js": `export * from "ignite-element/jsx/author-style";\n`,
+				"entry.tsx": `import { igniteAuthorStyle } from "./bridge.js";
 export const view = igniteAuthorStyle(${JSON.stringify(CSS)});
 `,
-		});
-		expect(starred).not.toContain(PAYLOAD);
-		const required = await shipped(
-			{
-				"entry.js": `const { igniteAuthorStyle } = require("ignite-element/jsx/author-style");
+			}),
+		).rejects.toThrow(/cannot mark CSS/);
+		await expect(
+			bundleApp(
+				{
+					"entry.js": `const { igniteAuthorStyle } = require("ignite-element/jsx/author-style");
 exports.view = igniteAuthorStyle(${JSON.stringify(CSS)});
 `,
-			},
-			"entry.js",
-		);
-		expect(required).not.toContain(PAYLOAD);
+				},
+				"entry.js",
+			),
+		).rejects.toThrow(/cannot mark CSS/);
 	});
 
 	it("P2-1: an app dist file that the plugin skips cannot keep a user url", async () => {
-		const code = await shipped(
-			{
-				"dist/entry.js": `import { igniteAuthorStyle } from "ignite-element/jsx/author-style";
+		await expect(
+			bundleApp(
+				{
+					"dist/entry.js": `import { igniteAuthorStyle } from "ignite-element/jsx/author-style";
 export const view = igniteAuthorStyle(${JSON.stringify(CSS)});
 `,
-			},
-			"dist/entry.js",
-		);
-		expect(code).not.toContain(PAYLOAD);
+				},
+				"dist/entry.js",
+			),
+		).rejects.toThrow(/cannot mark CSS/);
 	});
 });
 
