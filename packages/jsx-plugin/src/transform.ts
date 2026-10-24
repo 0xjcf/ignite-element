@@ -1,4 +1,12 @@
 import { createHash } from "node:crypto";
+import {
+	existsSync,
+	lstatSync,
+	readdirSync,
+	readFileSync,
+	realpathSync,
+} from "node:fs";
+import path from "node:path";
 import generateModule from "@babel/generator";
 import { parse } from "@babel/parser";
 import type { Binding, NodePath } from "@babel/traverse";
@@ -9,6 +17,11 @@ import * as t from "@babel/types";
 export const AUTHOR_SOURCE = "ignite-element/jsx/author-style";
 /** Private id inserted only by this plugin. Bundlers resolve it for that import alone. */
 export const AUTHOR_VIRTUAL = "\0ignite-jsx:author-style";
+/**
+ * Babel and tsc emit this instead of a resolvable module. A build that has
+ * no bundler plugin fails on the text, which is the whole error.
+ */
+export const AUTHOR_STANDALONE = `${AUTHOR_VIRTUAL} (not standalone and not enough on their own)`;
 const RAW_SPECIFIER = /\.css\?raw(?:&|$)/;
 const MARK_FILE =
 	/(?:^|\/)(?:renderers\/jsx\/authorStyle(?:\.ts|\.js)?|author-style(?:-mark)?(?:\.development)?\.es\.js|jsx\/author-style(?:-mark)?)$/;
@@ -240,37 +253,111 @@ function specifierOf(node: t.Node | null | undefined): string | null {
 	return null;
 }
 
-function rejectSpecifier(value: string): void {
+function libraryRelativeAuthorImport(filename: string, value: string): boolean {
+	if (!value.startsWith(".")) return false;
+	if (!/author-style|authorStyle/.test(value)) return false;
+	let file = filename;
+	try {
+		if (lstatSync(file).isSymbolicLink()) return false;
+		file = realpathSync(file);
+	} catch {
+		return false;
+	}
+	let dir = path.dirname(file);
+	for (let depth = 0; depth < 8; depth += 1) {
+		const manifest = path.join(dir, "package.json");
+		if (existsSync(manifest)) {
+			try {
+				const parsed = JSON.parse(readFileSync(manifest, "utf8")) as {
+					name?: string;
+				};
+				return parsed.name === "@ignite-element/renderer";
+			} catch {
+				// A broken package.json is not this package.
+			}
+		}
+		const parent = path.dirname(dir);
+		if (parent === dir) return false;
+		dir = parent;
+	}
+	return false;
+}
+
+function rejectSpecifier(value: string, filename: string): void {
 	if (
 		!isBlockedAuthorSpecifier(value) &&
 		!/author-style|authorStyle/.test(value)
 	) {
 		return;
 	}
+	if (libraryRelativeAuthorImport(filename, value)) return;
 	throw new Error(
 		`An application import from "${value}" cannot mark CSS. The ignite JSX plugin marks static <style> text itself.`,
 	);
 }
 
-function rejectTemplate(node: t.TemplateLiteral): void {
+function escapeRegExp(value: string): string {
+	return value.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
+}
+
+function templateResolvesToMark(parts: string[], filename: string): boolean {
+	const prefix = parts[0] ?? "";
+	const slash = prefix.lastIndexOf("/");
+	if (slash <= 0) return false;
+	const rawDir = prefix.slice(0, slash);
+	const namePrefix = prefix.slice(slash + 1);
+	const dir = path.isAbsolute(rawDir)
+		? rawDir
+		: path.resolve(path.dirname(filename), rawDir);
+	let names: string[] = [];
+	try {
+		names = readdirSync(dir);
+	} catch {
+		return false;
+	}
+	const pattern = new RegExp(
+		`^${escapeRegExp(namePrefix)}${parts
+			.slice(1)
+			.map((part) => `[^/]*${escapeRegExp(part)}`)
+			.join("")}$`,
+	);
+	for (const name of names) {
+		if (!pattern.test(name)) continue;
+		const full = path.join(dir, name);
+		let real = full;
+		try {
+			real = realpathSync(full);
+		} catch {
+			real = full;
+		}
+		if (isBlockedAuthorSpecifier(real.split("\\").join("/"))) return true;
+	}
+	return false;
+}
+
+function rejectTemplate(node: t.TemplateLiteral, filename: string): void {
 	const parts = node.quasis.map(
 		(quasi) => quasi.value.cooked ?? quasi.value.raw ?? "",
 	);
-	if (!parts.some((part) => /author-style|authorStyle/.test(part))) return;
+	const spelled = parts.some((part) => /author-style|authorStyle/.test(part));
+	if (!spelled && !templateResolvesToMark(parts, filename)) return;
 	throw new Error(
 		`An application import from "${parts.join("${" + "...}")}" cannot mark CSS. The ignite JSX plugin marks static <style> text itself.`,
 	);
 }
 
-function rejectImportSource(node: t.Node | null | undefined): void {
+function rejectImportSource(
+	node: t.Node | null | undefined,
+	filename: string,
+): void {
 	const value = specifierOf(node);
 	if (value) {
-		rejectSpecifier(value);
+		rejectSpecifier(value, filename);
 		return;
 	}
 	if (!node) return;
 	const expr = unwrap(node);
-	if (expr.type === "TemplateLiteral") rejectTemplate(expr);
+	if (expr.type === "TemplateLiteral") rejectTemplate(expr, filename);
 }
 
 function countMarkerUses(ast: t.Node, name: string): number {
@@ -291,17 +378,18 @@ function countMarkerUses(ast: t.Node, name: string): number {
 	return count;
 }
 
-function rejectHandWrittenAuthorImport(ast: t.File): void {
+function rejectHandWrittenAuthorImport(ast: t.File, filename: string): void {
 	const visit = traverse as (node: t.Node, visitors: object) => void;
 	visit(ast, {
 		ImportDeclaration(path: NodePath<t.ImportDeclaration>) {
-			rejectSpecifier(String(path.node.source.value));
+			rejectSpecifier(String(path.node.source.value), filename);
 		},
 		ExportAllDeclaration(path: NodePath<t.ExportAllDeclaration>) {
-			rejectSpecifier(String(path.node.source.value));
+			rejectSpecifier(String(path.node.source.value), filename);
 		},
 		ExportNamedDeclaration(path: NodePath<t.ExportNamedDeclaration>) {
-			if (path.node.source) rejectSpecifier(String(path.node.source.value));
+			if (path.node.source)
+				rejectSpecifier(String(path.node.source.value), filename);
 		},
 		CallExpression(path: NodePath<t.CallExpression>) {
 			const callee = unwrap(path.node.callee);
@@ -309,18 +397,18 @@ function rejectHandWrittenAuthorImport(ast: t.File): void {
 			const isRequire =
 				callee.type === "Identifier" && callee.name === "require";
 			if (!isImport && !isRequire) return;
-			rejectImportSource(path.node.arguments[0]);
+			rejectImportSource(path.node.arguments[0], filename);
 		},
 		// Babel 7.29 parses import() as ImportExpression, not CallExpression.
 		ImportExpression(path: NodePath<t.CallExpression> & { node: t.Node }) {
 			const source = (path.node as { source?: t.Node }).source;
-			rejectImportSource(source);
+			rejectImportSource(source, filename);
 		},
 	});
 }
 
 export function markFile(ast: t.File, filename = "component.tsx"): boolean {
-	rejectHandWrittenAuthorImport(ast);
+	rejectHandWrittenAuthorImport(ast, filename);
 	directEvalBlocks = scopesWithDirectEval(ast);
 	try {
 		const local = markerLocalName(filename);

@@ -1,3 +1,7 @@
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { parse } from "@babel/parser";
 import * as t from "@babel/types";
 import { describe, expect, it } from "vitest";
@@ -408,6 +412,158 @@ describe("author style transform", () => {
 		).toThrow(
 			/Marker references \(2\) outnumber marked <style> elements \(1\)/,
 		);
+	});
+
+	it("rejects a template when its resolved files include the mark", () => {
+		const mark = fileURLToPath(
+			new URL(
+				"../../ignite-renderer/dist/jsx/author-style-mark.es.js",
+				import.meta.url,
+			),
+		);
+		const dir = path.dirname(mark);
+		const sources = [
+			`const a = "x";
+			const mod = import(\`${dir}/\${a}.es.js\`);
+			export const view = <style>{".a{color:red}"}</style>;`,
+			`const x = "x";
+			const mod = require(\`${dir}/author-\${"style"}-\${x}.es.js\`);
+			export const view = <style>{".a{color:red}"}</style>;`,
+			`const a = "-style-mark";
+			const mod = import(\`${dir}/author\${a}.es.js\`);
+			export const view = <style>{".a{color:red}"}</style>;`,
+		];
+		for (const source of sources) {
+			expect(source).not.toMatch(/author-style/);
+			expect(() => transformSource(source, "resolved-glob.tsx")).toThrow(
+				/cannot mark CSS/,
+			);
+		}
+	});
+
+	it("keeps a template whose resolved files are not the mark", () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "ignite-safe-glob-"));
+		writeFileSync(path.join(dir, "icon.es.js"), "export const icon = 1;\n");
+		try {
+			const output = transformSource(
+				`const a = "icon";
+				const mod = import(\`${dir}/\${a}.es.js\`);
+				export const view = <style>{".a{color:red}"}</style>;`,
+				"safe-glob.tsx",
+			);
+			expect(marks(output).some((call) => call.includes("color:red"))).toBe(
+				true,
+			);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("allows the renderer source import of ./authorStyle", () => {
+		const filename = fileURLToPath(
+			new URL(
+				"../../ignite-renderer/src/renderers/jsx/renderer.ts",
+				import.meta.url,
+			),
+		);
+		expect(() =>
+			transformSource(
+				`import { readAuthorStyle } from "./authorStyle";
+				export const view = <div />;`,
+				filename,
+			),
+		).not.toThrow();
+		expect(() =>
+			transformSource(
+				`import { igniteAuthorStyle } from "./authorStyle";
+				export const view = <style>{".a{color:red}"}</style>;`,
+				path.join(tmpdir(), "app-author-style.tsx"),
+			),
+		).toThrow(/cannot mark CSS/);
+		expect(() =>
+			transformSource(
+				`import { readAuthorStyle } from "pkg/authorStyle.js";
+				export const view = <div />;`,
+				filename,
+			),
+		).toThrow(/cannot mark CSS/);
+		const elementFile = fileURLToPath(
+			new URL(
+				"../../ignite-element/src/renderers/ignite-jsx.ts",
+				import.meta.url,
+			),
+		);
+		expect(() =>
+			transformSource(
+				`import { readAuthorStyle } from "./authorStyle";
+				export const view = <div />;`,
+				elementFile,
+			),
+		).toThrow(/cannot mark CSS/);
+		const link = path.join(tmpdir(), `ignite-author-link-${process.pid}.tsx`);
+		symlinkSync(filename, link);
+		try {
+			expect(() =>
+				transformSource(
+					`import { readAuthorStyle } from "./authorStyle";
+					export const view = <div />;`,
+					link,
+				),
+			).toThrow(/cannot mark CSS/);
+		} finally {
+			rmSync(link, { force: true });
+		}
+	});
+
+	it("keeps a template when no resolved file is the mark", () => {
+		const missing = transformSource(
+			`const a = "x";
+			const mod = import(\`/no/such/ignite-mark-dir/\${a}.js\`);
+			export const view = <style>{".a{color:red}"}</style>;`,
+			"missing-glob.tsx",
+		);
+		expect(marks(missing).some((call) => call.includes("color:red"))).toBe(
+			true,
+		);
+		const bare = transformSource(
+			`const a = "x";
+			const mod = import(\`\${a}.js\`);
+			export const view = <style>{".a{color:red}"}</style>;`,
+			"bare-glob.tsx",
+		);
+		expect(marks(bare).some((call) => call.includes("color:red"))).toBe(true);
+		const dir = path.dirname(
+			fileURLToPath(
+				new URL(
+					"../../ignite-renderer/dist/jsx/author-style-mark.es.js",
+					import.meta.url,
+				),
+			),
+		);
+		const dottedSource = `const rest = "x";
+			const mod = import(\`${dir}/.\${rest}\`);
+			export const view = <style>{".a{color:red}"}</style>;`;
+		expect(dottedSource).not.toMatch(/author-style/);
+		const dotted = transformSource(dottedSource, "dotted-glob.tsx");
+		expect(marks(dotted).some((call) => call.includes("color:red"))).toBe(true);
+		const seamDir = mkdtempSync(path.join(tmpdir(), "ignite-read-seam-"));
+		writeFileSync(
+			path.join(seamDir, "author-style-read.es.js"),
+			"export const read = 1;\n",
+		);
+		try {
+			const output = transformSource(
+				`const a = "x";
+				const mod = import(\`${seamDir}/\${a}.es.js\`);
+				export const view = <style>{".a{color:red}"}</style>;`,
+				"read-seam-glob.tsx",
+			);
+			expect(marks(output).some((call) => call.includes("color:red"))).toBe(
+				true,
+			);
+		} finally {
+			rmSync(seamDir, { recursive: true, force: true });
+		}
 	});
 
 	it("rejects a template whose static parts name the author mark", () => {

@@ -1,4 +1,4 @@
-import { markFile } from "./transform.js";
+import { AUTHOR_STANDALONE, AUTHOR_VIRTUAL, markFile } from "./transform.js";
 
 export default function igniteJsxBabel() {
 	return {
@@ -12,6 +12,15 @@ export default function igniteJsxBabel() {
 			// `@babel/preset-react` automatic runtime has not added yet, and
 			// a later replace would wipe it.
 			markFile(file.ast, file.opts?.filename);
+			for (const statement of file.ast.program.body) {
+				if (
+					statement.type !== "ImportDeclaration" ||
+					statement.source.value !== AUTHOR_VIRTUAL
+				) {
+					continue;
+				}
+				statement.source.value = AUTHOR_STANDALONE;
+			}
 		},
 	};
 }

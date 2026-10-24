@@ -74,3 +74,23 @@ The same source still emitted `igniteAuthorStyle(sheet)` for a `const` in a scop
 - `does not let a src symlink or a bundler alias mint author trust`
 - `does not let webpack require.context mint author trust`
 - `resolves the mark from a nested install and does not keep a directory symlink`
+
+## `5a91ff50` — still open before this commit
+
+These failed when run against `5a91ff5059ab137d88b1f08ae4a78d680ab7acb1`, then the fix landed in the same commit.
+
+`packages/jsx-plugin/src/transform.test.ts`
+
+- `rejects a template when its resolved files include the mark`
+- `allows the renderer source import of ./authorStyle`
+
+`packages/jsx-plugin/src/review-findings.test.ts`
+
+- `P2-5: babel-only and tsc-only fail the build with a clear error`
+
+`packages/jsx-plugin/src/closure-followup.test.ts`
+
+- `P2-1b: esbuild rejects a template whose resolved files include the mark`
+- `P2-1c: esbuild refuses an alias to the mark in a file that has a static style`
+- `P2-6: the shipped reader is a static private import with no resolver`
+- `vite and esbuild drop a style load in the browser`

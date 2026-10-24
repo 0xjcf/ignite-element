@@ -1,5 +1,9 @@
 import ts from "typescript";
-import { AUTHOR_VIRTUAL, transformSource } from "./transform.js";
+import {
+	AUTHOR_STANDALONE,
+	AUTHOR_VIRTUAL,
+	transformSource,
+} from "./transform.js";
 
 export default function igniteJsxTypeScript(): ts.TransformerFactory<ts.SourceFile> {
 	return (context) => (sourceFile) => {
@@ -163,7 +167,7 @@ function insertImport(
 				),
 			]),
 		),
-		context.factory.createStringLiteral(AUTHOR_VIRTUAL),
+		context.factory.createStringLiteral(AUTHOR_STANDALONE),
 	);
 	let insertAt = 0;
 	sourceFile.statements.forEach((statement, index) => {

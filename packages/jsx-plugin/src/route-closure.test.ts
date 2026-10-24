@@ -389,6 +389,9 @@ export const stolen = ctx(key).igniteAuthorStyle(${JSON.stringify(CSS)});
 			"utf8",
 		);
 		expect(config).not.toContain("symlinkSync");
+		expect(config).not.toContain("import.meta.resolve");
+		expect(config).not.toContain("createRequire");
+		expect(config).toContain("#author-style");
 		expect(config).not.toContain(
 			"../../@ignite-element/renderer/dist/jsx/author-style-mark.es.js",
 		);
@@ -400,12 +403,6 @@ export const stolen = ctx(key).igniteAuthorStyle(${JSON.stringify(CSS)});
 			linked = false;
 		}
 		expect(linked).toBe(false);
-		const bridge = path.join(
-			repoRoot,
-			"packages/ignite-element/dist/author-style-resolve.js",
-		);
-		const bridgeText = readFileSync(bridge, "utf8");
-		expect(bridgeText).not.toContain("process");
 		const strategy = readdirSync(
 			path.join(repoRoot, "packages/ignite-element/dist"),
 		).find(
@@ -418,7 +415,8 @@ export const stolen = ctx(key).igniteAuthorStyle(${JSON.stringify(CSS)});
 			path.join(repoRoot, "packages/ignite-element/dist", strategy ?? ""),
 			"utf8",
 		);
-		expect(chunk).toContain("./author-style-resolve.js");
+		expect(chunk).toMatch(/from ["']#author-style["']/);
+		expect(chunk).not.toContain("import.meta");
 		expect(chunk).not.toContain("../../@ignite-element/renderer/");
 
 		const nested = mkdtempSync(path.join(tmpdir(), "ignite-nested-"));
@@ -455,10 +453,7 @@ export const stolen = ctx(key).igniteAuthorStyle(${JSON.stringify(CSS)});
 			pathToFileURL(path.join(elementDest, "dist", nestedStrategy ?? "")).href
 		)) as { readAuthorStyle?: unknown };
 		expect(loaded.readAuthorStyle).toBeUndefined();
-		const bridgeUrl = pathToFileURL(
-			path.join(elementDest, "dist/author-style-resolve.js"),
-		).href;
-		const nestedRequire = createRequire(bridgeUrl);
+		const nestedRequire = createRequire(path.join(elementDest, "package.json"));
 		const entry = realpathSync(
 			nestedRequire.resolve("@ignite-element/renderer"),
 		);
@@ -467,14 +462,16 @@ export const stolen = ctx(key).igniteAuthorStyle(${JSON.stringify(CSS)});
 			path.join(path.dirname(entry), "jsx/author-style-mark.es.js"),
 		);
 		expect(mark.startsWith(realpathSync(rendererDest))).toBe(true);
-		const bridgeMod = (await import(bridgeUrl)) as {
+		const probe = path.join(elementDest, "dist/author-style-probe.mjs");
+		writeFileSync(probe, 'export { readAuthorStyle } from "#author-style";\n');
+		const probeMod = (await import(pathToFileURL(probe).href)) as {
 			readAuthorStyle: (value: unknown) => string | undefined;
 		};
-		expect(typeof bridgeMod.readAuthorStyle).toBe("function");
+		expect(typeof probeMod.readAuthorStyle).toBe("function");
 		const markMod = (await import(pathToFileURL(mark).href)) as {
 			readAuthorStyle: (value: unknown) => string | undefined;
 		};
-		expect(bridgeMod.readAuthorStyle).toBe(markMod.readAuthorStyle);
+		expect(probeMod.readAuthorStyle).toBe(markMod.readAuthorStyle);
 		rmSync(nested, { recursive: true, force: true });
 	});
 });

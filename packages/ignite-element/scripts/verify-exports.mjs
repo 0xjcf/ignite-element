@@ -463,6 +463,15 @@ await assert.rejects(
 	import("@ignite-element/renderer/jsx/author-style-mark"),
 	/ERR_PACKAGE_PATH_NOT_EXPORTED|Cannot find module|Failed to load/,
 );
+const authorRead = await import(
+	"@ignite-element/renderer/jsx/author-style-read"
+);
+assert.equal(
+	Object.hasOwn(authorRead, "igniteAuthorStyle"),
+	false,
+	"The read seam must not export igniteAuthorStyle.",
+);
+assert.equal(typeof authorRead.readAuthorStyle, "function");
 
 console.info(
 	"[verify:exports] Package exports and fresh Node initialization resolved successfully.",

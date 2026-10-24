@@ -202,7 +202,7 @@ function libraryImporter(importer: string | undefined): boolean {
 	return false;
 }
 
-const issuedMarks = new Set<string>();
+const issuedExact = new Set<string>();
 
 function sourceMentionsAuthorMark(importer: string | undefined): boolean {
 	if (!importer) return false;
@@ -242,9 +242,10 @@ function allowIssuedFollowUp(
 	importer: string | undefined,
 ): boolean {
 	if (!importerWasMarked(importer)) return false;
-	if (!path.isAbsolute(filePath(id))) return false;
 	if (sourceMentionsAuthorMark(importer)) return false;
-	return issuedMarks.has(realpathOf(filePath(id)));
+	const requested = filePath(id);
+	if (!path.isAbsolute(requested)) return false;
+	return issuedExact.has(path.resolve(requested));
 }
 
 function claimsAuthor(id: string, importer: string | undefined): boolean {
@@ -278,7 +279,7 @@ function rememberedMark(importer: string | undefined): string {
 		);
 	}
 	const real = realpathOf(mark);
-	issuedMarks.add(real);
+	issuedExact.add(path.resolve(real));
 	return real;
 }
 
@@ -439,6 +440,7 @@ async function guardParsedModule(
 	}
 	for (const spec of sources) {
 		if (spec === AUTHOR_VIRTUAL) continue;
+		if (allowIssuedFollowUp(spec, info.id)) continue;
 		if (
 			spec === "author-style" ||
 			isBlockedAuthorSpecifier(spec) ||
@@ -662,7 +664,7 @@ export const igniteJsx = createUnplugin((_options, meta) => ({
 				const real = realpathOf(resolved.path);
 				if (!isMarkFile(real) && !isAuthorBridge(real)) return null;
 				if (libraryImporter(args.importer)) return null;
-				if (allowIssuedFollowUp(resolved.path, args.importer)) return null;
+				if (allowIssuedFollowUp(args.path, args.importer)) return null;
 				return deny(blockedAuthor(args.path).message);
 			});
 			build.onLoad({ filter: /\.css/, namespace: "ignite-jsx" }, (args) => {

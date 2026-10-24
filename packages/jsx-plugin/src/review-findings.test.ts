@@ -1,8 +1,13 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { transformSync } from "@babel/core";
+import esbuild from "esbuild";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import igniteJsxBabel from "./babel.js";
 import { markerCallee, transformSource } from "./transform.js";
+import igniteJsxTypeScript from "./typescript.js";
 
 function packageJson(relative: string) {
 	return JSON.parse(
@@ -148,6 +153,52 @@ describe("review findings", () => {
 		expect(bullet).toMatch(/esbuild emits that `const` as `var`/);
 		expect(bullet).toMatch(/user CSS written into that binding is trusted/);
 		expect(bullet?.toLowerCase()).not.toMatch(/minor|theoretical|out of scope/);
+	});
+
+	it("P2-5: babel-only and tsc-only fail the build with a clear error", async () => {
+		const source = `export const view = <style>{".a{color:red}"}</style>;`;
+		const babel = transformSync(source, {
+			filename: "alone.tsx",
+			babelrc: false,
+			configFile: false,
+			parserOpts: { plugins: ["typescript", "jsx"] },
+			plugins: [igniteJsxBabel],
+		});
+		const printed = ts.transpileModule(source, {
+			fileName: "alone.tsx",
+			compilerOptions: {
+				jsx: ts.JsxEmit.Preserve,
+				target: ts.ScriptTarget.ESNext,
+				module: ts.ModuleKind.ESNext,
+			},
+			transformers: { before: [igniteJsxTypeScript()] },
+		});
+		const dir = mkdtempSync(path.join(tmpdir(), "ignite-standalone-"));
+		try {
+			for (const [name, code] of [
+				["babel.js", babel?.code ?? ""],
+				["tsc.js", printed.outputText],
+			] as const) {
+				expect(code, name).toMatch(/not standalone/);
+				expect(code, name).toMatch(/not enough on their own/);
+				const file = path.join(dir, name);
+				writeFileSync(file, code);
+				await expect(
+					esbuild.build({
+						absWorkingDir: dir,
+						entryPoints: [file],
+						bundle: true,
+						write: false,
+						format: "esm",
+						platform: "browser",
+						logLevel: "silent",
+					}),
+					name,
+				).rejects.toThrow(/not enough on their own/);
+			}
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
 	});
 
 	it("does not call babel or typescript enough on their own", () => {
