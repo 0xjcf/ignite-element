@@ -1,5 +1,42 @@
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	readlinkSync,
+	rmSync,
+	symlinkSync,
+} from "node:fs";
+import path from "node:path";
 import { defineConfig, type Plugin } from "vite";
 import { createLibConfig } from "../../configs/vite/lib";
+
+// From dist/<chunk>.js, the published package and a pnpm install both keep
+// the renderer beside ignite-element. A path through ignite-element/node_modules
+// is only the workspace symlink, and packed consumers do not have it.
+const authorMarkId =
+	"../../@ignite-element/renderer/dist/jsx/author-style-mark.es.js";
+
+function linkWorkspaceRenderer(): void {
+	const packageDir = path.resolve(process.cwd());
+	const manifestPath = path.join(packageDir, "package.json");
+	if (!existsSync(manifestPath)) return;
+	const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+		name?: string;
+	};
+	if (manifest.name !== "ignite-element") return;
+	const linkDir = path.resolve(packageDir, "../@ignite-element");
+	const linkPath = path.join(linkDir, "renderer");
+	const target = "../ignite-renderer";
+	mkdirSync(linkDir, { recursive: true });
+	try {
+		if (readlinkSync(linkPath) === target) return;
+		rmSync(linkPath, { force: true });
+	} catch (error) {
+		const code = (error as NodeJS.ErrnoException).code;
+		if (code !== "ENOENT") throw error;
+	}
+	symlinkSync(target, linkPath, "dir");
+}
 
 type ViteCommand = "build" | "serve";
 
@@ -43,7 +80,7 @@ export default defineConfig(({ command }) => {
 		external: [
 			"@ignite-element/core",
 			"@ignite-element/renderer",
-			"../node_modules/@ignite-element/renderer/dist/jsx/author-style-mark.es.js",
+			authorMarkId,
 			"@ignite-element/adapters",
 			"@ignite-element/adapters/actor-web",
 			"lit-html",
@@ -68,6 +105,7 @@ export default defineConfig(({ command }) => {
 		},
 	});
 	const warningsOn = command !== "build" || devArtifact;
+	linkWorkspaceRenderer();
 	return {
 		...libConfig,
 		define: {
@@ -88,11 +126,12 @@ export default defineConfig(({ command }) => {
 						/(?:^|\/)authorStyle(?:\.ts|\.js)?$/.test(source) ||
 						/(?:^|\/)author-style(?:\.[^/]+)?\.js$/.test(source)
 					) {
-						// Same file as dist/jsx/author-style-mark.es.js. Not a package export.
-						// Node realpath-dedupes the pnpm link, so the element chunk and the
-						// renderer bundle share one registry.
+						// Same file as the renderer's dist/jsx/author-style-mark.es.js.
+						// Not a package export. The sibling path is how npm and pnpm
+						// lay out the two packages. linkWorkspaceRenderer() mirrors
+						// that layout in this repo so the built chunk still loads.
 						return {
-							id: "../node_modules/@ignite-element/renderer/dist/jsx/author-style-mark.es.js",
+							id: authorMarkId,
 							external: true,
 						};
 					}
