@@ -44,6 +44,18 @@ function assertMarked(code: string, bundler: string) {
 		/igniteAuthorStyle\)?\(\s*props\.cardCss\s*\)/,
 	);
 	expect(code, bundler).toContain("props.image");
+	for (const name of [
+		"live",
+		"old",
+		"assigned",
+		"sum",
+		"moduleSheet",
+		"alias",
+	]) {
+		expect(code, bundler).not.toMatch(
+			new RegExp(`igniteAuthorStyle\\)?\\(\\s*${name}\\s*\\)`),
+		);
+	}
 }
 
 function tempDir() {

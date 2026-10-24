@@ -59,7 +59,7 @@ export default defineConfig({
 				replacement: `${rendererSrc}/index.ts`,
 			},
 			{
-				find: /^ignite-element\/(.+)$/,
+				find: /^ignite-element\/(?!jsx\/author-style(?:-mark)?)(.+)$/,
 				replacement: `${igniteElementSourceRoot}$1`,
 			},
 			{

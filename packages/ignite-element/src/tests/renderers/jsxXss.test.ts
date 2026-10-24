@@ -1,6 +1,9 @@
 import fc from "fast-check";
 import { afterEach, describe, expect, it } from "vitest";
-import { igniteAuthorStyle } from "../../../../ignite-renderer/src/renderers/jsx/authorStyle";
+import {
+	igniteAuthorStyle,
+	readAuthorStyle,
+} from "../../../../ignite-renderer/src/renderers/jsx/authorStyle";
 import {
 	cssTextWithoutUrls,
 	cssValueForStyle,
@@ -540,12 +543,12 @@ describe("gaps", () => {
 		const fake = {
 			[Symbol.for("ignite-element.trustedStyle")]: 1,
 		};
-		expect(igniteAuthorStyle.read(fake)).toBeUndefined();
-		expect(igniteAuthorStyle.read(Symbol("style"))).toBeUndefined();
-		expect(igniteAuthorStyle.read("color: red")).toBeUndefined();
+		expect(readAuthorStyle(fake)).toBeUndefined();
+		expect(readAuthorStyle(Symbol("style"))).toBeUndefined();
+		expect(readAuthorStyle("color: red")).toBeUndefined();
 		const brandedFn = (() => {}) as unknown as Record<symbol, string>;
 		brandedFn[Symbol.for("ignite-element.trustedStyle")] = "color: red";
-		expect(igniteAuthorStyle.read(brandedFn)).toBeUndefined();
+		expect(readAuthorStyle(brandedFn)).toBeUndefined();
 		const branded = mount("div", { style: fake }).querySelector(
 			"div",
 		) as HTMLElement;
@@ -869,7 +872,7 @@ describe("gaps", () => {
 					styleSheetFromChildren([
 						{
 							kind: "text",
-							value: igniteAuthorStyle.read(branded),
+							value: readAuthorStyle(branded),
 							author: true,
 						},
 					]).css,
@@ -878,7 +881,7 @@ describe("gaps", () => {
 			{ numRuns: 12, seed: 1 },
 		);
 		expect(
-			igniteAuthorStyle.read(
+			readAuthorStyle(
 				igniteAuthorStyle("@media (x < 1){.a{color:red}}"),
 			),
 		).toBe("@media (x < 1){.a{color:red}}");
@@ -1335,7 +1338,7 @@ describe("security review", () => {
 			styleSheetFromChildren([
 				{
 					kind: "text",
-					value: igniteAuthorStyle.read(token),
+					value: readAuthorStyle(token),
 					author: true,
 				},
 			]).css,
@@ -1660,12 +1663,12 @@ describe("approved url and remote-resource decisions", () => {
 		const token = igniteAuthorStyle("width: expression(1); color: red");
 		expect(
 			styleSheetFromChildren([
-				{ kind: "text", value: igniteAuthorStyle.read(token), author: true },
+				{ kind: "text", value: readAuthorStyle(token), author: true },
 			]).css,
 		).not.toContain("expression");
 		expect(
 			styleSheetFromChildren([
-				{ kind: "text", value: igniteAuthorStyle.read(token), author: true },
+				{ kind: "text", value: readAuthorStyle(token), author: true },
 			]).css,
 		).toContain("color: red");
 	});
@@ -2617,7 +2620,7 @@ describe("security re-review of remote loads", () => {
 		const forged = Object.freeze({
 			[Symbol.for("ignite-element.trustedStyle")]: evil,
 		});
-		expect(igniteAuthorStyle.read(forged)).toBeUndefined();
+		expect(readAuthorStyle(forged)).toBeUndefined();
 
 		const plain = mount("div", { style: forged }).querySelector(
 			"div",

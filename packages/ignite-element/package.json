@@ -30,9 +30,6 @@
 			"jsx/jsx-dev-runtime": [
 				"dist/types/jsx/jsx-dev-runtime.d.ts"
 			],
-			"jsx/author-style": [
-				"dist/types/jsx/author-style.d.ts"
-			],
 			"react": [
 				"dist/types/react/index.d.ts"
 			],
@@ -185,21 +182,6 @@
 			},
 			"import": "./dist/jsx/jsx-dev-runtime.es.js",
 			"default": "./dist/jsx/jsx-dev-runtime.es.js"
-		},
-		"./jsx/author-style": {
-			"types": "./dist/types/jsx/author-style.d.ts",
-			"development": {
-				"types": "./dist/types/jsx/author-style.d.ts",
-				"import": "./dist/jsx/author-style.development.es.js",
-				"default": "./dist/jsx/author-style.development.es.js"
-			},
-			"production": {
-				"types": "./dist/types/jsx/author-style.d.ts",
-				"import": "./dist/jsx/author-style.es.js",
-				"default": "./dist/jsx/author-style.es.js"
-			},
-			"import": "./dist/jsx/author-style.es.js",
-			"default": "./dist/jsx/author-style.es.js"
 		},
 		"./react": {
 			"types": "./dist/types/react/index.d.ts",

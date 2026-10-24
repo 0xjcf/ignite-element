@@ -1,7 +1,13 @@
 import { existsSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { createUnplugin } from "unplugin";
-import { isRawCssSpecifier, transformSource } from "./transform.js";
+import {
+	AUTHOR_SOURCE,
+	isRawCssSpecifier,
+	transformSource,
+} from "./transform.js";
 
 const SOURCE = /\.[cm]?[jt]sx?$/;
 
@@ -24,6 +30,25 @@ export function loadRawCss(id: string): string | null {
 	return `export default ${JSON.stringify(readFileSync(file, "utf8"))};\n`;
 }
 
+export function resolveAuthorMark(importer: string | undefined): string | null {
+	const bases = [importer, fileURLToPath(import.meta.url)];
+	for (const base of bases) {
+		if (!base) continue;
+		try {
+			const require = createRequire(base);
+			const pkg = require.resolve("@ignite-element/renderer/package.json");
+			const root = path.dirname(pkg);
+			const source = path.join(root, "src/renderers/jsx/authorStyle.ts");
+			if (existsSync(source)) return source;
+			const dist = path.join(root, "dist/jsx/author-style-mark.es.js");
+			if (existsSync(dist)) return dist;
+		} catch {
+			// The next base may be the app file that can see the renderer package.
+		}
+	}
+	return null;
+}
+
 export function resolveRawCss(
 	id: string,
 	importer: string | undefined,
@@ -43,8 +68,9 @@ export const igniteJsx = createUnplugin(() => ({
 	name: "ignite-jsx",
 	enforce: "pre",
 	resolveId: {
-		filter: { id: /\.css\?raw(?:&|$)/ },
+		filter: { id: /\.css\?raw(?:&|$)|jsx\/author-style$/ },
 		handler(id, importer) {
+			if (id === AUTHOR_SOURCE) return resolveAuthorMark(importer);
 			return resolveRawCss(id, importer);
 		},
 	},
@@ -64,9 +90,15 @@ export const igniteJsx = createUnplugin(() => ({
 		return { code: next, map: null };
 	},
 	esbuild: {
-		onResolveFilter: /\.css\?raw/,
+		onResolveFilter: /\.css\?raw|jsx\/author-style$/,
 		onLoadFilter: /\.[cm]?[jt]sx?$/,
 		setup(build) {
+			build.onResolve({ filter: /jsx\/author-style$/ }, (args) => {
+				if (args.path !== AUTHOR_SOURCE) return null;
+				const resolved = resolveAuthorMark(args.importer);
+				if (!resolved) return null;
+				return { path: resolved };
+			});
 			build.onLoad({ filter: /\.css/, namespace: "ignite-jsx" }, (args) => {
 				const contents = loadRawCss(args.path + (args.suffix || ""));
 				if (contents == null) return null;

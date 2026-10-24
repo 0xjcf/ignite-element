@@ -1,30 +1,14 @@
-import { parse } from "@babel/parser";
-import type { Program } from "@babel/types";
-import { transformSource } from "./transform.js";
-
-const seen = new WeakSet<object>();
+import { markFile } from "./transform.js";
 
 export default function igniteJsxBabel() {
 	return {
 		name: "ignite-jsx",
-		visitor: {
-			Program: {
-				exit(
-					path: { replaceWith: (node: Program) => void },
-					state: { file: { code: string }; filename?: string },
-				) {
-					if (seen.has(state)) return;
-					seen.add(state);
-					const original = state.file.code;
-					const next = transformSource(original, state.filename ?? "input.tsx");
-					if (next === original) return;
-					const ast = parse(next, {
-						sourceType: "module",
-						plugins: ["typescript", "jsx"],
-					});
-					path.replaceWith(ast.program);
-				},
-			},
+		pre(file: { ast: Parameters<typeof markFile>[0] }) {
+			// Mutate the current program before presets run. Replacing the
+			// program from a reparse of the original source drops the import
+			// `@babel/preset-react` automatic runtime has not added yet, and
+			// a later replace would wipe it.
+			markFile(file.ast);
 		},
 	};
 }

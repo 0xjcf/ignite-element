@@ -4,8 +4,13 @@ import type { Binding, NodePath } from "@babel/traverse";
 import traverseModule from "@babel/traverse";
 import * as t from "@babel/types";
 
-const AUTHOR_SOURCE = "ignite-element/jsx/author-style";
+export const AUTHOR_SOURCE = "ignite-element/jsx/author-style";
 const RAW_SPECIFIER = /\.css\?raw(?:&|$)/;
+const BLOCKED_AUTHOR_SOURCES = new Set([
+	AUTHOR_SOURCE,
+	"@ignite-element/renderer/jsx/author-style",
+	"@ignite-element/renderer/jsx/author-style-mark",
+]);
 
 type Part = { type: "lit"; value: string } | { type: "ref"; name: string };
 
@@ -46,39 +51,6 @@ function isStyleTag(name: t.JSXOpeningElement["name"]): boolean {
 	return false;
 }
 
-function compilerLocal(path: NodePath): string | undefined {
-	return compilerLocalFromProgram(
-		path.scope.getProgramParent().block as t.Program,
-	);
-}
-
-function compilerLocalFromProgram(program: t.Program): string | undefined {
-	for (const stmt of program.body) {
-		if (stmt.type !== "ImportDeclaration") continue;
-		if (stmt.source.value !== AUTHOR_SOURCE) continue;
-		if (stmt.importKind === "type") continue;
-		for (const spec of stmt.specifiers) {
-			if (spec.type !== "ImportSpecifier") continue;
-			if (spec.importKind === "type") continue;
-			const imported = spec.imported;
-			const importedName =
-				imported.type === "Identifier" ? imported.name : imported.value;
-			if (importedName === "igniteAuthorStyle") return spec.local.name;
-		}
-	}
-	return undefined;
-}
-
-function isCompilerBinding(binding: Binding): boolean {
-	if (!binding.path.isImportSpecifier()) return false;
-	const parent = binding.path.parent as t.ImportDeclaration;
-	if (parent.source.value !== AUTHOR_SOURCE) return false;
-	const imported = binding.path.node.imported;
-	const importedName =
-		imported.type === "Identifier" ? imported.name : imported.value;
-	return importedName === "igniteAuthorStyle";
-}
-
 function isRawImport(binding: Binding): boolean {
 	if (!binding.path.isImportDefaultSpecifier()) return false;
 	const parent = binding.path.parent as t.ImportDeclaration;
@@ -109,8 +81,14 @@ function isStaticRef(
 	if (stack.has(name)) return false;
 	const binding = scope.getBinding(name);
 	if (!binding || binding.kind === "param") return false;
+	// Babel reports an unreassigned `let` as constant. Only a const, or a
+	// raw import that is never written, is author CSS. A const that aliases
+	// a let fails when this walk reaches the let.
+	if (binding.constant === false) return false;
+	if (binding.constantViolations?.length) return false;
 	stack.add(name);
 	if (isRawImport(binding)) return true;
+	if (binding.kind !== "const") return false;
 	if (!binding.path.isVariableDeclarator()) return false;
 	return isStaticInit(binding.path.node.init, binding.scope, stack);
 }
@@ -180,17 +158,15 @@ function buildArg(parts: Part[]): t.Expression {
 }
 
 function resolveCallee(path: NodePath<t.JSXElement>): string {
-	const local = compilerLocal(path) ?? "igniteAuthorStyle";
+	const local = "igniteAuthorStyle";
 	const binding = path.scope.getBinding(local);
 	if (!binding) return local;
-	if (isCompilerBinding(binding)) return binding.identifier.name;
 	throw new Error(
-		`igniteAuthorStyle is already declared in this file. The ignite JSX plugin will not mark <style>. Import { igniteAuthorStyle } from "${AUTHOR_SOURCE}" or rename the other binding.`,
+		`igniteAuthorStyle is already declared in this file. The ignite JSX plugin will not mark <style>. Rename the other binding.`,
 	);
 }
 
 function ensureImport(program: t.Program, callee: string): void {
-	if (compilerLocalFromProgram(program)) return;
 	const decl = t.importDeclaration(
 		[
 			t.importSpecifier(
@@ -216,7 +192,18 @@ function ensureImport(program: t.Program, callee: string): void {
 	program.body.splice(insertAt, 0, decl);
 }
 
+function rejectHandWrittenAuthorImport(program: t.Program): void {
+	for (const stmt of program.body) {
+		if (stmt.type !== "ImportDeclaration") continue;
+		if (!BLOCKED_AUTHOR_SOURCES.has(String(stmt.source.value))) continue;
+		throw new Error(
+			`An application import from "${stmt.source.value}" cannot mark CSS. The ignite JSX plugin marks static <style> text itself.`,
+		);
+	}
+}
+
 export function markFile(ast: t.File): boolean {
+	rejectHandWrittenAuthorImport(ast.program);
 	const hits: Array<{ element: t.JSXElement; parts: Part[]; callee: string }> =
 		[];
 	traverse(ast, {

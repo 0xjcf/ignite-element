@@ -88,15 +88,15 @@ describe("author style transform", () => {
 		expect(shadowFn).not.toContain("igniteAuthorStyle(");
 	});
 
-	it("reuses an existing compiler import and fails on another binding", () => {
-		const reused = transformSource(
-			`import { igniteAuthorStyle } from "ignite-element/jsx/author-style";
+	it("Security P2: a hand-written author import cannot bless CSS", () => {
+		expect(() =>
+			transformSource(
+				`import { igniteAuthorStyle } from "ignite-element/jsx/author-style";
 			const local = ".a{background:url(https://cdn.example/a.png)}";
 			export const view = <style>{local}</style>;`,
-			"reuse.tsx",
-		);
-		expect(reused.match(/ignite-element\/jsx\/author-style/g)).toHaveLength(1);
-		expect(marks(reused).some((call) => call.includes("local"))).toBe(true);
+				"reuse.tsx",
+			),
+		).toThrow(/cannot mark CSS/);
 
 		expect(() =>
 			transformSource(
@@ -166,8 +166,7 @@ describe("author style transform", () => {
 	it("marks static wrappers, text, aliases, and raw query variants", () => {
 		const directStyle = "<style>{`.direct{color:red}`}</style>";
 		const output = transformSource(
-			`			import { igniteAuthorStyle as mark } from "ignite-element/jsx/author-style";
-			import rawInline from "./card.css?raw&inline";
+			`			import rawInline from "./card.css?raw&inline";
 			const local = ".a{color:red}";
 			let live = ".b{color:blue}";
 			var old = ".c{color:green}";
@@ -188,6 +187,7 @@ describe("author style transform", () => {
 					<ns:style>{local}</ns:style>
 					<ns:STYLE>{local}</ns:STYLE>
 					<style>{/* note */}{local}</style>
+					<style> {local}</style>
 					<div>{local}</div>
 					<Foo.style>{local}</Foo.style>
 					<ns:div>{local}</ns:div>
@@ -198,9 +198,7 @@ describe("author style transform", () => {
 		expect(
 			output.match(/from "ignite-element\/jsx\/author-style"/g),
 		).toHaveLength(1);
-		expect(output).toContain("mark(");
-		expect(output).not.toMatch(/igniteAuthorStyle\(/);
-		const wrapped = marks(output.replaceAll("mark(", "igniteAuthorStyle("));
+		const wrapped = marks(output);
 		expect(wrapped.some((call) => call.includes(".pre-color-red"))).toBe(true);
 		expect(wrapped.some((call) => call === '"ab"' || call === "'ab'")).toBe(
 			true,
@@ -209,23 +207,26 @@ describe("author style transform", () => {
 			true,
 		);
 		expect(wrapped.some((call) => call.includes("rawInline"))).toBe(true);
-		expect(wrapped.some((call) => call.includes("live"))).toBe(true);
-		expect(wrapped.some((call) => call.includes("old"))).toBe(true);
+		expect(wrapped.some((call) => call.includes("live"))).toBe(false);
+		expect(wrapped.some((call) => call.includes("old"))).toBe(false);
 		expect(
-			wrapped.filter((call) => call.includes("local")).length,
-		).toBeGreaterThan(5);
+			wrapped.filter((call) => call.trim() === "local").length,
+		).toBe(8);
+		expect(
+			wrapped.some((call) => /^\s*["']\s+["']\s*\+\s*local\s*$/.test(call)),
+		).toBe(true);
 		const joined = wrapped.find(
 			(call) => call.includes('"a"') || call.includes("'a'"),
 		);
 		expect(joined).toMatch(/local/);
-		expect(output).not.toMatch(/mark\(\s*\)/);
+		expect(output).not.toMatch(/igniteAuthorStyle\(\s*\)/);
 		const div = output.slice(
 			output.indexOf("<div>{"),
 			output.indexOf("</div>"),
 		);
-		expect(div).not.toContain("mark(");
-		expect(output).not.toMatch(/<Foo\.style>\{mark\(/);
-		expect(output).not.toMatch(/<ns:div>\{mark\(/);
+		expect(div).not.toContain("igniteAuthorStyle(");
+		expect(output).not.toMatch(/<Foo\.style>\{igniteAuthorStyle\(/);
+		expect(output).not.toMatch(/<ns:div>\{igniteAuthorStyle\(/);
 	});
 
 	it("does not mark dynamic, empty, cyclic, or non-author bindings", () => {
@@ -281,68 +282,38 @@ describe("author style transform", () => {
 			try {
 				output = transformSource(source, "reject.tsx");
 			} catch (error) {
-				expect(String(error)).toMatch(/already declared/);
+				expect(String(error)).toMatch(/already declared|cannot mark CSS/);
 				continue;
 			}
 			expect(output, source).not.toContain("igniteAuthorStyle(");
 		}
 	});
 
-	it("adds a value import when the only compiler binding is a type", () => {
-		const typeOnly = transformSource(
+	it("Security P2: every hand-written author import is rejected", () => {
+		const sources = [
 			`import type { igniteAuthorStyle } from "ignite-element/jsx/author-style";
 			const local = ".a{color:red}";
 			export const view = <style>{local}</style>;`,
-			"type-only.tsx",
-		);
-		expect(typeOnly).toContain(
-			'import { igniteAuthorStyle } from "ignite-element/jsx/author-style"',
-		);
-		expect(marks(typeOnly).some((call) => call.includes("local"))).toBe(true);
-
-		const inlineType = transformSource(
 			`import { type igniteAuthorStyle } from "ignite-element/jsx/author-style";
 			const local = ".a{color:red}";
 			export const view = <style>{local}</style>;`,
-			"inline-type.tsx",
-		);
-		expect(inlineType).toContain(
-			'import { igniteAuthorStyle } from "ignite-element/jsx/author-style"',
-		);
-
-		const otherName = transformSource(
 			`import { other as mark } from "ignite-element/jsx/author-style";
 			const local = ".a{color:red}";
 			export const view = <style>{local}</style>;`,
-			"other-name.tsx",
-		);
-		expect(otherName).toContain(
-			'import { igniteAuthorStyle } from "ignite-element/jsx/author-style"',
-		);
-		expect(marks(otherName).some((call) => call.includes("local"))).toBe(true);
-
-		const defaultImport = transformSource(
 			`import cardCss from "ignite-element/jsx/author-style";
 			const local = ".a{color:red}";
 			export const view = <style>{local}</style>;`,
-			"default-import.tsx",
-		);
-		expect(defaultImport).toContain(
-			'import { igniteAuthorStyle } from "ignite-element/jsx/author-style"',
-		);
-		expect(marks(defaultImport).some((call) => call.includes("local"))).toBe(
-			true,
-		);
-
-		const stringImport = transformSource(
 			`import { "igniteAuthorStyle" as mark } from "ignite-element/jsx/author-style";
 			const local = ".a{color:red}";
 			export const view = <style>{local}</style>;`,
-			"string-import.tsx",
-		);
-		expect(stringImport).toContain("mark(");
-		expect(
-			stringImport.match(/ignite-element\/jsx\/author-style/g),
-		).toHaveLength(1);
+			`import { readAuthorStyle } from "@ignite-element/renderer/jsx/author-style";
+			const local = ".a{color:red}";
+			export const view = <style>{local}</style>;`,
+		];
+		for (const source of sources) {
+			expect(() => transformSource(source, "hand.tsx"), source).toThrow(
+				/cannot mark CSS/,
+			);
+		}
 	});
 });

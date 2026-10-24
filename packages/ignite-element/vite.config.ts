@@ -34,7 +34,6 @@ export default defineConfig(({ command }) => {
 			"jsx/index": "src/jsx/index.ts",
 			"jsx/jsx-runtime": "src/jsx/jsx-runtime.ts",
 			"jsx/jsx-dev-runtime": "src/jsx/jsx-dev-runtime.ts",
-			"jsx/author-style": "src/jsx/author-style.ts",
 			react: "src/react/index.ts",
 			"react/web": "src/react/web.ts",
 			tools: "src/tools/index.ts",

@@ -15,43 +15,52 @@
 	"exports": {
 		".": {
 			"types": "./dist/unplugin.d.ts",
-			"import": "./dist/unplugin.js"
+			"import": "./dist/unplugin.js",
+			"require": "./dist/unplugin.cjs"
 		},
 		"./vite": {
 			"types": "./dist/vite.d.ts",
-			"import": "./dist/vite.js"
+			"import": "./dist/vite.js",
+			"require": "./dist/vite.cjs"
 		},
 		"./rollup": {
 			"types": "./dist/rollup.d.ts",
-			"import": "./dist/rollup.js"
+			"import": "./dist/rollup.js",
+			"require": "./dist/rollup.cjs"
 		},
 		"./webpack": {
 			"types": "./dist/webpack.d.ts",
-			"import": "./dist/webpack.js"
+			"import": "./dist/webpack.js",
+			"require": "./dist/webpack.cjs"
 		},
 		"./rspack": {
 			"types": "./dist/rspack.d.ts",
-			"import": "./dist/rspack.js"
+			"import": "./dist/rspack.js",
+			"require": "./dist/rspack.cjs"
 		},
 		"./esbuild": {
 			"types": "./dist/esbuild.d.ts",
-			"import": "./dist/esbuild.js"
+			"import": "./dist/esbuild.js",
+			"require": "./dist/esbuild.cjs"
 		},
 		"./rolldown": {
 			"types": "./dist/rolldown.d.ts",
-			"import": "./dist/rolldown.js"
+			"import": "./dist/rolldown.js",
+			"require": "./dist/rolldown.cjs"
 		},
 		"./babel": {
 			"types": "./dist/babel.d.ts",
-			"import": "./dist/babel.js"
+			"import": "./dist/babel.js",
+			"require": "./dist/babel.cjs"
 		},
 		"./typescript": {
 			"types": "./dist/typescript.d.ts",
-			"import": "./dist/typescript.js"
+			"import": "./dist/typescript.js",
+			"require": "./dist/typescript.cjs"
 		}
 	},
 	"scripts": {
-		"build": "tsc -p tsconfig.json",
+		"build": "tsc -p tsconfig.json && node scripts/build-cjs.mjs",
 		"typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
 		"test": "vitest --run"
 	},
@@ -64,6 +73,7 @@
 	},
 	"devDependencies": {
 		"@babel/core": "^7.28.5",
+		"@babel/preset-react": "7.28.5",
 		"@rspack/core": "^1.6.0",
 		"@types/jsdom": "^27.0.0",
 		"esbuild": "^0.25.0",
@@ -81,7 +91,7 @@
 		"esbuild": ">=0.19",
 		"rolldown": ">=1",
 		"rollup": ">=3",
-		"typescript": ">=5",
+		"typescript": ">=5 <7",
 		"vite": ">=5",
 		"webpack": ">=5"
 	},

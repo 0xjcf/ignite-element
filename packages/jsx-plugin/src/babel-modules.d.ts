@@ -32,6 +32,8 @@ declare module "@babel/traverse" {
 		identifier: t.Identifier;
 		kind: string;
 		scope: Scope;
+		constant: boolean;
+		constantViolations: NodePath[];
 	}
 
 	function traverse(

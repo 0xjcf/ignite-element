@@ -1,24 +1,7 @@
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig } from "vite";
 import { createLibConfig } from "../../configs/vite/lib";
 
 const devArtifact = process.env.IGNITE_LIB_DEV === "1";
-
-/** Keep the author-style module one file. Published chunks import it. */
-function externalizeAuthorStyle(): Plugin {
-	return {
-		name: "externalize-author-style",
-		resolveId(source, importer) {
-			if (!importer) return null;
-			if (/(?:^|\/)authorStyle(?:\.ts|\.js)?$/.test(source)) {
-				return {
-					id: "@ignite-element/renderer/jsx/author-style",
-					external: true,
-				};
-			}
-			return null;
-		},
-	};
-}
 
 const libConfig = createLibConfig({
 	devArtifact,
@@ -30,15 +13,15 @@ const libConfig = createLibConfig({
 		"jsx-runtime": "src/jsx/jsx-runtime.ts",
 		"jsx-dev-runtime": "src/jsx/jsx-dev-runtime.ts",
 		"jsx/index": "src/jsx/index.ts",
-		"jsx/author-style": "src/renderers/jsx/authorStyle.ts",
+		// Read seam for the published element chunk. It does not export the marker.
+		"jsx/author-style": "src/renderers/jsx/authorStyleRead.ts",
+		// Compiler target. Not a package export. Relative imports share this file.
+		"jsx/author-style-mark": "src/renderers/jsx/authorStyle.ts",
 	},
-	external: ["lit-html", "@ignite-element/renderer/jsx/author-style"],
+	external: ["lit-html"],
 	globals: {
 		"lit-html": "litHtml",
 	},
 });
 
-export default defineConfig({
-	...libConfig,
-	plugins: [...(libConfig.plugins ?? []), externalizeAuthorStyle()],
-});
+export default defineConfig(libConfig);

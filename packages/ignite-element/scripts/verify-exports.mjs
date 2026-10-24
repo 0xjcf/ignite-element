@@ -23,7 +23,6 @@ const expectedPublicSubpaths = [
 	"./jsx",
 	"./jsx/jsx-runtime",
 	"./jsx/jsx-dev-runtime",
-	"./jsx/author-style",
 	"./react",
 	"./react/web",
 	"./tools",
@@ -41,7 +40,6 @@ const expectedTypesVersions = [
 	"jsx",
 	"jsx/jsx-runtime",
 	"jsx/jsx-dev-runtime",
-	"jsx/author-style",
 	"react",
 	"react/web",
 	"tools",
@@ -111,7 +109,6 @@ const requiredExports = [
 			jsxs: "function",
 		},
 	],
-	["./jsx/author-style", { igniteAuthorStyle: "function" }],
 	[
 		"./jsx/jsx-runtime",
 		{ Fragment: "symbol", jsx: "function", jsxs: "function" },
@@ -454,11 +451,19 @@ for (const specifier of [
 		);
 	}
 }
+await assert.rejects(
+	import("ignite-element/jsx/author-style"),
+	/ERR_PACKAGE_PATH_NOT_EXPORTED|Cannot find module|Failed to load/,
+);
 const rendererAuthor = await import(
 	"@ignite-element/renderer/jsx/author-style"
 );
-assert.deepEqual(Object.keys(rendererAuthor).sort(), ["igniteAuthorStyle"]);
-assert.equal(typeof rendererAuthor.igniteAuthorStyle, "function");
+assert.equal("igniteAuthorStyle" in rendererAuthor, false);
+assert.equal(typeof rendererAuthor.readAuthorStyle, "function");
+await assert.rejects(
+	import("@ignite-element/renderer/jsx/author-style-mark"),
+	/ERR_PACKAGE_PATH_NOT_EXPORTED|Cannot find module|Failed to load/,
+);
 
 console.info(
 	"[verify:exports] Package exports and fresh Node initialization resolved successfully.",

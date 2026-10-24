@@ -290,12 +290,6 @@ export const createVoiceWorkbenchViteConfig = (
 	resolve: {
 		alias: [
 			{
-				find: "@ignite-element/renderer/jsx/author-style",
-				replacement: resolvePath(
-					"../../../packages/ignite-renderer/src/renderers/jsx/authorStyle.ts",
-				),
-			},
-			{
 				find: "@ignite-element/core",
 				replacement: resolvePath("../../../packages/ignite-core/src/index.ts"),
 			},
@@ -324,7 +318,7 @@ export const createVoiceWorkbenchViteConfig = (
 				replacement: `${rendererSourceRoot}/index.ts`,
 			},
 			{
-				find: /^ignite-element\/(.+)$/,
+				find: /^ignite-element\/(?!jsx\/author-style(?:-mark)?)(.+)$/,
 				replacement: `${igniteElementSourceRoot}$1`,
 			},
 			{

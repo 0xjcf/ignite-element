@@ -5,13 +5,7 @@ export interface AuthorStyle {
 	readonly [AUTHOR_STYLE]: string;
 }
 
-export interface IgniteAuthorStyle {
-	(css: string): AuthorStyle;
-	/** Same-module reader. Not a package export. */
-	readonly read: (value: unknown) => string | undefined;
-}
-
-function readAuthorStyle(value: unknown): string | undefined {
+export function readAuthorStyle(value: unknown): string | undefined {
 	// Membership before any property read, so a throwing proxy is dropped.
 	// Non-objects throw inside WeakSet.has and land in the same drop.
 	try {
@@ -23,7 +17,7 @@ function readAuthorStyle(value: unknown): string | undefined {
 	}
 }
 
-function markAuthorStyle(css: string): AuthorStyle {
+export function igniteAuthorStyle(css: string): AuthorStyle {
 	if (typeof css !== "string") {
 		throw new TypeError("igniteAuthorStyle expects a string");
 	}
@@ -33,8 +27,3 @@ function markAuthorStyle(css: string): AuthorStyle {
 	authorSeen.add(branded);
 	return branded;
 }
-
-export const igniteAuthorStyle: IgniteAuthorStyle = Object.assign(
-	markAuthorStyle,
-	{ read: readAuthorStyle },
-);

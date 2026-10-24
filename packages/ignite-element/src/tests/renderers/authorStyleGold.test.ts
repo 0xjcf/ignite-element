@@ -1,9 +1,11 @@
 import * as rendererJsx from "@ignite-element/renderer/jsx";
 import * as rendererJsxIndex from "@ignite-element/renderer/jsx/index";
 import * as elementJsx from "ignite-element/jsx";
-import * as elementAuthor from "ignite-element/jsx/author-style";
 import { describe, expect, it } from "vitest";
-import { igniteAuthorStyle } from "../../../../ignite-renderer/src/renderers/jsx/authorStyle";
+import {
+	igniteAuthorStyle,
+	readAuthorStyle,
+} from "../../../../ignite-renderer/src/renderers/jsx/authorStyle";
 import {
 	cssTextWithoutUrls,
 	cssValueForStyle,
@@ -41,14 +43,14 @@ function withWarnings(run: () => void): string[] {
 }
 
 describe("option C gold rules", () => {
-	it("app entries export none of trustedStyle, safeUrl, safeSpread, or igniteAuthorStyle", () => {
+	it("app entries export none of trustedStyle, safeUrl, safeSpread, or igniteAuthorStyle", async () => {
 		for (const entry of [elementJsx, rendererJsx, rendererJsxIndex]) {
 			for (const name of BANNED) {
 				expect(Object.keys(entry)).not.toContain(name);
 			}
 		}
-		expect(Object.keys(elementAuthor)).toEqual(["igniteAuthorStyle"]);
-		expect(typeof elementAuthor.igniteAuthorStyle).toBe("function");
+		const target = "ignite-element/jsx/author-style";
+		await expect(import(/* @vite-ignore */ target)).rejects.toThrow();
 	});
 
 	it("string handlers die and a function inside a spread still runs", () => {
@@ -181,7 +183,7 @@ describe("option C gold rules", () => {
 			".a{background:url(https://cdn.example/a.png);width:expression(1);behavior:url(#x);-moz-binding:url(#y)} .b{color:red}",
 		);
 		const css = styleSheetFromChildren([
-			{ kind: "text", value: igniteAuthorStyle.read(sheet), author: true },
+			{ kind: "text", value: readAuthorStyle(sheet), author: true },
 		]).css;
 		expect(css).toContain("https://cdn.example/a.png");
 		expect(css.toLowerCase()).not.toContain("expression");
@@ -192,7 +194,7 @@ describe("option C gold rules", () => {
 		);
 		expect(
 			styleSheetFromChildren([
-				{ kind: "text", value: igniteAuthorStyle.read(broken), author: true },
+				{ kind: "text", value: readAuthorStyle(broken), author: true },
 			]).css,
 		).toBe("");
 		const comment = igniteAuthorStyle(".a{color:red}<!DOCTYPE html>");
@@ -200,7 +202,7 @@ describe("option C gold rules", () => {
 			styleSheetFromChildren([
 				{
 					kind: "text",
-					value: igniteAuthorStyle.read(comment),
+					value: readAuthorStyle(comment),
 					author: true,
 				},
 			]).css,
@@ -212,16 +214,14 @@ describe("option C gold rules", () => {
 			[Symbol.for("ignite-element.authorStyle")]:
 				"body{background:url(https://evil.example/forged.png)}",
 		});
-		expect(igniteAuthorStyle.read(forged)).toBeUndefined();
-		expect(igniteAuthorStyle.read(null)).toBeUndefined();
-		expect(igniteAuthorStyle.read(undefined)).toBeUndefined();
-		expect(igniteAuthorStyle.read(0)).toBeUndefined();
-		expect(igniteAuthorStyle.read("")).toBeUndefined();
-		expect(igniteAuthorStyle.read(false)).toBeUndefined();
+		expect(readAuthorStyle(forged)).toBeUndefined();
+		expect(readAuthorStyle(null)).toBeUndefined();
+		expect(readAuthorStyle(undefined)).toBeUndefined();
+		expect(readAuthorStyle(0)).toBeUndefined();
+		expect(readAuthorStyle("")).toBeUndefined();
+		expect(readAuthorStyle(false)).toBeUndefined();
 		expect(
-			igniteAuthorStyle.read(
-				"body{background:url(https://evil.example/x.png)}",
-			),
+			readAuthorStyle("body{background:url(https://evil.example/x.png)}"),
 		).toBeUndefined();
 		const realForSymbol = igniteAuthorStyle(".a{color:red}");
 		const ownSymbol = Object.getOwnPropertySymbols(realForSymbol)[0];
@@ -229,7 +229,7 @@ describe("option C gold rules", () => {
 		const stolen = {
 			[ownSymbol]: "body{background:url(https://evil.example/stolen.png)}",
 		};
-		expect(igniteAuthorStyle.read(stolen)).toBeUndefined();
+		expect(readAuthorStyle(stolen)).toBeUndefined();
 		const outsider = new Proxy(
 			{},
 			{
@@ -238,7 +238,7 @@ describe("option C gold rules", () => {
 				},
 			},
 		);
-		expect(igniteAuthorStyle.read(outsider)).toBeUndefined();
+		expect(readAuthorStyle(outsider)).toBeUndefined();
 		const forgedHost = mount("style", { children: forged });
 		expect(forgedHost.querySelector("style")?.textContent ?? "").not.toContain(
 			"evil.example",
@@ -251,7 +251,7 @@ describe("option C gold rules", () => {
 		const other = second.igniteAuthorStyle(
 			"body{background:url(https://cdn.example/other.png)}",
 		);
-		expect(igniteAuthorStyle.read(other)).toBeUndefined();
+		expect(readAuthorStyle(other)).toBeUndefined();
 		const otherHost = mount("style", { children: other });
 		expect(otherHost.querySelector("style")?.textContent ?? "").not.toContain(
 			"cdn.example",

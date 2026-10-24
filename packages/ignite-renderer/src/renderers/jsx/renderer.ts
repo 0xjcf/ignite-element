@@ -1,4 +1,4 @@
-import { igniteAuthorStyle } from "./authorStyle";
+import { readAuthorStyle } from "./authorStyle";
 import { uriBearingKeyPattern, uriSpacePattern } from "./executableUri";
 import {
 	configureHostOwnership,
@@ -181,7 +181,7 @@ function normalizeChild(
 	}
 
 	if (!isIgniteJsxElement(node)) {
-		const author = igniteAuthorStyle.read(node);
+		const author = readAuthorStyle(node);
 		if (author !== undefined) {
 			return [{ kind: "text", value: author, author: true }];
 		}

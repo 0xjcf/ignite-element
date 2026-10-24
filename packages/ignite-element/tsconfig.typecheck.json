@@ -30,7 +30,7 @@
 				"../ignite-renderer/src/jsx/index.ts"
 			],
 			"@ignite-element/renderer/jsx/author-style": [
-				"../ignite-renderer/src/renderers/jsx/authorStyle.ts"
+				"../ignite-renderer/src/renderers/jsx/authorStyleRead.ts"
 			],
 			"ignite-element/actor-web": ["./src/actor-web.ts"],
 			"ignite-element/renderers/ignite-jsx": ["./src/renderers/ignite-jsx.ts"],

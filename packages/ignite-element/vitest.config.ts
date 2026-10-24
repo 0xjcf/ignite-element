@@ -72,7 +72,7 @@ export default defineConfig((configEnv) =>
 					{
 						find: "@ignite-element/renderer/jsx/author-style",
 						replacement: resolvePath(
-							"../ignite-renderer/src/renderers/jsx/authorStyle.ts",
+							"../ignite-renderer/src/renderers/jsx/authorStyleRead.ts",
 						),
 					},
 					{

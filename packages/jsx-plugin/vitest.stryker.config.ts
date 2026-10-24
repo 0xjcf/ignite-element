@@ -7,7 +7,7 @@ export default defineConfig({
 	root: fileURLToPath(new URL(".", import.meta.url)),
 	test: {
 		...baseConfig.test,
-		include: ["src/transform.test.ts"],
+		include: ["src/transform.test.ts", "src/review-findings.test.ts"],
 		execArgv: [],
 	},
 });

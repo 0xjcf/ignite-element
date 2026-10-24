@@ -23,7 +23,7 @@ This keeps structure and styling together.
 
 The JSX renderer preserves the same `<style>` node across ordinary rerenders instead of duplicating it.
 
-Add `@ignite-element/jsx-plugin` once in the bundler config. A static `<style>` string, a same-file const, or `import sheet from "./sheet.css?raw"` is author CSS. A value from props stays data.
+Add `@ignite-element/jsx-plugin` once in the bundler config. A static `<style>` string, a same-file `const`, or `import sheet from "./sheet.css?raw"` is author CSS. A `let` or `var`, including one that is never written again, stays data, and so does a `const` that aliases one. A value from props stays data. There is no public import that marks CSS: `ignite-element/jsx/author-style` is not a package export, and a hand-written import is a build error. Mixing marked and unmarked CSS in one `<style>` drops the author `url()`.
 
 ## Reuse a stylesheet
 

@@ -63,10 +63,14 @@ describe("published author-style registry", () => {
 			}
 		}
 
-		const author = await import(
-			pathToFileURL(`${elementDist}jsx/author-style.es.js`).href
+		const seam = await import(
+			pathToFileURL(`${rendererDist}jsx/author-style.es.js`).href
 		);
-		assert.deepEqual(Object.keys(author), ["igniteAuthorStyle"]);
+		assert.equal(Object.hasOwn(seam, "igniteAuthorStyle"), false);
+		const author = await import(
+			pathToFileURL(`${rendererDist}jsx/author-style-mark.es.js`).href
+		);
+		assert.equal(typeof author.igniteAuthorStyle, "function");
 		const { igniteAuthorStyle } = author;
 		const coreApi = await import(
 			pathToFileURL(`${elementDist}ignite-element.es.js`).href
@@ -86,7 +90,7 @@ describe("published author-style registry", () => {
 		});
 		const copyDir = mkdtempSync(join(tmpdir(), "ignite-author-"));
 		const copyPath = join(copyDir, "author-style.mjs");
-		copyFileSync(`${rendererDist}jsx/author-style.es.js`, copyPath);
+		copyFileSync(`${rendererDist}jsx/author-style-mark.es.js`, copyPath);
 		const second = await import(pathToFileURL(copyPath).href);
 		const other = second.igniteAuthorStyle(
 			"body{background:url(https://cdn.example/other.png)}",

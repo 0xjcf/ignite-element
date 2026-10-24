@@ -1,7 +1,5 @@
 import ts from "typescript";
-import { transformSource } from "./transform.js";
-
-const AUTHOR_SOURCE = "ignite-element/jsx/author-style";
+import { AUTHOR_SOURCE, transformSource } from "./transform.js";
 
 export default function igniteJsxTypeScript(): ts.TransformerFactory<ts.SourceFile> {
 	return (context) => (sourceFile) => {

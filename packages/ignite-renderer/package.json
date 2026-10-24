@@ -26,9 +26,6 @@
 			],
 			"jsx/index": [
 				"dist/types/jsx/index.d.ts"
-			],
-			"jsx/author-style": [
-				"dist/types/renderers/jsx/authorStyle.d.ts"
 			]
 		}
 	},
@@ -124,14 +121,11 @@
 			"default": "./dist/jsx/index.es.js"
 		},
 		"./jsx/author-style": {
-			"types": "./dist/types/renderers/jsx/authorStyle.d.ts",
 			"development": {
-				"types": "./dist/types/renderers/jsx/authorStyle.d.ts",
 				"import": "./dist/jsx/author-style.development.es.js",
 				"default": "./dist/jsx/author-style.development.es.js"
 			},
 			"production": {
-				"types": "./dist/types/renderers/jsx/authorStyle.d.ts",
 				"import": "./dist/jsx/author-style.es.js",
 				"default": "./dist/jsx/author-style.es.js"
 			},

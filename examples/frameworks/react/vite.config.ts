@@ -88,7 +88,7 @@ export default defineConfig({
 				),
 			},
 			{
-				find: /^ignite-element\/(.+)$/,
+				find: /^ignite-element\/(?!jsx\/author-style(?:-mark)?)(.+)$/,
 				replacement: `${igniteElementSourceRoot}$1`,
 			},
 			{
