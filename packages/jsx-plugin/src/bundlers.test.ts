@@ -224,8 +224,11 @@ export const view = <style>{local}</style>;
 					},
 				},
 			});
-			const outputs = Array.isArray(result) ? result[0].output : result.output;
-			const code = outputs
+			const chunk = Array.isArray(result) ? result[0] : result;
+			if (!chunk || !("output" in chunk)) {
+				throw new Error("docs vite build did not emit a bundle");
+			}
+			const code = chunk.output
 				.map((item) => ("code" in item ? item.code : ""))
 				.join("\n");
 			expect(code).toContain("https://cdn.example/static.png");
