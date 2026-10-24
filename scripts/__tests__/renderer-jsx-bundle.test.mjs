@@ -95,14 +95,13 @@ const STYLE_VALUE_WARNING =
 // Then 8,300 B (Jose approved in chat on PR #180): the re-review fixes.
 // Then 8,400 B (Jose, 2026-10-22): "settle the object-style gap first and increase the budget".
 // Then 8,750 B (Jose, 2026-10-23): "Yes to the replies, raise the caps and ship N11".
-// Then 8,810 B (Jose, 2026-10-23): the four P3s measure 8,790 B on Node 22.
-// Measured again after the author-style read seam: 8727 B. The cap stays 8810.
+// Measured again after the author-style read seam: 8727 B.
 // Dropped checked, value, and selected stay.
 // Native defaultValue, defaultChecked, and defaultSelected stay on drop.
 // Explicit false for the last two is a set. Own custom setters get undefined
 // and stay case-sensitive. There is no cached built-in element and no
 // fresh-element default reset.
-const TODAY_CONSUMER_GZIP = 8810;
+const TODAY_CONSUMER_GZIP = 8750;
 
 function consumerEntry() {
 	return `import { jsx, mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";

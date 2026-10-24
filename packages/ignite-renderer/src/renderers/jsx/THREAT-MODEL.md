@@ -49,6 +49,7 @@ It does not promise the result is inert when:
 - A custom element setter runs on some other property and navigates or writes markup.
 - A custom `style` setter joins declaration values and drops the property names. `key:value` text does not rebuild a loader from a trusted fragment beside an untrusted neighbour. A values-only join can.
 - Application code changes the DOM after commit.
+- A direct `eval` of the bundled module can replace a marked binding after the plugin has run. The mark is a build-time fact about the source text. It is not a seal against a later `eval` in the same realm. Do not `eval` application code next to a marked sheet.
 - A function handler passed as a direct prop still runs, and so does one inside a spread.
 - Projection documents read model data. Their URI key list is not this slice. The projection denylist is unchanged.
 

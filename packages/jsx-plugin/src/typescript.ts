@@ -1,5 +1,5 @@
 import ts from "typescript";
-import { AUTHOR_SOURCE, transformSource } from "./transform.js";
+import { AUTHOR_VIRTUAL, transformSource } from "./transform.js";
 
 export default function igniteJsxTypeScript(): ts.TransformerFactory<ts.SourceFile> {
 	return (context) => (sourceFile) => {
@@ -137,7 +137,7 @@ function insertImport(
 				),
 			]),
 		),
-		context.factory.createStringLiteral(AUTHOR_SOURCE),
+		context.factory.createStringLiteral(AUTHOR_VIRTUAL),
 	);
 	let insertAt = 0;
 	sourceFile.statements.forEach((statement, index) => {
@@ -155,7 +155,7 @@ function hasAuthorImport(sourceFile: ts.SourceFile): boolean {
 function isAuthorImport(statement: ts.Statement): boolean {
 	if (!ts.isImportDeclaration(statement)) return false;
 	if (!ts.isStringLiteral(statement.moduleSpecifier)) return false;
-	if (statement.moduleSpecifier.text !== AUTHOR_SOURCE) return false;
+	if (statement.moduleSpecifier.text !== AUTHOR_VIRTUAL) return false;
 	const clause = statement.importClause;
 	if (!clause?.namedBindings || !ts.isNamedImports(clause.namedBindings))
 		return false;

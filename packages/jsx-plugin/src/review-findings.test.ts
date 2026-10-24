@@ -77,19 +77,8 @@ describe("review findings", () => {
 		expect(element.exports?.["./jsx/author-style"]).toBeUndefined();
 		expect(element.typesVersions?.["*"]?.["jsx/author-style"]).toBeUndefined();
 		expect(renderer.typesVersions?.["*"]?.["jsx/author-style"]).toBeUndefined();
+		expect(renderer.exports?.["./jsx/author-style"]).toBeUndefined();
 		expect(renderer.exports?.["./jsx/author-style-mark"]).toBeUndefined();
-		const seam = renderer.exports?.["./jsx/author-style"] as
-			| {
-					types?: string;
-					development?: { types?: string };
-					production?: { types?: string };
-			  }
-			| undefined;
-		expect(seam?.types).toBe("./dist/types/jsx/author-style.d.ts");
-		expect(seam?.development?.types).toBe(seam?.types);
-		expect(seam?.production?.types).toBe(seam?.types);
-		expect(JSON.stringify(seam ?? {})).not.toContain("author-style-mark");
-		expect(JSON.stringify(seam ?? {})).not.toContain("igniteAuthorStyle");
 		const markSource = readFileSync(
 			new URL(
 				"../../ignite-renderer/src/renderers/jsx/authorStyle.ts",

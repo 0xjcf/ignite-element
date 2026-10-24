@@ -1,7 +1,33 @@
-import { defineConfig } from "vite";
+import { existsSync, unlinkSync } from "node:fs";
+import path from "node:path";
+import { defineConfig, type Plugin } from "vite";
 import { createLibConfig } from "../../configs/vite/lib";
 
 const devArtifact = process.env.IGNITE_LIB_DEV === "1";
+const devMark = "jsx/author-style-mark.development.es.js";
+
+function oneAuthorRegistry(): Plugin {
+	return {
+		name: "one-author-registry",
+		apply: "build",
+		generateBundle(_options, bundle) {
+			if (!devArtifact) return;
+			delete bundle[devMark];
+			for (const item of Object.values(bundle)) {
+				if (item.type !== "chunk") continue;
+				item.code = item.code.replaceAll(
+					"author-style-mark.development.es.js",
+					"author-style-mark.es.js",
+				);
+			}
+		},
+		closeBundle() {
+			if (!devArtifact) return;
+			const stale = path.resolve("dist", devMark);
+			if (existsSync(stale)) unlinkSync(stale);
+		},
+	};
+}
 
 const libConfig = createLibConfig({
 	devArtifact,
@@ -13,9 +39,7 @@ const libConfig = createLibConfig({
 		"jsx-runtime": "src/jsx/jsx-runtime.ts",
 		"jsx-dev-runtime": "src/jsx/jsx-dev-runtime.ts",
 		"jsx/index": "src/jsx/index.ts",
-		// Read seam for the published element chunk. It does not export the marker.
-		"jsx/author-style": "src/renderers/jsx/authorStyleRead.ts",
-		// Compiler target. Not a package export. Relative imports share this file.
+		// Not a package export. The element chunk and the jsx bundle both import this file.
 		"jsx/author-style-mark": "src/renderers/jsx/authorStyle.ts",
 	},
 	external: ["lit-html"],
@@ -24,4 +48,7 @@ const libConfig = createLibConfig({
 	},
 });
 
-export default defineConfig(libConfig);
+export default defineConfig({
+	...libConfig,
+	plugins: [...(libConfig.plugins ?? []), oneAuthorRegistry()],
+});

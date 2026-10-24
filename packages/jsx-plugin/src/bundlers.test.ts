@@ -32,20 +32,40 @@ const fixtureDir = fileURLToPath(new URL("../fixtures/", import.meta.url));
 const fixture = path.join(fixtureDir, "Card.tsx");
 const source = readFileSync(fixture, "utf8");
 
+function markerName(code: string): string {
+	if (
+		/[.)]igniteAuthorStyle\)?\(/.test(code) ||
+		/\bigniteAuthorStyle\(/.test(code)
+	) {
+		return "igniteAuthorStyle";
+	}
+	const helper = code.match(
+		/function (\w+)\([^)]*\)\s*\{[\s\S]{0,200}?igniteAuthorStyle expects a string/,
+	);
+	return helper?.[1] ?? "igniteAuthorStyle";
+}
+
 function assertMarked(code: string, bundler: string) {
-	const calls = code.match(/igniteAuthorStyle\)?\(/g) ?? [];
-	expect(calls.length, bundler).toBeGreaterThanOrEqual(4);
-	expect(code, bundler).toContain("ignite-element/jsx/author-style");
+	const name = markerName(code);
+	const calls = code.match(new RegExp(`\\b${name}\\)?\\(`, "g")) ?? [];
+	expect(calls.length, `${bundler} via ${name}`).toBeGreaterThanOrEqual(4);
+	expect(
+		code.includes("ignite-jsx:author-style") ||
+			code.includes('Symbol("ignite-element.authorStyle")') ||
+			code.includes("author-style-mark"),
+		bundler,
+	).toBe(true);
+	expect(code, bundler).not.toContain("ignite-element/jsx/author-style");
 	expect(code, bundler).toContain("cdn.example/static.png");
 	expect(code, bundler).toContain("cardCss");
 	expect(code, bundler).not.toMatch(
-		/igniteAuthorStyle\)?\(\s*`[^`]*\$\{props\.image\}/,
+		new RegExp(`\\b${name}\\)?\\(\\s*\`[^\`]*\\$\\{props\\.image\\}`),
 	);
 	expect(code, bundler).not.toMatch(
-		/igniteAuthorStyle\)?\(\s*props\.cardCss\s*\)/,
+		new RegExp(`\\b${name}\\)?\\(\\s*props\\.cardCss\\s*\\)`),
 	);
 	expect(code, bundler).toContain("props.image");
-	for (const name of [
+	for (const binding of [
 		"live",
 		"old",
 		"assigned",
@@ -54,7 +74,7 @@ function assertMarked(code: string, bundler: string) {
 		"alias",
 	]) {
 		expect(code, bundler).not.toMatch(
-			new RegExp(`igniteAuthorStyle\\)?\\(\\s*${name}\\s*\\)`),
+			new RegExp(`\\b${name}\\)?\\(\\s*${binding}\\s*\\)`),
 		);
 	}
 }
@@ -271,14 +291,7 @@ async function executeEsbuildFixture() {
 	const outfile = path.join(dir, "card.js");
 	const shims = path.join(dir, ".ignite-jsx-shims");
 	mkdirSync(shims);
-	const authorShim = path.join(shims, "author-style.js");
 	const jsxShim = path.join(shims, "jsx-runtime.js");
-	writeFileSync(
-		authorShim,
-		`const seen = globalThis.__igniteAuthorCss ?? (globalThis.__igniteAuthorCss = []);
-export function igniteAuthorStyle(css) { seen.push(css); return { css, author: true }; }
-`,
-	);
 	writeFileSync(
 		jsxShim,
 		`export function jsx(type, props) {
@@ -303,12 +316,6 @@ export const Fragment = Symbol.for("ignite.fragment");
 					name: "ignite-shims",
 					setup(build) {
 						build.onResolve(
-							{ filter: /^ignite-element\/jsx\/author-style$/ },
-							() => ({
-								path: authorShim,
-							}),
-						);
-						build.onResolve(
 							{ filter: /^ignite-element\/jsx\/jsx-runtime$/ },
 							() => ({
 								path: jsxShim,
@@ -323,10 +330,8 @@ export const Fragment = Symbol.for("ignite.fragment");
 			],
 		});
 		const bag = globalThis as typeof globalThis & {
-			__igniteAuthorCss: string[];
 			__igniteStyles: unknown[];
 		};
-		bag.__igniteAuthorCss = [];
 		bag.__igniteStyles = [];
 		const loaded = (await import(pathToFileURL(outfile).href)) as {
 			Card: (props: { image: string; cardCss: string }) => void;
@@ -335,17 +340,22 @@ export const Fragment = Symbol.for("ignite.fragment");
 			image: "https://evil.example/photo.png",
 			cardCss: "url(https://evil.example/spread.png)",
 		});
-		const author = bag.__igniteAuthorCss;
 		const styles = bag.__igniteStyles;
+		const markedCss = styles.map((child) => {
+			if (!child || typeof child !== "object") return "";
+			const symbol = Object.getOwnPropertySymbols(child)[0];
+			const value = symbol
+				? (child as Record<symbol, unknown>)[symbol]
+				: undefined;
+			return typeof value === "string" ? value : "";
+		});
 		expect(
-			author.some((css) => String(css).includes("cdn.example/static.png")),
+			markedCss.some((css) => css.includes("cdn.example/static.png")),
 		).toBe(true);
-		expect(
-			author.some((css) => String(css).includes("cdn.example/card.png")),
-		).toBe(true);
-		expect(author.some((css) => String(css).includes("evil.example"))).toBe(
-			false,
+		expect(markedCss.some((css) => css.includes("cdn.example/card.png"))).toBe(
+			true,
 		);
+		expect(markedCss.some((css) => css.includes("evil.example"))).toBe(false);
 		expect(
 			styles.some(
 				(child) => typeof child === "string" && child.includes("evil.example"),

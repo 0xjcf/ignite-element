@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { transformSource } from "./transform.js";
 
-const AUTHOR = 'from "ignite-element/jsx/author-style"';
+const AUTHOR = "ignite-jsx:author-style";
 
 function marks(code: string): string[] {
 	const found: string[] = [];
@@ -125,13 +125,12 @@ describe("author style transform", () => {
 			export const view = <style>{cardCss}</style>;`,
 			"order.tsx",
 		);
-		const authorAt = withImports.indexOf("ignite-element/jsx/author-style");
+		const authorAt = withImports.indexOf("ignite-jsx:author-style");
 		expect(authorAt).toBeGreaterThan(withImports.indexOf("use client"));
 		expect(authorAt).toBeGreaterThan(withImports.indexOf("card.css?raw"));
 		expect(authorAt).toBeLessThan(withImports.indexOf("void 0"));
-		expect(withImports).toContain(
-			'import { igniteAuthorStyle } from "ignite-element/jsx/author-style"',
-		);
+		expect(withImports).toContain("igniteAuthorStyle");
+		expect(withImports).toContain("ignite-jsx:author-style");
 
 		const directiveOnly = transformSource(
 			`"use client";
@@ -140,7 +139,7 @@ describe("author style transform", () => {
 			"directive.tsx",
 		);
 		expect(directiveOnly.indexOf("use client")).toBeLessThan(
-			directiveOnly.indexOf("ignite-element/jsx/author-style"),
+			directiveOnly.indexOf("ignite-jsx:author-style"),
 		);
 	});
 
@@ -195,9 +194,7 @@ describe("author style transform", () => {
 			);`,
 			"wrappers.tsx",
 		);
-		expect(
-			output.match(/from "ignite-element\/jsx\/author-style"/g),
-		).toHaveLength(1);
+		expect(output.match(/ignite-jsx:author-style/g)).toHaveLength(1);
 		const wrapped = marks(output);
 		expect(wrapped.some((call) => call.includes(".pre-color-red"))).toBe(true);
 		expect(wrapped.some((call) => call === '"ab"' || call === "'ab'")).toBe(
@@ -209,9 +206,7 @@ describe("author style transform", () => {
 		expect(wrapped.some((call) => call.includes("rawInline"))).toBe(true);
 		expect(wrapped.some((call) => call.includes("live"))).toBe(false);
 		expect(wrapped.some((call) => call.includes("old"))).toBe(false);
-		expect(
-			wrapped.filter((call) => call.trim() === "local").length,
-		).toBe(8);
+		expect(wrapped.filter((call) => call.trim() === "local").length).toBe(8);
 		expect(
 			wrapped.some((call) => /^\s*["']\s+["']\s*\+\s*local\s*$/.test(call)),
 		).toBe(true);
@@ -315,5 +310,35 @@ describe("author style transform", () => {
 				/cannot mark CSS/,
 			);
 		}
+	});
+
+	it("rejects import(), require(), re-exports, and a template specifier", () => {
+		const blocked = [
+			`export * from "ignite-element/jsx/author-style";
+			export const view = <style>{".a{color:red}"}</style>;`,
+			`export { igniteAuthorStyle } from "@ignite-element/renderer/jsx/author-style-mark";
+			export const view = <style>{".a{color:red}"}</style>;`,
+			`export const view = <style>{".a{color:red}"}</style>;
+			const mod = import("ignite-element/jsx/author-style");`,
+			`export const view = <style>{".a{color:red}"}</style>;
+			const mod = require("@ignite-element/renderer/jsx/author-style");`,
+			'export const view = <style>{".a{color:red}"}</style>;\nconst mod = import(`ignite-element/jsx/author-style`);',
+		];
+		for (const source of blocked) {
+			expect(() => transformSource(source, "route.tsx"), source).toThrow(
+				/cannot mark CSS/,
+			);
+		}
+
+		const allowed = transformSource(
+			`"use strict";
+			export { local } from "./sheet";
+			const mod = import("./sheet");
+			export const view = <style>{".a{color:red}"}</style>;`,
+			"allowed.tsx",
+		);
+		expect(allowed.startsWith('"use strict"')).toBe(true);
+		expect(allowed).toContain("ignite-jsx:author-style");
+		expect(allowed).not.toContain("ignite-element/jsx/author-style");
 	});
 });

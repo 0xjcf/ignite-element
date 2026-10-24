@@ -119,21 +119,6 @@
 			},
 			"import": "./dist/jsx/index.es.js",
 			"default": "./dist/jsx/index.es.js"
-		},
-		"./jsx/author-style": {
-			"types": "./dist/types/jsx/author-style.d.ts",
-			"development": {
-				"types": "./dist/types/jsx/author-style.d.ts",
-				"import": "./dist/jsx/author-style.development.es.js",
-				"default": "./dist/jsx/author-style.development.es.js"
-			},
-			"production": {
-				"types": "./dist/types/jsx/author-style.d.ts",
-				"import": "./dist/jsx/author-style.es.js",
-				"default": "./dist/jsx/author-style.es.js"
-			},
-			"import": "./dist/jsx/author-style.es.js",
-			"default": "./dist/jsx/author-style.es.js"
 		}
 	},
 	"sideEffects": [

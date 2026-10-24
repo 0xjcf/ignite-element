@@ -63,10 +63,6 @@ describe("published author-style registry", () => {
 			}
 		}
 
-		const seam = await import(
-			pathToFileURL(`${rendererDist}jsx/author-style.es.js`).href
-		);
-		assert.equal(Object.hasOwn(seam, "igniteAuthorStyle"), false);
 		const author = await import(
 			pathToFileURL(`${rendererDist}jsx/author-style-mark.es.js`).href
 		);

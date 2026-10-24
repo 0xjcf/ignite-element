@@ -43,7 +43,7 @@ export default defineConfig(({ command }) => {
 		external: [
 			"@ignite-element/core",
 			"@ignite-element/renderer",
-			"@ignite-element/renderer/jsx/author-style",
+			"../node_modules/@ignite-element/renderer/dist/jsx/author-style-mark.es.js",
 			"@ignite-element/adapters",
 			"@ignite-element/adapters/actor-web",
 			"lit-html",
@@ -88,8 +88,11 @@ export default defineConfig(({ command }) => {
 						/(?:^|\/)authorStyle(?:\.ts|\.js)?$/.test(source) ||
 						/(?:^|\/)author-style(?:\.[^/]+)?\.js$/.test(source)
 					) {
+						// Same file as dist/jsx/author-style-mark.es.js. Not a package export.
+						// Node realpath-dedupes the pnpm link, so the element chunk and the
+						// renderer bundle share one registry.
 						return {
-							id: "@ignite-element/renderer/jsx/author-style",
+							id: "../node_modules/@ignite-element/renderer/dist/jsx/author-style-mark.es.js",
 							external: true,
 						};
 					}

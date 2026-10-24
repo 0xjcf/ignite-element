@@ -13,6 +13,7 @@ export default defineConfig(async (configEnv) => {
 			include: [
 				"src/tests/renderers/jsxXss.test.ts",
 				"src/tests/renderers/authorStyleGold.test.ts",
+				"src/tests/renderers/rendererMutation.test.ts",
 			],
 		},
 	};

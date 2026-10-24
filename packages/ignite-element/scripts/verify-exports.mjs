@@ -455,11 +455,10 @@ await assert.rejects(
 	import("ignite-element/jsx/author-style"),
 	/ERR_PACKAGE_PATH_NOT_EXPORTED|Cannot find module|Failed to load/,
 );
-const rendererAuthor = await import(
-	"@ignite-element/renderer/jsx/author-style"
+await assert.rejects(
+	import("@ignite-element/renderer/jsx/author-style"),
+	/ERR_PACKAGE_PATH_NOT_EXPORTED|Cannot find module|Failed to load/,
 );
-assert.equal("igniteAuthorStyle" in rendererAuthor, false);
-assert.equal(typeof rendererAuthor.readAuthorStyle, "function");
 await assert.rejects(
 	import("@ignite-element/renderer/jsx/author-style-mark"),
 	/ERR_PACKAGE_PATH_NOT_EXPORTED|Cannot find module|Failed to load/,

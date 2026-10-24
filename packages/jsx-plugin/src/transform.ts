@@ -4,13 +4,13 @@ import type { Binding, NodePath } from "@babel/traverse";
 import traverseModule from "@babel/traverse";
 import * as t from "@babel/types";
 
+/** Public name. The plugin rejects it. It is not inserted. */
 export const AUTHOR_SOURCE = "ignite-element/jsx/author-style";
+/** Private id inserted only by this plugin. Bundlers resolve it for that import alone. */
+export const AUTHOR_VIRTUAL = "\0ignite-jsx:author-style";
 const RAW_SPECIFIER = /\.css\?raw(?:&|$)/;
-const BLOCKED_AUTHOR_SOURCES = new Set([
-	AUTHOR_SOURCE,
-	"@ignite-element/renderer/jsx/author-style",
-	"@ignite-element/renderer/jsx/author-style-mark",
-]);
+const MARK_FILE =
+	/(?:^|\/)(?:renderers\/jsx\/authorStyle(?:\.ts|\.js)?|author-style(?:-mark)?(?:\.development)?\.es\.js|jsx\/author-style(?:-mark)?)$/;
 
 type Part = { type: "lit"; value: string } | { type: "ref"; name: string };
 
@@ -174,7 +174,7 @@ function ensureImport(program: t.Program, callee: string): void {
 				t.identifier("igniteAuthorStyle"),
 			),
 		],
-		t.stringLiteral(AUTHOR_SOURCE),
+		t.stringLiteral(AUTHOR_VIRTUAL),
 	);
 	let insertAt = 0;
 	for (let index = 0; index < program.body.length; index += 1) {
@@ -192,18 +192,61 @@ function ensureImport(program: t.Program, callee: string): void {
 	program.body.splice(insertAt, 0, decl);
 }
 
-function rejectHandWrittenAuthorImport(program: t.Program): void {
-	for (const stmt of program.body) {
-		if (stmt.type !== "ImportDeclaration") continue;
-		if (!BLOCKED_AUTHOR_SOURCES.has(String(stmt.source.value))) continue;
-		throw new Error(
-			`An application import from "${stmt.source.value}" cannot mark CSS. The ignite JSX plugin marks static <style> text itself.`,
-		);
+export function isBlockedAuthorSpecifier(value: string): boolean {
+	if (value === AUTHOR_VIRTUAL || value === AUTHOR_SOURCE) return true;
+	if (
+		value === "@ignite-element/renderer/jsx/author-style" ||
+		value === "@ignite-element/renderer/jsx/author-style-mark"
+	) {
+		return true;
 	}
+	const file = value.split("?")[0].split("\\").join("/");
+	return MARK_FILE.test(file);
+}
+
+function specifierOf(node: t.Node | null | undefined): string | null {
+	if (!node) return null;
+	const expr = unwrap(node);
+	if (expr.type === "StringLiteral") return expr.value;
+	if (expr.type === "TemplateLiteral" && expr.expressions.length === 0) {
+		return expr.quasis.map((quasi) => quasi.value.cooked ?? "").join("");
+	}
+	return null;
+}
+
+function rejectSpecifier(value: string): void {
+	if (!isBlockedAuthorSpecifier(value)) return;
+	throw new Error(
+		`An application import from "${value}" cannot mark CSS. The ignite JSX plugin marks static <style> text itself.`,
+	);
+}
+
+function rejectHandWrittenAuthorImport(ast: t.File): void {
+	const visit = traverse as (node: t.Node, visitors: object) => void;
+	visit(ast, {
+		ImportDeclaration(path: NodePath<t.ImportDeclaration>) {
+			rejectSpecifier(String(path.node.source.value));
+		},
+		ExportAllDeclaration(path: NodePath<t.ExportAllDeclaration>) {
+			rejectSpecifier(String(path.node.source.value));
+		},
+		ExportNamedDeclaration(path: NodePath<t.ExportNamedDeclaration>) {
+			if (path.node.source) rejectSpecifier(String(path.node.source.value));
+		},
+		CallExpression(path: NodePath<t.CallExpression>) {
+			const callee = unwrap(path.node.callee);
+			const isImport = callee.type === "Import";
+			const isRequire =
+				callee.type === "Identifier" && callee.name === "require";
+			if (!isImport && !isRequire) return;
+			const value = specifierOf(path.node.arguments[0]);
+			if (value) rejectSpecifier(value);
+		},
+	});
 }
 
 export function markFile(ast: t.File): boolean {
-	rejectHandWrittenAuthorImport(ast.program);
+	rejectHandWrittenAuthorImport(ast);
 	const hits: Array<{ element: t.JSXElement; parts: Part[]; callee: string }> =
 		[];
 	traverse(ast, {
