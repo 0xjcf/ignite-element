@@ -23,12 +23,11 @@ This keeps structure and styling together.
 
 The JSX renderer preserves the same `<style>` node across ordinary rerenders instead of duplicating it.
 
-If your bundler can import CSS as text, you can replace `cardCss` with that imported string. If it cannot, keep the CSS string in a `.ts` module or inline constant.
+Add `@ignite-element/jsx-plugin` once in the bundler config. A static `<style>` string, a same-file `const`, or `import sheet from "./sheet.css?raw"` is author CSS. A `let` or `var`, including one that is never written again, stays data, and so does a `const` that aliases one. A value from props stays data. There is no public import that marks CSS: `ignite-element/jsx/author-style` is not a package export, and a hand-written import is a build error. Mixing marked and unmarked CSS in one `<style>` drops the author `url()`.
 
 ## Reuse a stylesheet
 
-Link the same stylesheet inside each component's shadow root, as shown in the
-[light switch](https://0xjcf.github.io/ignite-element/#build-a-component).
+Repeat the same CSS string in each component's `<style>` element, as the example above does. The [light switch](https://0xjcf.github.io/ignite-element/#build-a-component) uses that `<style>` element.
 
 ## CSS variables across shadow boundaries
 
@@ -48,7 +47,11 @@ Host pages can then set `--card-bg` outside the shadow root without rewriting co
 
 ## CSP note
 
-Inline `<style>` tags can conflict with strict `style-src` CSP settings. If your host app forbids inline styles, link an external stylesheet from the component, as the light-switch example does.
+Inline `<style>` tags can conflict with strict `style-src` CSP settings. The renderer omits stylesheet links, so a strict host policy has to allow the component `<style>` element from the example above (a nonce or a hash).
+
+## Custom style setters
+
+A custom element's `style` setter receives a plain object of checked declarations. Write each own entry as a `key:value` declaration, for example `setProperty(key, value)` or a `cssText` string of `key:value` pairs. A static `<style>` string, a same-file const, or a `*.css?raw` default import is marked by the build plugin. Prop data uses a CSS custom property: put a color, length, or keyword in the variable and keep `url()` in the static sheet. A second installed copy fails closed, so its mark does not keep a load. Joining the values alone can rebuild a loader from neighbouring fragments (`"url"` beside `"(//evil)"`).
 
 ## Light-DOM page styles
 

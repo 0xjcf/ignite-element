@@ -1,0 +1,4 @@
+.card {
+	background: url(https://cdn.example/card.png);
+	background-image: image-set(url(https://cdn.example/card.png) 1x);
+}

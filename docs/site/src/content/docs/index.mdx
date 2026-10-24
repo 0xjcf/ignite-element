@@ -81,7 +81,7 @@ Each `<ignite-light-switch>` gets its own actor, so its state is independent of 
 
 Create `src/light-switch.css` alongside the component.
 
-Its stylesheet loads inside the element’s shadow root, keeping the bulb and switch styles local.
+The view places that CSS in a style element inside the shadow root, so the bulb and switch styles stay local. A stylesheet link is not created.
 
 <details>
 <summary>View the stylesheet</summary>

@@ -3,6 +3,25 @@ export type IgniteJsxChild =
 	| PrimitiveChild
 	| IgniteJsxChild[];
 
+// Same shape as HostSafeChild. A hosted view still has to match this element.
+type HostViewChild =
+	| {
+			readonly type?: unknown;
+			readonly props?: {
+				children?: HostViewChild;
+				readonly [key: string]: unknown;
+			};
+			readonly key?: unknown;
+	  }
+	| string
+	| number
+	| boolean
+	| null
+	| undefined
+	| readonly HostViewChild[];
+type _AssertHostView<T extends HostViewChild> = T;
+export type IgniteJsxElementFitsHostView = _AssertHostView<IgniteJsxElement>;
+
 type PrimitiveChild = string | number | boolean | null | undefined;
 
 export type IgniteJsxComponent = (props: IgniteJsxProps) => IgniteJsxChild;
@@ -60,6 +79,7 @@ type UnsupportedContentProps = {
 	innerText?: never;
 	outerText?: never;
 	textContent?: never;
+	dangerouslySetInnerHTML?: never;
 };
 
 type ForbidKeys<Keys extends string> = {

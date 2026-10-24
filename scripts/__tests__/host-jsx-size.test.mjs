@@ -6,6 +6,12 @@ import { describe, it } from "node:test";
 import { gzipSync } from "node:zlib";
 import { build } from "vite";
 
+const nodeMajor = Number(process.versions.node.split(".", 1)[0]);
+assert.ok(
+	nodeMajor >= 22,
+	`JSX gzip caps are Node 22 measurements. This process is Node ${process.versions.node}.`,
+);
+
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 
 async function bundle(source, hostRuntime) {
@@ -102,7 +108,12 @@ describe("JSX host runtime size", () => {
 		// commit guard reads 4793 B.
 		// Then 4810 B (Jose approved up to 4820): the round-25 file-input skip
 		// reads 4802 B.
-		assert.ok(gzip <= 4810, `no-host JSX gzip ${gzip} is above 4810`);
+		// Then 6500 B (Jose approved on PR #180): the JSX XSS guard.
+		// Then 7100 B (Jose approved in chat on PR #180): the re-review fixes.
+		// Then 7200 B (Jose, 2026-10-22): "settle the object-style gap first and increase the budget".
+		// Then 7500 B (Jose, 2026-10-23): "Yes to the replies, raise the caps and ship N11".
+		// Measured again after the author-style mark left the no-host bundle: 7465 B.
+		assert.ok(gzip <= 7500, `no-host JSX gzip ${gzip} is above 7500`);
 	});
 
 	it("includes the host runtime when the internal module is imported", async () => {

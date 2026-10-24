@@ -1,8 +1,5 @@
-import {
-	executableUriPattern,
-	uriBearingKeyPattern,
-	uriSpacePattern,
-} from "./executableUri";
+import { readAuthorStyle } from "./authorStyle";
+import { uriBearingKeyPattern, uriSpacePattern } from "./executableUri";
 import {
 	configureHostOwnership,
 	type HostOwnershipTools,
@@ -19,6 +16,22 @@ import {
 	isIgniteJsxElement,
 	normalizeChildren,
 } from "./types";
+import {
+	cssTextWithoutUrls,
+	cssValueForStyle,
+	declaresRemoteLoad,
+	decorativeUrlBlocked,
+	isExtraUrlName,
+	isForbiddenProp,
+	isHandlerKey,
+	isUrlPartKey,
+	localName,
+	scriptElementOmitted,
+	snapshotLinkRel,
+	styleSheetFromChildren,
+	unmarkedStyleDroppedRemote,
+	urlValueBlocked,
+} from "./xssGuard";
 
 declare const __IGNITE_DEV_WARNINGS__: boolean;
 declare const __IGNITE_HOST_RUNTIME__: boolean | undefined;
@@ -56,7 +69,7 @@ type NormalizedNode =
 			namespace?: string;
 			key?: string | number | null;
 	  }
-	| { kind: "text"; value: string }
+	| { kind: "text"; value: string; author?: boolean }
 	| { kind: "comment"; comment?: string };
 
 export function createDomNode(
@@ -168,6 +181,10 @@ function normalizeChild(
 	}
 
 	if (!isIgniteJsxElement(node)) {
+		const author = readAuthorStyle(node);
+		if (author !== undefined) {
+			return [{ kind: "text", value: author, author: true }];
+		}
 		return [
 			{ kind: "comment", comment: "ignite-unknown" } as {
 				kind: "comment";
@@ -206,11 +223,51 @@ function normalizeChild(
 			);
 	warnInvalidKeys(normalizedChildren);
 
+	const lowerTag = localName(tagName);
+	if (lowerTag === "style") {
+		const sheet = styleSheetFromChildren(normalizedChildren);
+		if (
+			__IGNITE_DEV_WARNINGS__ &&
+			unmarkedStyleDroppedRemote(normalizedChildren)
+		) {
+			warn(
+				"[ignite-jsx] a style element dropped url() or @import. If that CSS is a static string in this file, is the ignite plugin on?",
+			);
+		}
+		// An img or SVG image inside style is a real element and would fetch.
+		let wroteText = false;
+		const nextChildren: NormalizedNode[] = [];
+		for (const child of normalizedChildren) {
+			if (child.kind !== "text" || wroteText) continue;
+			wroteText = true;
+			nextChildren.push({
+				kind: "text",
+				value: sheet.css,
+			});
+		}
+		normalizedChildren.length = 0;
+		normalizedChildren.push(...nextChildren);
+	}
+	const checked =
+		lowerTag === "link" && node.props
+			? snapshotLinkRel(node.props)
+			: node.props;
+	if (
+		(lowerTag === "script" &&
+			scriptElementOmitted(normalizedChildren, node.props)) ||
+		checked === false
+	) {
+		if (__IGNITE_DEV_WARNINGS__) {
+			warn(`[ignite-jsx] \`${lowerTag}\` was not created.`);
+		}
+		return [];
+	}
+
 	return [
 		{
 			kind: "element",
 			tag: tagName,
-			props: node.props,
+			props: checked as IgniteJsxProps,
 			namespace: useSvgNamespace ? SVG_NAMESPACE : undefined,
 			children: normalizedChildren,
 			key: node.key ?? null,
@@ -367,7 +424,7 @@ function warnDuplicateProps(
 	if (!__IGNITE_DEV_WARNINGS__) return;
 	const seen: Record<string, string> = {};
 	for (const key of Object.keys(props)) {
-		if (key === "children" || key === "ref") continue;
+		if (key === "children" || key === "ref" || isForbiddenProp(key)) continue;
 		const id = sinkKey(element, key, isSvg);
 		const prev = seen[id];
 		if (prev) {
@@ -382,9 +439,11 @@ function warnDuplicateProps(
 	}
 }
 
-function isBlockedMarkupProp(key: string): boolean {
+function isBlockedMarkupProp(_element: Element, key: string): boolean {
 	const normalized = key.toLowerCase();
 	return (
+		normalized === "text" ||
+		normalized === "dangerouslysetinnerhtml" ||
 		normalized === "innerhtml" ||
 		normalized === "outerhtml" ||
 		normalized === "innertext" ||
@@ -397,16 +456,15 @@ function isBlockedMarkupProp(key: string): boolean {
 	);
 }
 
-const dataDocumentTagPattern = /^(?:script|iframe|frame|object|embed|applet)$/;
-
 function isEventHandlerKey(key: string): boolean {
-	const name = key.toLowerCase();
-	return name.length > 2 && name.startsWith("on");
+	return isHandlerKey(key);
 }
 
 function isIgnoredHandlerAttribute(key: string): boolean {
-	const name = key.toLowerCase();
-	return isEventHandlerKey(name) || name.startsWith("xlink:on");
+	// CamelCase custom events match before lowercasing. `onValueChanged`
+	// is a listener, not an `onvaluechanged` attribute.
+	if (isEventHandlerKey(key)) return true;
+	return key.toLowerCase().startsWith("xlink:on");
 }
 
 function strippedUri(value: string): string {
@@ -469,10 +527,10 @@ function isBlockedUrlValue(
 	props?: IgniteJsxProps,
 ): boolean {
 	if (value == null || value === false) return false;
-	const name = key.toLowerCase();
+	const name =
+		key.toLowerCase() === "xlinkhref" ? "xlink:href" : key.toLowerCase();
 	const tag = element.localName.toLowerCase();
-	// <base href> retargets relative URLs. srcset lists and poster are
-	// documented in the changeset; they are not checked here.
+	// <base href> retargets relative URLs, so it is never written.
 	if (tag === "base" && name === "href") return true;
 	// A string attributeName is lowercased, whitespace and ASCII controls
 	// are removed, then any Clark or namespace prefix is removed. href,
@@ -484,13 +542,15 @@ function isBlockedUrlValue(
 	) {
 		return true;
 	}
+	if (decorativeUrlBlocked(tag, name, value)) return true;
 	const metaEquiv = metaRefreshKey(element, key);
 	const guarded =
 		name === "attributename" ||
 		name === "codebase" ||
 		metaEquiv ||
 		uriBearingKeyPattern.test(name) ||
-		(name === "data" && tag === "object");
+		(name === "data" && tag === "object") ||
+		isExtraUrlName(name);
 	if (!guarded) return false;
 	// Reject a non-string before any check. The string that is checked is
 	// the same string that is written.
@@ -499,11 +559,7 @@ function isBlockedUrlValue(
 		return strippedUri(value) === "refresh";
 	}
 	if (name === "attributename") return false;
-	const normalized = strippedUri(value);
-	return (
-		executableUriPattern.test(normalized) ||
-		(normalized.startsWith("data:") && dataDocumentTagPattern.test(tag))
-	);
+	return urlValueBlocked(name, value, tag);
 }
 
 function ensureMount(node: Node): ElementMount {
@@ -1140,7 +1196,13 @@ function patchProps(
 	// is never erased by the drop of a differently cased old one.
 	for (const key of Object.keys(oldProps)) {
 		if (hostRuntimeEnabled && key === "use") continue;
-		if (key === "children" || key === "ref" || isBlockedMarkupProp(key))
+		if (isForbiddenProp(key)) continue;
+		if (key.toLowerCase() === "rellist") continue;
+		if (
+			key === "children" ||
+			key === "ref" ||
+			isBlockedMarkupProp(element, key)
+		)
 			continue;
 		// Listeners are diffed by event slot, not by each spelling.
 		if (isEventHandlerKey(key)) continue;
@@ -1162,8 +1224,10 @@ function patchProps(
 			const late = key === "checked" || key === "value" || key === "selected";
 			if (late !== (pass === 1)) continue;
 			if (hostRuntimeEnabled && key === "use") continue;
+			if (isForbiddenProp(key)) continue;
+			if (key.toLowerCase() === "rellist") continue;
 			if (key === "children" || key === "ref") continue;
-			if (isBlockedMarkupProp(key)) {
+			if (isBlockedMarkupProp(element, key)) {
 				if (next !== undefined && next !== null && next !== false) {
 					warnBlockedMarkupProp(element, key);
 				}
@@ -1174,6 +1238,7 @@ function patchProps(
 				// attribute. Functions bind once per event slot above.
 				continue;
 			}
+			if (isUrlPartKey(key)) continue;
 			const prev = oldProps[key];
 			if (isBlockedUrlValue(element, key, next, newProps)) {
 				warnBlockedUrl(element, key);
@@ -1183,21 +1248,25 @@ function patchProps(
 			// An own setter may have side effects its getter does not show, so a
 			// present value is assigned exactly once per render, here, before any
 			// equality skip and without the default*/live reapply below.
+			// `style={null}` is the setter's value. undefined still clears.
+			const styleKey = key.toLowerCase() === "style";
 			if (!isSvgElement && hasOwnCustomSetter(element as HTMLElement, key)) {
-				if (next == null) removeProp(element, key, false);
-				else {
+				if (next == null && !(next === null && styleKey)) {
+					removeProp(element, key, false);
+				} else {
 					// A fallback attribute written before the upgrade is replaced.
 					const keys = committedKeys(element);
 					if (keys.get(key)) dropFallback(element, key);
 					keys.set(key, false);
-					setContained(element, key, next);
+					// biome-ignore format: line breaks here show up in the minified gzip budget
+					setContained(element, key, styleKey ? cssTextWithoutUrls(next) : next);
 				}
 				continue;
 			}
 			// Any other commit is a fallback: the renderer owns that attribute.
 			if (next != null) committedKeys(element).set(key, true);
 
-			if (key === "style") {
+			if (styleKey) {
 				patchStyle(element as HTMLElement, prev, next);
 				continue;
 			}
@@ -1285,15 +1354,29 @@ function patchProps(
 	}
 }
 
+function safeStyleText(value: unknown): string {
+	try {
+		return String(value);
+	} catch {
+		return "";
+	}
+}
+
 function patchStyle(element: HTMLElement, prev: unknown, next: unknown): void {
 	// An override of style is a user getter: contained, and a non-style value
 	// (undefined, or the throw fallback) leaves the rest of the render alone.
 	const style = getContained(element, "style") as CSSStyleDeclaration;
 	if (!style?.setProperty) return;
 
-	if (next && typeof next === "object") {
-		if (prev && typeof prev === "object") {
-			for (const key of Object.keys(prev)) {
+	if (next === null || next === undefined || next === false) {
+		setContained(style, "cssText", "");
+		return;
+	}
+
+	if (typeof next === "object") {
+		const prevIsMap = !!prev && typeof prev === "object";
+		if (prevIsMap) {
+			for (const key of Object.keys(prev as Record<string, unknown>)) {
 				if (!(key in next)) act(style, "removeProperty", toKebabCase(key));
 			}
 		} else {
@@ -1301,22 +1384,44 @@ function patchStyle(element: HTMLElement, prev: unknown, next: unknown): void {
 		}
 		for (const [key, value] of Object.entries(next)) {
 			const cssProperty = toKebabCase(key);
-			if (
-				value != null &&
-				act<string>(style, "getPropertyValue", cssProperty) !== String(value)
-			) {
-				act(style, "setProperty", cssProperty, String(value));
+			const safe = cssValueForStyle(value);
+			if (safe === false) {
+				if (__IGNITE_DEV_WARNINGS__) {
+					const remote =
+						value != null &&
+						declaresRemoteLoad(
+							typeof value === "string" ? value : safeStyleText(value),
+						);
+					warnIgnoredProp(
+						element,
+						`style:${key}`,
+						remote
+							? "[ignite-jsx] a style value dropped url(). Put a color, length, or keyword in a CSS variable, and keep url() in the static style sheet."
+							: `[ignite-jsx] \`${key}\` was not applied because its URL scheme is not allowed.`,
+					);
+				}
+				act(style, "removeProperty", cssProperty);
+				continue;
+			}
+			if (safe === undefined) continue;
+			if (act<string>(style, "getPropertyValue", cssProperty) !== safe) {
+				act(style, "setProperty", cssProperty, safe);
 			}
 		}
 		return;
 	}
 
-	if (next === null || next === undefined || next === false) {
-		setContained(style, "cssText", "");
-		return;
+	const raw = safeStyleText(next);
+	const nextString = cssTextWithoutUrls(raw) as string;
+	if (__IGNITE_DEV_WARNINGS__ && nextString !== raw) {
+		warnIgnoredProp(
+			element,
+			"style:url",
+			declaresRemoteLoad(raw)
+				? "[ignite-jsx] a style value dropped url(). Put a color, length, or keyword in a CSS variable, and keep url() in the static style sheet."
+				: "[ignite-jsx] `style` was not applied because its URL scheme is not allowed.",
+		);
 	}
-
-	const nextString = String(next);
 	if (getContained(style, "cssText") !== nextString) {
 		setContained(style, "cssText", nextString);
 	}
@@ -1370,6 +1475,7 @@ function propAttributeName(
 	isSvg: boolean,
 ): string {
 	const lower = key.toLowerCase();
+	if (lower === "xlinkhref") return "xlink:href";
 	if (lower === "class" || lower === "classname") return "class";
 	if (lower === "htmlfor") return "for";
 	if (lower === "acceptcharset") return "accept-charset";
@@ -1696,6 +1802,9 @@ function getContained(element: object, key: string): unknown {
 // Every property write goes through here. A throwing setter stops at its own
 // write and never aborts the render. File values are not cleared.
 function setContained(element: object, key: string, value: unknown): void {
+	// __proto__, constructor, and prototype are never assigned. Reflect.set
+	// would invoke the __proto__ setter and swap the element's prototype.
+	if (isForbiddenProp(key)) return;
 	try {
 		act(Reflect, "set", element, key, value);
 	} catch {

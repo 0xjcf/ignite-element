@@ -1,10 +1,14 @@
 import { isExecutableUri } from "../../../../../ignite-renderer/src/renderers/jsx/executableUri";
-import { isIgniteJsxElement } from "../../../../../ignite-renderer/src/renderers/jsx/types";
 import { jsx } from "../../../../../ignite-renderer/src/renderers/jsx/jsx-runtime";
 import {
 	mountIgniteJsx,
 	renderIgniteJsx,
 } from "../../../../../ignite-renderer/src/renderers/jsx/renderer";
+import { isIgniteJsxElement } from "../../../../../ignite-renderer/src/renderers/jsx/types";
+import {
+	isHandlerKey,
+	srcsetCandidates,
+} from "../../../../../ignite-renderer/src/renderers/jsx/xssGuard";
 import {
 	type AliasReport,
 	type AliasScenario,
@@ -502,7 +506,26 @@ const urlAttributes = new Set([
 	"action",
 	"formaction",
 	"xlink:href",
+	"srcset",
+	"poster",
+	"background",
+	"cite",
+	"ping",
 ]);
+
+function attributeArmed(name: string, raw: string): boolean {
+	if (name === "srcset") {
+		return srcsetCandidates(raw).some((candidate) =>
+			isExecutableUri(candidate),
+		);
+	}
+	if (name === "ping") {
+		return raw
+			.split(/[\t\n\f\r ]+/)
+			.some((token) => token.length > 0 && isExecutableUri(token));
+	}
+	return isExecutableUri(raw);
+}
 
 function collectArmed(host: ParentNode): string[] {
 	const armed: string[] = [];
@@ -511,17 +534,27 @@ function collectArmed(host: ParentNode): string[] {
 		for (const name of element.getAttributeNames()) {
 			const lower = name.toLowerCase();
 			const raw = element.getAttribute(name) ?? "";
-			if (lower.startsWith("on")) armed.push(`handler ${name}`);
-			if (urlAttributes.has(lower) && isExecutableUri(raw)) {
+			if (isHandlerKey(name)) armed.push(`handler ${name}`);
+			if (urlAttributes.has(lower) && attributeArmed(lower, raw)) {
 				armed.push(`attribute ${element.localName} ${name}=${raw}`);
 			}
 		}
 		const urlHost = element as unknown as Record<string, unknown>;
-		for (const key of ["href", "src", "action", "formAction"] as const) {
+		for (const key of [
+			"href",
+			"src",
+			"action",
+			"formAction",
+			"poster",
+			"cite",
+			"ping",
+			"srcset",
+			"background",
+		] as const) {
 			if (!(key in element)) continue;
 			const current = urlHost[key];
 			if (typeof current !== "string" || current === "") continue;
-			if (isExecutableUri(current)) {
+			if (attributeArmed(key.toLowerCase(), current)) {
 				armed.push(`property ${element.localName}.${key}`);
 				continue;
 			}

@@ -1,5 +1,28 @@
-import { defineConfig } from "vite";
+import { lstatSync, rmSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { defineConfig, type Plugin } from "vite";
 import { createLibConfig } from "../../configs/vite/lib";
+
+// Node resolves @ignite-element/renderer from this file. A hard-coded
+// ../../ path misses nested npm, PnP, and vendored layouts. The file is
+// generated into dist and is not a package export.
+const authorBridgeId = "./author-style-resolve.js";
+
+const authorBridgeSource = `const entry = import.meta.resolve("@ignite-element/renderer");
+const markUrl = new URL("jsx/author-style-mark.es.js", entry);
+const marked = await import(markUrl.href);
+export const readAuthorStyle = marked.readAuthorStyle;
+`;
+
+function removeWorkspaceRendererLink(): void {
+	const linkPath = path.resolve(process.cwd(), "../@ignite-element/renderer");
+	try {
+		if (!lstatSync(linkPath).isSymbolicLink()) return;
+	} catch {
+		return;
+	}
+	rmSync(linkPath, { force: true });
+}
 
 type ViteCommand = "build" | "serve";
 
@@ -43,6 +66,7 @@ export default defineConfig(({ command }) => {
 		external: [
 			"@ignite-element/core",
 			"@ignite-element/renderer",
+			authorBridgeId,
 			"@ignite-element/adapters",
 			"@ignite-element/adapters/actor-web",
 			"lit-html",
@@ -67,6 +91,8 @@ export default defineConfig(({ command }) => {
 		},
 	});
 	const warningsOn = command !== "build" || devArtifact;
+	removeWorkspaceRendererLink();
+	let outDir = "dist";
 	return {
 		...libConfig,
 		define: {
@@ -75,6 +101,37 @@ export default defineConfig(({ command }) => {
 			__IGNITE_DEV_WARNINGS__: JSON.stringify(warningsOn),
 			__IGNITE_HOST_RUNTIME__: JSON.stringify(true),
 		},
-		plugins: libConfig.plugins,
+		plugins: [
+			{
+				name: "externalize-author-style",
+				apply: "build",
+				enforce: "pre",
+				configResolved(config) {
+					outDir = config.build.outDir;
+				},
+				buildStart() {
+					removeWorkspaceRendererLink();
+				},
+				resolveId(source, importer) {
+					if (!importer) return null;
+					if (
+						source === "@ignite-element/renderer/jsx/author-style" ||
+						/(?:^|\/)authorStyle(?:\.ts|\.js)?$/.test(source) ||
+						/(?:^|\/)author-style-mark(?:\.development)?\.es\.js$/.test(source)
+					) {
+						return {
+							id: authorBridgeId,
+							external: true,
+						};
+					}
+					return null;
+				},
+				closeBundle() {
+					const file = path.resolve(outDir, "author-style-resolve.js");
+					writeFileSync(file, authorBridgeSource);
+				},
+			} satisfies Plugin,
+			...(libConfig.plugins ?? []),
+		],
 	};
 });

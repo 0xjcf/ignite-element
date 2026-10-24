@@ -9,6 +9,9 @@ lerna-debug.log*
 
 node_modules
 .pnpm-store/
+# Build mirror of node_modules/@ignite-element/renderer. The element chunk
+# imports the author mark with the published sibling path.
+packages/@ignite-element/
 dist
 dist-ssr
 dev-dist

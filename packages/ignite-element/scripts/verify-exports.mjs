@@ -431,6 +431,39 @@ assert.deepEqual([EventTarget, Event, CustomEvent], native);
 		{ stdio: "pipe" },
 	);
 }
+const forbiddenAppNames = [
+	"trustedStyle",
+	"safeUrl",
+	"safeSpread",
+	"igniteAuthorStyle",
+];
+for (const specifier of [
+	"ignite-element/jsx",
+	"@ignite-element/renderer/jsx",
+	"@ignite-element/renderer/jsx/index",
+]) {
+	const module = await import(specifier);
+	for (const name of forbiddenAppNames) {
+		assert.equal(
+			Object.hasOwn(module, name),
+			false,
+			`${specifier} must not export ${name}.`,
+		);
+	}
+}
+await assert.rejects(
+	import("ignite-element/jsx/author-style"),
+	/ERR_PACKAGE_PATH_NOT_EXPORTED|Cannot find module|Failed to load/,
+);
+await assert.rejects(
+	import("@ignite-element/renderer/jsx/author-style"),
+	/ERR_PACKAGE_PATH_NOT_EXPORTED|Cannot find module|Failed to load/,
+);
+await assert.rejects(
+	import("@ignite-element/renderer/jsx/author-style-mark"),
+	/ERR_PACKAGE_PATH_NOT_EXPORTED|Cannot find module|Failed to load/,
+);
+
 console.info(
 	"[verify:exports] Package exports and fresh Node initialization resolved successfully.",
 );
