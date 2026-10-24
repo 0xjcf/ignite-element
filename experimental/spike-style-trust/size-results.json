@@ -1,0 +1,62 @@
+{
+  "node": "v22.23.4",
+  "caps": {
+    "noHostGzip6": 7564,
+    "consumerGzip9": 8810
+  },
+  "officialAtHead": {
+    "noHostGzip6": 7544,
+    "consumerDistGzip9": 8790
+  },
+  "note": "noHostGzip6 uses the official no-host entry and matched 7544 at baseline. consumerSourceGzip9 imports renderer source via mountIgniteJsxOnce, not the published dist chunk, so its absolute size is not the official 8790. estimatedOfficialConsumer = 8790 + consumerSourceDelta. Caps were not changed.",
+  "rows": [
+    {
+      "variant": "baseline",
+      "noHostGzip6": 7544,
+      "consumerSourceGzip9": 10025,
+      "noHostHasTrusted": true,
+      "noHostHasWeakSet": true,
+      "noHostDelta": 0,
+      "consumerSourceDelta": 0,
+      "estimatedOfficialConsumer": 8790,
+      "noHostFitsCap": true,
+      "estimatedConsumerFitsCap": true
+    },
+    {
+      "variant": "a",
+      "noHostGzip6": 7278,
+      "consumerSourceGzip9": 9778,
+      "noHostHasTrusted": false,
+      "noHostHasWeakSet": true,
+      "noHostDelta": -266,
+      "consumerSourceDelta": -247,
+      "estimatedOfficialConsumer": 8543,
+      "noHostFitsCap": true,
+      "estimatedConsumerFitsCap": true
+    },
+    {
+      "variant": "b",
+      "noHostGzip6": 7343,
+      "consumerSourceGzip9": 9844,
+      "noHostHasTrusted": false,
+      "noHostHasWeakSet": true,
+      "noHostDelta": -201,
+      "consumerSourceDelta": -181,
+      "estimatedOfficialConsumer": 8609,
+      "noHostFitsCap": true,
+      "estimatedConsumerFitsCap": true
+    },
+    {
+      "variant": "c",
+      "noHostGzip6": 7443,
+      "consumerSourceGzip9": 9936,
+      "noHostHasTrusted": false,
+      "noHostHasWeakSet": true,
+      "noHostDelta": -101,
+      "consumerSourceDelta": -89,
+      "estimatedOfficialConsumer": 8701,
+      "noHostFitsCap": true,
+      "estimatedConsumerFitsCap": true
+    }
+  ]
+}
