@@ -24,6 +24,7 @@ import igniteRolldown from "./rolldown.js";
 import igniteRollup from "./rollup.js";
 import igniteRspack from "./rspack.js";
 import igniteJsxTypeScript from "./typescript.js";
+import { resolveAuthorMark } from "./unplugin.js";
 import igniteVite from "./vite.js";
 import igniteWebpack from "./webpack.js";
 
@@ -187,6 +188,53 @@ describe("bundler fixtures", () => {
 		});
 		assertMarked(printed.outputText, "typescript");
 	}, 120000);
+
+	it("resolves the compiler mark from a docs-site file", async () => {
+		const docs = fileURLToPath(new URL("../../../docs/site/", import.meta.url));
+		const dir = mkdtempSync(path.join(docs, ".mark-resolve-"));
+		const entry = path.join(dir, "entry.tsx");
+		writeFileSync(
+			entry,
+			`const local = ".a{background:url(https://cdn.example/static.png)}";
+export const view = <style>{local}</style>;
+`,
+		);
+		try {
+			expect(resolveAuthorMark(entry)).toMatch(
+				/dist\/jsx\/author-style-mark\.es\.js$/,
+			);
+			const result = await build({
+				configFile: false,
+				logLevel: "silent",
+				plugins: [igniteVite()],
+				root: docs,
+				esbuild: {
+					jsx: "automatic",
+					jsxImportSource: "ignite-element/jsx",
+				},
+				build: {
+					write: false,
+					minify: false,
+					lib: { entry, formats: ["es"], fileName: "entry" },
+					rollupOptions: {
+						external: [
+							/^ignite-element\/(?!jsx\/author-style$)/,
+							/^@ignite-element\//,
+						],
+					},
+				},
+			});
+			const outputs = Array.isArray(result) ? result[0].output : result.output;
+			const code = outputs
+				.map((item) => ("code" in item ? item.code : ""))
+				.join("\n");
+			expect(code).toContain("https://cdn.example/static.png");
+			expect(code).toContain('Symbol("ignite-element.authorStyle")');
+			expect(code).not.toContain('from "ignite-element/jsx/author-style"');
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
 });
 
 async function executeEsbuildFixture() {

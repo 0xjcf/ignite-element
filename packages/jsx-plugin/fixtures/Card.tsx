@@ -2,7 +2,7 @@ import cardCss from "./card.css?raw";
 
 const local = ".local{background:url(https://cdn.example/local.png)}";
 const plain = `.plain{font-family:url(https://cdn.example/font.woff);content:"\\"}`;
-const live = ".live{color:blue}";
+let live = ".live{color:blue}";
 var old = ".old{color:green}";
 let assigned = ".assigned{color:red}";
 let sum = ".sum{color:red}";

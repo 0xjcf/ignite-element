@@ -19,6 +19,7 @@ function filePath(id: string): string {
 function shouldTransform(id: string): boolean {
 	const file = filePath(id).split("\\").join("/");
 	if (file.includes("/node_modules/")) return false;
+	if (file.includes("/dist/")) return false;
 	if (file.includes("/.ignite-jsx-shims/")) return false;
 	return SOURCE.test(file);
 }
@@ -30,20 +31,82 @@ export function loadRawCss(id: string): string | null {
 	return `export default ${JSON.stringify(readFileSync(file, "utf8"))};\n`;
 }
 
+function packageRoot(entry: string, name: string): string | null {
+	let dir = path.dirname(entry);
+	for (let depth = 0; depth < 6; depth += 1) {
+		const file = path.join(dir, "package.json");
+		if (existsSync(file)) {
+			try {
+				const parsed = JSON.parse(readFileSync(file, "utf8")) as {
+					name?: string;
+				};
+				if (parsed.name === name) return dir;
+			} catch {
+				// A broken package.json is not this package.
+			}
+		}
+		const parent = path.dirname(dir);
+		if (parent === dir) return null;
+		dir = parent;
+	}
+	return null;
+}
+
+function rendererRoot(from: NodeRequire): string | null {
+	try {
+		return packageRoot(
+			from.resolve("@ignite-element/renderer"),
+			"@ignite-element/renderer",
+		);
+	} catch {
+		// An app may depend on ignite-element, which depends on the renderer.
+	}
+	try {
+		const elementRoot = packageRoot(
+			from.resolve("ignite-element"),
+			"ignite-element",
+		);
+		if (!elementRoot) return null;
+		const fromElement = createRequire(path.join(elementRoot, "package.json"));
+		return packageRoot(
+			fromElement.resolve("@ignite-element/renderer"),
+			"@ignite-element/renderer",
+		);
+	} catch {
+		return null;
+	}
+}
+
+function markFile(root: string, importer: string | undefined): string | null {
+	const source = path.join(root, "src/renderers/jsx/authorStyle.ts");
+	const dist = path.join(root, "dist/jsx/author-style-mark.es.js");
+	const norm = (importer ?? "").split("\\").join("/");
+	// Docs consume the published renderer. Examples and package tests alias
+	// that renderer to source, so the mark has to be the same module.
+	const sourceApp =
+		!norm.includes("/docs/site/") &&
+		(norm.includes("/examples/") || norm.includes("/packages/"));
+	if (sourceApp && existsSync(source)) return source;
+	if (existsSync(dist)) return dist;
+	if (existsSync(source)) return source;
+	return null;
+}
+
 export function resolveAuthorMark(importer: string | undefined): string | null {
+	const norm = (importer ?? "").split("\\").join("/");
+	// The plugin's own bundler fixture shims this specifier. App files,
+	// including the docs site, need the real mark module.
+	if (norm.includes("/packages/jsx-plugin/")) return null;
 	const bases = [importer, fileURLToPath(import.meta.url)];
 	for (const base of bases) {
 		if (!base) continue;
 		try {
-			const require = createRequire(base);
-			const pkg = require.resolve("@ignite-element/renderer/package.json");
-			const root = path.dirname(pkg);
-			const source = path.join(root, "src/renderers/jsx/authorStyle.ts");
-			if (existsSync(source)) return source;
-			const dist = path.join(root, "dist/jsx/author-style-mark.es.js");
-			if (existsSync(dist)) return dist;
+			const root = rendererRoot(createRequire(base));
+			if (!root) continue;
+			const mark = markFile(root, importer);
+			if (mark) return mark;
 		} catch {
-			// The next base may be the app file that can see the renderer package.
+			// The next base may be the app file that can see ignite-element.
 		}
 	}
 	return null;
