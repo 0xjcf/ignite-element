@@ -8,14 +8,18 @@
 		"related": false
 	},
 	"mutate": [
-		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:233-245",
-		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:247-259",
-		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:266-266",
-		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:521-560",
-		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1237-1237",
-		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1248-1248",
-		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1250-1250",
-		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1258-1258"
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:227-250",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:251-264",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:270-270",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:442-456",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:523-563",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1200-1200",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1228-1228",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1241-1241",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1252-1252",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1254-1254",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1262-1262",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1388-1424"
 	],
 	"coverageAnalysis": "perTest",
 	"incremental": false,

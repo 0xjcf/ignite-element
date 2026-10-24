@@ -62,6 +62,10 @@ const WARNING_STRINGS = [
 	"URL scheme is not allowed",
 ];
 const EVENT_ORIGIN_WARNING = "observed from both native and effect";
+const STYLE_ELEMENT_WARNING =
+	"[ignite-jsx] a style element dropped url() or @import. If that CSS is a static string in this file, is the ignite plugin on?";
+const STYLE_VALUE_WARNING =
+	"[ignite-jsx] a style value dropped url(). Put a color, length, or keyword in a CSS variable, and keep url() in the static style sheet.";
 
 // Gzip level 9 of this production consumer entry before dev warnings were
 // left for a consumer bundler to strip. Previous target was 4634.
@@ -327,6 +331,15 @@ describe("published renderer jsx bundle", { concurrency: false }, () => {
 		assert.equal(elementDevelopment.includes(EVENT_ORIGIN_WARNING), true);
 		assert.equal(elementDevelopment.includes("Unknown host"), true);
 		assert.equal(elementDevelopment.includes("typeof process"), false);
+	});
+
+	it("production chunks omit the warning sentences", () => {
+		const production = readModuleGraph(jsxBundle);
+		const development = readModuleGraph(jsxDevBundle);
+		assert.equal(production.includes(STYLE_ELEMENT_WARNING), false);
+		assert.equal(production.includes(STYLE_VALUE_WARNING), false);
+		assert.equal(development.includes(STYLE_ELEMENT_WARNING), true);
+		assert.equal(development.includes(STYLE_VALUE_WARNING), true);
 	});
 
 	it("strips warning strings and process from a Vite production build", async () => {

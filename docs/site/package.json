@@ -23,6 +23,7 @@
 	},
 	"dependencies": {
 		"@astrojs/starlight": "^0.39.3",
+		"@ignite-element/jsx-plugin": "workspace:*",
 		"astro": "^6.4.3",
 		"ignite-element": "workspace:*",
 		"react": "19.2.7",

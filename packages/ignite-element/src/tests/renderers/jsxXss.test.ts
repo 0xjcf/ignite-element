@@ -1,16 +1,14 @@
 import fc from "fast-check";
 import { afterEach, describe, expect, it } from "vitest";
+import { igniteAuthorStyle } from "../../../../ignite-renderer/src/renderers/jsx/authorStyle";
 import {
 	cssTextWithoutUrls,
 	cssValueForStyle,
 	decorativeUrlBlocked,
 	isHandlerKey,
 	linkReflectsBlocked,
-	readTrustedStyle,
-	safeSpread,
 	srcsetCandidates,
 	styleSheetFromChildren,
-	trustedStyle,
 	urlValueBlocked,
 } from "../../../../ignite-renderer/src/renderers/jsx/xssGuard";
 import { jsx } from "../../renderers/jsx/jsx-runtime";
@@ -144,25 +142,6 @@ const dangerousUrl = fc
 			scheme.startsWith("data:") ? `${value},hi` : `${value}:alert(1)`,
 		),
 	);
-
-type SafeSpread = (
-	props: object,
-	options?: { handlers?: readonly string[] },
-) => Record<string, unknown>;
-
-type SafeUrl = (value: string) => string | null;
-
-type TrustedStyle = (css: string) => unknown;
-
-async function loadHelpers() {
-	const imported = await import("@ignite-element/renderer/jsx");
-	const helpers = imported as {
-		safeSpread?: SafeSpread;
-		safeUrl?: SafeUrl;
-		trustedStyle?: TrustedStyle;
-	};
-	return helpers;
-}
 
 describe("locks that already hold", () => {
 	it("still runs a direct onClick function", () => {
@@ -465,70 +444,46 @@ describe("gaps", () => {
 		);
 	});
 
-	it("safeSpread refuses spread on* functions unless explicitly allowed", async () => {
-		const { safeSpread } = await loadHelpers();
-		expect(typeof safeSpread).toBe("function");
-		if (typeof safeSpread !== "function") return;
-
+	it("string handlers die and a function inside a spread object still runs", () => {
 		let ran = false;
-		const blocked = mount(
-			"button",
-			safeSpread({
-				onClick: () => {
-					ran = true;
-				},
-				id: "stay",
-				children: "go",
-			}),
-		);
-		blocked
+		const spread = {
+			onClick: () => {
+				ran = true;
+			},
+			id: "stay",
+			children: "go",
+		};
+		const host = mount("button", { ...spread });
+		host
 			.querySelector("button")
 			?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-		expect(ran).toBe(false);
-		expect(blocked.querySelector("button")?.id).toBe("stay");
+		expect(ran).toBe(true);
+		expect(host.querySelector("button")?.id).toBe("stay");
 
-		let allowed = false;
-		const kept = mount(
-			"button",
-			safeSpread(
-				{
-					onClick: () => {
-						allowed = true;
-					},
-					children: "go",
-				},
-				{ handlers: ["onClick"] },
-			),
-		);
-		kept
-			.querySelector("button")
-			?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-		expect(allowed).toBe(true);
-
-		const named = safeSpread(
-			{ onclick: "alert(1)", id: "x", title: "stay", on: "nope" },
-			{ handlers: ["onclick"] },
-		);
-		expect(named.onclick).toBeUndefined();
-		expect(named.title).toBe("stay");
-		expect(named.on).toBe("nope");
-		expect(safeSpread(null as unknown as object)).toEqual({});
-		expect(safeSpread(1 as unknown as object)).toEqual({});
-		expect(safeSpread("ab" as unknown as object)).toEqual({});
-		const namedString = mount("div", named);
+		const namedString = mount("div", {
+			onclick: "alert(1)",
+			id: "x",
+			title: "stay",
+			on: "nope",
+		});
 		expect(
 			namedString.querySelector("div")?.getAttribute("onclick"),
 		).toBeNull();
 		expect(namedString.querySelector("div")?.id).toBe("x");
+		expect(namedString.querySelector("div")?.getAttribute("title")).toBe(
+			"stay",
+		);
+		expect(namedString.querySelector("div")?.getAttribute("on")).toBe("nope");
 
-		const proto = safeSpread(ownKey("__proto__", { polluted: true }));
-		expect(Object.keys(proto)).not.toContain("__proto__");
-		expect(Object.keys(safeSpread(ownKey("constructor", {})))).not.toContain(
-			"constructor",
-		);
-		expect(Object.keys(safeSpread(ownKey("prototype", {})))).not.toContain(
-			"prototype",
-		);
+		mount("div", ownKey("__proto__", { polluted: true }));
+		expect(
+			(Object.prototype as { polluted?: boolean }).polluted,
+		).toBeUndefined();
+		mount("div", ownKey("constructor", {}));
+		mount("div", ownKey("prototype", {}));
+		expect(
+			(Object.prototype as { polluted?: boolean }).polluted,
+		).toBeUndefined();
 	});
 
 	it("an untrusted style string cannot set a remote url", () => {
@@ -585,12 +540,12 @@ describe("gaps", () => {
 		const fake = {
 			[Symbol.for("ignite-element.trustedStyle")]: 1,
 		};
-		expect(readTrustedStyle(fake)).toBeUndefined();
-		expect(readTrustedStyle(Symbol("style"))).toBeUndefined();
-		expect(readTrustedStyle("color: red")).toBeUndefined();
+		expect(igniteAuthorStyle.read(fake)).toBeUndefined();
+		expect(igniteAuthorStyle.read(Symbol("style"))).toBeUndefined();
+		expect(igniteAuthorStyle.read("color: red")).toBeUndefined();
 		const brandedFn = (() => {}) as unknown as Record<symbol, string>;
 		brandedFn[Symbol.for("ignite-element.trustedStyle")] = "color: red";
-		expect(readTrustedStyle(brandedFn)).toBeUndefined();
+		expect(igniteAuthorStyle.read(brandedFn)).toBeUndefined();
 		const branded = mount("div", { style: fake }).querySelector(
 			"div",
 		) as HTMLElement;
@@ -675,7 +630,7 @@ describe("gaps", () => {
 		).toBe(keptRange);
 		expect(
 			styleSheetFromChildren([
-				{ kind: "text", value: "</style><img src=x>", trusted: true },
+				{ kind: "text", value: "</style><img src=x>", author: true },
 			]).css,
 		).toBe("");
 
@@ -693,13 +648,22 @@ describe("gaps", () => {
 			split.querySelector("style")?.textContent?.toLowerCase() ?? "",
 		).not.toContain("url(");
 
-		const { trustedStyle: trust } = await loadHelpers();
-		expect(typeof trust).toBe("function");
-		if (typeof trust !== "function") return;
-		expect(() => trust("</style><img src=x onerror=alert(1)>")).toThrow(
-			"</style",
+		const breakBrand = igniteAuthorStyle(
+			"</style><img src=x onerror=alert(1)>",
 		);
-		const trustedRange = trust("@media (width < 600px){.a{color:red}}");
+		const breakHost = document.createElement("div");
+		document.body.append(breakHost);
+		mountIgniteJsx(
+			breakHost,
+			jsx("div", {
+				children: jsx("style", { children: breakBrand }),
+			}),
+		);
+		expect(breakHost.querySelector("style")?.textContent ?? "").toBe("");
+		expect(breakHost.querySelector("img")).toBeNull();
+		const trustedRange = igniteAuthorStyle(
+			"@media (width < 600px){.a{color:red}}",
+		);
 		const trustedHost = document.createElement("div");
 		document.body.append(trustedHost);
 		mountIgniteJsx(
@@ -718,17 +682,17 @@ describe("gaps", () => {
 			jsx("div", {
 				children: jsx("style", {
 					children: [
-						trust(".a{background:url(https://cdn.example/a.png)};"),
+						igniteAuthorStyle(".a{background:url(https://cdn.example/a.png)};"),
 						"body{background:url",
 						"(https://evil.example/x)}",
-						trust("url("),
+						igniteAuthorStyle("url("),
 						"https://evil.example/y)",
 					],
 				}),
 			}),
 		);
 		const mixedText = mixed.querySelector("style")?.textContent ?? "";
-		expect(mixedText).toContain("https://cdn.example/a.png");
+		expect(mixedText).not.toContain("https://cdn.example/a.png");
 		expect(mixedText.toLowerCase()).not.toContain("evil.example");
 
 		const paired = document.createElement("div");
@@ -737,7 +701,7 @@ describe("gaps", () => {
 			paired,
 			jsx("div", {
 				children: jsx("style", {
-					children: trust(
+					children: igniteAuthorStyle(
 						".ok{color:red};.a{background:url(https://cdn.example/a.png)}",
 					),
 				}),
@@ -755,12 +719,12 @@ describe("gaps", () => {
 				children: jsx("style", {
 					children: [
 						".ok{color:red};",
-						trust(".a{background:url(https://cdn.example/a.png)}"),
+						igniteAuthorStyle(".a{background:url(https://cdn.example/a.png)}"),
 					],
 				}),
 			}),
 		);
-		expect(afterSafe.querySelector("style")?.textContent).toContain(
+		expect(afterSafe.querySelector("style")?.textContent ?? "").not.toContain(
 			"https://cdn.example/a.png",
 		);
 
@@ -771,7 +735,7 @@ describe("gaps", () => {
 			jsx("div", {
 				children: jsx("style", {
 					children: [
-						trust(".a{background:url(https://cdn.example/a.png)"),
+						igniteAuthorStyle(".a{background:url(https://cdn.example/a.png)"),
 						"}",
 					],
 				}),
@@ -788,14 +752,14 @@ describe("gaps", () => {
 		};
 		try {
 			mount("style", { children: ".count { color: rebeccapurple; }" });
-			expect(warnings.join("\n")).not.toContain("dropped a url");
+			expect(warnings.join("\n")).not.toContain("is the ignite plugin on?");
 			warnings.length = 0;
 			mount("style", {
 				children:
 					".ok{color:red}; .leak{background:url(https://evil.example/x)}",
 			});
 			const warningText = warnings.join("\n");
-			expect(warningText).toContain("dropped a url");
+			expect(warningText).toContain("is the ignite plugin on?");
 			expect(warningText).not.toContain("evil.example");
 		} finally {
 			console.warn = previous;
@@ -809,7 +773,10 @@ describe("gaps", () => {
 				},
 				{ kind: "text", value: ".ok{color:red}" },
 			]),
-		).toEqual({ css: ".ok{color:red}", droppedUrl: false });
+		).toEqual({
+			css: ".ok{color:red}",
+			droppedUrl: false,
+		});
 		expect(styleSheetFromChildren([{ kind: "text" }])).toEqual({
 			css: "",
 			droppedUrl: false,
@@ -894,22 +861,30 @@ describe("gaps", () => {
 			{ numRuns: 12, seed: 1 },
 		);
 
-		const { trustedStyle: trust } = await loadHelpers();
-		expect(typeof trust).toBe("function");
-		if (typeof trust !== "function") return;
 		fc.assert(
 			fc.property(space, space, word, (before, afterSlash, tag) => {
 				const marker = `.a{color:red}<${before}/${afterSlash}${tag}>`;
-				expect(() => trust(marker)).toThrow("</style");
+				const branded = igniteAuthorStyle(marker);
+				expect(
+					styleSheetFromChildren([
+						{
+							kind: "text",
+							value: igniteAuthorStyle.read(branded),
+							author: true,
+						},
+					]).css,
+				).toBe("");
 			}),
 			{ numRuns: 12, seed: 1 },
 		);
-		expect(readTrustedStyle(trust("@media (x < 1){.a{color:red}}"))).toBe(
-			"@media (x < 1){.a{color:red}}",
-		);
+		expect(
+			igniteAuthorStyle.read(
+				igniteAuthorStyle("@media (x < 1){.a{color:red}}"),
+			),
+		).toBe("@media (x < 1){.a{color:red}}");
 		expect(
 			styleSheetFromChildren([
-				{ kind: "text", value: ".ok{color:red}", trusted: true },
+				{ kind: "text", value: ".ok{color:red}", author: true },
 				{ kind: "text", value: "</style><img src=x>" },
 			]).css,
 		).toBe("");
@@ -1101,11 +1076,8 @@ describe("security review", () => {
 		}).querySelector("div") as HTMLElement;
 		expect(webkitObject.style.backgroundImage).toBe("");
 
-		const { trustedStyle } = await loadHelpers();
-		expect(typeof trustedStyle).toBe("function");
-		if (typeof trustedStyle !== "function") return;
 		const trusted = sheet(
-			trustedStyle("@import 'https://cdn.example/a.css'; .ok{color:red}"),
+			igniteAuthorStyle("@import 'https://cdn.example/a.css'; .ok{color:red}"),
 		);
 		expect(trusted).toContain("@import");
 		expect(trusted).toContain("https://cdn.example/a.css");
@@ -1147,34 +1119,27 @@ describe("security review", () => {
 		expect(text).not.toContain("evil.example");
 	});
 
-	it("keeps safeSpread data keys that are not event handlers", async () => {
-		const { safeSpread } = await loadHelpers();
-		expect(typeof safeSpread).toBe("function");
-		if (typeof safeSpread !== "function") return;
-		const onClick = () => {};
-		const onError = () => {};
-		const data = safeSpread({
+	it("keeps data keys that are not event handlers", () => {
+		const host = mount("div", {
 			one: "yes",
 			online: "yes",
 			onlyIcon: "yes",
 			onclick: "alert(1)",
-			onClick,
-			ONERROR: onError,
+			onClick: () => {},
+			ONERROR: () => {},
 			ononline: "alert(1)",
 			onrepeat: "alert(1)",
+			id: "s",
 		});
-		expect(data.one).toBe("yes");
-		expect(data.online).toBe("yes");
-		expect(data.onlyIcon).toBe("yes");
-		expect(data.onclick).toBeUndefined();
-		expect(data.onClick).toBeUndefined();
-		expect(data.ONERROR).toBeUndefined();
-		expect(data.ononline).toBeUndefined();
-		expect(data.onrepeat).toBeUndefined();
-
-		const host = mount("div", safeSpread({ one: "yes", id: "s" }));
-		expect(host.querySelector("div")?.getAttribute("one")).toBe("yes");
-		expect(host.querySelector("div")?.id).toBe("s");
+		const el = host.querySelector("div");
+		expect(el?.getAttribute("one")).toBe("yes");
+		expect(el?.getAttribute("online")).toBe("yes");
+		expect(el?.getAttribute("onlyIcon")).toBe("yes");
+		expect(el?.id).toBe("s");
+		expect(el?.getAttribute("onclick")).toBeNull();
+		expect(el?.getAttribute("ononline")).toBeNull();
+		expect(el?.getAttribute("onrepeat")).toBeNull();
+		expect(el?.getAttribute("onerror")).toBeNull();
 	});
 
 	it("omits a script whose children are elements", () => {
@@ -1298,19 +1263,13 @@ describe("security review", () => {
 		expect(created?.text ?? "").not.toContain("__igniteScriptText");
 		expect(created?.textContent ?? "").not.toContain("__igniteScriptText");
 
-		const { safeSpread } = await loadHelpers();
-		expect(typeof safeSpread).toBe("function");
-		if (typeof safeSpread !== "function") return;
-		const spread = safeSpread({
-			text: "alert(1)",
-			textContent: "alert(1)",
-			innerText: "alert(1)",
+		const div = mount("div", {
+			text: "window.__igniteDivText = 1",
 			id: "stay",
-		});
-		expect(spread.text).toBeUndefined();
-		expect(spread.textContent).toBeUndefined();
-		expect(spread.innerText).toBeUndefined();
-		expect(spread.id).toBe("stay");
+		}).querySelector("div");
+		expect(div?.id).toBe("stay");
+		expect(div?.getAttribute("text")).toBeNull();
+		expect(div?.textContent ?? "").not.toContain("__igniteDivText");
 	});
 
 	it("guards prefixed script and style tags by local name", () => {
@@ -1369,60 +1328,61 @@ describe("security review", () => {
 		expect(sheet.toLowerCase()).not.toContain("url(");
 		expect(sheet).toContain(".ok{color:red}");
 
-		const { trustedStyle } = await loadHelpers();
-		expect(typeof trustedStyle).toBe("function");
-		if (typeof trustedStyle !== "function") return;
-		const token = trustedStyle(
+		const token = igniteAuthorStyle(
 			"color: red; background:u\\72l(https://cdn.example/a.png)",
 		);
 		expect(
 			styleSheetFromChildren([
 				{
 					kind: "text",
-					value: readTrustedStyle(token),
-					trusted: true,
+					value: igniteAuthorStyle.read(token),
+					author: true,
 				},
 			]).css,
 		).toContain("cdn.example");
 		const trusted = mount("div", { style: token }).querySelector(
 			"div",
 		) as HTMLElement;
-		expect(trusted.style.color).toBe("red");
+		expect(trusted.style.cssText.toLowerCase()).not.toContain("url(");
+		expect(trusted.style.cssText).not.toContain("cdn.example");
 	});
 });
 
-describe("deny-by-default helpers", () => {
-	it("safeUrl allows only http, https, mailto, tel, and relative urls", async () => {
-		const { safeUrl } = await loadHelpers();
-		expect(typeof safeUrl).toBe("function");
-		if (typeof safeUrl !== "function") return;
+function writtenHref(value: string): string | null {
+	return (
+		mount("a", { href: value, children: "x" })
+			.querySelector("a")
+			?.getAttribute("href") ?? null
+	);
+}
 
-		expect(safeUrl("https://example.com/a")).toBe("https://example.com/a");
-		expect(safeUrl("http://example.com")).toBe("http://example.com");
-		expect(safeUrl("mailto:a@example.com")).toBe("mailto:a@example.com");
-		expect(safeUrl("tel:+15551212")).toBe("tel:+15551212");
-		expect(safeUrl("/relative")).toBe("/relative");
-		expect(safeUrl("./a")).toBe("./a");
-		expect(safeUrl("../a")).toBe("../a");
-		expect(safeUrl("?q=1")).toBe("?q=1");
-		expect(safeUrl("#hash")).toBe("#hash");
-		expect(safeUrl("//cdn.example/a")).toBeNull();
-		expect(safeUrl("\\\\cdn.example\\a")).toBeNull();
-		expect(safeUrl("/\\cdn.example\\a")).toBeNull();
-		expect(safeUrl("\\/cdn.example/a")).toBeNull();
-		expect(safeUrl(" \t//cdn.example/a")).toBeNull();
-		expect(safeUrl("javascript:alert(1)")).toBeNull();
-		expect(safeUrl("java\nscript:alert(1)")).toBeNull();
-		expect(safeUrl(" \tVbScript:alert(1)")).toBeNull();
-		expect(safeUrl("data:text/html,hi")).toBeNull();
-		expect(safeUrl("blob:https://example.com/id")).toBeNull();
-		expect(safeUrl("ftp://example.com")).toBeNull();
-		expect(safeUrl("")).toBeNull();
-		expect(safeUrl(1 as unknown as string)).toBeNull();
+describe("deny-by-default helpers", () => {
+	it("javascript: never needs a public safeUrl", () => {
+		expect(writtenHref("https://example.com/a")).toBe("https://example.com/a");
+		expect(writtenHref("http://example.com")).toBe("http://example.com");
+		expect(writtenHref("mailto:a@example.com")).toBe("mailto:a@example.com");
+		expect(writtenHref("tel:+15551212")).toBe("tel:+15551212");
+		expect(writtenHref("/relative")).toBe("/relative");
+		expect(writtenHref("./a")).toBe("./a");
+		expect(writtenHref("../a")).toBe("../a");
+		expect(writtenHref("?q=1")).toBe("?q=1");
+		expect(writtenHref("#hash")).toBe("#hash");
+		expect(writtenHref("//cdn.example/a")).toBeNull();
+		expect(writtenHref("\\\\cdn.example\\a")).toBeNull();
+		expect(writtenHref("/\\cdn.example\\a")).toBeNull();
+		expect(writtenHref("\\/cdn.example/a")).toBeNull();
+		expect(writtenHref(" \t//cdn.example/a")).toBeNull();
+		expect(writtenHref("javascript:alert(1)")).toBeNull();
+		expect(writtenHref("java\nscript:alert(1)")).toBeNull();
+		expect(writtenHref(" \tVbScript:alert(1)")).toBeNull();
+		expect(writtenHref("data:text/html,hi")).toBeNull();
+		expect(writtenHref("blob:https://example.com/id")).toBeNull();
+		expect(writtenHref("ftp://example.com")).toBeNull();
+		expect(writtenHref("")).toBeNull();
 
 		fc.assert(
 			fc.property(dangerousUrl, (value) => {
-				expect(safeUrl(value)).toBeNull();
+				expect(writtenHref(value)).toBeNull();
 			}),
 			{ numRuns: 24, seed: 1 },
 		);
@@ -1432,33 +1392,29 @@ describe("deny-by-default helpers", () => {
 				fc.constantFrom("", " ", "\t", "\n", "\u0000"),
 				(scheme, gap) => {
 					const value = `${gap}${scheme}${gap}:ok`;
-					expect(safeUrl(value)).toBe(value);
+					expect(writtenHref(value)).toBe(value);
 				},
 			),
 			{ numRuns: 16, seed: 1 },
 		);
 	});
 
-	it("trustedStyle is the only way to keep url() in style", async () => {
-		const { trustedStyle } = await loadHelpers();
-		expect(typeof trustedStyle).toBe("function");
-		if (typeof trustedStyle !== "function") return;
-
+	it("a marked style sheet keeps url() and a style prop does not", () => {
 		const css = "background-image: url(https://cdn.example/a.png)";
-		const fromString = mount("div", { style: trustedStyle(css) }).querySelector(
-			"div",
-		) as HTMLElement;
-		expect(fromString.style.backgroundImage).toContain(
+		const fromString = mount("div", {
+			style: igniteAuthorStyle(css),
+		}).querySelector("div") as HTMLElement;
+		expect(fromString.style.backgroundImage).not.toContain(
 			"https://cdn.example/a.png",
 		);
 
 		const fromObject = mount("div", {
 			style: {
-				backgroundImage: trustedStyle("url(https://cdn.example/a.png)"),
+				backgroundImage: igniteAuthorStyle("url(https://cdn.example/a.png)"),
 				color: "red",
 			},
 		}).querySelector("div") as HTMLElement;
-		expect(fromObject.style.backgroundImage).toContain(
+		expect(fromObject.style.backgroundImage).not.toContain(
 			"https://cdn.example/a.png",
 		);
 		expect(fromObject.style.color).toBe("red");
@@ -1469,7 +1425,7 @@ describe("deny-by-default helpers", () => {
 			host,
 			jsx("div", {
 				children: jsx("style", {
-					children: trustedStyle(
+					children: igniteAuthorStyle(
 						".a{background:url(https://cdn.example/a.png)}",
 					),
 				}),
@@ -1480,8 +1436,8 @@ describe("deny-by-default helpers", () => {
 		);
 		expect(host.querySelector("img")).toBeNull();
 
-		expect(() => trustedStyle(1 as unknown as string)).toThrow(
-			"trustedStyle expects a string",
+		expect(() => igniteAuthorStyle(1 as unknown as string)).toThrow(
+			"igniteAuthorStyle expects a string",
 		);
 	});
 });
@@ -1701,15 +1657,17 @@ describe("approved url and remote-resource decisions", () => {
 			"behavior",
 		);
 
-		const { trustedStyle } = await loadHelpers();
-		expect(typeof trustedStyle).toBe("function");
-		if (typeof trustedStyle !== "function") return;
-		const token = trustedStyle("width: expression(1); color: red");
+		const token = igniteAuthorStyle("width: expression(1); color: red");
 		expect(
 			styleSheetFromChildren([
-				{ kind: "text", value: readTrustedStyle(token), trusted: true },
+				{ kind: "text", value: igniteAuthorStyle.read(token), author: true },
 			]).css,
-		).toContain("expression");
+		).not.toContain("expression");
+		expect(
+			styleSheetFromChildren([
+				{ kind: "text", value: igniteAuthorStyle.read(token), author: true },
+			]).css,
+		).toContain("color: red");
 	});
 });
 
@@ -1724,7 +1682,7 @@ function linkLoadsStylesheet(host: ParentNode): boolean {
 }
 
 describe("security re-review of remote loads", () => {
-	it("does not load a stylesheet through relList on mount, update, or safeSpread", async () => {
+	it("does not load a stylesheet through relList on mount or update", () => {
 		expect(
 			linkLoadsStylesheet(
 				mount("link", {
@@ -1759,15 +1717,16 @@ describe("security re-review of remote loads", () => {
 		);
 		expect(linkLoadsStylesheet(host)).toBe(false);
 
-		const { safeSpread } = await loadHelpers();
-		expect(typeof safeSpread).toBe("function");
-		if (typeof safeSpread !== "function") return;
-		const spread = safeSpread({
+		const spread = {
 			relList: "stylesheet",
 			href: "https://evil.example/spread.css",
-		});
-		expect(spread).not.toHaveProperty("relList");
+		};
 		expect(linkLoadsStylesheet(mount("link", spread))).toBe(false);
+		expect(
+			mount("div", { relList: "stylesheet" })
+				.querySelector("div")
+				?.getAttribute("rellist"),
+		).toBeNull();
 		expect(
 			linkLoadsStylesheet(
 				mount("div", {
@@ -1893,16 +1852,10 @@ describe("security re-review of remote loads", () => {
 			expect(anchor?.getAttribute("href"), key).toBe("/safe");
 			expect(anchor?.getAttribute(key), key).toBeNull();
 		}
-		const { safeSpread } = await loadHelpers();
-		expect(typeof safeSpread).toBe("function");
-		if (typeof safeSpread !== "function") return;
-		const spread = safeSpread({ href: "/safe", host: "evil.example" });
-		expect(spread).not.toHaveProperty("host");
-		expect(
-			mount("a", { ...spread, children: "x" })
-				.querySelector("a")
-				?.getAttribute("href"),
-		).toBe("/safe");
+		const spread = { href: "/safe", host: "evil.example" };
+		const anchor = mount("a", { ...spread, children: "x" }).querySelector("a");
+		expect(anchor?.getAttribute("host")).toBeNull();
+		expect(anchor?.getAttribute("href")).toBe("/safe");
 	});
 
 	it("drops remote url() on SVG paint and SMIL, and keeps local fragments", () => {
@@ -2117,10 +2070,12 @@ describe("security re-review of remote loads", () => {
 			expect(typeof value).toBe("string");
 		}
 		styleSeen.length = 0;
-		const trusted = trustedStyle("background:url(https://cdn.example/a.png)");
+		const trusted = igniteAuthorStyle(
+			"background:url(https://cdn.example/a.png)",
+		);
 		mount("x-style-sink", { style: trusted });
-		expect(styleSeen).toEqual([trusted]);
-		expect(styleSeen[0]).toBe(trusted);
+		expect(styleSeen).toEqual([{}]);
+		expect(styleAsCss(styleSeen[0])).not.toContain("cdn.example");
 		for (const value of [false, 0, 7]) {
 			styleSeen.length = 0;
 			mount("x-style-sink", { style: value });
@@ -2210,8 +2165,10 @@ describe("security re-review of remote loads", () => {
 		expect(cssTextWithoutUrls(false)).toBe(false);
 		expect(cssTextWithoutUrls(0)).toBe(0);
 		expect(cssTextWithoutUrls(7)).toBe(7);
-		const trusted = trustedStyle("background:url(https://cdn.example/a.png)");
-		expect(cssTextWithoutUrls(trusted)).toBe(trusted);
+		const trusted = igniteAuthorStyle(
+			"background:url(https://cdn.example/a.png)",
+		);
+		expect(cssTextWithoutUrls(trusted)).toEqual({});
 
 		let reads = 0;
 		const color = {
@@ -2557,18 +2514,19 @@ describe("security re-review of remote loads", () => {
 		);
 	});
 
-	it("keeps genuine trusted style entries for a custom setter", () => {
+	it("does not keep a loader in a style object", () => {
 		const image = "url(https://cdn.example/a.png)";
-		const trusted = trustedStyle(image);
+		const trusted = igniteAuthorStyle(image);
 		styleSeen.length = 0;
 		mount("x-style-sink", {
 			style: { color: "red", backgroundImage: trusted },
 		});
-		expect(styleSeen[0]).toEqual({ color: "red", backgroundImage: image });
+		expect(styleAsCss(styleSeen[0])).not.toContain("cdn.example");
+		expect(styleSeen[0]).toMatchObject({ color: "red" });
 		const plain = mount("div", {
 			style: { color: "red", backgroundImage: trusted },
 		}).querySelector("div") as HTMLElement;
-		expect(plain.style.backgroundImage).toContain("cdn.example");
+		expect(plain.style.backgroundImage).not.toContain("cdn.example");
 		expect(plain.style.color).toBe("red");
 
 		const cssValues = [
@@ -2585,9 +2543,11 @@ describe("security re-review of remote loads", () => {
 				(css, color) => {
 					styleSeen.length = 0;
 					mount("x-style-sink", {
-						style: { color, backgroundImage: trustedStyle(css) },
+						style: { color, backgroundImage: igniteAuthorStyle(css) },
 					});
-					expect(styleSeen[0]).toEqual({ color, backgroundImage: css });
+					expect(styleAsCss(styleSeen[0])).not.toContain("cdn.example");
+					expect(styleAsCss(styleSeen[0])).not.toMatch(REMOTE_LOADER);
+					expect((styleSeen[0] as { color?: string }).color).toBe(color);
 
 					styleSeen.length = 0;
 					mount("x-style-sink", {
@@ -2597,15 +2557,16 @@ describe("security re-review of remote loads", () => {
 					expect(styleAsCss(styleSeen[0])).not.toMatch(REMOTE_LOADER);
 
 					const forged = Object.freeze({
-						[Symbol.for("ignite-element.trustedStyle")]: css,
+						[Symbol.for("ignite-element.authorStyle")]: css,
 					});
 					styleSeen.length = 0;
 					mount("x-style-sink", {
 						style: { color, backgroundImage: forged },
 					});
-					expect(styleSeen[0]).toEqual({ color });
+					expect(styleAsCss(styleSeen[0])).not.toMatch(REMOTE_LOADER);
+					expect((styleSeen[0] as { color?: string }).color).toBe(color);
 
-					const real = trustedStyle(css);
+					const real = igniteAuthorStyle(css);
 					const stolen: Record<symbol, string> = {};
 					for (const key of Object.getOwnPropertySymbols(real)) {
 						stolen[key] = "url(https://evil.example/stolen.png)";
@@ -2614,8 +2575,8 @@ describe("security re-review of remote loads", () => {
 					mount("x-style-sink", {
 						style: { color, backgroundImage: stolen },
 					});
-					expect(styleSeen[0]).toEqual({ color });
 					expect(styleAsCss(styleSeen[0])).not.toMatch(REMOTE_LOADER);
+					expect((styleSeen[0] as { color?: string }).color).toBe(color);
 				},
 			),
 			{ numRuns: 12, seed: 1 },
@@ -2623,7 +2584,7 @@ describe("security re-review of remote loads", () => {
 
 		expect(
 			cssTextWithoutUrls({
-				"a\\b": trustedStyle(image),
+				"a\\b": igniteAuthorStyle(image),
 				color: "red",
 			}),
 		).toEqual({ color: "red" });
@@ -2656,7 +2617,7 @@ describe("security re-review of remote loads", () => {
 		const forged = Object.freeze({
 			[Symbol.for("ignite-element.trustedStyle")]: evil,
 		});
-		expect(readTrustedStyle(forged)).toBeUndefined();
+		expect(igniteAuthorStyle.read(forged)).toBeUndefined();
 
 		const plain = mount("div", { style: forged }).querySelector(
 			"div",
@@ -2685,7 +2646,7 @@ describe("security re-review of remote loads", () => {
 		expect(host.querySelector("img")).toBeNull();
 	});
 
-	it("warns in dev when a trustedStyle brand comes from another copy", () => {
+	it("does not apply a forged author symbol or the old trustedStyle warning", () => {
 		const warnings: string[] = [];
 		const previous = console.warn;
 		console.warn = (...args: unknown[]) => {
@@ -2693,15 +2654,17 @@ describe("security re-review of remote loads", () => {
 		};
 		try {
 			const foreign = Object.freeze({
-				[Symbol.for("ignite-element.trustedStyle")]:
+				[Symbol.for("ignite-element.authorStyle")]:
 					"url(https://evil.example/other.png)",
 			});
-			mount("div", {
+			const painted = mount("div", {
 				style: { color: "red", backgroundImage: foreign },
-			});
-			expect(warnings).toContain(
-				"[ignite-jsx] trustedStyle from another copy was dropped. Import it from ignite-element/jsx.",
+			}).querySelector("div") as HTMLElement;
+			expect(painted.style.backgroundImage).not.toContain("evil.example");
+			expect(warnings.join("\n")).not.toContain(
+				"trustedStyle from another copy",
 			);
+			expect(warnings.join("\n")).not.toContain("evil.example");
 		} finally {
 			console.warn = previous;
 		}
@@ -2709,7 +2672,7 @@ describe("security re-review of remote loads", () => {
 
 	it("drops a proxy around a trusted style instead of throwing", () => {
 		const image = "url(https://cdn.example/a.png)";
-		const trusted = trustedStyle(image);
+		const trusted = igniteAuthorStyle(image);
 		const lying = new Proxy(trusted, {
 			get() {
 				throw new TypeError("lying style");
@@ -2748,7 +2711,7 @@ describe("security re-review of remote loads", () => {
 
 	it("drops untrusted style values that start with a parenthesis", () => {
 		const opened = cssTextWithoutUrls({
-			a: trustedStyle("url"),
+			a: "url",
 			b: "(//evil)",
 			color: "red",
 		});
@@ -2758,11 +2721,7 @@ describe("security re-review of remote loads", () => {
 		expect(cssTextWithoutUrls({ width: "calc(1px + 2px)" })).toEqual({
 			width: "calc(1px + 2px)",
 		});
-		expect(
-			cssTextWithoutUrls({
-				width: trustedStyle("(width < 600px)"),
-			}),
-		).toEqual({ width: "(width < 600px)" });
+		expect(cssTextWithoutUrls({ width: "(width < 600px)" })).toEqual({});
 
 		const range = "@media (width < 600px){.a{color:red}}";
 		const host = document.createElement("div");
@@ -2907,12 +2866,17 @@ describe("security re-review of remote loads", () => {
 					const input = mount("input", props).querySelector("input");
 					expect(input?.getAttribute("onsearch")).toBeNull();
 					expect(input?.hasAttribute(key)).toBe(false);
-					expect(safeSpread(props)[key]).toBeUndefined();
+					expect(input?.getAttribute(key)).toBeNull();
 				},
 			),
 			{ numRuns: 5, seed: 1 },
 		);
-		expect(safeSpread({ one: "yes", ONSEARCH: "alert(1)" }).one).toBe("yes");
+		const kept = mount("div", {
+			one: "yes",
+			ONSEARCH: "alert(1)",
+		}).querySelector("div");
+		expect(kept?.getAttribute("one")).toBe("yes");
+		expect(kept?.getAttribute("onsearch")).toBeNull();
 	});
 
 	it("treats every standard handler name as a handler", () => {
@@ -3017,7 +2981,6 @@ describe("security re-review of remote loads", () => {
 			const key = `on${name}`;
 			const props: Record<string, unknown> = { id: "stay" };
 			props[key] = "alert(1)";
-			expect(safeSpread(props)[key], name).toBeUndefined();
 			expect(
 				mount("div", props).querySelector("div")?.hasAttribute(key),
 				name,

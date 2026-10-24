@@ -23,6 +23,7 @@ const expectedPublicSubpaths = [
 	"./jsx",
 	"./jsx/jsx-runtime",
 	"./jsx/jsx-dev-runtime",
+	"./jsx/author-style",
 	"./react",
 	"./react/web",
 	"./tools",
@@ -40,6 +41,7 @@ const expectedTypesVersions = [
 	"jsx",
 	"jsx/jsx-runtime",
 	"jsx/jsx-dev-runtime",
+	"jsx/author-style",
 	"react",
 	"react/web",
 	"tools",
@@ -107,11 +109,9 @@ const requiredExports = [
 			jsx: "function",
 			jsxDEV: "function",
 			jsxs: "function",
-			safeSpread: "function",
-			safeUrl: "function",
-			trustedStyle: "function",
 		},
 	],
+	["./jsx/author-style", { igniteAuthorStyle: "function" }],
 	[
 		"./jsx/jsx-runtime",
 		{ Fragment: "symbol", jsx: "function", jsxs: "function" },
@@ -434,6 +434,32 @@ assert.deepEqual([EventTarget, Event, CustomEvent], native);
 		{ stdio: "pipe" },
 	);
 }
+const forbiddenAppNames = [
+	"trustedStyle",
+	"safeUrl",
+	"safeSpread",
+	"igniteAuthorStyle",
+];
+for (const specifier of [
+	"ignite-element/jsx",
+	"@ignite-element/renderer/jsx",
+	"@ignite-element/renderer/jsx/index",
+]) {
+	const module = await import(specifier);
+	for (const name of forbiddenAppNames) {
+		assert.equal(
+			Object.hasOwn(module, name),
+			false,
+			`${specifier} must not export ${name}.`,
+		);
+	}
+}
+const rendererAuthor = await import(
+	"@ignite-element/renderer/jsx/author-style"
+);
+assert.deepEqual(Object.keys(rendererAuthor).sort(), ["igniteAuthorStyle"]);
+assert.equal(typeof rendererAuthor.igniteAuthorStyle, "function");
+
 console.info(
 	"[verify:exports] Package exports and fresh Node initialization resolved successfully.",
 );

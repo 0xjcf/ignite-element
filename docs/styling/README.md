@@ -23,7 +23,7 @@ This keeps structure and styling together.
 
 The JSX renderer preserves the same `<style>` node across ordinary rerenders instead of duplicating it.
 
-If your bundler can import CSS as text, you can replace `cardCss` with that imported string. If it cannot, keep the CSS string in a `.ts` module or inline constant.
+Add `@ignite-element/jsx-plugin` once in the bundler config. A static `<style>` string, a same-file const, or `import sheet from "./sheet.css?raw"` is author CSS. A value from props stays data.
 
 ## Reuse a stylesheet
 
@@ -51,7 +51,7 @@ Inline `<style>` tags can conflict with strict `style-src` CSP settings. The ren
 
 ## Custom style setters
 
-A custom element's `style` setter receives a plain object of checked declarations. Write each own entry as a `key:value` declaration, for example `setProperty(key, value)` or a `cssText` string of `key:value` pairs. A `trustedStyle` value must be a complete CSS value, not a partial token. A duplicate install of `ignite-element` drops trusted styles (it fails closed across copies). Import `trustedStyle` from `ignite-element/jsx`. The copy on `@ignite-element/renderer` has its own registry, so a value from that import is dropped. Joining the values alone can rebuild a loader from a trusted fragment next to an untrusted neighbour (`trustedStyle("url")` beside `"(//evil)"`).
+A custom element's `style` setter receives a plain object of checked declarations. Write each own entry as a `key:value` declaration, for example `setProperty(key, value)` or a `cssText` string of `key:value` pairs. A static `<style>` string, a same-file const, or a `*.css?raw` default import is marked by the build plugin. Prop data uses a CSS custom property: put a color, length, or keyword in the variable and keep `url()` in the static sheet. A second installed copy fails closed, so its mark does not keep a load. Joining the values alone can rebuild a loader from neighbouring fragments (`"url"` beside `"(//evil)"`).
 
 ## Light-DOM page styles
 

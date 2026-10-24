@@ -7,6 +7,9 @@ import {
 	type UserConfig,
 } from "vite";
 import { igniteDevWarningsDefine } from "../../../configs/vite/devWarnings";
+// Example installs are outside the workspace, so this is the source of
+// `@ignite-element/jsx-plugin/vite`.
+import igniteJsx from "../../../packages/jsx-plugin/src/vite.ts";
 import {
 	type BraveWebSearchOptions,
 	runBraveWebSearch,
@@ -274,7 +277,7 @@ export const createVoiceWorkbenchViteConfig = (
 			Boolean(options.braveSearchApiKey?.trim()),
 		),
 	},
-	plugins: [capabilityPlugin(options)],
+	plugins: [igniteJsx(), capabilityPlugin(options)],
 	build: {
 		rollupOptions: {
 			input: {
@@ -286,6 +289,12 @@ export const createVoiceWorkbenchViteConfig = (
 	test: { environment: "node", testTimeout: 15_000 },
 	resolve: {
 		alias: [
+			{
+				find: "@ignite-element/renderer/jsx/author-style",
+				replacement: resolvePath(
+					"../../../packages/ignite-renderer/src/renderers/jsx/authorStyle.ts",
+				),
+			},
 			{
 				find: "@ignite-element/core",
 				replacement: resolvePath("../../../packages/ignite-core/src/index.ts"),

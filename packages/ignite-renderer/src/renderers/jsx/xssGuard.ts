@@ -1,10 +1,5 @@
 import { uriSpacePattern } from "./executableUri";
-import type { IgniteJsxChild } from "./types";
 
-const TRUSTED_STYLE = Symbol.for("ignite-element.trustedStyle");
-const trustedSeen = new WeakSet<object>();
-declare const __IGNITE_DEV_WARNINGS__: boolean;
-declare const trustedStyleBrand: unique symbol;
 // Remote CSS loads, old scriptable properties, and url( after a comment
 // is stripped. A backslash is rejected separately and is not decoded.
 const CSS_LOADER =
@@ -22,7 +17,6 @@ const RASTER_DATA = /^data:image\/(?:png|jpe?g|gif|webp|avif)(?![+a-z])/;
 const COMMENT_BLOCK = /\/\*[\s\S]*?\*\//g;
 // `</style` and `<!` break out of a style element when HTML is reparsed.
 // Whitespace may sit between the characters. A `<` comparison stays.
-const STYLE_END = /<\s*\/\s*style/i;
 const STYLE_BREAK = /<\s*[/!]/;
 const HTML_SPACE = /[\t\n\f\r ]+/;
 const SCHEME = /^([a-z][a-z0-9+.-]*):/i;
@@ -35,11 +29,6 @@ const PROTOCOL_RELATIVE = /^[\\/]{2}/;
 // document. The prototype check covers anything this list misses.
 const RARE_EVENTS =
 	" abort auxclick beforeinput beforematch beforetoggle blur cancel canplay canplaythrough change click close command contextlost contextmenu contextrestored copy cuechange cut dblclick drag dragend dragenter dragleave dragover dragstart drop durationchange emptied ended error focus formdata input invalid keydown keypress keyup load loadeddata loadedmetadata loadstart mousedown mouseenter mouseleave mousemove mouseout mouseover mouseup paste pause play playing progress ratechange reset resize scroll scrollend securitypolicyviolation seeked seeking select slotchange stalled submit suspend timeupdate toggle volumechange waiting webkitanimationend webkitanimationiteration webkitanimationstart webkittransitionend wheel animationend transitionend selectstart pagereveal animationcancel begin bounce compositionend compositionstart compositionupdate encrypted end enterpictureinpicture finish focusin focusout leavepictureinpicture loadend repeat search start waitingforkey ";
-
-export type SafeSpreadOptions = {
-	/** Function handlers kept by exact key, for example "onClick". */
-	handlers?: readonly string[];
-};
 
 export function isForbiddenProp(key: string): boolean {
 	return key === "__proto__" || key === "constructor" || key === "prototype";
@@ -189,61 +178,6 @@ export function urlValueBlocked(
 }
 
 /**
- * A string is a brand this copy created. `false` drops the value: another
- * copy's brand, or a proxy whose property read throws. `undefined` is not a
- * brand. Membership is checked before any property read.
- */
-function trustedLookup(value: unknown): string | false | undefined {
-	if (!value || typeof value !== "object") return undefined;
-	const brand = value as Record<symbol, unknown>;
-	if (trustedSeen.has(value)) {
-		const css = brand[TRUSTED_STYLE];
-		return typeof css === "string" ? css : undefined;
-	}
-	try {
-		if (typeof brand[TRUSTED_STYLE] !== "string") return undefined;
-	} catch {
-		return false;
-	}
-	// Dev builds only. Production defines the flag false and strips this.
-	if (__IGNITE_DEV_WARNINGS__) {
-		console.warn(
-			"[ignite-jsx] trustedStyle from another copy was dropped. Import it from ignite-element/jsx.",
-		);
-	}
-	return false;
-}
-
-export function readTrustedStyle(value: unknown): string | undefined {
-	const css = trustedLookup(value);
-	return typeof css === "string" ? css : undefined;
-}
-
-export interface TrustedStyle {
-	// `type` is absent at runtime. The optional name overlaps the host view
-	// shape, which is a weak type, so this child does not kick JSX elements
-	// out of that shape.
-	readonly type?: undefined;
-	readonly [trustedStyleBrand]: string;
-}
-
-type _AssertChild<T extends IgniteJsxChild> = T;
-export type TrustedStyleIsChild = _AssertChild<TrustedStyle>;
-
-export function trustedStyle(css: string): TrustedStyle {
-	if (typeof css !== "string") {
-		throw new TypeError("trustedStyle expects a string");
-	}
-	// No valid CSS needs a style end tag.
-	if (STYLE_END.test(css)) throw new TypeError("</style");
-	const branded: TrustedStyle = Object.freeze({
-		[TRUSTED_STYLE]: css,
-	}) as unknown as TrustedStyle;
-	trustedSeen.add(branded);
-	return branded;
-}
-
-/**
  * Declaration spans. Semicolons, `{`, and `}` inside quotes or comments are
  * not splits. `depth` is the brace depth after the span. It is not reset, so
  * a later rule stays outside a block whose declaration was dropped.
@@ -305,24 +239,38 @@ function declarationSpans(
 /**
  * Style text nodes are concatenated by the CSS parser, including across
  * comments. Filter that joined string. A declaration that loads a URL is
- * kept only when every character of that declaration, including a closing
- * brace, is trustedStyle text. A dropped declaration that closed blocks
+ * kept only when every text child of the sheet is author CSS. A dropped
+ * declaration that closed blocks
  * writes those closes before the next kept rule, so that rule is not
  * pulled inside.
  */
+const CSS_SCRIPTABLE =
+	/(?:expression\s*\(|-moz-binding|(?:^|[^-\w])behavior\b)/i;
+const CSS_REMOTE = /(?:@import\b|\burl\s*\()/i;
+
+export function declaresRemoteLoad(text: string): boolean {
+	return CSS_REMOTE.test(text) || CSS_REMOTE.test(withoutComments(text));
+}
+
+function scriptableCssBlocked(text: string): boolean {
+	return (
+		CSS_SCRIPTABLE.test(text) || CSS_SCRIPTABLE.test(withoutComments(text))
+	);
+}
+
 export function styleSheetFromChildren(
-	children: ReadonlyArray<{ kind: string; value?: string; trusted?: boolean }>,
+	children: ReadonlyArray<{ kind: string; value?: string; author?: boolean }>,
 ): { css: string; droppedUrl: boolean } {
 	let full = "";
-	const trustedAt: boolean[] = [];
+	let marked = true;
+	let sawText = false;
 	for (const child of children) {
 		if (child.kind !== "text" || typeof child.value !== "string") continue;
+		sawText = true;
 		full += child.value;
-		const trusted = child.trusted === true;
-		for (let index = 0; index < child.value.length; index += 1) {
-			trustedAt.push(trusted);
-		}
+		if (child.author !== true) marked = false;
 	}
+	if (!sawText) marked = false;
 	// `</` or `<!` drops the whole sheet. A `<` comparison is not a breakout.
 	if (STYLE_BREAK.test(full)) return { css: "", droppedUrl: true };
 	let css = "";
@@ -330,15 +278,9 @@ export function styleSheetFromChildren(
 	let open = 0;
 	for (const span of declarationSpans(full)) {
 		const part = full.slice(span.start, span.end);
-		let drop = false;
-		if (untrustedCssBlocked(part)) {
-			for (let index = span.start; index < span.end; index += 1) {
-				if (!trustedAt[index]) {
-					drop = true;
-					break;
-				}
-			}
-		}
+		const drop = marked
+			? scriptableCssBlocked(part)
+			: untrustedCssBlocked(part);
 		if (drop) {
 			droppedUrl = true;
 			if (span.depth < open) {
@@ -356,17 +298,34 @@ export function styleSheetFromChildren(
 	return { css, droppedUrl };
 }
 
+/** Dev warning only. Production builds drop this with the warning branch. */
+export function unmarkedStyleDroppedRemote(
+	children: ReadonlyArray<{ kind: string; value?: string; author?: boolean }>,
+): boolean {
+	let full = "";
+	let marked = true;
+	let sawText = false;
+	for (const child of children) {
+		if (child.kind !== "text" || typeof child.value !== "string") continue;
+		sawText = true;
+		full += child.value;
+		if (child.author !== true) marked = false;
+	}
+	if (!sawText || marked) return false;
+	if (STYLE_BREAK.test(full)) return declaresRemoteLoad(full);
+	for (const span of declarationSpans(full)) {
+		const part = full.slice(span.start, span.end);
+		if (untrustedCssBlocked(part) && declaresRemoteLoad(part)) return true;
+	}
+	return false;
+}
+
 export function cssTextWithoutUrls(value: unknown): unknown {
 	if (typeof value === "string") {
-		return styleSheetFromChildren([{ kind: "text", value, trusted: false }])
-			.css;
+		return styleSheetFromChildren([{ kind: "text", value }]).css;
 	}
-	// A trusted style, a number, false, or null is the setter's value as given.
-	if (
-		!value ||
-		typeof value !== "object" ||
-		readTrustedStyle(value) !== undefined
-	) {
+	// A number, false, or null is the setter's value as given.
+	if (!value || typeof value !== "object") {
 		return value;
 	}
 	const source = value as Record<string, unknown>;
@@ -383,8 +342,6 @@ export function cssTextWithoutUrls(value: unknown): unknown {
 			out[name] = null;
 			continue;
 		}
-		// Name is passed so a genuine brand can skip the loader check.
-		// A forged symbol is false. Untrusted values keep the comment and pair checks.
 		const checked = cssValueForStyle(raw, name);
 		if (typeof checked === "string") out[name] = checked;
 	}
@@ -396,11 +353,13 @@ export function cssValueForStyle(
 	value: unknown,
 	name?: string,
 ): string | false | undefined {
-	const trusted = trustedLookup(value);
-	if (typeof trusted === "string") return trusted;
-	if (trusted === false) return false;
 	if (value == null) return undefined;
-	const text = String(value);
+	let text: string;
+	try {
+		text = String(value);
+	} catch {
+		return false;
+	}
 	// A missing name cannot form a loader the value check would keep.
 	// Concatenation stays: a template literal is one byte over the gzip cap.
 	// Values that start with "(" are dropped here, not in untrustedCssBlocked,
@@ -516,7 +475,7 @@ export function isHandlerKey(key: string): boolean {
 	);
 }
 
-export function safeUrl(value: string): string | null {
+function safeUrl(value: string): string | null {
 	if (typeof value !== "string") return null;
 	const normalized = stripped(value);
 	if (normalized.length === 0) return null;
@@ -526,34 +485,4 @@ export function safeUrl(value: string): string | null {
 	const scheme = match[1];
 	if (scheme && ALLOWED_SCHEME.has(scheme.toLowerCase())) return value;
 	return null;
-}
-
-const MARKUP_PROP =
-	/^(?:text|textcontent|innertext|outertext|innerhtml|outerhtml|srcdoc|dangerouslysetinnerhtml)$/i;
-
-export function safeSpread(
-	props: object,
-	options?: SafeSpreadOptions,
-): Record<string, unknown> {
-	if (props === null || typeof props !== "object") return {};
-	const allowed = new Set(options?.handlers ?? []);
-	const source = props as Record<string, unknown>;
-	const out: Record<string, unknown> = {};
-	for (const key of Object.keys(source)) {
-		if (
-			isForbiddenProp(key) ||
-			MARKUP_PROP.test(key) ||
-			isUrlPartKey(key) ||
-			key.toLowerCase() === "rellist"
-		) {
-			continue;
-		}
-		const value = source[key];
-		if (isHandlerKey(key)) {
-			if (typeof value === "function" && allowed.has(key)) out[key] = value;
-			continue;
-		}
-		out[key] = value;
-	}
-	return out;
 }

@@ -21,9 +21,3 @@ export type {
 	IgniteJsxProps,
 } from "./jsx/types";
 export { isIgniteJsxElement, normalizeChildren } from "./jsx/types";
-export type { SafeSpreadOptions, TrustedStyle } from "./jsx/xssGuard";
-export {
-	safeSpread,
-	safeUrl,
-	trustedStyle,
-} from "./jsx/xssGuard";

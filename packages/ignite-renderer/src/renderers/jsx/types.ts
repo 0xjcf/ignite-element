@@ -1,13 +1,9 @@
-import type { TrustedStyle } from "./xssGuard";
-
 export type IgniteJsxChild =
 	| IgniteJsxElement
 	| PrimitiveChild
-	| TrustedStyle
 	| IgniteJsxChild[];
 
-// Same shape as HostSafeChild. An element whose children include TrustedStyle
-// still has to match a hosted view.
+// Same shape as HostSafeChild. A hosted view still has to match this element.
 type HostViewChild =
 	| {
 			readonly type?: unknown;

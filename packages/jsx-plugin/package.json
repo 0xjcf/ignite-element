@@ -1,0 +1,114 @@
+{
+	"name": "@ignite-element/jsx-plugin",
+	"version": "3.0.0-beta.18",
+	"type": "module",
+	"description": "Build plugin that marks static Ignite JSX style sheets as author CSS.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/0xjcf/ignite-element.git",
+		"directory": "packages/jsx-plugin"
+	},
+	"files": [
+		"dist"
+	],
+	"exports": {
+		".": {
+			"types": "./dist/unplugin.d.ts",
+			"import": "./dist/unplugin.js"
+		},
+		"./vite": {
+			"types": "./dist/vite.d.ts",
+			"import": "./dist/vite.js"
+		},
+		"./rollup": {
+			"types": "./dist/rollup.d.ts",
+			"import": "./dist/rollup.js"
+		},
+		"./webpack": {
+			"types": "./dist/webpack.d.ts",
+			"import": "./dist/webpack.js"
+		},
+		"./rspack": {
+			"types": "./dist/rspack.d.ts",
+			"import": "./dist/rspack.js"
+		},
+		"./esbuild": {
+			"types": "./dist/esbuild.d.ts",
+			"import": "./dist/esbuild.js"
+		},
+		"./rolldown": {
+			"types": "./dist/rolldown.d.ts",
+			"import": "./dist/rolldown.js"
+		},
+		"./babel": {
+			"types": "./dist/babel.d.ts",
+			"import": "./dist/babel.js"
+		},
+		"./typescript": {
+			"types": "./dist/typescript.d.ts",
+			"import": "./dist/typescript.js"
+		}
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.json",
+		"typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+		"test": "vitest --run"
+	},
+	"dependencies": {
+		"@babel/generator": "^7.28.5",
+		"@babel/parser": "^7.28.5",
+		"@babel/traverse": "^7.28.5",
+		"@babel/types": "^7.28.5",
+		"unplugin": "^2.3.10"
+	},
+	"devDependencies": {
+		"@babel/core": "^7.28.5",
+		"@rspack/core": "^1.6.0",
+		"@types/jsdom": "^27.0.0",
+		"esbuild": "^0.25.0",
+		"jsdom": "^27.0.1",
+		"rolldown": "^1.0.0-beta.18",
+		"rollup": "^4.52.0",
+		"typescript": "^5.9.3",
+		"vite": "^7.3.7",
+		"vitest": "^4.0.3",
+		"webpack": "^5.111.1"
+	},
+	"peerDependencies": {
+		"@babel/core": ">=7",
+		"@rspack/core": ">=1",
+		"esbuild": ">=0.19",
+		"rolldown": ">=1",
+		"rollup": ">=3",
+		"typescript": ">=5",
+		"vite": ">=5",
+		"webpack": ">=5"
+	},
+	"peerDependenciesMeta": {
+		"@babel/core": {
+			"optional": true
+		},
+		"@rspack/core": {
+			"optional": true
+		},
+		"esbuild": {
+			"optional": true
+		},
+		"rolldown": {
+			"optional": true
+		},
+		"rollup": {
+			"optional": true
+		},
+		"typescript": {
+			"optional": true
+		},
+		"vite": {
+			"optional": true
+		},
+		"webpack": {
+			"optional": true
+		}
+	}
+}

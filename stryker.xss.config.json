@@ -7,7 +7,10 @@
 		"dir": "packages/ignite-element",
 		"related": false
 	},
-	"mutate": ["packages/ignite-renderer/src/renderers/jsx/xssGuard.ts"],
+	"mutate": [
+		"packages/ignite-renderer/src/renderers/jsx/xssGuard.ts",
+		"packages/ignite-renderer/src/renderers/jsx/authorStyle.ts"
+	],
 	"coverageAnalysis": "perTest",
 	"incremental": false,
 	"reporters": ["clear-text", "json"],

@@ -1,3 +1,4 @@
+import { igniteAuthorStyle } from "./authorStyle";
 import { uriBearingKeyPattern, uriSpacePattern } from "./executableUri";
 import {
 	configureHostOwnership,
@@ -18,16 +19,17 @@ import {
 import {
 	cssTextWithoutUrls,
 	cssValueForStyle,
+	declaresRemoteLoad,
 	decorativeUrlBlocked,
 	isExtraUrlName,
 	isForbiddenProp,
 	isHandlerKey,
 	isUrlPartKey,
 	localName,
-	readTrustedStyle,
 	scriptElementOmitted,
 	snapshotLinkRel,
 	styleSheetFromChildren,
+	unmarkedStyleDroppedRemote,
 	urlValueBlocked,
 } from "./xssGuard";
 
@@ -67,7 +69,7 @@ type NormalizedNode =
 			namespace?: string;
 			key?: string | number | null;
 	  }
-	| { kind: "text"; value: string; trusted?: boolean }
+	| { kind: "text"; value: string; author?: boolean }
 	| { kind: "comment"; comment?: string };
 
 export function createDomNode(
@@ -179,9 +181,9 @@ function normalizeChild(
 	}
 
 	if (!isIgniteJsxElement(node)) {
-		const trusted = readTrustedStyle(node);
-		if (trusted !== undefined) {
-			return [{ kind: "text", value: trusted, trusted: true }];
+		const author = igniteAuthorStyle.read(node);
+		if (author !== undefined) {
+			return [{ kind: "text", value: author, author: true }];
 		}
 		return [
 			{ kind: "comment", comment: "ignite-unknown" } as {
@@ -224,9 +226,12 @@ function normalizeChild(
 	const lowerTag = localName(tagName);
 	if (lowerTag === "style") {
 		const sheet = styleSheetFromChildren(normalizedChildren);
-		if (__IGNITE_DEV_WARNINGS__ && sheet.droppedUrl) {
+		if (
+			__IGNITE_DEV_WARNINGS__ &&
+			unmarkedStyleDroppedRemote(normalizedChildren)
+		) {
 			warn(
-				"[ignite-jsx] `style` text dropped a url(). Pass trustedStyle() to keep it.",
+				"[ignite-jsx] a style element dropped url() or @import. If that CSS is a static string in this file, is the ignite plugin on?",
 			);
 		}
 		// An img or SVG image inside style is a real element and would fetch.
@@ -238,7 +243,6 @@ function normalizeChild(
 			nextChildren.push({
 				kind: "text",
 				value: sheet.css,
-				trusted: true,
 			});
 		}
 		normalizedChildren.length = 0;
@@ -435,12 +439,10 @@ function warnDuplicateProps(
 	}
 }
 
-function isBlockedMarkupProp(element: Element, key: string): boolean {
+function isBlockedMarkupProp(_element: Element, key: string): boolean {
 	const normalized = key.toLowerCase();
-	if (normalized === "text" && localName(element.localName) === "script") {
-		return true;
-	}
 	return (
+		normalized === "text" ||
 		normalized === "dangerouslysetinnerhtml" ||
 		normalized === "innerhtml" ||
 		normalized === "outerhtml" ||
@@ -1195,6 +1197,7 @@ function patchProps(
 	for (const key of Object.keys(oldProps)) {
 		if (hostRuntimeEnabled && key === "use") continue;
 		if (isForbiddenProp(key)) continue;
+		if (key.toLowerCase() === "rellist") continue;
 		if (
 			key === "children" ||
 			key === "ref" ||
@@ -1222,6 +1225,7 @@ function patchProps(
 			if (late !== (pass === 1)) continue;
 			if (hostRuntimeEnabled && key === "use") continue;
 			if (isForbiddenProp(key)) continue;
+			if (key.toLowerCase() === "rellist") continue;
 			if (key === "children" || key === "ref") continue;
 			if (isBlockedMarkupProp(element, key)) {
 				if (next !== undefined && next !== null && next !== false) {
@@ -1350,6 +1354,14 @@ function patchProps(
 	}
 }
 
+function safeStyleText(value: unknown): string {
+	try {
+		return String(value);
+	} catch {
+		return "";
+	}
+}
+
 function patchStyle(element: HTMLElement, prev: unknown, next: unknown): void {
 	// An override of style is a user getter: contained, and a non-style value
 	// (undefined, or the throw fallback) leaves the rest of the render alone.
@@ -1361,19 +1373,8 @@ function patchStyle(element: HTMLElement, prev: unknown, next: unknown): void {
 		return;
 	}
 
-	const trusted = readTrustedStyle(next);
-	if (trusted !== undefined) {
-		if (getContained(style, "cssText") !== trusted) {
-			setContained(style, "cssText", trusted);
-		}
-		return;
-	}
-
 	if (typeof next === "object") {
-		const prevIsMap =
-			!!prev &&
-			typeof prev === "object" &&
-			readTrustedStyle(prev) === undefined;
+		const prevIsMap = !!prev && typeof prev === "object";
 		if (prevIsMap) {
 			for (const key of Object.keys(prev as Record<string, unknown>)) {
 				if (!(key in next)) act(style, "removeProperty", toKebabCase(key));
@@ -1386,10 +1387,17 @@ function patchStyle(element: HTMLElement, prev: unknown, next: unknown): void {
 			const safe = cssValueForStyle(value);
 			if (safe === false) {
 				if (__IGNITE_DEV_WARNINGS__) {
+					const remote =
+						value != null &&
+						declaresRemoteLoad(
+							typeof value === "string" ? value : safeStyleText(value),
+						);
 					warnIgnoredProp(
 						element,
 						`style:${key}`,
-						`[ignite-jsx] \`${key}\` was not applied because its URL scheme is not allowed.`,
+						remote
+							? "[ignite-jsx] a style value dropped url(). Put a color, length, or keyword in a CSS variable, and keep url() in the static style sheet."
+							: `[ignite-jsx] \`${key}\` was not applied because its URL scheme is not allowed.`,
 					);
 				}
 				act(style, "removeProperty", cssProperty);
@@ -1403,13 +1411,15 @@ function patchStyle(element: HTMLElement, prev: unknown, next: unknown): void {
 		return;
 	}
 
-	const raw = String(next);
+	const raw = safeStyleText(next);
 	const nextString = cssTextWithoutUrls(raw) as string;
 	if (__IGNITE_DEV_WARNINGS__ && nextString !== raw) {
 		warnIgnoredProp(
 			element,
 			"style:url",
-			"[ignite-jsx] `style` was not applied because its URL scheme is not allowed.",
+			declaresRemoteLoad(raw)
+				? "[ignite-jsx] a style value dropped url(). Put a color, length, or keyword in a CSS variable, and keep url() in the static style sheet."
+				: "[ignite-jsx] `style` was not applied because its URL scheme is not allowed.",
 		);
 	}
 	if (getContained(style, "cssText") !== nextString) {

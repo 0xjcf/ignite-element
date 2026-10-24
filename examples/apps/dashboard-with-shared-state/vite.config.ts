@@ -1,6 +1,9 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import { igniteDevWarningsDefine } from "../../../configs/vite/devWarnings";
+// Example installs are outside the workspace, so this is the source of
+// `@ignite-element/jsx-plugin/vite`.
+import igniteJsx from "../../../packages/jsx-plugin/src/vite.ts";
 
 const resolvePath = (path: string) =>
 	fileURLToPath(new URL(path, import.meta.url));
@@ -13,11 +16,18 @@ const rendererSrc = resolvePath("../../../packages/ignite-renderer/src");
 
 export default defineConfig({
 	define: igniteDevWarningsDefine,
+	plugins: [igniteJsx()],
 	server: {
 		port: 8096,
 	},
 	resolve: {
 		alias: [
+			{
+				find: "@ignite-element/renderer/jsx/author-style",
+				replacement: resolvePath(
+					"../../../packages/ignite-renderer/src/renderers/jsx/authorStyle.ts",
+				),
+			},
 			{
 				find: "@ignite-element/core",
 				replacement: resolvePath("../../../packages/ignite-core/src/index.ts"),

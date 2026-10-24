@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import { createLibConfig } from "../../configs/vite/lib";
 
 type ViteCommand = "build" | "serve";
@@ -34,6 +34,7 @@ export default defineConfig(({ command }) => {
 			"jsx/index": "src/jsx/index.ts",
 			"jsx/jsx-runtime": "src/jsx/jsx-runtime.ts",
 			"jsx/jsx-dev-runtime": "src/jsx/jsx-dev-runtime.ts",
+			"jsx/author-style": "src/jsx/author-style.ts",
 			react: "src/react/index.ts",
 			"react/web": "src/react/web.ts",
 			tools: "src/tools/index.ts",
@@ -43,6 +44,7 @@ export default defineConfig(({ command }) => {
 		external: [
 			"@ignite-element/core",
 			"@ignite-element/renderer",
+			"@ignite-element/renderer/jsx/author-style",
 			"@ignite-element/adapters",
 			"@ignite-element/adapters/actor-web",
 			"lit-html",
@@ -75,6 +77,27 @@ export default defineConfig(({ command }) => {
 			__IGNITE_DEV_WARNINGS__: JSON.stringify(warningsOn),
 			__IGNITE_HOST_RUNTIME__: JSON.stringify(true),
 		},
-		plugins: libConfig.plugins,
+		plugins: [
+			{
+				name: "externalize-author-style",
+				apply: "build",
+				enforce: "pre",
+				resolveId(source, importer) {
+					if (!importer) return null;
+					if (
+						source === "@ignite-element/renderer/jsx/author-style" ||
+						/(?:^|\/)authorStyle(?:\.ts|\.js)?$/.test(source) ||
+						/(?:^|\/)author-style(?:\.[^/]+)?\.js$/.test(source)
+					) {
+						return {
+							id: "@ignite-element/renderer/jsx/author-style",
+							external: true,
+						};
+					}
+					return null;
+				},
+			} satisfies Plugin,
+			...(libConfig.plugins ?? []),
+		],
 	};
 });

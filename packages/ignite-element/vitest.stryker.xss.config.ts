@@ -10,7 +10,10 @@ export default defineConfig(async (configEnv) => {
 		...resolved,
 		test: {
 			...resolved.test,
-			include: ["src/tests/renderers/jsxXss.test.ts"],
+			include: [
+				"src/tests/renderers/jsxXss.test.ts",
+				"src/tests/renderers/authorStyleGold.test.ts",
+			],
 		},
 	};
 });

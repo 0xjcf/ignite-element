@@ -55,5 +55,5 @@
 		}
 	},
 	"include": ["./**/*.ts", "./**/*.tsx"],
-	"exclude": []
+	"exclude": ["vite.config.ts"]
 }
