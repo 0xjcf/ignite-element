@@ -1,18 +1,10 @@
-import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { defineConfig, type Plugin } from "vite";
 import { createLibConfig } from "../../configs/vite/lib";
 
 const devArtifact = process.env.IGNITE_LIB_DEV === "1";
 const devMark = "jsx/author-style-mark.development.es.js";
-const readSeamSource =
-	'export { readAuthorStyle } from "./author-style-mark.es.js";\n';
-
-function writeAuthorReadSeam(): void {
-	const file = path.resolve("dist/jsx/author-style-read.es.js");
-	mkdirSync(path.dirname(file), { recursive: true });
-	writeFileSync(file, readSeamSource);
-}
 
 function oneAuthorRegistry(): Plugin {
 	return {
@@ -30,7 +22,6 @@ function oneAuthorRegistry(): Plugin {
 			}
 		},
 		closeBundle() {
-			writeAuthorReadSeam();
 			if (!devArtifact) return;
 			const stale = path.resolve("dist", devMark);
 			if (existsSync(stale)) unlinkSync(stale);

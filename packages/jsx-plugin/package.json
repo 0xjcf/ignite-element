@@ -78,6 +78,7 @@
 		"@types/jsdom": "^27.0.0",
 		"esbuild": "^0.25.0",
 		"jsdom": "^27.0.1",
+		"playwright-core": "1.57.0",
 		"rolldown": "^1.0.0-beta.18",
 		"rollup": "^4.52.0",
 		"typescript": "^5.9.3",

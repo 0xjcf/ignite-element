@@ -113,16 +113,16 @@ function markFile(root: string, importer: string | undefined): string | null {
 	const source = path.join(root, "src/renderers/jsx/authorStyle.ts");
 	const dist = path.join(root, "dist/jsx/author-style-mark.es.js");
 	const norm = (importer ?? "").split("\\").join("/");
-	// Docs consume the published renderer. Examples and package tests alias
-	// that renderer to source, so the mark has to be the same module.
+	// Examples and package tests alias the renderer to source, so the mark
+	// has to be that same module. Docs and installed apps use the element
+	// package's one private copy, which every element entry already reads.
 	const sourceApp =
 		!norm.includes("/docs/site/") &&
 		!norm.includes("/packages/jsx-plugin/") &&
 		(norm.includes("/examples/") || norm.includes("/packages/"));
 	if (sourceApp && existsSync(source)) return source;
-	if (norm.includes("/docs/site/") && existsSync(dist)) return dist;
 	// An installed element strategy imports its private copy of the mark.
-	// App code has no package export for that file.
+	// The renderer ships another file. Using that one is a second WeakSet.
 	const elementMark = privateElementMark(importer);
 	if (elementMark) return elementMark;
 	if (existsSync(dist)) return dist;
@@ -139,7 +139,7 @@ function privateElementMark(importer: string | undefined): string | null {
 		);
 		if (!root) return null;
 		const file = path.join(root, "dist/jsx/author-style-mark.es.js");
-		return existsSync(file) ? file : null;
+		return existsSync(file) ? realpathOf(file) : null;
 	} catch {
 		return null;
 	}
@@ -237,8 +237,9 @@ function libraryImporter(importer: string | undefined): boolean {
 	if (norm.includes("/packages/jsx-plugin/")) return false;
 	// The resolved package root, not a package.json name beside the importer.
 	if (insideRoot(real, knownRendererRoot())) return true;
-	if (insideRoot(real, knownElementRoot()) && norm.includes("/dist/"))
-		return true;
+	const elementRoot =
+		resolvedPackageRoot(file, "ignite-element") ?? knownElementRoot();
+	if (insideRoot(real, elementRoot) && norm.includes("/dist/")) return true;
 	return false;
 }
 
@@ -255,6 +256,10 @@ type SyntaxNode = {
 	arguments?: SyntaxNode[];
 	body?: SyntaxNode[];
 	source?: SyntaxNode | null;
+	consequent?: SyntaxNode;
+	alternate?: SyntaxNode;
+	expression?: SyntaxNode;
+	test?: SyntaxNode;
 };
 
 function staticPieces(
@@ -340,6 +345,39 @@ function importTargetReachesMark(node: SyntaxNode, fileDir: string): boolean {
 	return treeContainsMark(dir, 0, { n: 0 });
 }
 
+function expressionReachesMark(
+	node: SyntaxNode | null | undefined,
+	fileDir: string,
+): boolean {
+	if (!node) return false;
+	if (node.type === "ConditionalExpression") {
+		return (
+			expressionReachesMark(node.consequent, fileDir) ||
+			expressionReachesMark(node.alternate, fileDir)
+		);
+	}
+	if (node.type === "LogicalExpression") {
+		return (
+			expressionReachesMark(node.left, fileDir) ||
+			expressionReachesMark(node.right, fileDir)
+		);
+	}
+	if (node.type === "SequenceExpression") {
+		return (node.expressions ?? []).some((item) =>
+			expressionReachesMark(item, fileDir),
+		);
+	}
+	if (
+		node.type === "ParenthesizedExpression" ||
+		node.type === "TSAsExpression" ||
+		node.type === "TSSatisfiesExpression" ||
+		node.type === "TSNonNullExpression"
+	) {
+		return expressionReachesMark(node.expression, fileDir);
+	}
+	return importTargetReachesMark(node, fileDir);
+}
+
 function dynamicSourceReachesMark(file: string): boolean {
 	let source = "";
 	try {
@@ -347,6 +385,7 @@ function dynamicSourceReachesMark(file: string): boolean {
 	} catch {
 		return false;
 	}
+	if (!source.includes("import(") && !source.includes("require(")) return false;
 	let ast: { program: { body: SyntaxNode[] } };
 	try {
 		ast = parse(source, {
@@ -369,7 +408,7 @@ function dynamicSourceReachesMark(file: string): boolean {
 				(node.callee?.type === "Import" || calleeName === "require"));
 		if (dynamicCall) {
 			const target = node.source ?? node.arguments?.[0];
-			if (target && importTargetReachesMark(target, fileDir)) return true;
+			if (target && expressionReachesMark(target, fileDir)) return true;
 		}
 		for (const value of Object.values(node)) {
 			if (!value || typeof value !== "object") continue;
@@ -559,6 +598,66 @@ export function resolveAuthorMark(importer: string | undefined): string | null {
 		monorepoRendererRoot(pluginFile() ?? undefined);
 	if (walked) return markFile(walked, importer);
 	return null;
+}
+
+function rendererSourceMark(file: string): string | null {
+	let dir = path.dirname(file);
+	for (let depth = 0; depth < 8; depth += 1) {
+		const manifest = path.join(dir, "package.json");
+		if (existsSync(manifest)) {
+			try {
+				const parsed = JSON.parse(readFileSync(manifest, "utf8")) as {
+					name?: string;
+				};
+				if (parsed.name === "@ignite-element/renderer") {
+					const source = path.join(dir, "src/renderers/jsx/authorStyle.ts");
+					return existsSync(source) ? realpathOf(source) : null;
+				}
+			} catch {
+				// A broken manifest is not this package.
+			}
+		}
+		const parent = path.dirname(dir);
+		if (parent === dir) return null;
+		dir = parent;
+	}
+	return null;
+}
+
+/**
+ * The mark has to be the same module the element entry reads.
+ * A source alias (example Vite configs) reads authorStyle.ts.
+ * Installed and docs builds read the element package's one private copy.
+ * The importer path is not enough: docs bundles files that live under examples/.
+ */
+async function sharedRegistryMark(
+	host: {
+		resolve: (
+			source: string,
+			importer?: string,
+			options?: { skipSelf?: boolean },
+		) => Promise<{ id: string } | null | undefined>;
+	},
+	importer: string | undefined,
+): Promise<string | null> {
+	if (!importer) return null;
+	let resolvedId = "";
+	try {
+		const resolved = await host.resolve(
+			"@ignite-element/renderer/jsx",
+			importer,
+			{ skipSelf: true },
+		);
+		resolvedId = resolved?.id ?? "";
+	} catch {
+		resolvedId = "";
+	}
+	const norm = filePath(resolvedId).split("\\").join("/");
+	if (norm.includes("/ignite-renderer/src/")) {
+		const source = rendererSourceMark(norm);
+		if (source) return source;
+	}
+	return privateElementMark(importer);
 }
 
 export function resolveRawCss(
@@ -802,11 +901,35 @@ export const igniteJsx = createUnplugin((_options, meta) => ({
 		filter: {
 			id: /\.css\?raw(?:&|$)|author-style|authorStyle|\0ignite-jsx:author-style/,
 		},
-		handler(id, importer) {
+		async handler(id, importer) {
 			if (isRawCssSpecifier(id)) return resolveRawCss(id, importer);
 			// unplugin's esbuild host forces namespace to the plugin name.
 			// Returning null lets esbuild.setup answer with namespace "file".
 			if (meta.framework === "esbuild") return null;
+			if (id === AUTHOR_VIRTUAL && importerWasMarked(importer)) {
+				const shared = await sharedRegistryMark(
+					this as unknown as {
+						resolve: (
+							source: string,
+							importer?: string,
+							options?: { skipSelf?: boolean },
+						) => Promise<{ id: string } | null | undefined>;
+					},
+					importer,
+				);
+				if (shared) {
+					issuedExact.add(path.resolve(shared));
+					return shared;
+				}
+			}
+			if (id === "#author-style") {
+				if (!libraryImporter(importer)) {
+					this.error(blockedAuthor(id).message);
+					return null;
+				}
+				const mark = privateElementMark(importer);
+				if (mark) return mark;
+			}
 			try {
 				return resolveAuthorRequest(id, importer);
 			} catch (error) {
@@ -860,6 +983,11 @@ export const igniteJsx = createUnplugin((_options, meta) => ({
 		onLoadFilter: /\.[cm]?[jt]sx?$/,
 		setup(build) {
 			const deny = (text: string) => ({ errors: [{ text }] });
+			const issued = (file: string) => ({
+				path: file,
+				namespace: "file" as const,
+				pluginData: { igniteIssued: true },
+			});
 			build.initialOptions.metafile = true;
 			build.onStart(() => {
 				build.initialOptions.metafile = true;
@@ -880,7 +1008,7 @@ export const igniteJsx = createUnplugin((_options, meta) => ({
 				try {
 					const resolved = resolveAuthorRequest(args.path, args.importer);
 					if (!resolved) return null;
-					return { path: resolved, namespace: "file" };
+					return issued(resolved);
 				} catch (error) {
 					return deny(error instanceof Error ? error.message : String(error));
 				}
@@ -899,8 +1027,21 @@ export const igniteJsx = createUnplugin((_options, meta) => ({
 				if (resolved.errors?.length || !resolved.path) return null;
 				const real = realpathOf(resolved.path);
 				if (!isMarkFile(real) && !isAuthorBridge(real)) return null;
-				if (libraryImporter(args.importer)) return null;
-				if (allowIssuedFollowUp(args.path, args.importer)) return null;
+				if (libraryImporter(args.importer)) return issued(real);
+				if (allowIssuedFollowUp(args.path, args.importer)) return issued(real);
+				return deny(blockedAuthor(args.path).message);
+			});
+			// Refuse before esbuild writes. onEnd runs after the outfile exists.
+			build.onLoad({ filter: /\.[cm]?[jt]sx?$/ }, (args) => {
+				if (args.namespace && args.namespace !== "file") return null;
+				if (libraryImporter(args.path)) return null;
+				if (!dynamicSourceReachesMark(args.path)) return null;
+				return deny(blockedAuthor(args.path).message);
+			});
+			build.onLoad({ filter: /author-style|authorStyle/ }, (args) => {
+				if (!isMarkFile(args.path)) return null;
+				const tagged = args.pluginData as { igniteIssued?: boolean } | undefined;
+				if (tagged?.igniteIssued) return null;
 				return deny(blockedAuthor(args.path).message);
 			});
 			build.onLoad({ filter: /\.css/, namespace: "ignite-jsx" }, (args) => {

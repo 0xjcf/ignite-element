@@ -1,6 +1,10 @@
+import { execFileSync } from "node:child_process";
 import {
+	cpSync,
 	existsSync,
+	mkdirSync,
 	mkdtempSync,
+	readdirSync,
 	readFileSync,
 	rmSync,
 	writeFileSync,
@@ -384,7 +388,7 @@ try {
 			const address = server.address() as AddressInfo;
 			const pageUrl = `http://127.0.0.1:${address.port}/`;
 			const require = createRequire(
-				path.join(repoRoot, "packages/ignite-element/package.json"),
+				path.join(repoRoot, "packages/jsx-plugin/package.json"),
 			);
 			const { chromium } = require("playwright-core") as {
 				chromium: {
@@ -461,4 +465,219 @@ try {
 			rmSync(dir, { recursive: true, force: true });
 		}
 	}, 60000);
+});
+
+describe("one author registry and esbuild output", () => {
+	it("esbuild writes no output when a ternary or template branch globs the mark", async () => {
+		const elementMark = path.join(
+			repoRoot,
+			"packages/ignite-element/dist/jsx/author-style-mark.es.js",
+		);
+		const shapes = [
+			`const a = "author-" + "style-mark";
+const c = false;
+export const load = import(c ? "./safe.js" : "../node_modules/ignite-element/dist/jsx/" + a);
+export const view = <style>{${JSON.stringify(CSS)}}</style>;
+`,
+			`const a = "author-" + "style-mark";
+const c = false;
+export const load = import(c ? "./safe.js" : \`../node_modules/ignite-element/dist/jsx/\${a}\`);
+export const view = <style>{${JSON.stringify(CSS)}}</style>;
+`,
+		];
+		for (const source of shapes) {
+			expect(source).not.toContain("author-style");
+			const dir = mkdtempSync(path.join(tmpdir(), "ignite-glob-disk-"));
+			const src = path.join(dir, "src");
+			const markDir = path.join(dir, "node_modules/ignite-element/dist/jsx");
+			mkdirSync(src, { recursive: true });
+			mkdirSync(markDir, { recursive: true });
+			cpSync(elementMark, path.join(markDir, "author-style-mark.es.js"));
+			writeFileSync(path.join(src, "safe.js"), "export const safe = 1;\n");
+			writeFileSync(path.join(src, "entry.tsx"), source);
+			const outfile = path.join(dir, "out/entry.mjs");
+			const options = {
+				absWorkingDir: dir,
+				entryPoints: ["src/entry.tsx"],
+				bundle: true,
+				outfile,
+				format: "esm" as const,
+				jsx: "automatic" as const,
+				jsxImportSource: "ignite-element/jsx",
+				external: ["ignite-element/jsx/jsx-runtime"],
+				plugins: [igniteEsbuild()],
+				logLevel: "silent" as const,
+			};
+			try {
+				await expect(esbuild.build(options)).rejects.toThrow(/cannot mark CSS/);
+				expect(existsSync(outfile)).toBe(false);
+				const written = path.join(dir, "out");
+				if (existsSync(written)) {
+					expect(
+						readdirSync(written).filter((name) => name.endsWith(".mjs")),
+					).toEqual([]);
+				}
+				const ctx = await esbuild.context(options);
+				try {
+					await expect(ctx.rebuild()).rejects.toThrow(/cannot mark CSS/);
+					expect(existsSync(outfile)).toBe(false);
+					await expect(ctx.rebuild()).rejects.toThrow(/cannot mark CSS/);
+					expect(existsSync(outfile)).toBe(false);
+				} finally {
+					await ctx.dispose();
+				}
+			} finally {
+				rmSync(dir, { recursive: true, force: true });
+			}
+		}
+	});
+
+	it("author outline-style solid stays applied across xstate and the index entry", async () => {
+		const docs = path.join(repoRoot, "docs/site");
+		const dir = mkdtempSync(path.join(docs, ".outline-registry-"));
+		const sheet = "button:focus-visible{outline:3px solid currentColor}";
+		writeFileSync(
+			path.join(dir, "entry.tsx"),
+			`/** @jsxImportSource ignite-element/jsx */
+import { igniteCore as indexCore } from "ignite-element";
+import { igniteCore } from "ignite-element/xstate";
+import { createMachine } from "xstate";
+const sheet = ${JSON.stringify(sheet)};
+const machine = createMachine({ initial: "off", states: { off: {} } });
+export const entries = [indexCore, igniteCore];
+igniteCore({
+  source: machine,
+  states: () => ({ on: false }),
+  commands: () => ({}),
+})("ignite-outline-probe", () => (
+  <button type="button" aria-label="Light">
+    <style>{sheet}</style>
+    Light
+  </button>
+));
+document.body.dataset.entries = String(entries.length);
+document.body.append(document.createElement("ignite-outline-probe"));
+`,
+		);
+		writeFileSync(
+			path.join(dir, "index.html"),
+			`<!doctype html><body><script type="module" src="./entry.tsx"></script></body>`,
+		);
+		const outDir = path.join(dir, "dist");
+		try {
+			await build({
+				configFile: false,
+				root: dir,
+				plugins: [igniteVite()],
+				logLevel: "silent",
+				esbuild: {
+					jsx: "automatic",
+					jsxImportSource: "ignite-element/jsx",
+				},
+				build: {
+					outDir,
+					emptyOutDir: true,
+					minify: false,
+					rollupOptions: { input: path.join(dir, "index.html") },
+				},
+			});
+			const server = createServer((req, res) => {
+				const url = new URL(req.url ?? "/", "http://127.0.0.1");
+				const rel = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
+				const file = path.join(outDir, rel);
+				if (!existsSync(file)) {
+					res.statusCode = 404;
+					res.end("missing");
+					return;
+				}
+				res.setHeader(
+					"content-type",
+					file.endsWith(".js")
+						? "text/javascript; charset=utf-8"
+						: "text/html; charset=utf-8",
+				);
+				res.end(readFileSync(file));
+			});
+			await new Promise<void>((resolve) => {
+				server.listen(0, "127.0.0.1", resolve);
+			});
+			const address = server.address() as AddressInfo;
+			const require = createRequire(
+				path.join(repoRoot, "packages/jsx-plugin/package.json"),
+			);
+			const { chromium } = require("playwright-core") as {
+				chromium: {
+					launch: (options: { headless: boolean; args: string[] }) => Promise<{
+						newPage: () => Promise<{
+							goto: (
+								url: string,
+								options?: { waitUntil?: "load" },
+							) => Promise<unknown>;
+							locator: (selector: string) => {
+								getByRole: (
+									role: string,
+									options: { name: string },
+								) => {
+									press: (key: string) => Promise<void>;
+									evaluate: (
+										fn: (el: Element) => string,
+									) => Promise<string>;
+								};
+							};
+							evaluate: (fn: () => string) => Promise<string>;
+						}>;
+						close: () => Promise<void>;
+					}>;
+				};
+			};
+			const browser = await chromium.launch({
+				headless: true,
+				args: ["--no-sandbox", "--disable-dev-shm-usage"],
+			});
+			try {
+				const page = await browser.newPage();
+				await page.goto(`http://127.0.0.1:${address.port}/`, {
+					waitUntil: "load",
+				});
+				const entries = await page.evaluate(
+					() =>
+						(
+							globalThis as {
+								document?: { body?: { dataset?: { entries?: string } } };
+							}
+						).document?.body?.dataset?.entries ?? "",
+				);
+				expect(entries).toBe("2");
+				const button = page.locator("ignite-outline-probe").getByRole("button", {
+					name: "Light",
+				});
+				await button.press("Enter");
+				const outline = await button.evaluate((el) =>
+					getComputedStyle(el).outlineStyle,
+				);
+				expect(outline).toBe("solid");
+			} finally {
+				await browser.close();
+				await new Promise<void>((resolve, reject) => {
+					server.close((error) => (error ? reject(error) : resolve()));
+				});
+			}
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	}, 120000);
+
+	it("the renderer tarball omits the dead author-style-read file", () => {
+		const output = execFileSync("pnpm", ["pack", "--dry-run", "--json"], {
+			cwd: path.join(repoRoot, "packages/ignite-renderer"),
+			encoding: "utf8",
+		});
+		const parsed = JSON.parse(output) as
+			| { files: Array<{ path: string }> }
+			| Array<{ files: Array<{ path: string }> }>;
+		const files = Array.isArray(parsed) ? parsed[0].files : parsed.files;
+		expect(files.some((file) => file.path.includes("author-style-read"))).toBe(
+			false,
+		);
+	});
 });

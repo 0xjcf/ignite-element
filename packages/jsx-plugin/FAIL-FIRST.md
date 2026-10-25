@@ -95,6 +95,18 @@ These failed when run against `5a91ff5059ab137d88b1f08ae4a78d680ab7acb1`, then t
 - `P2-6: the shipped reader is a static private import with no resolver`
 - `vite and esbuild drop a style load in the browser`
 
+## `244c64d3` — outline registry and esbuild glob writes
+
+These failed when run against `244c64d3ea109581a14533299907dae36f83132f`, then the fix landed in the same commit.
+
+`packages/jsx-plugin/src/closure-followup.test.ts`
+
+- `author outline-style solid stays applied across xstate and the index entry`
+- `esbuild writes no output when a ternary or template branch globs the mark`
+- `the renderer tarball omits the dead author-style-read file`
+
+Held back: capturing `Reflect.apply` for `WeakSet.prototype.has` / `add`. No-host gzip 6 went from 7491 to 7498. Consumer gzip 9 went from 8748 to 8763, which is over the 8750 cap.
+
 ## `d710ff82` — still open before this commit
 
 These failed when run against `d710ff82b20cba80135717e31f2a5da77608720b`, then the fix landed in the same commit.
