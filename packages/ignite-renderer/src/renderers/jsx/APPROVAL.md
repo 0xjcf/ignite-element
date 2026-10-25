@@ -31,7 +31,7 @@ Those decisions are:
 - Raise those caps again, to 7,200 B (no-host, level 6) and 8,400 B (consumer, level 9), and filter each value of a style object before a custom element's own `style` setter sees it.
 - Raise those caps again, to 7,500 B (no-host, level 6) and 8,750 B (consumer, level 9), and ship the fixed handler-name list.
 - On 2026-10-23, Jose approved the four Security P3s at `18ce1a49` and raising each cap only as far as those fixes need. Node 22 measures 7,544 B and 8,790 B. Those caps were 7,564 B and 8,810 B.
-- On Oct 24 2026, Jose set the ceilings to 7,525 B (no-host, gzip level 6) and 8,800 B (consumer, gzip level 9).
+- On Oct 24 2026, Jose set the ceilings to 7,525 B (no-host, gzip level 6) and 8,800 B (consumer, gzip level 9). The ceilings cannot be raised without Jose's own word.
 - `THREAT-MODEL.md` is approved.
 - `safeUrl` refuses `//host`, `\\host`, `/\host`, and `\/host`.
 - Guarded URL attributes use the `safeUrl` allowlist.

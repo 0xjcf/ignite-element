@@ -18,7 +18,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import esbuild from "esbuild";
 import { rollup } from "rollup";
-import { build } from "vite";
+import { build, createServer as createViteServer } from "vite";
 import { describe, expect, it } from "vitest";
 import webpack from "webpack";
 import igniteEsbuild from "./esbuild.js";
@@ -289,6 +289,7 @@ module.exports = function jsx(source) {
 
 		const variants: Array<{
 			name: string;
+			entry?: string;
 			viteModes?: Array<"production" | "development">;
 			layout: (dir: string) => void;
 		}> = [
@@ -458,14 +459,98 @@ export const sheet = igniteAuthorStyle(${JSON.stringify(cssText)});
 					exportSheet(dir, "./node_modules/ignite-element/dist/steal.js");
 				},
 			},
+			{
+				name: "evilmark main",
+				entry: "app.jsx",
+				layout(dir) {
+					appSymlinkPackage(dir, "evilmark", { main: "./mark.js" });
+				},
+			},
+			{
+				name: "evilmark2 exports",
+				entry: "app.jsx",
+				layout(dir) {
+					appSymlinkPackage(dir, "evilmark2", {
+						exports: { ".": "./mark.js" },
+					});
+				},
+			},
+			{
+				name: "evilmark3 module browser",
+				entry: "app.jsx",
+				layout(dir) {
+					appSymlinkPackage(dir, "evilmark3", {
+						module: "./mark.js",
+						browser: "./mark.js",
+					});
+				},
+			},
 		];
+
+		function appSymlinkPackage(
+			dir: string,
+			name: string,
+			fields: Record<string, unknown>,
+		) {
+			place(
+				path.join(dir, "package.json"),
+				`${JSON.stringify({ name: "app", private: true, type: "module" })}\n`,
+			);
+			place(
+				path.join(dir, "app.jsx"),
+				`import { igniteAuthorStyle } from ${JSON.stringify(name)};
+const evil = ${JSON.stringify(cssText)};
+export const view = <style>{".ok{color:red}"}</style>;
+export const sheet = igniteAuthorStyle(evil);
+`,
+			);
+			const pkg = path.join(dir, "node_modules", name);
+			linkMark(path.join(pkg, "mark.js"));
+			place(
+				path.join(pkg, "package.json"),
+				`${JSON.stringify({ name, type: "module", ...fields })}\n`,
+			);
+			const esbuildPath = createRequire(
+				path.join(repoRoot, "packages/jsx-plugin/package.json"),
+			).resolve("esbuild");
+			place(
+				path.join(dir, "jsx-loader.cjs"),
+				`const esbuild = require(${JSON.stringify(esbuildPath)});
+module.exports = function (source) {
+  return esbuild.transformSync(source, {
+    loader: "jsx",
+    jsx: "transform",
+    format: "esm",
+  }).code;
+};
+`,
+			);
+		}
 
 		async function bundled(
 			dir: string,
-			kind: "vite" | "rollup" | "webpack" | "esbuild",
+			kind: "vite" | "rollup" | "webpack" | "esbuild" | "vite-dev",
 			mode: "production" | "development",
+			entryName = "entry.js",
 		): Promise<{ code: string; error: string }> {
+			const entry = path.join(dir, entryName);
 			try {
+				if (kind === "vite-dev") {
+					const server = await createViteServer({
+						configFile: false,
+						root: dir,
+						logLevel: "silent",
+						plugins: [igniteVite()],
+						server: { middlewareMode: true },
+						appType: "custom",
+					});
+					try {
+						const loaded = await server.transformRequest(`/${entryName}`);
+						return { code: loaded?.code ?? "", error: "" };
+					} finally {
+						await server.close();
+					}
+				}
 				if (kind === "vite") {
 					const result = await build({
 						configFile: false,
@@ -476,7 +561,7 @@ export const sheet = igniteAuthorStyle(${JSON.stringify(cssText)});
 						build: {
 							write: false,
 							minify: false,
-							rollupOptions: { input: path.join(dir, "entry.js") },
+							rollupOptions: { input: entry },
 						},
 					});
 					const chunk = Array.isArray(result) ? result[0] : result;
@@ -492,7 +577,8 @@ export const sheet = igniteAuthorStyle(${JSON.stringify(cssText)});
 				}
 				if (kind === "rollup") {
 					const bundle = await rollup({
-						input: path.join(dir, "entry.js"),
+						input: entry,
+						jsx: entryName.endsWith(".jsx") ? "preserve" : false,
 						plugins: [nodeResolve(), igniteRollup()],
 					});
 					try {
@@ -510,7 +596,7 @@ export const sheet = igniteAuthorStyle(${JSON.stringify(cssText)});
 				if (kind === "esbuild") {
 					const result = await esbuild.build({
 						absWorkingDir: dir,
-						entryPoints: ["entry.js"],
+						entryPoints: [entryName],
 						bundle: true,
 						write: false,
 						format: "esm",
@@ -530,9 +616,19 @@ export const sheet = igniteAuthorStyle(${JSON.stringify(cssText)});
 							{
 								mode: "development",
 								context: dir,
-								entry: path.join(dir, "entry.js"),
+								entry,
 								output: { path: out, filename: "bundle.js" },
 								plugins: [igniteWebpack()],
+								module: entryName.endsWith(".jsx")
+									? {
+											rules: [
+												{
+													test: /\.jsx$/,
+													loader: path.join(dir, "jsx-loader.cjs"),
+												},
+											],
+										}
+									: undefined,
 							},
 							(error, stats) => {
 								const file = path.join(out, "bundle.js");
@@ -565,13 +661,16 @@ export const sheet = igniteAuthorStyle(${JSON.stringify(cssText)});
 		const failures: string[] = [];
 		for (const variant of variants) {
 			const runs: Array<{
-				kind: "vite" | "rollup" | "webpack" | "esbuild";
+				kind: "vite" | "rollup" | "webpack" | "esbuild" | "vite-dev";
 				mode: "production" | "development";
 			}> = [
 				...(variant.viteModes ?? ["production"]).map((mode) => ({
 					kind: "vite" as const,
 					mode,
 				})),
+				...(variant.entry?.endsWith(".jsx")
+					? [{ kind: "vite-dev" as const, mode: "development" as const }]
+					: []),
 				{ kind: "rollup", mode: "production" },
 				{ kind: "webpack", mode: "production" },
 				{ kind: "esbuild", mode: "production" },
@@ -582,7 +681,12 @@ export const sheet = igniteAuthorStyle(${JSON.stringify(cssText)});
 				);
 				try {
 					variant.layout(dir);
-					const { code, error } = await bundled(dir, run.kind, run.mode);
+					const { code, error } = await bundled(
+						dir,
+						run.kind,
+						run.mode,
+						variant.entry,
+					);
 					const label = `${variant.name}/${run.kind}${run.kind === "vite" ? `:${run.mode}` : ""}`;
 					const kept = code.includes(evilUrl) || code.includes(evilImport);
 					if (kept && !error) failures.push(`${label} kept the fake CSS`);

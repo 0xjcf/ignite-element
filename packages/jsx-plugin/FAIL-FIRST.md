@@ -95,6 +95,16 @@ These failed when run against `5a91ff5059ab137d88b1f08ae4a78d680ab7acb1`, then t
 - `P2-6: the shipped reader is a static private import with no resolver`
 - `vite and esbuild drop a style load in the browser`
 
+## `8018afd9` — app package fields that symlink the mark
+
+These failed when run against `8018afd98f7ba225f4dcf7655078cf8c2d03aaac`, then the fix landed in the same push.
+
+`packages/jsx-plugin/src/closure-followup.test.ts`
+
+- `a dependency's fake ignite-element package cannot trust url() or @import`
+
+Variants `evilmark main`, `evilmark2 exports`, and `evilmark3 module browser`. Each app file has a static `<style>` and imports `igniteAuthorStyle` from a helper whose `main`, `exports`, or `module`/`browser` field is a symlink to the real mark. Vite production, Vite dev, and Rollup kept the attacker `url()`. esbuild and webpack already refused them. A symlink field is not an ignite library root, and the issued mark path is not a follow-up for a different import.
+
 ## `1aa09e3d` — call capture and symlink marks
 
 These failed when run against `1aa09e3d94558ad25da3c8ce3d66c9be071061ef`, then the fix landed in the same commit.

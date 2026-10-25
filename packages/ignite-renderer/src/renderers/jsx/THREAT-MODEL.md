@@ -52,6 +52,7 @@ It does not promise the result is inert when:
 - Direct `eval` makes a marked `const` assignable. esbuild emits that `const` as `var`, so user CSS written into that binding is trusted by the renderer. The plugin does not mark a binding in a scope that contains a direct `eval`. An inline static `<style>` string literal in that file stays marked.
 - A Node or SSR program that loads the mark file by its absolute filesystem path, with no bundler plugin in the pipeline, can still call the mark function. That absolute path is an accepted limit. There is no public API that closes it.
 - A computed `import()` with no bundler plugin can still reach the mark file, and that case is an accepted limit.
+- A script that runs before the renderer loads can patch `Function.prototype.bind`. That is inherent to capturing `Function.prototype.call.bind(WeakSet.prototype.has/add)` at load. That is an accepted limit. There is no public API that closes it.
 - A function handler passed as a direct prop still runs, and so does one inside a spread.
 - Projection documents read model data. Their URI key list is not this slice. The projection denylist is unchanged.
 

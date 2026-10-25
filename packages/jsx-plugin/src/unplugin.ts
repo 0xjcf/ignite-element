@@ -542,15 +542,23 @@ function allowIssuedFollowUp(
 	return issuedExact.has(path.resolve(requested));
 }
 
-/** True when `id` realpaths to a mark this importer does not own. */
+/**
+ * True when `id` realpaths to a mark this importer does not own.
+ * `specifier` is the import text. esbuild and webpack judge that text, and a
+ * symlink package field resolves to the same file as the plugin's own mark.
+ */
 function foreignResolvedMark(
 	importer: string | undefined,
 	id: string,
+	specifier?: string,
 ): boolean {
 	const file = filePath(id);
 	if (!isMarkFile(file) && !isAuthorBridge(file)) return false;
-	if (markOwnedByImporter(importer, file)) return false;
-	if (allowIssuedFollowUp(id, importer)) return false;
+	// A symlink importer realpaths into the real package. That is not ownership.
+	if (libraryImporter(importer) && markOwnedByImporter(importer, file)) {
+		return false;
+	}
+	if (allowIssuedFollowUp(specifier ?? id, importer)) return false;
 	return true;
 }
 
@@ -796,6 +804,40 @@ function readModuleAst(info: ParsedModule): unknown {
 	}
 }
 
+/** A package field can resolve to the mark before moduleParsed runs. */
+async function refuseForeignPackageMark(
+	host: GuardHost,
+	code: string,
+	importer: string,
+): Promise<void> {
+	const specs = new Set<string>();
+	const importSpec =
+		/(?:\bfrom\s*|\bimport\s*(?:\(\s*)?|\brequire\s*\(\s*)["']([^"']+)["']/g;
+	for (const match of code.matchAll(importSpec)) {
+		const spec = match[1];
+		if (spec) specs.add(spec);
+	}
+	for (const spec of specs) {
+		if (spec === AUTHOR_VIRTUAL || allowIssuedFollowUp(spec, importer)) {
+			continue;
+		}
+		let resolved: { id: string } | null = null;
+		try {
+			resolved = await host.resolve(spec, importer, { skipSelf: true });
+		} catch (error) {
+			if (libraryImporter(importer)) continue;
+			const message = error instanceof Error ? error.message : String(error);
+			if (/cannot mark CSS/.test(message)) host.error(message);
+			continue;
+		}
+		if (!resolved?.id || !foreignResolvedMark(importer, resolved.id, spec)) {
+			continue;
+		}
+		host.error(blockedAuthor(spec).message);
+		return;
+	}
+}
+
 async function guardParsedModule(
 	host: GuardHost,
 	info: ParsedModule,
@@ -834,7 +876,8 @@ async function guardParsedModule(
 			);
 			return;
 		}
-		if (!resolved?.id || !foreignResolvedMark(info.id, resolved.id)) continue;
+		if (!resolved?.id || !foreignResolvedMark(info.id, resolved.id, spec))
+			continue;
 		host.error(blockedAuthor(spec).message);
 		return;
 	}
@@ -1012,8 +1055,9 @@ export const igniteJsx = createUnplugin((_options, meta) => ({
 	transformInclude(id) {
 		return shouldTransform(id);
 	},
-	transform(code, id) {
+	async transform(code, id) {
 		if (!shouldTransform(id)) return null;
+		await refuseForeignPackageMark(this as unknown as GuardHost, code, id);
 		const next = transformSource(code, filePath(id));
 		if (next === code) return null;
 		rememberImporter(id);

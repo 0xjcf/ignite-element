@@ -280,7 +280,8 @@ and increase the budget", which had raised the previous 7,100 B and 8,300 B
 ceilings to 7,200 B and 8,400 B. The consumer ceiling was a fixed 6,280 B
 through PR #168 (raised from 6,000 B across that PR). Any change that would
 exceed 7,525 B or 8,800 B must reduce size elsewhere in the same change. Do
-not bump either ceiling and do not open follow-up PRs to raise them.
+not bump either ceiling and do not open follow-up PRs to raise them. The
+ceilings cannot be raised without Jose's own word.
 
 Lessons that apply to steps 1-2:
 
