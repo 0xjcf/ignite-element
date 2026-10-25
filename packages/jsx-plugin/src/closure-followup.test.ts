@@ -7,6 +7,7 @@ import {
 	readdirSync,
 	readFileSync,
 	rmSync,
+	symlinkSync,
 	writeFileSync,
 } from "node:fs";
 import { createServer } from "node:http";
@@ -239,152 +240,365 @@ module.exports = function jsx(source) {
 			repoRoot,
 			"packages/ignite-element/dist/jsx/author-style-mark.es.js",
 		);
-		const dir = mkdtempSync(path.join(tmpdir(), "ignite-fake-element-"));
-		const steal = path.join(
-			dir,
-			"node_modules/evil-dep/node_modules/ignite-element/dist/steal.js",
-		);
-		const relativeMark = path.relative(path.dirname(steal), elementMark);
-		const specifier = relativeMark.split("\\").join("/");
-		mkdirSync(path.dirname(steal), { recursive: true });
-		writeFileSync(
-			path.join(dir, "package.json"),
-			`${JSON.stringify({ name: "app", private: true, type: "module" })}\n`,
-		);
-		writeFileSync(
-			path.join(dir, "node_modules/evil-dep/package.json"),
-			`${JSON.stringify({
-				name: "evil-dep",
-				type: "module",
-				exports: { ".": "./index.js" },
-			})}\n`,
-		);
-		writeFileSync(
-			path.join(dir, "node_modules/evil-dep/index.js"),
-			`export { sheet } from "./node_modules/ignite-element/dist/steal.js";\n`,
-		);
-		writeFileSync(
-			path.join(
-				dir,
-				"node_modules/evil-dep/node_modules/ignite-element/package.json",
-			),
-			`${JSON.stringify({
-				name: "ignite-element",
-				type: "module",
-				main: "./dist/steal.js",
-			})}\n`,
-		);
-		writeFileSync(
-			steal,
-			`import { igniteAuthorStyle } from ${JSON.stringify(specifier.startsWith(".") ? specifier : `./${specifier}`)};
-export const sheet = igniteAuthorStyle(${JSON.stringify(`@import "${evilImport}";.a{background:url(${evilUrl})}`)});
-`,
-		);
-		writeFileSync(
-			path.join(dir, "entry.js"),
-			`import { sheet } from "evil-dep";\nexport default sheet;\n`,
-		);
+		const cssText = `@import "${evilImport}";.a{background:url(${evilUrl})}`;
+		const refused = /cannot mark CSS/;
 		const nodeResolve = (
 			createRequire(path.join(repoRoot, "package.json"))(
 				"@rollup/plugin-node-resolve",
 			) as { default: () => { name: string } }
 		).default;
-		const refused = /cannot mark CSS/;
-		async function bundled(kind: "vite" | "rollup" | "webpack" | "esbuild") {
-			if (kind === "vite") {
-				const result = await build({
-					configFile: false,
-					logLevel: "silent",
-					root: dir,
-					plugins: [igniteVite()],
-					build: {
+
+		function place(file: string, text: string) {
+			mkdirSync(path.dirname(file), { recursive: true });
+			writeFileSync(file, text);
+		}
+		function linkMark(file: string) {
+			mkdirSync(path.dirname(file), { recursive: true });
+			symlinkSync(elementMark, file);
+		}
+		function seed(dir: string) {
+			place(
+				path.join(dir, "package.json"),
+				`${JSON.stringify({ name: "app", private: true, type: "module" })}\n`,
+			);
+			place(
+				path.join(dir, "entry.js"),
+				`import { sheet } from "evil-dep";\nexport default sheet;\n`,
+			);
+			place(
+				path.join(dir, "node_modules/evil-dep/package.json"),
+				`${JSON.stringify({
+					name: "evil-dep",
+					type: "module",
+					exports: { ".": "./index.js" },
+				})}\n`,
+			);
+		}
+		function fakeRoot(dir: string) {
+			return path.join(
+				dir,
+				"node_modules/evil-dep/node_modules/ignite-element",
+			);
+		}
+		function exportSheet(dir: string, from: string) {
+			place(
+				path.join(dir, "node_modules/evil-dep/index.js"),
+				`export { sheet } from ${JSON.stringify(from)};\n`,
+			);
+		}
+
+		const variants: Array<{
+			name: string;
+			viteModes?: Array<"production" | "development">;
+			layout: (dir: string) => void;
+		}> = [
+			{
+				name: "relative re-export",
+				layout(dir) {
+					seed(dir);
+					const steal = path.join(fakeRoot(dir), "dist/steal.js");
+					const relativeMark = path.relative(path.dirname(steal), elementMark);
+					const specifier = relativeMark.split("\\").join("/");
+					place(
+						path.join(fakeRoot(dir), "package.json"),
+						`${JSON.stringify({
+							name: "ignite-element",
+							type: "module",
+							main: "./dist/steal.js",
+						})}\n`,
+					);
+					place(
+						steal,
+						`import { igniteAuthorStyle } from ${JSON.stringify(specifier.startsWith(".") ? specifier : `./${specifier}`)};
+export const sheet = igniteAuthorStyle(${JSON.stringify(cssText)});
+`,
+					);
+					exportSheet(dir, "./node_modules/ignite-element/dist/steal.js");
+				},
+			},
+			{
+				name: "dist symlink",
+				layout(dir) {
+					seed(dir);
+					const root = fakeRoot(dir);
+					linkMark(path.join(root, "dist/mark.js"));
+					place(
+						path.join(root, "package.json"),
+						`${JSON.stringify({
+							name: "ignite-element",
+							type: "module",
+							main: "./dist/boot.js",
+						})}\n`,
+					);
+					place(
+						path.join(root, "dist/boot.js"),
+						`import { igniteAuthorStyle } from "./mark.js";
+export const sheet = igniteAuthorStyle(${JSON.stringify(cssText)});
+`,
+					);
+					exportSheet(dir, "./node_modules/ignite-element/dist/boot.js");
+				},
+			},
+			{
+				name: "self-reference",
+				layout(dir) {
+					seed(dir);
+					const root = fakeRoot(dir);
+					linkMark(path.join(root, "dist/linked.js"));
+					place(
+						path.join(root, "package.json"),
+						`${JSON.stringify({
+							name: "ignite-element",
+							type: "module",
+							main: "./dist/steal.js",
+							exports: {
+								".": "./dist/steal.js",
+								"./mark": "./dist/linked.js",
+							},
+						})}\n`,
+					);
+					place(
+						path.join(root, "dist/steal.js"),
+						`import { igniteAuthorStyle } from "ignite-element/mark";
+export const sheet = igniteAuthorStyle(${JSON.stringify(cssText)});
+`,
+					);
+					exportSheet(dir, "./node_modules/ignite-element/dist/steal.js");
+				},
+			},
+			{
+				name: "hash prod",
+				viteModes: ["production", "development"],
+				layout(dir) {
+					seed(dir);
+					const root = fakeRoot(dir);
+					linkMark(path.join(root, "dist/jsx/author-style-mark.es.js"));
+					place(
+						path.join(root, "package.json"),
+						`${JSON.stringify({
+							name: "ignite-element",
+							type: "module",
+							main: "./dist/steal.js",
+							imports: {
+								"#author-style": "./dist/jsx/author-style-mark.es.js",
+							},
+						})}\n`,
+					);
+					place(
+						path.join(root, "dist/steal.js"),
+						`import { igniteAuthorStyle } from "#author-style";
+export const sheet = igniteAuthorStyle(${JSON.stringify(cssText)});
+`,
+					);
+					exportSheet(dir, "./node_modules/ignite-element/dist/steal.js");
+				},
+			},
+			{
+				name: "hash dev",
+				viteModes: ["production", "development"],
+				layout(dir) {
+					seed(dir);
+					const root = fakeRoot(dir);
+					linkMark(
+						path.join(root, "dist/jsx/author-style-mark.development.es.js"),
+					);
+					place(
+						path.join(root, "package.json"),
+						`${JSON.stringify({
+							name: "ignite-element",
+							type: "module",
+							main: "./dist/steal.js",
+							imports: {
+								"#author-style":
+									"./dist/jsx/author-style-mark.development.es.js",
+							},
+						})}\n`,
+					);
+					place(
+						path.join(root, "dist/steal.js"),
+						`import { igniteAuthorStyle } from "#author-style";
+export const sheet = igniteAuthorStyle(${JSON.stringify(cssText)});
+`,
+					);
+					exportSheet(dir, "./node_modules/ignite-element/dist/steal.js");
+				},
+			},
+			{
+				name: "helper main",
+				layout(dir) {
+					seed(dir);
+					const helper = path.join(
+						dir,
+						"node_modules/evil-dep/node_modules/helper",
+					);
+					linkMark(path.join(helper, "mark.js"));
+					place(
+						path.join(helper, "package.json"),
+						`${JSON.stringify({
+							name: "helper",
+							type: "module",
+							main: "./mark.js",
+						})}\n`,
+					);
+					const root = fakeRoot(dir);
+					place(
+						path.join(root, "package.json"),
+						`${JSON.stringify({
+							name: "ignite-element",
+							type: "module",
+							main: "./dist/steal.js",
+						})}\n`,
+					);
+					place(
+						path.join(root, "dist/steal.js"),
+						`import { igniteAuthorStyle } from "helper";
+export const sheet = igniteAuthorStyle(${JSON.stringify(cssText)});
+`,
+					);
+					exportSheet(dir, "./node_modules/ignite-element/dist/steal.js");
+				},
+			},
+		];
+
+		async function bundled(
+			dir: string,
+			kind: "vite" | "rollup" | "webpack" | "esbuild",
+			mode: "production" | "development",
+		): Promise<{ code: string; error: string }> {
+			try {
+				if (kind === "vite") {
+					const result = await build({
+						configFile: false,
+						logLevel: "silent",
+						root: dir,
+						mode,
+						plugins: [igniteVite()],
+						build: {
+							write: false,
+							minify: false,
+							rollupOptions: { input: path.join(dir, "entry.js") },
+						},
+					});
+					const chunk = Array.isArray(result) ? result[0] : result;
+					if (!chunk || !("output" in chunk)) {
+						throw new Error("vite build did not emit a bundle");
+					}
+					return {
+						code: chunk.output
+							.map((item) => ("code" in item ? item.code : ""))
+							.join("\n"),
+						error: "",
+					};
+				}
+				if (kind === "rollup") {
+					const bundle = await rollup({
+						input: path.join(dir, "entry.js"),
+						plugins: [nodeResolve(), igniteRollup()],
+					});
+					try {
+						const generated = await bundle.generate({ format: "es" });
+						return {
+							code: generated.output
+								.map((item) => ("code" in item ? item.code : ""))
+								.join("\n"),
+							error: "",
+						};
+					} finally {
+						await bundle.close();
+					}
+				}
+				if (kind === "esbuild") {
+					const result = await esbuild.build({
+						absWorkingDir: dir,
+						entryPoints: ["entry.js"],
+						bundle: true,
 						write: false,
-						minify: false,
-						rollupOptions: { input: path.join(dir, "entry.js") },
-					},
-				});
-				const chunk = Array.isArray(result) ? result[0] : result;
-				if (!chunk || !("output" in chunk)) {
-					throw new Error("vite build did not emit a bundle");
+						format: "esm",
+						plugins: [igniteEsbuild()],
+						logLevel: "silent",
+					});
+					return {
+						code: result.outputFiles.map((file) => file.text).join("\n"),
+						error: "",
+					};
 				}
-				return chunk.output
-					.map((item) => ("code" in item ? item.code : ""))
-					.join("\n");
-			}
-			if (kind === "rollup") {
-				const bundle = await rollup({
-					input: path.join(dir, "entry.js"),
-					plugins: [nodeResolve(), igniteRollup()],
-				});
-				try {
-					const generated = await bundle.generate({ format: "es" });
-					return generated.output
-						.map((item) => ("code" in item ? item.code : ""))
-						.join("\n");
-				} finally {
-					await bundle.close();
-				}
-			}
-			if (kind === "esbuild") {
-				const result = await esbuild.build({
-					absWorkingDir: dir,
-					entryPoints: ["entry.js"],
-					bundle: true,
-					write: false,
-					format: "esm",
-					plugins: [igniteEsbuild()],
-					logLevel: "silent",
-				});
-				return result.outputFiles.map((file) => file.text).join("\n");
-			}
-			const out = path.join(dir, "webpack-out");
-			mkdirSync(out, { recursive: true });
-			await new Promise<void>((resolve, reject) => {
-				webpack(
-					{
-						mode: "development",
-						context: dir,
-						entry: path.join(dir, "entry.js"),
-						output: { path: out, filename: "bundle.js" },
-						plugins: [igniteWebpack()],
-					},
-					(error, stats) => {
-						if (error) {
-							reject(error);
-							return;
-						}
-						if (stats?.hasErrors()) {
-							reject(new Error(stats.toString()));
-							return;
-						}
-						resolve();
+				const out = path.join(dir, "webpack-out");
+				mkdirSync(out, { recursive: true });
+				const built = await new Promise<{ code: string; error: string }>(
+					(resolve) => {
+						webpack(
+							{
+								mode: "development",
+								context: dir,
+								entry: path.join(dir, "entry.js"),
+								output: { path: out, filename: "bundle.js" },
+								plugins: [igniteWebpack()],
+							},
+							(error, stats) => {
+								const file = path.join(out, "bundle.js");
+								const code = existsSync(file) ? readFileSync(file, "utf8") : "";
+								if (error) {
+									resolve({
+										code,
+										error: error.message,
+									});
+									return;
+								}
+								if (stats?.hasErrors()) {
+									resolve({ code, error: stats.toString() });
+									return;
+								}
+								resolve({ code, error: "" });
+							},
+						);
 					},
 				);
-			});
-			return readFileSync(path.join(out, "bundle.js"), "utf8");
+				return built;
+			} catch (caught) {
+				return {
+					code: "",
+					error: caught instanceof Error ? caught.message : String(caught),
+				};
+			}
 		}
-		try {
-			const failures: string[] = [];
-			for (const kind of ["vite", "rollup", "webpack", "esbuild"] as const) {
-				let code = "";
-				let error = "";
+
+		const failures: string[] = [];
+		for (const variant of variants) {
+			const runs: Array<{
+				kind: "vite" | "rollup" | "webpack" | "esbuild";
+				mode: "production" | "development";
+			}> = [
+				...(variant.viteModes ?? ["production"]).map((mode) => ({
+					kind: "vite" as const,
+					mode,
+				})),
+				{ kind: "rollup", mode: "production" },
+				{ kind: "webpack", mode: "production" },
+				{ kind: "esbuild", mode: "production" },
+			];
+			for (const run of runs) {
+				const dir = mkdtempSync(
+					path.join(tmpdir(), `ignite-fake-${variant.name}-`),
+				);
 				try {
-					code = await bundled(kind);
-				} catch (caught) {
-					error = caught instanceof Error ? caught.message : String(caught);
-				}
-				if (code.includes(evilUrl) || code.includes(evilImport)) {
-					failures.push(`${kind} kept the fake CSS`);
-				}
-				if (kind === "esbuild" && !refused.test(error)) {
-					failures.push(`${kind} did not refuse: ${error.slice(0, 180)}`);
+					variant.layout(dir);
+					const { code, error } = await bundled(dir, run.kind, run.mode);
+					const label = `${variant.name}/${run.kind}${run.kind === "vite" ? `:${run.mode}` : ""}`;
+					const kept = code.includes(evilUrl) || code.includes(evilImport);
+					if (kept && !error) failures.push(`${label} kept the fake CSS`);
+					if (run.kind === "esbuild" && !refused.test(error)) {
+						failures.push(`${label} did not refuse: ${error.slice(0, 180)}`);
+					}
+					if (error && !refused.test(error)) {
+						failures.push(`${label} did not refuse: ${error.slice(0, 180)}`);
+					}
+				} finally {
+					rmSync(dir, { recursive: true, force: true });
 				}
 			}
-			expect(failures).toEqual([]);
-		} finally {
-			rmSync(dir, { recursive: true, force: true });
 		}
-	});
+		expect(failures).toEqual([]);
+	}, 120_000);
 
 	it("an app import of @ignite-element/renderer/jsx/author-style-read fails", () => {
 		const require = createRequire(
@@ -775,9 +989,7 @@ document.body.append(document.createElement("ignite-outline-probe"));
 									options: { name: string },
 								) => {
 									press: (key: string) => Promise<void>;
-									evaluate: (
-										fn: (el: Element) => string,
-									) => Promise<string>;
+									evaluate: (fn: (el: Element) => string) => Promise<string>;
 								};
 							};
 							evaluate: (fn: () => string) => Promise<string>;
@@ -804,12 +1016,14 @@ document.body.append(document.createElement("ignite-outline-probe"));
 						).document?.body?.dataset?.entries ?? "",
 				);
 				expect(entries).toBe("2");
-				const button = page.locator("ignite-outline-probe").getByRole("button", {
-					name: "Light",
-				});
+				const button = page
+					.locator("ignite-outline-probe")
+					.getByRole("button", {
+						name: "Light",
+					});
 				await button.press("Enter");
-				const outline = await button.evaluate((el) =>
-					getComputedStyle(el).outlineStyle,
+				const outline = await button.evaluate(
+					(el) => getComputedStyle(el).outlineStyle,
 				);
 				expect(outline).toBe("solid");
 			} finally {

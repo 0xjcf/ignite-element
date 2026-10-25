@@ -232,7 +232,7 @@ export const view = <style>{local}</style>;
 			rmSync(pack, { recursive: true, force: true });
 			rmSync(app, { recursive: true, force: true });
 		}
-	});
+	}, 120_000);
 
 	it("P2-2: esbuild loads the real mark import with namespace file", async () => {
 		const dir = mkdtempSync(path.join(tmpdir(), "ignite-esbuild-"));

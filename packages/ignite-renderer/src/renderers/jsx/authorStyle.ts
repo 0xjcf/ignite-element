@@ -1,8 +1,8 @@
 const AUTHOR_STYLE = Symbol("ignite-element.authorStyle");
 const authorSeen = new WeakSet<object>();
-// Captured at load. A later overwrite of these methods cannot mint trust.
-const seenHas = WeakSet.prototype.has;
-const seenAdd = WeakSet.prototype.add;
+// Captured at load. A later patch of Function.prototype.call cannot mint trust.
+const seenHas = Function.prototype.call.bind(WeakSet.prototype.has);
+const seenAdd = Function.prototype.call.bind(WeakSet.prototype.add);
 
 export interface AuthorStyle {
 	readonly [AUTHOR_STYLE]: string;
@@ -12,7 +12,7 @@ export function readAuthorStyle(value: unknown): string | undefined {
 	// Membership before any property read, so a throwing proxy is dropped.
 	// Non-objects throw inside WeakSet.has and land in the same drop.
 	try {
-		if (!seenHas.call(authorSeen, value as object)) return undefined;
+		if (!seenHas(authorSeen, value as object)) return undefined;
 		const css = (value as Record<symbol, unknown>)[AUTHOR_STYLE];
 		return typeof css === "string" ? css : undefined;
 	} catch {
@@ -27,6 +27,6 @@ export function igniteAuthorStyle(css: string): AuthorStyle {
 	const branded: AuthorStyle = Object.freeze({
 		[AUTHOR_STYLE]: css,
 	});
-	seenAdd.call(authorSeen, branded);
+	seenAdd(authorSeen, branded);
 	return branded;
 }

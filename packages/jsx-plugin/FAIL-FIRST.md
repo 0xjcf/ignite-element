@@ -95,6 +95,22 @@ These failed when run against `5a91ff5059ab137d88b1f08ae4a78d680ab7acb1`, then t
 - `P2-6: the shipped reader is a static private import with no resolver`
 - `vite and esbuild drop a style load in the browser`
 
+## `1aa09e3d` — call capture and symlink marks
+
+These failed when run against `1aa09e3d94558ad25da3c8ce3d66c9be071061ef`, then the fix landed in the same commit.
+
+`packages/ignite-element/src/tests/renderers/authorStyleGold.test.ts`
+
+- `a later Function.prototype.call patch cannot mint trust`
+
+`packages/jsx-plugin/src/closure-followup.test.ts`
+
+- `a dependency's fake ignite-element package cannot trust url() or @import`
+
+The relative re-export stayed refused. Vite still trusted a dist symlink, a self-reference subpath, and a helper `main` symlink. Vite and Rollup trusted `#author-style` when that import pointed at a symlink, in production and development. esbuild and webpack already refused them.
+
+`Function.prototype.call` captured at load measured 7509 B no-host gzip level 6 and 8767 B consumer gzip level 9 on Node 22. Both sit under Jose's Oct 24 2026 ceilings of 7,525 B and 8,800 B.
+
 ## `adeb7c59` — fake nested ignite-element
 
 This failed when run against `adeb7c5940856d15b5cc85ee0eda327b3d9de661`, then the fix landed in the same commit.

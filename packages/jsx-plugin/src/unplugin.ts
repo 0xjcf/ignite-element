@@ -542,6 +542,18 @@ function allowIssuedFollowUp(
 	return issuedExact.has(path.resolve(requested));
 }
 
+/** True when `id` realpaths to a mark this importer does not own. */
+function foreignResolvedMark(
+	importer: string | undefined,
+	id: string,
+): boolean {
+	const file = filePath(id);
+	if (!isMarkFile(file) && !isAuthorBridge(file)) return false;
+	if (markOwnedByImporter(importer, file)) return false;
+	if (allowIssuedFollowUp(id, importer)) return false;
+	return true;
+}
+
 function claimsAuthor(id: string, importer: string | undefined): boolean {
 	if (isBlockedAuthorSpecifier(id)) return true;
 	if (isAuthorBridge(id)) return true;
@@ -788,27 +800,26 @@ async function guardParsedModule(
 	host: GuardHost,
 	info: ParsedModule,
 ): Promise<void> {
-	if (libraryImporter(info.id)) return;
-	const sources: string[] = [];
-	const ast = readModuleAst(info);
-	if (ast) collectImportSources(ast, sources);
-	else {
-		for (const imported of info.importedIds ?? []) {
-			if (!isMarkFile(filePath(imported)) && !isAuthorBridge(imported))
-				continue;
-			if (allowIssuedFollowUp(imported, info.id)) continue;
-			host.error(blockedAuthor(imported).message);
-			return;
-		}
+	// Final files, not the import text. A bare name or a `#` import can still
+	// realpath to a mark, and so can a symlink whose path does not say so.
+	for (const imported of info.importedIds ?? []) {
+		if (!foreignResolvedMark(info.id, imported)) continue;
+		host.error(blockedAuthor(imported).message);
 		return;
 	}
+	const sources: string[] = [];
+	const ast = readModuleAst(info);
+	if (!ast) return;
+	const library = libraryImporter(info.id);
+	collectImportSources(ast, sources);
 	for (const spec of sources) {
 		if (spec === AUTHOR_VIRTUAL) continue;
 		if (allowIssuedFollowUp(spec, info.id)) continue;
 		if (
-			spec === "author-style" ||
-			isBlockedAuthorSpecifier(spec) ||
-			isAuthorBridge(spec)
+			!library &&
+			(spec === "author-style" ||
+				isBlockedAuthorSpecifier(spec) ||
+				isAuthorBridge(spec))
 		) {
 			host.error(blockedAuthor(spec).message);
 			return;
@@ -817,16 +828,15 @@ async function guardParsedModule(
 		try {
 			resolved = await host.resolve(spec, info.id, { skipSelf: true });
 		} catch (error) {
+			if (library) continue;
 			host.error(
 				error instanceof Error ? error.message : blockedAuthor(spec).message,
 			);
 			return;
 		}
-		if (!resolved?.id) continue;
-		if (isMarkFile(filePath(resolved.id)) || isAuthorBridge(resolved.id)) {
-			host.error(blockedAuthor(spec).message);
-			return;
-		}
+		if (!resolved?.id || !foreignResolvedMark(info.id, resolved.id)) continue;
+		host.error(blockedAuthor(spec).message);
+		return;
 	}
 }
 
@@ -974,7 +984,13 @@ export const igniteJsx = createUnplugin((_options, meta) => ({
 					return null;
 				}
 				const mark = privateElementMark(importer);
-				if (mark) return mark;
+				// `mark` and the importer's package root are both realpaths.
+				// A symlink at the private path must not escape that root.
+				if (mark && markOwnedByImporter(importer, mark)) return mark;
+				if (mark) {
+					this.error(blockedAuthor(id).message);
+					return null;
+				}
 			}
 			try {
 				return resolveAuthorRequest(id, importer);
@@ -1089,7 +1105,9 @@ export const igniteJsx = createUnplugin((_options, meta) => ({
 			});
 			build.onLoad({ filter: /author-style|authorStyle/ }, (args) => {
 				if (!isMarkFile(args.path)) return null;
-				const tagged = args.pluginData as { igniteIssued?: boolean } | undefined;
+				const tagged = args.pluginData as
+					| { igniteIssued?: boolean }
+					| undefined;
 				if (tagged?.igniteIssued) return null;
 				return deny(blockedAuthor(args.path).message);
 			});

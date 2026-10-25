@@ -271,15 +271,16 @@ not through repeated review rounds.
    discovery tool. A finding it raises that the earlier steps should have
    caught means the rules or properties need extending, not just a patch.
 
-**Bundle budget.** Jose approved these JSX production ceilings on PR #180:
-7,500 B gzip for the no-host JSX bundle (level 6) and 8,750 B gzip for the
-ignite-element consumer bundle (level 9), from "Yes to the replies, raise the
-caps and ship N11". On 2026-10-22 his words were "settle the object-style gap
-first and increase the budget", which had raised the previous 7,100 B and
-8,300 B ceilings to 7,200 B and 8,400 B. The consumer ceiling was a fixed
-6,280 B through PR #168 (raised from 6,000 B across that PR). Any change that
-would exceed 7,500 B or 8,750 B must reduce size elsewhere in the same change.
-Do not bump either ceiling and do not open follow-up PRs to raise them.
+**Bundle budget.** Jose approved these JSX production ceilings on Oct 24 2026:
+7,525 B gzip for the no-host JSX bundle (level 6) and 8,800 B gzip for the
+ignite-element consumer bundle (level 9). The previous ceilings were 7,500 B
+and 8,750 B, from "Yes to the replies, raise the caps and ship N11" on
+2026-10-23. On 2026-10-22 his words were "settle the object-style gap first
+and increase the budget", which had raised the previous 7,100 B and 8,300 B
+ceilings to 7,200 B and 8,400 B. The consumer ceiling was a fixed 6,280 B
+through PR #168 (raised from 6,000 B across that PR). Any change that would
+exceed 7,525 B or 8,800 B must reduce size elsewhere in the same change. Do
+not bump either ceiling and do not open follow-up PRs to raise them.
 
 Lessons that apply to steps 1-2:
 

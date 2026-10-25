@@ -209,6 +209,31 @@ describe("option C gold rules", () => {
 		).toBe("");
 	});
 
+	it("a later Function.prototype.call patch cannot mint trust", () => {
+		const real = igniteAuthorStyle(".a{color:red}");
+		const symbol = Object.getOwnPropertySymbols(real)[0];
+		expect(symbol).toBeDefined();
+		const evil = "body{background:url(http://127.0.0.1:9/call.png)}";
+		const forged = { [symbol as symbol]: evil };
+		const original = Function.prototype.call;
+		Function.prototype.call = function patched(
+			this: unknown,
+			...args: unknown[]
+		) {
+			if (this === WeakSet.prototype.has || this === WeakSet.prototype.add) {
+				return true;
+			}
+			return original.apply(this, args as []);
+		} as typeof Function.prototype.call;
+		try {
+			expect(readAuthorStyle(forged)).toBeUndefined();
+			const after = igniteAuthorStyle(".ok{color:red}");
+			expect(readAuthorStyle(after)).toBe(".ok{color:red}");
+		} finally {
+			Function.prototype.call = original;
+		}
+	});
+
 	it("a forged brand and a second copy fail closed", async () => {
 		const forged = Object.freeze({
 			[Symbol.for("ignite-element.authorStyle")]:
