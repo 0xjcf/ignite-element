@@ -113,6 +113,7 @@ describe("JSX host runtime size", () => {
 		// Then 7200 B (Jose, 2026-10-22): "settle the object-style gap first and increase the budget".
 		// Then 7500 B (Jose, 2026-10-23): "Yes to the replies, raise the caps and ship N11".
 		// Measured again after the author-style mark left the no-host bundle: 7465 B.
+		// Capturing WeakSet.prototype.has and add reads 7491 B. Cap stays 7500 B.
 		assert.ok(gzip <= 7500, `no-host JSX gzip ${gzip} is above 7500`);
 	});
 

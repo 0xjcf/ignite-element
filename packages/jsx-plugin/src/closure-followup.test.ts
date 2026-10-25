@@ -1,4 +1,10 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
@@ -8,7 +14,10 @@ import { fileURLToPath } from "node:url";
 import esbuild from "esbuild";
 import { build } from "vite";
 import { describe, expect, it } from "vitest";
+import webpack from "webpack";
 import igniteEsbuild from "./esbuild.js";
+import igniteVite from "./vite.js";
+import igniteWebpack from "./webpack.js";
 
 const PAYLOAD = "http://127.0.0.1:9/x.png";
 const CSS = `.a{background:url(${PAYLOAD})}`;
@@ -87,6 +96,145 @@ export const stolen = igniteAuthorStyle(${JSON.stringify(CSS)});
 		rmSync(dir, { recursive: true, force: true });
 	});
 
+	it("esbuild metafile rejects a variable directory and a string concat import of the mark", async () => {
+		const rendererRoot = path.resolve(markDir, "../..");
+		const dir = mkdtempSync(path.join(tmpdir(), "ignite-metafile-"));
+		const sources = [
+			`const a = "jsx/" + "author-" + "style-mark";
+export const load = import(${JSON.stringify(`${rendererRoot}/dist/`)} + a + ".es.js");
+export const view = <style>{${JSON.stringify(CSS)}}</style>;
+`,
+			`const a = "jsx/" + "author-" + "style-mark";
+export const load = import(\`${rendererRoot}/dist/\${a}.es.js\`);
+export const view = <style>{${JSON.stringify(CSS)}}</style>;
+`,
+		];
+		try {
+			for (const source of sources) {
+				expect(source).not.toContain("author-style");
+				writeFileSync(path.join(dir, "entry.tsx"), source);
+				await expect(
+					esbuild.build({
+						absWorkingDir: dir,
+						entryPoints: ["entry.tsx"],
+						bundle: true,
+						write: false,
+						format: "esm",
+						jsx: "automatic",
+						jsxImportSource: "ignite-element/jsx",
+						external: ["ignite-element/jsx/jsx-runtime"],
+						plugins: [igniteEsbuild()],
+						logLevel: "silent",
+					}),
+				).rejects.toThrow(/cannot mark CSS/);
+			}
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("a fake package.json named @ignite-element/renderer cannot mint trust", async () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "ignite-fake-pkg-"));
+		const relative = path.relative(dir, markDist).split("\\").join("/");
+		const specifier = relative.startsWith(".") ? relative : `./${relative}`;
+		writeFileSync(
+			path.join(dir, "package.json"),
+			`${JSON.stringify({ name: "@ignite-element/renderer" })}\n`,
+		);
+		writeFileSync(
+			path.join(dir, "entry.tsx"),
+			`import { igniteAuthorStyle } from ${JSON.stringify(specifier)};
+export const stolen = igniteAuthorStyle(${JSON.stringify(CSS)});
+export const view = <style>{stolen}</style>;
+`,
+		);
+		writeFileSync(
+			path.join(dir, "jsx-runtime.js"),
+			"export const jsx = (type, props) => ({ type, props });\nexport const jsxs = jsx;\nexport const jsxDEV = jsx;\n",
+		);
+		const esbuildPath = createRequire(import.meta.url).resolve("esbuild");
+		const loader = path.join(dir, "jsx.cjs");
+		writeFileSync(
+			loader,
+			`const esbuild = require(${JSON.stringify(esbuildPath)});
+module.exports = function jsx(source) {
+  return esbuild.transformSync(source, {
+    loader: "tsx",
+    jsx: "automatic",
+    jsxImportSource: "ignite-element/jsx",
+  }).code;
+};
+`,
+		);
+		try {
+			await expect(
+				esbuild.build({
+					absWorkingDir: dir,
+					entryPoints: ["entry.tsx"],
+					bundle: true,
+					write: false,
+					format: "esm",
+					jsx: "automatic",
+					jsxImportSource: "ignite-element/jsx",
+					external: ["ignite-element/jsx/jsx-runtime"],
+					plugins: [igniteEsbuild()],
+					logLevel: "silent",
+				}),
+			).rejects.toThrow(/cannot mark CSS/);
+			await expect(
+				build({
+					configFile: false,
+					logLevel: "silent",
+					root: dir,
+					plugins: [igniteVite()],
+					build: {
+						write: false,
+						minify: false,
+						rollupOptions: { input: path.join(dir, "entry.tsx") },
+					},
+				}),
+			).rejects.toThrow(/cannot mark CSS/);
+			await expect(
+				new Promise((resolve, reject) => {
+					webpack(
+						{
+							mode: "development",
+							context: dir,
+							entry: path.join(dir, "entry.tsx"),
+							plugins: [igniteWebpack()],
+							resolve: { extensions: [".tsx", ".ts", ".js"] },
+							module: {
+								rules: [{ test: /\.tsx$/, use: [{ loader }] }],
+							},
+						},
+						(error, stats) => {
+							if (error) {
+								reject(error);
+								return;
+							}
+							if (stats?.hasErrors()) {
+								reject(new Error(stats.toString()));
+								return;
+							}
+							resolve(stats);
+						},
+					);
+				}),
+			).rejects.toThrow(/cannot mark CSS/);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("an app import of @ignite-element/renderer/jsx/author-style-read fails", () => {
+		const require = createRequire(
+			path.join(repoRoot, "packages/ignite-element/package.json"),
+		);
+		expect(() =>
+			require.resolve("@ignite-element/renderer/jsx/author-style-read"),
+		).toThrow(/ERR_PACKAGE_PATH_NOT_EXPORTED|not defined by "exports"/);
+	});
+
 	it("P2-6: the shipped reader is a static private import with no resolver", () => {
 		const config = readFileSync(
 			path.join(repoRoot, "packages/ignite-element/vite.config.ts"),
@@ -109,8 +257,9 @@ export const stolen = igniteAuthorStyle(${JSON.stringify(CSS)});
 			imports?: Record<string, unknown>;
 		};
 		expect(elementPkg.exports?.["./jsx/author-style"]).toBeUndefined();
+		expect(elementPkg.exports?.["./jsx/author-style-mark"]).toBeUndefined();
 		expect(elementPkg.imports?.["#author-style"]).toBe(
-			"@ignite-element/renderer/jsx/author-style-read",
+			"./dist/jsx/author-style-mark.es.js",
 		);
 		const rendererPkg = JSON.parse(
 			readFileSync(
@@ -120,18 +269,16 @@ export const stolen = igniteAuthorStyle(${JSON.stringify(CSS)});
 		) as { exports?: Record<string, unknown> };
 		expect(rendererPkg.exports?.["./jsx/author-style"]).toBeUndefined();
 		expect(rendererPkg.exports?.["./jsx/author-style-mark"]).toBeUndefined();
-		const seam = readFileSync(
-			path.join(
-				repoRoot,
-				"packages/ignite-renderer/dist/jsx/author-style-read.es.js",
-			),
-			"utf8",
+		expect(rendererPkg.exports?.["./jsx/author-style-read"]).toBeUndefined();
+		const privateMark = path.join(
+			repoRoot,
+			"packages/ignite-element/dist/jsx/author-style-mark.es.js",
 		);
-		expect(seam).toBe(
-			'export { readAuthorStyle } from "./author-style-mark.es.js";\n',
-		);
-		expect(seam).not.toContain("igniteAuthorStyle");
-		expect(seam).not.toContain("import.meta");
+		if (existsSync(privateMark)) {
+			const seam = readFileSync(privateMark, "utf8");
+			expect(seam).not.toContain("import.meta");
+			expect(seam).not.toContain("createRequire");
+		}
 	});
 });
 

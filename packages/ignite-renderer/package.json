@@ -105,10 +105,6 @@
 			"import": "./dist/jsx-dev-runtime.es.js",
 			"default": "./dist/jsx-dev-runtime.es.js"
 		},
-		"./jsx/author-style-read": {
-			"import": "./dist/jsx/author-style-read.es.js",
-			"default": "./dist/jsx/author-style-read.es.js"
-		},
 		"./jsx/index": {
 			"types": "./dist/types/jsx/index.d.ts",
 			"development": {

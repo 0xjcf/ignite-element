@@ -230,6 +230,25 @@ describe("option C gold rules", () => {
 			[ownSymbol]: "body{background:url(https://evil.example/stolen.png)}",
 		};
 		expect(readAuthorStyle(stolen)).toBeUndefined();
+		const has = WeakSet.prototype.has;
+		const add = WeakSet.prototype.add;
+		WeakSet.prototype.has = function patchedHas() {
+			return true;
+		};
+		WeakSet.prototype.add = function patchedAdd() {
+			return this;
+		};
+		try {
+			const minted = {
+				[ownSymbol]: "body{background:url(http://127.0.0.1:9/x.png)}",
+			};
+			expect(readAuthorStyle(minted)).toBeUndefined();
+			const after = igniteAuthorStyle(".a{color:red}");
+			expect(readAuthorStyle(after)).toBe(".a{color:red}");
+		} finally {
+			WeakSet.prototype.has = has;
+			WeakSet.prototype.add = add;
+		}
 		const outsider = new Proxy(
 			{},
 			{

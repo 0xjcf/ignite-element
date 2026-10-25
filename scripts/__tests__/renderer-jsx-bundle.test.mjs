@@ -96,6 +96,7 @@ const STYLE_VALUE_WARNING =
 // Then 8,400 B (Jose, 2026-10-22): "settle the object-style gap first and increase the budget".
 // Then 8,750 B (Jose, 2026-10-23): "Yes to the replies, raise the caps and ship N11".
 // Measured again after the author-style read seam: 8727 B.
+// Capturing WeakSet.prototype.has and add reads 8748 B. Cap stays 8750 B.
 // Dropped checked, value, and selected stay.
 // Native defaultValue, defaultChecked, and defaultSelected stay on drop.
 // Explicit false for the last two is a set. Own custom setters get undefined

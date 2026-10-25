@@ -1,11 +1,32 @@
-import { lstatSync, rmSync } from "node:fs";
+import {
+	copyFileSync,
+	existsSync,
+	lstatSync,
+	mkdirSync,
+	rmSync,
+} from "node:fs";
 import path from "node:path";
 import { defineConfig, type Plugin } from "vite";
 import { createLibConfig } from "../../configs/vite/lib";
 
-// Private package import. Node, Vite, and esbuild resolve it to the
-// renderer's read seam. It is not a package export of ignite-element.
+// Private package import. The build copies the mark into this package.
+// It is not a package export, and app code cannot import it.
 const authorReaderId = "#author-style";
+
+function writePrivateAuthorMark(): void {
+	const source = path.resolve(
+		"..",
+		"ignite-renderer/dist/jsx/author-style-mark.es.js",
+	);
+	if (!existsSync(source)) {
+		throw new Error(
+			`Missing ${source}. Build @ignite-element/renderer before ignite-element.`,
+		);
+	}
+	const target = path.resolve("dist/jsx/author-style-mark.es.js");
+	mkdirSync(path.dirname(target), { recursive: true });
+	copyFileSync(source, target);
+}
 
 function removeWorkspaceRendererLink(): void {
 	const linkPath = path.resolve(process.cwd(), "../@ignite-element/renderer");
@@ -100,6 +121,9 @@ export default defineConfig(({ command }) => {
 				enforce: "pre",
 				buildStart() {
 					removeWorkspaceRendererLink();
+				},
+				closeBundle() {
+					writePrivateAuthorMark();
 				},
 				resolveId(source, importer) {
 					if (!importer) return null;

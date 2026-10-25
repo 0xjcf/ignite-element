@@ -6,6 +6,7 @@ import {
 	readFileSync,
 	realpathSync,
 } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import generateModule from "@babel/generator";
 import { parse } from "@babel/parser";
@@ -253,6 +254,30 @@ function specifierOf(node: t.Node | null | undefined): string | null {
 	return null;
 }
 
+function resolvedRendererRoot(filename: string): string | null {
+	try {
+		let dir = path.dirname(
+			createRequire(filename).resolve("@ignite-element/renderer"),
+		);
+		for (let depth = 0; depth < 6; depth += 1) {
+			const manifest = path.join(dir, "package.json");
+			if (existsSync(manifest)) {
+				const parsed = JSON.parse(readFileSync(manifest, "utf8")) as {
+					name?: string;
+				};
+				if (parsed.name === "@ignite-element/renderer")
+					return realpathSync(dir);
+			}
+			const parent = path.dirname(dir);
+			if (parent === dir) return null;
+			dir = parent;
+		}
+		return null;
+	} catch {
+		return null;
+	}
+}
+
 function libraryRelativeAuthorImport(filename: string, value: string): boolean {
 	if (!value.startsWith(".")) return false;
 	if (!/author-style|authorStyle/.test(value)) return false;
@@ -263,24 +288,11 @@ function libraryRelativeAuthorImport(filename: string, value: string): boolean {
 	} catch {
 		return false;
 	}
-	let dir = path.dirname(file);
-	for (let depth = 0; depth < 8; depth += 1) {
-		const manifest = path.join(dir, "package.json");
-		if (existsSync(manifest)) {
-			try {
-				const parsed = JSON.parse(readFileSync(manifest, "utf8")) as {
-					name?: string;
-				};
-				return parsed.name === "@ignite-element/renderer";
-			} catch {
-				// A broken package.json is not this package.
-			}
-		}
-		const parent = path.dirname(dir);
-		if (parent === dir) return false;
-		dir = parent;
-	}
-	return false;
+	// Trust the file only when it is inside the package Node resolved.
+	// A package.json name in an app folder does not count.
+	const root = resolvedRendererRoot(file);
+	if (!root) return false;
+	return file === root || file.startsWith(`${root}${path.sep}`);
 }
 
 function rejectSpecifier(value: string, filename: string): void {

@@ -458,20 +458,27 @@ export const stolen = ctx(key).igniteAuthorStyle(${JSON.stringify(CSS)});
 			nestedRequire.resolve("@ignite-element/renderer"),
 		);
 		expect(entry.startsWith(realpathSync(rendererDest))).toBe(true);
-		const mark = realpathSync(
+		const rendererMark = realpathSync(
 			path.join(path.dirname(entry), "jsx/author-style-mark.es.js"),
 		);
-		expect(mark.startsWith(realpathSync(rendererDest))).toBe(true);
+		expect(rendererMark.startsWith(realpathSync(rendererDest))).toBe(true);
+		expect(() =>
+			nestedRequire.resolve("@ignite-element/renderer/jsx/author-style-read"),
+		).toThrow(/ERR_PACKAGE_PATH_NOT_EXPORTED|not defined by "exports"/);
+		const elementMark = realpathSync(
+			path.join(elementDest, "dist/jsx/author-style-mark.es.js"),
+		);
+		expect(elementMark.startsWith(realpathSync(elementDest))).toBe(true);
 		const probe = path.join(elementDest, "dist/author-style-probe.mjs");
 		writeFileSync(probe, 'export { readAuthorStyle } from "#author-style";\n');
 		const probeMod = (await import(pathToFileURL(probe).href)) as {
 			readAuthorStyle: (value: unknown) => string | undefined;
 		};
 		expect(typeof probeMod.readAuthorStyle).toBe("function");
-		const markMod = (await import(pathToFileURL(mark).href)) as {
+		const elementMod = (await import(pathToFileURL(elementMark).href)) as {
 			readAuthorStyle: (value: unknown) => string | undefined;
 		};
-		expect(probeMod.readAuthorStyle).toBe(markMod.readAuthorStyle);
+		expect(probeMod.readAuthorStyle).toBe(elementMod.readAuthorStyle);
 		rmSync(nested, { recursive: true, force: true });
 	});
 });

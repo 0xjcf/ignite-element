@@ -94,3 +94,29 @@ These failed when run against `5a91ff5059ab137d88b1f08ae4a78d680ab7acb1`, then t
 - `P2-1c: esbuild refuses an alias to the mark in a file that has a static style`
 - `P2-6: the shipped reader is a static private import with no resolver`
 - `vite and esbuild drop a style load in the browser`
+
+## `d710ff82` — still open before this commit
+
+These failed when run against `d710ff82b20cba80135717e31f2a5da77608720b`, then the fix landed in the same commit.
+
+`packages/jsx-plugin/src/transform.test.ts`
+
+- `does not trust a package.json name outside the resolved renderer`
+
+`packages/jsx-plugin/src/closure-followup.test.ts`
+
+- `esbuild metafile rejects a variable directory and a string concat import of the mark`
+- `a fake package.json named @ignite-element/renderer cannot mint trust`
+- `an app import of @ignite-element/renderer/jsx/author-style-read fails`
+
+`packages/ignite-element/src/tests/renderers/authorStyleGold.test.ts`
+
+- `a forged brand and a second copy fail closed` (WeakSet.prototype overwrite mints trust)
+
+`scripts/__tests__/nodenext-declarations.test.mjs`
+
+- `published declarations resolve under node16 and NodeNext`
+
+`scripts/__tests__/trusted-style-registry.test.mjs`
+
+- `keeps a compiler mark in the packed element build and fails closed otherwise`

@@ -8,6 +8,7 @@ import {
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parse } from "@babel/parser";
 import { createUnplugin } from "unplugin";
 import {
 	AUTHOR_SOURCE,
@@ -119,9 +120,29 @@ function markFile(root: string, importer: string | undefined): string | null {
 		!norm.includes("/packages/jsx-plugin/") &&
 		(norm.includes("/examples/") || norm.includes("/packages/"));
 	if (sourceApp && existsSync(source)) return source;
+	if (norm.includes("/docs/site/") && existsSync(dist)) return dist;
+	// An installed element strategy imports its private copy of the mark.
+	// App code has no package export for that file.
+	const elementMark = privateElementMark(importer);
+	if (elementMark) return elementMark;
 	if (existsSync(dist)) return dist;
 	if (existsSync(source)) return source;
 	return null;
+}
+
+function privateElementMark(importer: string | undefined): string | null {
+	if (!importer) return null;
+	try {
+		const root = packageRoot(
+			createRequire(importer).resolve("ignite-element"),
+			"ignite-element",
+		);
+		if (!root) return null;
+		const file = path.join(root, "dist/jsx/author-style-mark.es.js");
+		return existsSync(file) ? file : null;
+	} catch {
+		return null;
+	}
 }
 
 const markedImporters = new Set<string>();
@@ -167,6 +188,40 @@ function isAuthorBridge(id: string): boolean {
 	return /(?:^|\/)author-style-resolve(?:\.js)?$/.test(file);
 }
 
+function resolvedPackageRoot(base: string, name: string): string | null {
+	try {
+		const root = packageRoot(createRequire(base).resolve(name), name);
+		return root ? realpathOf(root) : null;
+	} catch {
+		return null;
+	}
+}
+
+let rendererRootCache: string | null | undefined;
+let elementRootCache: string | null | undefined;
+
+function knownRendererRoot(): string | null {
+	if (rendererRootCache !== undefined) return rendererRootCache;
+	const base = pluginFile();
+	rendererRootCache = base
+		? resolvedPackageRoot(base, "@ignite-element/renderer")
+		: null;
+	return rendererRootCache;
+}
+
+function knownElementRoot(): string | null {
+	if (elementRootCache !== undefined) return elementRootCache;
+	const base = pluginFile();
+	elementRootCache = base ? resolvedPackageRoot(base, "ignite-element") : null;
+	return elementRootCache;
+}
+
+function insideRoot(file: string, root: string | null): boolean {
+	if (!root) return false;
+	const real = realpathOf(file);
+	return real === root || real.startsWith(`${root}${path.sep}`);
+}
+
 function libraryImporter(importer: string | undefined): boolean {
 	if (!importer) return false;
 	const file = filePath(importer);
@@ -180,26 +235,195 @@ function libraryImporter(importer: string | undefined): boolean {
 	const norm = real.split("\\").join("/");
 	if (norm.includes("/.ignite-jsx-shims/")) return false;
 	if (norm.includes("/packages/jsx-plugin/")) return false;
-	let dir = path.dirname(real);
-	for (let depth = 0; depth < 8; depth += 1) {
-		const manifest = path.join(dir, "package.json");
-		if (existsSync(manifest)) {
-			try {
-				const parsed = JSON.parse(readFileSync(manifest, "utf8")) as {
-					name?: string;
-				};
-				if (parsed.name === "@ignite-element/renderer") return true;
-				if (parsed.name === "ignite-element") return norm.includes("/dist/");
-				return false;
-			} catch {
-				// A broken package.json is not this package.
-			}
+	// The resolved package root, not a package.json name beside the importer.
+	if (insideRoot(real, knownRendererRoot())) return true;
+	if (insideRoot(real, knownElementRoot()) && norm.includes("/dist/"))
+		return true;
+	return false;
+}
+
+type SyntaxNode = {
+	type?: string;
+	value?: string;
+	operator?: string;
+	left?: SyntaxNode;
+	right?: SyntaxNode;
+	quasis?: Array<{ value?: { cooked?: string | null } }>;
+	expressions?: SyntaxNode[];
+	argument?: SyntaxNode;
+	callee?: SyntaxNode;
+	arguments?: SyntaxNode[];
+	body?: SyntaxNode[];
+	source?: SyntaxNode | null;
+};
+
+function staticPieces(
+	node: SyntaxNode | null | undefined,
+): { prefix: string; dynamic: boolean } | null {
+	if (!node) return null;
+	if (node.type === "StringLiteral")
+		return { prefix: node.value ?? "", dynamic: false };
+	if (node.type === "TemplateLiteral") {
+		const first = node.quasis?.[0]?.value?.cooked ?? "";
+		if ((node.expressions?.length ?? 0) === 0) {
+			const text = (node.quasis ?? [])
+				.map((quasi) => quasi.value?.cooked ?? "")
+				.join("");
+			return { prefix: text, dynamic: false };
 		}
-		const parent = path.dirname(dir);
-		if (parent === dir) return false;
-		dir = parent;
+		return { prefix: first, dynamic: true };
+	}
+	if (node.type === "BinaryExpression" && node.operator === "+") {
+		const left = staticPieces(node.left);
+		if (!left) return null;
+		if (left.dynamic) return left;
+		const right = staticPieces(node.right);
+		if (!right) return { prefix: left.prefix, dynamic: true };
+		return {
+			prefix: left.prefix + right.prefix,
+			dynamic: right.dynamic,
+		};
+	}
+	return null;
+}
+
+function directoryUnder(prefix: string, fileDir: string): string | null {
+	const slash = Math.max(prefix.lastIndexOf("/"), prefix.lastIndexOf("\\"));
+	if (slash <= 0) return null;
+	const dir = prefix.slice(0, slash);
+	const resolved = path.resolve(fileDir, dir);
+	if (resolved === path.parse(resolved).root) return null;
+	return resolved;
+}
+
+function treeContainsMark(
+	dir: string,
+	depth: number,
+	seen: { n: number },
+): boolean {
+	if (depth > 6 || seen.n > 800) return false;
+	let names: string[];
+	try {
+		names = readdirSync(dir);
+	} catch {
+		return false;
+	}
+	for (const name of names) {
+		if (name === "node_modules" || name === ".git") continue;
+		seen.n += 1;
+		const full = path.join(dir, name);
+		if (isMarkFile(full)) return true;
+		let linked = false;
+		let directory = false;
+		try {
+			const stat = lstatSync(full);
+			linked = stat.isSymbolicLink();
+			directory = stat.isDirectory();
+		} catch {
+			continue;
+		}
+		if (linked) continue;
+		if (directory && treeContainsMark(full, depth + 1, seen)) return true;
 	}
 	return false;
+}
+
+function importTargetReachesMark(node: SyntaxNode, fileDir: string): boolean {
+	const pieces = staticPieces(node);
+	if (!pieces) return false;
+	if (!pieces.dynamic) {
+		const resolved = path.resolve(fileDir, pieces.prefix);
+		return isMarkFile(resolved);
+	}
+	const dir = directoryUnder(pieces.prefix, fileDir);
+	if (!dir) return false;
+	return treeContainsMark(dir, 0, { n: 0 });
+}
+
+function dynamicSourceReachesMark(file: string): boolean {
+	let source = "";
+	try {
+		source = readFileSync(file, "utf8");
+	} catch {
+		return false;
+	}
+	let ast: { program: { body: SyntaxNode[] } };
+	try {
+		ast = parse(source, {
+			sourceType: "module",
+			plugins: ["typescript", "jsx"],
+			errorRecovery: true,
+		}) as { program: { body: SyntaxNode[] } };
+	} catch {
+		return false;
+	}
+	const fileDir = path.dirname(file);
+	const stack: SyntaxNode[] = [...ast.program.body];
+	while (stack.length > 0) {
+		const node = stack.pop();
+		if (!node || typeof node !== "object") continue;
+		const calleeName = (node.callee as { name?: string } | undefined)?.name;
+		const dynamicCall =
+			node.type === "ImportExpression" ||
+			(node.type === "CallExpression" &&
+				(node.callee?.type === "Import" || calleeName === "require"));
+		if (dynamicCall) {
+			const target = node.source ?? node.arguments?.[0];
+			if (target && importTargetReachesMark(target, fileDir)) return true;
+		}
+		for (const value of Object.values(node)) {
+			if (!value || typeof value !== "object") continue;
+			if (Array.isArray(value)) {
+				for (const item of value) {
+					if (item && typeof item === "object") stack.push(item as SyntaxNode);
+				}
+				continue;
+			}
+			stack.push(value as SyntaxNode);
+		}
+	}
+	return false;
+}
+
+function metaPath(file: string, base: string | undefined): string {
+	return path.isAbsolute(file)
+		? file
+		: path.resolve(base ?? process.cwd(), file);
+}
+
+function outsiderImportsMark(
+	metafile:
+		| {
+				inputs?: Record<
+					string,
+					{
+						imports?: Array<{ path?: string; original?: string }>;
+					}
+				>;
+		  }
+		| undefined,
+	base: string | undefined,
+): string | null {
+	if (!metafile?.inputs) return null;
+	for (const [input, info] of Object.entries(metafile.inputs)) {
+		const file = metaPath(input, base);
+		if (libraryImporter(file)) continue;
+		for (const item of info.imports ?? []) {
+			const target = item.path ? metaPath(item.path, base) : "";
+			if (!target || (!isMarkFile(target) && !isMarkFile(item.path ?? "")))
+				continue;
+			const original = item.original ?? "";
+			if (
+				original === AUTHOR_VIRTUAL ||
+				original.includes("\0ignite-jsx:author-style")
+			) {
+				continue;
+			}
+			return original || target;
+		}
+		if (existsSync(file) && dynamicSourceReachesMark(file)) return file;
+	}
+	return null;
 }
 
 const issuedExact = new Set<string>();
@@ -636,6 +860,18 @@ export const igniteJsx = createUnplugin((_options, meta) => ({
 		onLoadFilter: /\.[cm]?[jt]sx?$/,
 		setup(build) {
 			const deny = (text: string) => ({ errors: [{ text }] });
+			build.initialOptions.metafile = true;
+			build.onStart(() => {
+				build.initialOptions.metafile = true;
+			});
+			build.onEnd((result) => {
+				const hit = outsiderImportsMark(
+					result.metafile,
+					build.initialOptions.absWorkingDir,
+				);
+				if (!hit) return null;
+				return deny(blockedAuthor(hit).message);
+			});
 			build.onResolve({ filter: AUTHOR_ID }, (args) => {
 				if (args.pluginData?.igniteSkip) return null;
 				if (args.path === AUTHOR_SOURCE) {

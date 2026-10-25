@@ -459,6 +459,33 @@ describe("author style transform", () => {
 		}
 	});
 
+	it("does not trust a package.json name outside the resolved renderer", () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "ignite-fake-renderer-"));
+		writeFileSync(
+			path.join(dir, "package.json"),
+			`${JSON.stringify({ name: "@ignite-element/renderer" })}\n`,
+		);
+		writeFileSync(path.join(dir, "app.tsx"), "export {};\n");
+		const mark = fileURLToPath(
+			new URL(
+				"../../ignite-renderer/dist/jsx/author-style-mark.es.js",
+				import.meta.url,
+			),
+		);
+		const relative = path.relative(dir, mark).split("\\").join("/");
+		try {
+			expect(() =>
+				transformSource(
+					`import { igniteAuthorStyle } from ${JSON.stringify(relative.startsWith(".") ? relative : `./${relative}`)};
+					export const view = <style>{".a{color:red}"}</style>;`,
+					path.join(dir, "app.tsx"),
+				),
+			).toThrow(/cannot mark CSS/);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
 	it("allows the renderer source import of ./authorStyle", () => {
 		const filename = fileURLToPath(
 			new URL(
