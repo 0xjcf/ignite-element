@@ -541,13 +541,14 @@ module.exports = function (source) {
 						root: dir,
 						logLevel: "silent",
 						plugins: [igniteVite()],
-						server: { middlewareMode: true },
+						server: { middlewareMode: true, watch: null },
 						appType: "custom",
 					});
 					try {
 						const loaded = await server.transformRequest(`/${entryName}`);
 						return { code: loaded?.code ?? "", error: "" };
 					} finally {
+						await server.watcher.close();
 						await server.close();
 					}
 				}
