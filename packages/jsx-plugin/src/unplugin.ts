@@ -243,6 +243,37 @@ function libraryImporter(importer: string | undefined): boolean {
 	return false;
 }
 
+function importerLibraryRoot(importer: string | undefined): string | null {
+	if (!importer) return null;
+	const file = filePath(importer);
+	if (insideRoot(file, knownRendererRoot())) return knownRendererRoot();
+	const elementRoot =
+		resolvedPackageRoot(file, "ignite-element") ?? knownElementRoot();
+	if (insideRoot(file, elementRoot)) return elementRoot;
+	return null;
+}
+
+/** A library may import the mark that lives in its own package, not a foreign one. */
+function markOwnedByImporter(
+	importer: string | undefined,
+	mark: string,
+): boolean {
+	return insideRoot(filePath(mark), importerLibraryRoot(importer));
+}
+
+function resolvedRequest(
+	id: string,
+	importer: string | undefined,
+): string | null {
+	if (!importer) return null;
+	const requested = filePath(id).split("?")[0] ?? filePath(id);
+	if (!path.isAbsolute(requested) && !requested.startsWith(".")) return null;
+	const full = path.isAbsolute(requested)
+		? requested
+		: path.resolve(path.dirname(filePath(importer)), requested);
+	return realpathOf(full);
+}
+
 type SyntaxNode = {
 	type?: string;
 	value?: string;
@@ -560,9 +591,19 @@ export function resolveAuthorRequest(
 		return rememberedMark(importer);
 	}
 	if (!claimsAuthor(id, importer)) return null;
-	// Library dist may import the mark by a relative path or by the absolute
-	// path a resolver already computed. App code may not.
-	if (libraryImporter(importer)) return null;
+	// Library dist may import the mark that ships inside its own package.
+	// A nested package.json named ignite-element does not get the real mark.
+	if (libraryImporter(importer)) {
+		const resolved = resolvedRequest(id, importer);
+		if (
+			resolved &&
+			(isMarkFile(resolved) || isAuthorBridge(resolved)) &&
+			!markOwnedByImporter(importer, resolved)
+		) {
+			throw blockedAuthor(id);
+		}
+		return null;
+	}
 	// The private id resolves to an absolute file. The bundler asks again.
 	// That follow-up is the path this plugin just issued, from a file whose
 	// own source does not name the mark.
@@ -864,7 +905,12 @@ function installBundlerGuards(compiler: WebpackLike): void {
 			if (!resource) return;
 			if (!isMarkFile(resource) && !isAuthorBridge(resource)) return;
 			const issuer = data.contextInfo?.issuer;
-			if (libraryImporter(issuer)) return;
+			if (libraryImporter(issuer)) {
+				if (!markOwnedByImporter(issuer, resource)) {
+					throw blockedAuthor(resource);
+				}
+				return;
+			}
 			const requests = userRequests(data);
 			if (
 				requests.some(
@@ -1027,7 +1073,10 @@ export const igniteJsx = createUnplugin((_options, meta) => ({
 				if (resolved.errors?.length || !resolved.path) return null;
 				const real = realpathOf(resolved.path);
 				if (!isMarkFile(real) && !isAuthorBridge(real)) return null;
-				if (libraryImporter(args.importer)) return issued(real);
+				if (libraryImporter(args.importer)) {
+					if (markOwnedByImporter(args.importer, real)) return issued(real);
+					return deny(blockedAuthor(args.path).message);
+				}
 				if (allowIssuedFollowUp(args.path, args.importer)) return issued(real);
 				return deny(blockedAuthor(args.path).message);
 			});

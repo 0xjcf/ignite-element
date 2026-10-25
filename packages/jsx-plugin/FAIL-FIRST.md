@@ -95,6 +95,16 @@ These failed when run against `5a91ff5059ab137d88b1f08ae4a78d680ab7acb1`, then t
 - `P2-6: the shipped reader is a static private import with no resolver`
 - `vite and esbuild drop a style load in the browser`
 
+## `adeb7c59` — fake nested ignite-element
+
+This failed when run against `adeb7c5940856d15b5cc85ee0eda327b3d9de661`, then the fix landed in the same commit.
+
+`packages/jsx-plugin/src/closure-followup.test.ts`
+
+- `a dependency's fake ignite-element package cannot trust url() or @import`
+
+Vite, Rollup, and webpack kept the fake package's `url()` and `@import`. esbuild already refused it. The importer is trusted only for the mark inside its own resolved package root.
+
 ## `244c64d3` — outline registry and esbuild glob writes
 
 These failed when run against `244c64d3ea109581a14533299907dae36f83132f`, then the fix landed in the same commit.

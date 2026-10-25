@@ -16,10 +16,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import esbuild from "esbuild";
+import { rollup } from "rollup";
 import { build } from "vite";
 import { describe, expect, it } from "vitest";
 import webpack from "webpack";
 import igniteEsbuild from "./esbuild.js";
+import igniteRollup from "./rollup.js";
 import igniteVite from "./vite.js";
 import igniteWebpack from "./webpack.js";
 
@@ -225,6 +227,160 @@ module.exports = function jsx(source) {
 					);
 				}),
 			).rejects.toThrow(/cannot mark CSS/);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("a dependency's fake ignite-element package cannot trust url() or @import", async () => {
+		const evilUrl = "http://127.0.0.1:9/fake-element.png";
+		const evilImport = "http://127.0.0.1:9/fake-element.css";
+		const elementMark = path.join(
+			repoRoot,
+			"packages/ignite-element/dist/jsx/author-style-mark.es.js",
+		);
+		const dir = mkdtempSync(path.join(tmpdir(), "ignite-fake-element-"));
+		const steal = path.join(
+			dir,
+			"node_modules/evil-dep/node_modules/ignite-element/dist/steal.js",
+		);
+		const relativeMark = path.relative(path.dirname(steal), elementMark);
+		const specifier = relativeMark.split("\\").join("/");
+		mkdirSync(path.dirname(steal), { recursive: true });
+		writeFileSync(
+			path.join(dir, "package.json"),
+			`${JSON.stringify({ name: "app", private: true, type: "module" })}\n`,
+		);
+		writeFileSync(
+			path.join(dir, "node_modules/evil-dep/package.json"),
+			`${JSON.stringify({
+				name: "evil-dep",
+				type: "module",
+				exports: { ".": "./index.js" },
+			})}\n`,
+		);
+		writeFileSync(
+			path.join(dir, "node_modules/evil-dep/index.js"),
+			`export { sheet } from "./node_modules/ignite-element/dist/steal.js";\n`,
+		);
+		writeFileSync(
+			path.join(
+				dir,
+				"node_modules/evil-dep/node_modules/ignite-element/package.json",
+			),
+			`${JSON.stringify({
+				name: "ignite-element",
+				type: "module",
+				main: "./dist/steal.js",
+			})}\n`,
+		);
+		writeFileSync(
+			steal,
+			`import { igniteAuthorStyle } from ${JSON.stringify(specifier.startsWith(".") ? specifier : `./${specifier}`)};
+export const sheet = igniteAuthorStyle(${JSON.stringify(`@import "${evilImport}";.a{background:url(${evilUrl})}`)});
+`,
+		);
+		writeFileSync(
+			path.join(dir, "entry.js"),
+			`import { sheet } from "evil-dep";\nexport default sheet;\n`,
+		);
+		const nodeResolve = (
+			createRequire(path.join(repoRoot, "package.json"))(
+				"@rollup/plugin-node-resolve",
+			) as { default: () => { name: string } }
+		).default;
+		const refused = /cannot mark CSS/;
+		async function bundled(kind: "vite" | "rollup" | "webpack" | "esbuild") {
+			if (kind === "vite") {
+				const result = await build({
+					configFile: false,
+					logLevel: "silent",
+					root: dir,
+					plugins: [igniteVite()],
+					build: {
+						write: false,
+						minify: false,
+						rollupOptions: { input: path.join(dir, "entry.js") },
+					},
+				});
+				const chunk = Array.isArray(result) ? result[0] : result;
+				if (!chunk || !("output" in chunk)) {
+					throw new Error("vite build did not emit a bundle");
+				}
+				return chunk.output
+					.map((item) => ("code" in item ? item.code : ""))
+					.join("\n");
+			}
+			if (kind === "rollup") {
+				const bundle = await rollup({
+					input: path.join(dir, "entry.js"),
+					plugins: [nodeResolve(), igniteRollup()],
+				});
+				try {
+					const generated = await bundle.generate({ format: "es" });
+					return generated.output
+						.map((item) => ("code" in item ? item.code : ""))
+						.join("\n");
+				} finally {
+					await bundle.close();
+				}
+			}
+			if (kind === "esbuild") {
+				const result = await esbuild.build({
+					absWorkingDir: dir,
+					entryPoints: ["entry.js"],
+					bundle: true,
+					write: false,
+					format: "esm",
+					plugins: [igniteEsbuild()],
+					logLevel: "silent",
+				});
+				return result.outputFiles.map((file) => file.text).join("\n");
+			}
+			const out = path.join(dir, "webpack-out");
+			mkdirSync(out, { recursive: true });
+			await new Promise<void>((resolve, reject) => {
+				webpack(
+					{
+						mode: "development",
+						context: dir,
+						entry: path.join(dir, "entry.js"),
+						output: { path: out, filename: "bundle.js" },
+						plugins: [igniteWebpack()],
+					},
+					(error, stats) => {
+						if (error) {
+							reject(error);
+							return;
+						}
+						if (stats?.hasErrors()) {
+							reject(new Error(stats.toString()));
+							return;
+						}
+						resolve();
+					},
+				);
+			});
+			return readFileSync(path.join(out, "bundle.js"), "utf8");
+		}
+		try {
+			const failures: string[] = [];
+			for (const kind of ["vite", "rollup", "webpack", "esbuild"] as const) {
+				let code = "";
+				let error = "";
+				try {
+					code = await bundled(kind);
+				} catch (caught) {
+					error = caught instanceof Error ? caught.message : String(caught);
+				}
+				if (code.includes(evilUrl) || code.includes(evilImport)) {
+					failures.push(`${kind} kept the fake CSS`);
+				}
+				if (kind === "esbuild" && !refused.test(error)) {
+					failures.push(`${kind} did not refuse: ${error.slice(0, 180)}`);
+				}
+			}
+			expect(failures).toEqual([]);
 		} finally {
 			rmSync(dir, { recursive: true, force: true });
 		}
