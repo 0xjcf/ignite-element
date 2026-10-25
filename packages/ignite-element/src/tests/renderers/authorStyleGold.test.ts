@@ -223,7 +223,9 @@ describe("option C gold rules", () => {
 			if (this === WeakSet.prototype.has || this === WeakSet.prototype.add) {
 				return true;
 			}
-			return original.apply(this, args as []);
+			return (
+				original as (thisArg: unknown, ...inner: unknown[]) => unknown
+			).apply(this, args as [unknown, ...unknown[]]);
 		} as typeof Function.prototype.call;
 		try {
 			expect(readAuthorStyle(forged)).toBeUndefined();
