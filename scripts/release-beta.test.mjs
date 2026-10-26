@@ -19,6 +19,7 @@ const packageNames = [
 	"@ignite-element/adapters",
 	"@ignite-element/renderer",
 	"ignite-element",
+	"@ignite-element/jsx-plugin",
 ];
 const repositoryUrl = "git+https://github.com/0xjcf/ignite-element.git";
 const actionPins = new Map([
@@ -207,6 +208,7 @@ function createPreparationFixture() {
 				"@ignite-element/renderer": "workspace:*",
 			},
 		],
+		["jsx-plugin", "@ignite-element/jsx-plugin", undefined],
 	]) {
 		writeFixtureFile(
 			directory,
@@ -228,7 +230,7 @@ if (args[0] === "exec" && args[1] === "changeset" && args[2] === "version") {
 	const pre = JSON.parse(fs.readFileSync(prePath, "utf8"));
 	pre.changesets.push("leading-dot");
 	fs.writeFileSync(prePath, JSON.stringify(pre, null, "\\t") + "\\n");
-	for (const directory of ["ignite-core", "ignite-adapters", "ignite-renderer", "ignite-element"]) {
+	for (const directory of ["ignite-core", "ignite-adapters", "ignite-renderer", "ignite-element", "jsx-plugin"]) {
 		const manifestPath = path.join(process.cwd(), "packages", directory, "package.json");
 		const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 		manifest.version = "3.0.0-beta.11";
@@ -596,6 +598,7 @@ describe("v3 beta staged-release boundary", () => {
 			"packages/ignite-adapters/package.json",
 			"packages/ignite-renderer/package.json",
 			"packages/ignite-element/package.json",
+			"packages/jsx-plugin/package.json",
 		]
 			.map(read)
 			.join("\n");
@@ -720,6 +723,39 @@ describe("v3 beta staged-release boundary", () => {
 		} finally {
 			fs.rmSync(directory, { recursive: true, force: true });
 		}
+	});
+
+	it("Codex P1: the next beta ships the jsx plugin", async () => {
+		const { RELEASE_PACKAGES, isReviewablePreparationPath } = await import(
+			"./prepare-beta-release.mjs"
+		);
+		const { RELEASE_PACKAGES: staged } = await import(
+			"./stage-beta-release.mjs"
+		);
+		const plugin = {
+			directory: "packages/jsx-plugin",
+			name: "@ignite-element/jsx-plugin",
+		};
+		assert.deepEqual(
+			RELEASE_PACKAGES.find((entry) => entry.name === plugin.name),
+			plugin,
+		);
+		assert.deepEqual(
+			staged.find((entry) => entry.name === plugin.name),
+			plugin,
+		);
+		assert.equal(
+			isReviewablePreparationPath("packages/jsx-plugin/package.json"),
+			true,
+		);
+		assert.equal(
+			isReviewablePreparationPath("packages/jsx-plugin/CHANGELOG.md"),
+			true,
+		);
+		assert.equal(
+			isReviewablePreparationPath("packages/evil/package.json"),
+			false,
+		);
 	});
 
 	it("flows four exact validated tarballs into staging", async () => {
@@ -848,7 +884,7 @@ describe("v3 beta staged-release boundary", () => {
 			});
 			assert.deepEqual(
 				calls.map(({ kind }) => kind),
-				["stage-publish", "stage-publish", "stage-publish", "stage-publish"],
+				packageNames.map(() => "stage-publish"),
 			);
 			assert.deepEqual(
 				receipts.map(({ name }) => name),

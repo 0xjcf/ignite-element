@@ -64,12 +64,29 @@ function isStyleTag(name: t.JSXOpeningElement["name"]): boolean {
 	return false;
 }
 
-/** JSX is enabled only for extensions this package already treats as JSX. */
-export function parserPluginsFor(filename: string): ParserPlugin[] {
+/**
+ * JSX is enabled for JSX extensions, and for `.js` / `.mjs` / `.cjs` only when
+ * that extension's bundler loader is JSX. `.ts`, `.mts`, and `.cts` stay
+ * TypeScript so angle-bracket assertions still parse.
+ * `decorators-legacy` matches this repo's `experimentalDecorators` setting.
+ */
+export function parserPluginsFor(
+	filename: string,
+	jsxScript: boolean,
+): ParserPlugin[] {
 	const file = filename.split("?")[0].split("\\").join("/");
-	const plugins: ParserPlugin[] = ["typescript"];
-	if (/\.[cm]?[jt]sx$/.test(file)) plugins.push("jsx");
+	const plugins: ParserPlugin[] = ["decorators-legacy", "typescript"];
+	if (/\.[cm]?[jt]sx$/.test(file) || (jsxScript && /\.[cm]?js$/.test(file))) {
+		plugins.push("jsx");
+	}
 	return plugins;
+}
+
+/** Disk text may escape the leading NUL. Only the exact emitted import matches. */
+export function isOfficialEmittedSpecifier(spec: string): boolean {
+	if (spec === AUTHOR_VIRTUAL || spec === AUTHOR_STANDALONE) return true;
+	const decoded = spec.replace(/\\u0000|\\x00|\\0/g, "\0");
+	return decoded === AUTHOR_VIRTUAL || decoded === AUTHOR_STANDALONE;
 }
 
 function isRawImport(binding: Binding): boolean {
@@ -77,6 +94,17 @@ function isRawImport(binding: Binding): boolean {
 	const parent = binding.path.parent as t.ImportDeclaration;
 	if (parent.importKind === "type") return false;
 	return isRawCssSpecifier(String(parent.source.value));
+}
+
+function isStaticAuthorArg(node: t.Node, scope: NodePath["scope"]): boolean {
+	const expr = unwrap(node);
+	if (expr.type === "BinaryExpression" && expr.operator === "+") {
+		return (
+			isStaticAuthorArg(expr.left, scope) &&
+			isStaticAuthorArg(expr.right, scope)
+		);
+	}
+	return isStaticInit(expr, scope, new Set());
 }
 
 function isStaticInit(
@@ -396,10 +424,115 @@ function countMarkerUses(ast: t.Node, name: string): number {
 	return count;
 }
 
+function specifierImportedName(spec: t.ImportSpecifier): string {
+	if (spec.imported.type === "Identifier") return spec.imported.name;
+	return spec.imported.value;
+}
+
+function isOfficialMarkImport(
+	node: t.ImportDeclaration,
+	filename: string,
+): boolean {
+	if (node.importKind === "type") return false;
+	const source = String(node.source.value);
+	if (source !== AUTHOR_VIRTUAL && source !== AUTHOR_STANDALONE) return false;
+	if (node.specifiers.length !== 1) return false;
+	const spec = node.specifiers[0];
+	if (!spec || spec.type !== "ImportSpecifier" || spec.importKind === "type") {
+		return false;
+	}
+	if (specifierImportedName(spec) !== "igniteAuthorStyle") return false;
+	return spec.local.name === markerLocalName(filename);
+}
+
+function refuseMark(): never {
+	throw new Error(
+		"An application import cannot mark CSS. The ignite JSX plugin marks static <style> text itself.",
+	);
+}
+
+function jsxImportSource(ast: t.File): string | null {
+	for (const comment of ast.comments ?? []) {
+		const match = /@jsxImportSource\s+(\S+)/.exec(comment.value);
+		if (match?.[1]) return match[1];
+	}
+	return null;
+}
+
+function shouldMarkStyles(ast: t.File): boolean {
+	const source = jsxImportSource(ast);
+	if (!source) return true;
+	return (
+		source === "ignite-element/jsx" || source.startsWith("ignite-element/jsx/")
+	);
+}
+
+function officialMarkImport(
+	ast: t.File,
+	filename: string,
+): t.ImportDeclaration | null {
+	for (const statement of ast.program.body) {
+		if (statement.type !== "ImportDeclaration") continue;
+		if (isOfficialMarkImport(statement, filename)) return statement;
+	}
+	return null;
+}
+
+function meaningfulJsxChildren(
+	element: t.JSXElement,
+): t.JSXElement["children"] {
+	return element.children.filter((child) => {
+		if (child.type !== "JSXText") return true;
+		return child.value.trim() !== "";
+	});
+}
+
+function assertOfficialCalls(ast: t.File, local: string): number {
+	let count = 0;
+	const visit = traverse as (node: t.Node, visitors: object) => void;
+	visit(ast, {
+		Identifier(path: NodePath<t.Identifier>) {
+			if (path.node.name !== local) return;
+			if (
+				path.parent.type === "ImportSpecifier" &&
+				path.parent.local === path.node
+			) {
+				return;
+			}
+			const callPath = path.parentPath;
+			const call = path.parent;
+			if (
+				!callPath ||
+				call.type !== "CallExpression" ||
+				call.callee !== path.node ||
+				call.arguments.length !== 1 ||
+				!isStaticAuthorArg(call.arguments[0], path.scope)
+			) {
+				refuseMark();
+			}
+			const container = callPath.parent;
+			const element = callPath.parentPath?.parent;
+			if (
+				container?.type !== "JSXExpressionContainer" ||
+				element?.type !== "JSXElement" ||
+				!isStyleTag(element.openingElement.name)
+			) {
+				refuseMark();
+			}
+			const elementNode = element as t.JSXElement;
+			const meaningful = meaningfulJsxChildren(elementNode);
+			if (meaningful.length !== 1 || meaningful[0] !== container) refuseMark();
+			count += 1;
+		},
+	});
+	return count;
+}
+
 function rejectHandWrittenAuthorImport(ast: t.File, filename: string): void {
 	const visit = traverse as (node: t.Node, visitors: object) => void;
 	visit(ast, {
 		ImportDeclaration(path: NodePath<t.ImportDeclaration>) {
+			if (isOfficialMarkImport(path.node, filename)) return;
 			rejectSpecifier(String(path.node.source.value), filename);
 		},
 		ExportAllDeclaration(path: NodePath<t.ExportAllDeclaration>) {
@@ -427,9 +560,15 @@ function rejectHandWrittenAuthorImport(ast: t.File, filename: string): void {
 
 export function markFile(ast: t.File, filename = "component.tsx"): boolean {
 	rejectHandWrittenAuthorImport(ast, filename);
+	const official = officialMarkImport(ast, filename);
+	if (!shouldMarkStyles(ast)) {
+		if (official) refuseMark();
+		return false;
+	}
 	directEvalBlocks = scopesWithDirectEval(ast);
 	try {
 		const local = markerLocalName(filename);
+		const officialUses = official ? assertOfficialCalls(ast, local) : 0;
 		const hits: Array<{ element: t.JSXElement; parts: Part[] }> = [];
 		traverse(ast, {
 			JSXElement(path) {
@@ -439,12 +578,15 @@ export function markFile(ast: t.File, filename = "component.tsx"): boolean {
 				hits.push({ element: path.node, parts });
 			},
 		});
-		if (hits.length === 0) return false;
-		const already = countMarkerUses(ast, local);
-		if (already > 0) {
-			throw new Error(
-				`Marker references (${already + hits.length}) outnumber marked <style> elements (${hits.length}).`,
-			);
+		if (!official && hits.length === 0) return false;
+		if (official && officialUses === 0 && hits.length === 0) refuseMark();
+		if (!official) {
+			const already = countMarkerUses(ast, local);
+			if (already > 0) {
+				throw new Error(
+					`Marker references (${already + hits.length}) outnumber marked <style> elements (${hits.length}).`,
+				);
+			}
 		}
 		for (const hit of hits) {
 			hit.element.children = [
@@ -453,11 +595,16 @@ export function markFile(ast: t.File, filename = "component.tsx"): boolean {
 				),
 			];
 		}
-		ensureImport(ast.program, local);
+		if (official) {
+			official.source.value = AUTHOR_VIRTUAL;
+		} else {
+			ensureImport(ast.program, local);
+		}
 		const uses = countMarkerUses(ast, local);
-		if (uses !== hits.length) {
+		const expected = officialUses + hits.length;
+		if (uses !== expected) {
 			throw new Error(
-				`Marker references (${uses}) outnumber marked <style> elements (${hits.length}).`,
+				`Marker references (${uses}) outnumber marked <style> elements (${expected}).`,
 			);
 		}
 		return true;
@@ -469,11 +616,12 @@ export function markFile(ast: t.File, filename = "component.tsx"): boolean {
 export function transformSource(
 	code: string,
 	filename = "component.tsx",
+	options?: { jsxScript?: boolean },
 ): string {
 	const ast = parse(code, {
 		sourceFilename: filename,
 		sourceType: "module",
-		plugins: parserPluginsFor(filename),
+		plugins: parserPluginsFor(filename, options?.jsxScript === true),
 	});
 	if (!markFile(ast, filename)) return code;
 	return generate(ast, { comments: true, retainLines: true }, code).code;

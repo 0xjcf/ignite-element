@@ -12,8 +12,10 @@ import { parse } from "@babel/parser";
 import { createUnplugin } from "unplugin";
 import {
 	AUTHOR_SOURCE,
+	AUTHOR_STANDALONE,
 	AUTHOR_VIRTUAL,
 	isBlockedAuthorSpecifier,
+	isOfficialEmittedSpecifier,
 	isRawCssSpecifier,
 	parserPluginsFor,
 	transformSource,
@@ -410,7 +412,7 @@ function expressionReachesMark(
 	return importTargetReachesMark(node, fileDir);
 }
 
-function dynamicSourceReachesMark(file: string): boolean {
+function dynamicSourceReachesMark(file: string, jsxScript = false): boolean {
 	let source = "";
 	try {
 		source = readFileSync(file, "utf8");
@@ -422,7 +424,7 @@ function dynamicSourceReachesMark(file: string): boolean {
 	try {
 		ast = parse(source, {
 			sourceType: "module",
-			plugins: parserPluginsFor(file),
+			plugins: parserPluginsFor(file, jsxScript),
 			errorRecovery: true,
 		}) as { program: { body: SyntaxNode[] } };
 	} catch {
@@ -521,6 +523,7 @@ function sourceMentionsAuthorMark(importer: string | undefined): boolean {
 	);
 	for (const match of specs) {
 		const spec = match[1] ?? "";
+		if (isOfficialEmittedSpecifier(spec)) continue;
 		if (/author-style|authorStyle/.test(spec)) return true;
 		if (!spec.startsWith(".")) continue;
 		const resolved = path.resolve(
@@ -819,7 +822,12 @@ async function refuseForeignPackageMark(
 		if (spec) specs.add(spec);
 	}
 	for (const spec of specs) {
-		if (spec === AUTHOR_VIRTUAL || allowIssuedFollowUp(spec, importer)) {
+		if (
+			spec === AUTHOR_VIRTUAL ||
+			spec === AUTHOR_STANDALONE ||
+			isOfficialEmittedSpecifier(spec) ||
+			allowIssuedFollowUp(spec, importer)
+		) {
 			continue;
 		}
 		let resolved: { id: string } | null = null;
@@ -856,7 +864,8 @@ async function guardParsedModule(
 	const library = libraryImporter(info.id);
 	collectImportSources(ast, sources);
 	for (const spec of sources) {
-		if (spec === AUTHOR_VIRTUAL) continue;
+		if (spec === AUTHOR_VIRTUAL || spec === AUTHOR_STANDALONE) continue;
+		if (isOfficialEmittedSpecifier(spec)) continue;
 		if (allowIssuedFollowUp(spec, info.id)) continue;
 		if (
 			!library &&
@@ -994,175 +1003,276 @@ function installBundlerGuards(compiler: WebpackLike): void {
 	});
 }
 
-export const igniteJsx = createUnplugin((_options, meta) => ({
-	name: "ignite-jsx",
-	enforce: "pre",
-	resolveId: {
-		filter: {
-			id: /\.css\?raw(?:&|$)|author-style|authorStyle|\0ignite-jsx:author-style/,
-		},
-		async handler(id, importer) {
-			if (isRawCssSpecifier(id)) return resolveRawCss(id, importer);
-			// unplugin's esbuild host forces namespace to the plugin name.
-			// Returning null lets esbuild.setup answer with namespace "file".
-			if (meta.framework === "esbuild") return null;
-			if (id === AUTHOR_VIRTUAL && importerWasMarked(importer)) {
-				const shared = await sharedRegistryMark(
-					this as unknown as {
-						resolve: (
-							source: string,
-							importer?: string,
-							options?: { skipSelf?: boolean },
-						) => Promise<{ id: string } | null | undefined>;
-					},
-					importer,
-				);
-				if (shared) {
-					issuedExact.add(path.resolve(shared));
-					return shared;
-				}
-			}
-			if (id === "#author-style") {
-				if (!libraryImporter(importer)) {
-					this.error(blockedAuthor(id).message);
-					return null;
-				}
-				const mark = privateElementMark(importer);
-				// `mark` and the importer's package root are both realpaths.
-				// A symlink at the private path must not escape that root.
-				if (mark && markOwnedByImporter(importer, mark)) return mark;
-				if (mark) {
-					this.error(blockedAuthor(id).message);
-					return null;
-				}
-			}
-			try {
-				return resolveAuthorRequest(id, importer);
-			} catch (error) {
-				const message = error instanceof Error ? error.message : String(error);
-				// Rollup and Vite throw from this.error. Webpack records it and
-				// needs a null return, or the resolve hook never calls back.
-				this.error(message);
-				return null;
-			}
-		},
-	},
-	loadInclude(id) {
-		return isRawCssSpecifier(id);
-	},
-	load(id) {
-		return loadRawCss(id);
-	},
-	transformInclude(id) {
-		return shouldTransform(id);
-	},
-	async transform(code, id) {
-		if (!shouldTransform(id)) return null;
-		await refuseForeignPackageMark(this as unknown as GuardHost, code, id);
-		const next = transformSource(code, filePath(id));
-		if (next === code) return null;
-		rememberImporter(id);
-		return { code: next, map: null };
-	},
-	rollup: {
-		async moduleParsed(info) {
-			await guardParsedModule(this, info);
-		},
-	},
-	vite: {
-		async moduleParsed(info) {
-			await guardParsedModule(this, info);
-		},
-	},
-	rolldown: {
-		async moduleParsed(info) {
-			await guardParsedModule(this, info);
-		},
-	},
-	webpack(compiler) {
-		installBundlerGuards(compiler as unknown as WebpackLike);
-	},
-	rspack(compiler) {
-		installBundlerGuards(compiler as unknown as WebpackLike);
-	},
+const SCRIPT_JSX = [".js", ".mjs", ".cjs"] as const;
+
+function noteScriptJsx(
+	scriptJsx: Set<string>,
+	loader: Record<string, string | undefined> | undefined,
+): void {
+	if (!loader) return;
+	for (const ext of SCRIPT_JSX) {
+		const value = loader[ext];
+		if (value === "jsx" || value === "tsx") scriptJsx.add(ext);
+	}
+}
+
+function fileUsesScriptJsx(scriptJsx: Set<string>, file: string): boolean {
+	const ext = path.extname(file.split("?")[0] ?? file).toLowerCase();
+	return scriptJsx.has(ext);
+}
+
+function filterMatches(filter: unknown, id: string): boolean {
+	if (Array.isArray(filter))
+		return filter.some((item) => filterMatches(item, id));
+	if (filter instanceof RegExp) return filter.test(id);
+	if (typeof filter === "string") return id.includes(filter);
+	return false;
+}
+
+/** Vite excludes `.js` unless `esbuild.include` / `exclude` say otherwise. */
+function noteViteScriptJsx(
+	scriptJsx: Set<string>,
 	esbuild: {
-		onResolveFilter: /\.css\?raw/,
-		onLoadFilter: /\.[cm]?[jt]sx?$/,
-		setup(build) {
-			const deny = (text: string) => ({ errors: [{ text }] });
-			const issued = (file: string) => ({
-				path: file,
-				namespace: "file" as const,
-				pluginData: { igniteIssued: true },
-			});
-			build.initialOptions.metafile = true;
-			build.onStart(() => {
-				build.initialOptions.metafile = true;
-			});
-			build.onEnd((result) => {
-				const hit = outsiderImportsMark(
-					result.metafile,
-					build.initialOptions.absWorkingDir,
-				);
-				if (!hit) return null;
-				return deny(blockedAuthor(hit).message);
-			});
-			build.onResolve({ filter: AUTHOR_ID }, (args) => {
-				if (args.pluginData?.igniteSkip) return null;
-				if (args.path === AUTHOR_SOURCE) {
-					return deny(blockedAuthor(args.path).message);
+		loader?: string | Record<string, string | undefined>;
+		include?: unknown;
+		exclude?: unknown;
+	},
+): void {
+	if (typeof esbuild.loader === "string") {
+		if (esbuild.loader !== "jsx" && esbuild.loader !== "tsx") return;
+		for (const ext of SCRIPT_JSX) {
+			const sample = `component${ext}`;
+			const included =
+				esbuild.include == null
+					? /\.(m?ts|[jt]sx)$/.test(sample)
+					: filterMatches(esbuild.include, sample);
+			const excluded =
+				esbuild.exclude == null
+					? /\.js$/.test(sample)
+					: filterMatches(esbuild.exclude, sample);
+			if (included && !excluded) scriptJsx.add(ext);
+		}
+		return;
+	}
+	noteScriptJsx(scriptJsx, esbuild.loader);
+}
+
+const ESBUILD_LOADER: Record<string, "js" | "jsx" | "ts" | "tsx"> = {
+	".cjs": "js",
+	".cts": "ts",
+	".js": "js",
+	".jsx": "jsx",
+	".mjs": "js",
+	".mts": "ts",
+	".ts": "ts",
+	".tsx": "tsx",
+};
+
+export const igniteJsx = createUnplugin((_options, meta) => {
+	const scriptJsx = new Set<string>();
+	return {
+		name: "ignite-jsx",
+		enforce: "pre",
+		resolveId: {
+			filter: {
+				id: /\.css\?raw(?:&|$)|author-style|authorStyle|\0ignite-jsx:author-style/,
+			},
+			async handler(id, importer) {
+				if (isRawCssSpecifier(id)) return resolveRawCss(id, importer);
+				// unplugin's esbuild host forces namespace to the plugin name.
+				// Returning null lets esbuild.setup answer with namespace "file".
+				if (meta.framework === "esbuild") return null;
+				if (id === AUTHOR_VIRTUAL && importerWasMarked(importer)) {
+					const shared = await sharedRegistryMark(
+						this as unknown as {
+							resolve: (
+								source: string,
+								importer?: string,
+								options?: { skipSelf?: boolean },
+							) => Promise<{ id: string } | null | undefined>;
+						},
+						importer,
+					);
+					if (shared) {
+						issuedExact.add(path.resolve(shared));
+						return shared;
+					}
+				}
+				if (id === "#author-style") {
+					if (!libraryImporter(importer)) {
+						this.error(blockedAuthor(id).message);
+						return null;
+					}
+					const mark = privateElementMark(importer);
+					// `mark` and the importer's package root are both realpaths.
+					// A symlink at the private path must not escape that root.
+					if (mark && markOwnedByImporter(importer, mark)) return mark;
+					if (mark) {
+						this.error(blockedAuthor(id).message);
+						return null;
+					}
 				}
 				try {
-					const resolved = resolveAuthorRequest(args.path, args.importer);
-					if (!resolved) return null;
-					return issued(resolved);
+					return resolveAuthorRequest(id, importer);
 				} catch (error) {
-					return deny(error instanceof Error ? error.message : String(error));
-				}
-			});
-			build.onResolve({ filter: /.*/ }, async (args) => {
-				if (args.pluginData?.igniteSkip) return null;
-				if (args.path === AUTHOR_VIRTUAL || AUTHOR_ID.test(args.path))
+					const message =
+						error instanceof Error ? error.message : String(error);
+					// Rollup and Vite throw from this.error. Webpack records it and
+					// needs a null return, or the resolve hook never calls back.
+					this.error(message);
 					return null;
-				if (args.path.startsWith("\0")) return null;
-				const resolved = await build.resolve(args.path, {
-					importer: args.importer,
-					resolveDir: args.resolveDir,
-					kind: args.kind,
-					pluginData: { igniteSkip: true },
-				});
-				if (resolved.errors?.length || !resolved.path) return null;
-				const real = realpathOf(resolved.path);
-				if (!isMarkFile(real) && !isAuthorBridge(real)) return null;
-				if (libraryImporter(args.importer)) {
-					if (markOwnedByImporter(args.importer, real)) return issued(real);
-					return deny(blockedAuthor(args.path).message);
 				}
-				if (allowIssuedFollowUp(args.path, args.importer)) return issued(real);
-				return deny(blockedAuthor(args.path).message);
-			});
-			// Refuse before esbuild writes. onEnd runs after the outfile exists.
-			build.onLoad({ filter: /\.[cm]?[jt]sx?$/ }, (args) => {
-				if (args.namespace && args.namespace !== "file") return null;
-				if (libraryImporter(args.path)) return null;
-				if (!dynamicSourceReachesMark(args.path)) return null;
-				return deny(blockedAuthor(args.path).message);
-			});
-			build.onLoad({ filter: /author-style|authorStyle/ }, (args) => {
-				if (!isMarkFile(args.path)) return null;
-				const tagged = args.pluginData as
-					| { igniteIssued?: boolean }
-					| undefined;
-				if (tagged?.igniteIssued) return null;
-				return deny(blockedAuthor(args.path).message);
-			});
-			build.onLoad({ filter: /\.css/, namespace: "ignite-jsx" }, (args) => {
-				const contents = loadRawCss(args.path + (args.suffix || ""));
-				if (contents == null) return null;
-				return { contents, loader: "js" };
-			});
+			},
 		},
-	},
-}));
+		loadInclude(id) {
+			return isRawCssSpecifier(id);
+		},
+		load(id) {
+			return loadRawCss(id);
+		},
+		transformInclude(id) {
+			return shouldTransform(id);
+		},
+		async transform(code, id) {
+			if (!shouldTransform(id)) return null;
+			await refuseForeignPackageMark(this as unknown as GuardHost, code, id);
+			const file = filePath(id);
+			const next = transformSource(code, file, {
+				jsxScript: fileUsesScriptJsx(scriptJsx, file),
+			});
+			if (next === code) return null;
+			rememberImporter(id);
+			return { code: next, map: null };
+		},
+		rollup: {
+			async moduleParsed(info) {
+				await guardParsedModule(this, info);
+			},
+		},
+		vite: {
+			configResolved(config: {
+				esbuild?:
+					| false
+					| {
+							exclude?: unknown;
+							include?: unknown;
+							loader?: string | Record<string, string | undefined>;
+					  };
+			}) {
+				if (config.esbuild && typeof config.esbuild === "object") {
+					noteViteScriptJsx(scriptJsx, config.esbuild);
+				}
+			},
+			async moduleParsed(info) {
+				await guardParsedModule(this, info);
+			},
+		},
+		rolldown: {
+			async moduleParsed(info) {
+				await guardParsedModule(this, info);
+			},
+		},
+		webpack(compiler) {
+			installBundlerGuards(compiler as unknown as WebpackLike);
+		},
+		rspack(compiler) {
+			installBundlerGuards(compiler as unknown as WebpackLike);
+		},
+		esbuild: {
+			onResolveFilter: /\.css\?raw/,
+			onLoadFilter: /\.[cm]?[jt]sx?$/,
+			loader(_code: string, id: string) {
+				const ext = path
+					.extname(filePath(id).split("?")[0] ?? "")
+					.toLowerCase();
+				if (scriptJsx.has(ext)) return "jsx";
+				return ESBUILD_LOADER[ext] ?? "js";
+			},
+			setup(build) {
+				noteScriptJsx(scriptJsx, build.initialOptions.loader);
+				const deny = (text: string) => ({ errors: [{ text }] });
+				const issued = (file: string) => ({
+					path: file,
+					namespace: "file" as const,
+					pluginData: { igniteIssued: true },
+				});
+				build.initialOptions.metafile = true;
+				build.onStart(() => {
+					build.initialOptions.metafile = true;
+				});
+				build.onEnd((result) => {
+					const hit = outsiderImportsMark(
+						result.metafile,
+						build.initialOptions.absWorkingDir,
+					);
+					if (!hit) return null;
+					return deny(blockedAuthor(hit).message);
+				});
+				build.onResolve({ filter: AUTHOR_ID }, (args) => {
+					if (args.pluginData?.igniteSkip) return null;
+					if (args.path === AUTHOR_SOURCE) {
+						return deny(blockedAuthor(args.path).message);
+					}
+					try {
+						const resolved = resolveAuthorRequest(args.path, args.importer);
+						if (!resolved) return null;
+						return issued(resolved);
+					} catch (error) {
+						return deny(error instanceof Error ? error.message : String(error));
+					}
+				});
+				build.onResolve({ filter: /.*/ }, async (args) => {
+					if (args.pluginData?.igniteSkip) return null;
+					if (args.path === AUTHOR_VIRTUAL || AUTHOR_ID.test(args.path))
+						return null;
+					if (args.path.startsWith("\0")) return null;
+					const resolved = await build.resolve(args.path, {
+						importer: args.importer,
+						resolveDir: args.resolveDir,
+						kind: args.kind,
+						pluginData: { igniteSkip: true },
+					});
+					if (resolved.errors?.length || !resolved.path) return null;
+					const real = realpathOf(resolved.path);
+					if (!isMarkFile(real) && !isAuthorBridge(real)) return null;
+					if (libraryImporter(args.importer)) {
+						if (markOwnedByImporter(args.importer, real)) return issued(real);
+						return deny(blockedAuthor(args.path).message);
+					}
+					if (allowIssuedFollowUp(args.path, args.importer))
+						return issued(real);
+					return deny(blockedAuthor(args.path).message);
+				});
+				// Refuse before esbuild writes. onEnd runs after the outfile exists.
+				build.onLoad({ filter: /\.[cm]?[jt]sx?$/ }, (args) => {
+					if (args.namespace && args.namespace !== "file") return null;
+					if (libraryImporter(args.path)) return null;
+					if (
+						!dynamicSourceReachesMark(
+							args.path,
+							fileUsesScriptJsx(scriptJsx, args.path),
+						)
+					) {
+						return null;
+					}
+					return deny(blockedAuthor(args.path).message);
+				});
+				build.onLoad({ filter: /author-style|authorStyle/ }, (args) => {
+					if (!isMarkFile(args.path)) return null;
+					const tagged = args.pluginData as
+						| { igniteIssued?: boolean }
+						| undefined;
+					if (tagged?.igniteIssued) return null;
+					return deny(blockedAuthor(args.path).message);
+				});
+				build.onLoad({ filter: /\.css/, namespace: "ignite-jsx" }, (args) => {
+					const contents = loadRawCss(args.path + (args.suffix || ""));
+					if (contents == null) return null;
+					return { contents, loader: "js" };
+				});
+			},
+		},
+	};
+});
 
 export default igniteJsx;

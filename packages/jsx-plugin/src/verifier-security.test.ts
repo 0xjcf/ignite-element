@@ -13,7 +13,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import esbuild from "esbuild";
 import { JSDOM } from "jsdom";
-import { build } from "vite";
+import { build, type UserConfig } from "vite";
 import { describe, expect, it } from "vitest";
 import webpack, { type Configuration } from "webpack";
 import igniteEsbuild from "./esbuild.js";
@@ -46,20 +46,35 @@ function writeTree(dir: string, files: Record<string, string>) {
 async function bundleApp(
 	files: Record<string, string>,
 	entry = "entry.tsx",
+	esbuildOptions?: {
+		exclude?: RegExp | RegExp[];
+		external?: Array<string | RegExp>;
+		include?: RegExp | RegExp[];
+		jsxDev?: boolean;
+		loader?: string | Record<string, string>;
+	},
 ): Promise<string> {
 	const dir = mkdtempSync(path.join(tmpdir(), "ignite-route-"));
 	writeTree(dir, files);
+	const { external, ...esbuildConfig } = esbuildOptions ?? {};
 	try {
 		const result = await build({
 			configFile: false,
 			logLevel: "silent",
 			root: dir,
 			plugins: [igniteVite()],
-			esbuild: { jsx: "automatic", jsxImportSource: "ignite-element/jsx" },
+			esbuild: {
+				jsx: "automatic",
+				jsxImportSource: "ignite-element/jsx",
+				...esbuildConfig,
+			} as UserConfig["esbuild"],
 			build: {
 				write: false,
 				minify: false,
-				rollupOptions: { input: path.join(dir, entry) },
+				rollupOptions: {
+					external,
+					input: path.join(dir, entry),
+				},
 			},
 		});
 		const chunk = Array.isArray(result) ? result[0] : result;
@@ -233,6 +248,57 @@ export const view = <style>{local}</style>;
 			rmSync(app, { recursive: true, force: true });
 		}
 	}, 120_000);
+
+	it("Verifier: a JSX loader marks a .js style", async () => {
+		const source = `const local = ${JSON.stringify(CSS)};
+export const view = <style>{local}</style>;
+`;
+		for (const ext of [".js", ".mjs", ".cjs"]) {
+			const dir = mkdtempSync(path.join(tmpdir(), "ignite-js-jsx-"));
+			const entry = path.join(dir, `entry${ext}`);
+			writeFileSync(entry, source);
+			try {
+				const result = await esbuild.build({
+					absWorkingDir: dir,
+					entryPoints: [entry],
+					bundle: true,
+					write: false,
+					format: "esm",
+					jsx: "automatic",
+					jsxImportSource: "ignite-element/jsx",
+					loader: { [ext]: "jsx" },
+					external: ["ignite-element/jsx/jsx-runtime"],
+					plugins: [igniteEsbuild()],
+					logLevel: "silent",
+				});
+				const code = result.outputFiles.map((file) => file.text).join("\n");
+				expect(code, ext).toContain(PAYLOAD);
+				expect(code, ext).toContain("ignite-element.authorStyle");
+			} finally {
+				rmSync(dir, { recursive: true, force: true });
+			}
+		}
+	});
+
+	it("Verifier: a Vite JSX loader marks a .js style", async () => {
+		const code = await bundleApp(
+			{
+				"entry.js": `const local = ${JSON.stringify(CSS)};
+export const view = <style>{local}</style>;
+`,
+			},
+			"entry.js",
+			{
+				include: /\.[cm]?js$/,
+				exclude: [],
+				external: [/^ignite-element\//],
+				loader: "jsx",
+				jsxDev: false,
+			},
+		);
+		expect(code).toContain(PAYLOAD);
+		expect(code).toContain("ignite-element.authorStyle");
+	});
 
 	it("P2-2: esbuild loads the real mark import with namespace file", async () => {
 		const dir = mkdtempSync(path.join(tmpdir(), "ignite-esbuild-"));

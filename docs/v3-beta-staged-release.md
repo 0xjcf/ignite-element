@@ -13,7 +13,7 @@ without merging v3 source, packages, documentation, or Changesets into that
 branch. The workflow must remain byte-identical to the reviewed workflow on the
 v3 candidate.
 
-Configure a trusted publisher separately for each of these four npm packages:
+Configure a trusted publisher separately for each of these npm packages:
 
 | npm package | Trusted-publisher configuration |
 | --- | --- |
@@ -21,6 +21,7 @@ Configure a trusted publisher separately for each of these four npm packages:
 | `@ignite-element/adapters` | Provider: GitHub Actions; Owner/organization: 0xjcf; Repository: ignite-element; Workflow filename: publish.yml; Environment: npm-stage; Allowed action: npm stage publish only |
 | `@ignite-element/renderer` | Provider: GitHub Actions; Owner/organization: 0xjcf; Repository: ignite-element; Workflow filename: publish.yml; Environment: npm-stage; Allowed action: npm stage publish only |
 | `ignite-element` | Provider: GitHub Actions; Owner/organization: 0xjcf; Repository: ignite-element; Workflow filename: publish.yml; Environment: npm-stage; Allowed action: npm stage publish only |
+| `@ignite-element/jsx-plugin` | Provider: GitHub Actions; Owner/organization: 0xjcf; Repository: ignite-element; Workflow filename: publish.yml; Environment: npm-stage; Allowed action: npm stage publish only |
 
 The npm configuration does not specify the Git branch. GitHub owns the `beta` ref guard
 and binds the run to the dispatched commit. Before release use, protect `beta` with
@@ -28,7 +29,7 @@ branch protection or an equivalent ruleset.
 
 Create the protected GitHub Environment `npm-stage` and require Operator
 approval before its job can start. After trusted publishing is configured and
-authenticated for all four packages, change traditional package publishing
+authenticated for every release package, change traditional package publishing
 access to **Require two-factor authentication and disallow tokens**. No
 replacement npm automation token is required, and no publication token belongs
 in GitHub secrets or repository configuration.
@@ -84,8 +85,8 @@ Every other ref fails closed.
 
 The validation job has only `contents: read`; it has neither the protected npm
 environment nor OIDC authority. It performs a frozen install without release
-dependency caching, builds declarations and exports, checks the four package
-repository identities, packs core, adapters, renderer, and facade exactly once,
+dependency caching, builds declarations and exports, checks the release package
+repository identities, packs core, adapters, renderer, the facade, and the JSX plugin exactly once,
 records byte sizes and SHA-256 digests, verifies exact internal dependencies,
 tests those exact tarballs as downstream dependencies, and runs the complete
 validation profile. It uploads one bounded payload and exposes the artifact ID,
@@ -97,7 +98,7 @@ uses Node 22 and exactly npm 11.19.1, downloads the validation artifact by its
 exact artifact ID, and verifies the artifact binding, payload hash, commit,
 tree, manifest hash, package identities, internal versions, tarball sizes, and
 tarball hashes. It installs no workspace dependencies and runs no build or test.
-It stages only the four downloaded tarballs, in dependency order, using
+It stages only the downloaded release tarballs, in dependency order, using
 `--tag beta`, provenance, and OIDC.
 
 Structured `--json` output supplies each stage UUID. The receipt is written
@@ -107,7 +108,7 @@ reviewable. The uploaded receipt is not publication approval.
 ## Independent review
 
 Independent review must match the receipt commit and tree, artifact and payload
-identities, all four tarball hashes, validation entries, and stage IDs. A
+identities, every release tarball hash, validation entries, and stage IDs. A
 reviewer can use an authenticated interactive npm session to inspect without
 approving:
 
@@ -171,7 +172,7 @@ removes its temporary workspace on success or failure. Ancestor project settings
 are excluded even when the temporary directory is nested under a project.
 It does not require maintainer credentials or repair the workstation's default cache.
 
-This metadata check requires all four exact versions, expected beta and latest
+This metadata check requires every release package's exact version, expected beta and latest
 tags, exact internal dependency versions, and presence of attestation metadata.
 It does not download or hash tarballs, nor cryptographically verify provenance
 signatures. Downloaded-byte and provenance verification remain separate
