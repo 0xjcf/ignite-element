@@ -1,5 +1,19 @@
 # Fail-first tests
 
+## PR #180 correction — 2026-10-26
+
+Baseline: `d738098106d8ebe58645d8e0968672ff511ce8a9`, tree `7f35edd8f7aae80043507e5954965d61acb805a3`.
+
+`pnpm --filter @ignite-element/jsx-plugin exec vitest --run src/pr180-regressions.test.ts` initially failed all six cases: three unannotated React/Preact/default-runtime builds received author-style objects, and three Babel/TypeScript automatic-runtime builds failed to adopt their emitted mark. `node scripts/verify-packed-consumers.mjs --tarball-manifest <five-entry-manifest>` failed with `reviewed tarball manifest must contain exactly four SHA-256 entries` before reading any tarball.
+
+The regression suite now covers inherited project configuration, Vite/esbuild runtime selection, fallback precedence, moved compiler output, development-runtime output, idempotent adoption, and refusal of dynamic arguments, escaped functions, invalid factories, duplicate children, and misplaced marks. Property runs use seed 180 with 24 and 48 runs. The five-tarball handoff test checks the actual package export shapes and preserves count, order, and digest rejection.
+
+Node 22.23.3 and pnpm 10.33.0: 87 plugin tests pass, strict packed consumers pass for all five release packages, and the selected esbuild/compiler consumer requires no other bundler or Lit installation. The full transform mutation run passes at **82.37%**: 762 killed, 4 timeouts, 141 survivors, and 23 without coverage. The threshold remains 80. An initial 76.91% run led to additional boundary tests; remaining survivors include redundant AST guards and existing out-of-scope branches, and no additional current-candidate failure was found in the correction review.
+
+Local validation uses a disposable npm cache. A pre-existing release-test assertion compares temporary paths literally, so its profile uses a canonical temporary directory. Vite development fixtures likewise use their canonical temporary root; a minimal Vite reproduction without this plugin established the alias mismatch. No security assertion or production guard was weakened. Raw logs, mutation reports, dependencies, and generated builds are not part of the correction commit.
+
+`workflow_improvement`: the repository-wide formatter reports five unchanged baseline files (`examples/agents/smart-home/src/commandApproval.property.test.ts`, `packages/ignite-element/src/jsx/index.ts`, `packages/ignite-element/src/tests/renderers/jsxXss.test.ts`, `packages/ignite-renderer/src/jsx/index.ts`, and `packages/ignite-renderer/src/renderers/ignite-jsx.ts`). These are outside this three-finding correction. Changed-file formatting is checked separately; this receipt does not claim that the repository-wide formatting gate passes or that the candidate is approved for staging or merging.
+
 These titles are the ones that failed when the current tests were run against an older tree. The fixes in this branch were not present for those runs.
 
 ## `6f38058e` — 9 of 17

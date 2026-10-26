@@ -62,7 +62,7 @@ async function bundleApp(
 			configFile: false,
 			logLevel: "silent",
 			root: dir,
-			plugins: [igniteVite()],
+			plugins: [igniteVite({ jsxImportSource: "ignite-element/jsx" })],
 			esbuild: {
 				jsx: "automatic",
 				jsxImportSource: "ignite-element/jsx",
@@ -227,7 +227,9 @@ export const view = <style>{local}</style>;
 						"node_modules/@ignite-element/jsx-plugin/dist/esbuild.js",
 					),
 				).href
-			)) as { default: () => esbuild.Plugin };
+			)) as {
+				default: (options?: { jsxImportSource?: string }) => esbuild.Plugin;
+			};
 			const result = await esbuild.build({
 				absWorkingDir: app,
 				entryPoints: [entry],
@@ -268,7 +270,7 @@ export const view = <style>{local}</style>;
 					jsxImportSource: "ignite-element/jsx",
 					loader: { [ext]: "jsx" },
 					external: ["ignite-element/jsx/jsx-runtime"],
-					plugins: [igniteEsbuild()],
+					plugins: [igniteEsbuild({ jsxImportSource: "ignite-element/jsx" })],
 					logLevel: "silent",
 				});
 				const code = result.outputFiles.map((file) => file.text).join("\n");
@@ -319,7 +321,7 @@ export const view = <style>{local}</style>;
 				jsx: "automatic",
 				jsxImportSource: "ignite-element/jsx",
 				external: ["ignite-element/jsx/jsx-runtime"],
-				plugins: [igniteEsbuild()],
+				plugins: [igniteEsbuild({ jsxImportSource: "ignite-element/jsx" })],
 			});
 			const code = result.outputFiles.map((file) => file.text).join("\n");
 			expect(code).toContain(PAYLOAD);
@@ -374,7 +376,9 @@ describe("P2-3 dev registry and CJS webpack", () => {
 		const require = createRequire(import.meta.url);
 		const webpackEntry = new URL("../dist/webpack.js", import.meta.url).href;
 		const igniteWebpack = (
-			(await import(webpackEntry)) as { default: () => object }
+			(await import(webpackEntry)) as {
+				default: (options?: { jsxImportSource?: string }) => object;
+			}
 		).default;
 		const dir = mkdtempSync(path.join(tmpdir(), "ignite-cjs-webpack-"));
 		const out = path.join(dir, "out");
@@ -408,7 +412,9 @@ module.exports = function jsx(source) {
 			output: { path: out, filename: "bundle.js", module: true },
 			experiments: { outputModule: true },
 			plugins: [
-				igniteWebpack() as NonNullable<Configuration["plugins"]>[number],
+				igniteWebpack({ jsxImportSource: "ignite-element/jsx" }) as NonNullable<
+					Configuration["plugins"]
+				>[number],
 			],
 			externals: [/^ignite-element\/jsx\/jsx-runtime$/],
 			resolve: { extensions: [".tsx", ".ts", ".js"] },

@@ -1,3 +1,7 @@
+import type { Plugin } from "vite";
+import type { IgniteJsxOptions } from "./options.js";
 import igniteJsx from "./unplugin.js";
 
-export default igniteJsx.vite;
+const plugin: (options?: IgniteJsxOptions) => Plugin | Plugin[] =
+	igniteJsx.vite;
+export default plugin;

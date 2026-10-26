@@ -111,7 +111,8 @@ describe("route closure", () => {
 			const entry = path.join(app, "entry.tsx");
 			writeFileSync(
 				entry,
-				`import ${JSON.stringify(`./node_modules/ignite-element/dist/${strategy}`)};
+				`/** @jsxImportSource ignite-element/jsx */
+import ${JSON.stringify(`./node_modules/ignite-element/dist/${strategy}`)};
 const local = ${JSON.stringify(CSS)};
 export function view() {
   return <style>{local}</style>;
@@ -205,7 +206,7 @@ export const view = <style>{local}</style>;
 				jsx: "automatic",
 				jsxImportSource: "ignite-element/jsx",
 				external: ["ignite-element/jsx/jsx-runtime"],
-				plugins: [igniteEsbuild()],
+				plugins: [igniteEsbuild({ jsxImportSource: "ignite-element/jsx" })],
 			}),
 		).rejects.toThrow(/cannot mark CSS/);
 		rmSync(dir, { recursive: true, force: true });
@@ -243,7 +244,7 @@ export function steal() {
 							);
 						},
 					},
-					igniteEsbuild(),
+					igniteEsbuild({ jsxImportSource: "ignite-element/jsx" }),
 				],
 			});
 			const esbuildCode = built.outputFiles.map((file) => file.text).join("\n");
@@ -255,7 +256,7 @@ export function steal() {
 					logLevel: "silent",
 					mode,
 					root: dir,
-					plugins: [igniteVite()],
+					plugins: [igniteVite({ jsxImportSource: "ignite-element/jsx" })],
 					resolve: {
 						alias: {
 							"ignite-element/jsx/jsx-runtime": path.join(
@@ -313,7 +314,7 @@ export const stolen = igniteAuthorStyle(${JSON.stringify(CSS)});
 				write: false,
 				format: "esm",
 				jsx: "automatic",
-				plugins: [igniteEsbuild()],
+				plugins: [igniteEsbuild({ jsxImportSource: "ignite-element/jsx" })],
 			}),
 		).rejects.toThrow(/cannot mark CSS/);
 		await expect(
@@ -321,7 +322,7 @@ export const stolen = igniteAuthorStyle(${JSON.stringify(CSS)});
 				configFile: false,
 				logLevel: "silent",
 				root: dir,
-				plugins: [igniteVite()],
+				plugins: [igniteVite({ jsxImportSource: "ignite-element/jsx" })],
 				build: {
 					write: false,
 					minify: false,
@@ -345,7 +346,7 @@ export const stolen = igniteAuthorStyle(${JSON.stringify(CSS)});
 				write: false,
 				format: "esm",
 				alias: { "app-mark": markDist },
-				plugins: [igniteEsbuild()],
+				plugins: [igniteEsbuild({ jsxImportSource: "ignite-element/jsx" })],
 			}),
 		).rejects.toThrow(/cannot mark CSS/);
 		await expect(
@@ -353,7 +354,7 @@ export const stolen = igniteAuthorStyle(${JSON.stringify(CSS)});
 				configFile: false,
 				logLevel: "silent",
 				root: aliasDir,
-				plugins: [igniteVite()],
+				plugins: [igniteVite({ jsxImportSource: "ignite-element/jsx" })],
 				resolve: { alias: { "app-mark": markDist } },
 				build: {
 					write: false,
@@ -539,7 +540,7 @@ module.exports = function jsx(source) {
 					library: { type: "module" },
 				},
 				experiments: { outputModule: true },
-				plugins: [igniteWebpack()],
+				plugins: [igniteWebpack({ jsxImportSource: "ignite-element/jsx" })],
 				resolve: {
 					extensions: [".tsx", ".ts", ".js"],
 					alias: {
@@ -593,7 +594,7 @@ module.exports = function jsx(source) {
 				context: dir,
 				entry: path.join(dir, entry),
 				output: { path: out, filename: "bundle.js" },
-				plugins: [igniteWebpack()],
+				plugins: [igniteWebpack({ jsxImportSource: "ignite-element/jsx" })],
 				resolve: {
 					extensions: [".tsx", ".ts", ".js"],
 					alias: { "app-mark": markDist },

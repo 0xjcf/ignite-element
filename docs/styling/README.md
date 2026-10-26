@@ -25,6 +25,14 @@ The JSX renderer preserves the same `<style>` node across ordinary rerenders ins
 
 Add `@ignite-element/jsx-plugin` once in the bundler config. Babel-only and tsc-only setups need that bundler plugin. On their own they fail closed: the private import they emit does not resolve, and there is no public export that makes it resolve. A file planted under `node_modules/ignite-element/dist` is supply-chain level: it sits inside the installed package, and the plugin does not try to tell it apart from the files that package published. A script that runs before the renderer loads can patch `Function.prototype.bind`. That is inherent to capturing `Function.prototype.call.bind(WeakSet.prototype.has/add)` at load, and it is an accepted limit. There is no public API that closes it. A static `<style>` string, a same-file `const`, or `import sheet from "./sheet.css?raw"` is author CSS. A `let` or `var`, including one that is never written again, stays data, and so does a `const` that aliases one. A value from props stays data. There is no public import that marks CSS: `ignite-element/jsx/author-style` is not a package export, and a hand-written import is a build error. Mixing marked and unmarked CSS in one `<style>` drops the author `url()`.
 
+## Select the JSX runtime
+
+The bundler plugin uses the file's `@jsxImportSource` pragma, emitted JSX runtime imports, the configured toolchain import source, or the nearest `tsconfig.json` / `jsconfig.json` (including `extends`). Unannotated files without an Ignite runtime selection keep their string children. React and Preact files do not receive Ignite author marks.
+
+Vite and esbuild expose their `jsxImportSource` to the plugin. For a compiler that does not expose it, pass `igniteJsx({ jsxImportSource: "ignite-element/jsx" })` as the fallback, or annotate the Ignite component file. A per-file pragma takes precedence, so mixed projects can select Ignite on individual files.
+
+The Babel and TypeScript entries still require the bundler plugin. It adopts static author-style children in preserved JSX and in ESM automatic-runtime output (`jsx`, `jsxs`, or `jsxDEV`), including an emitted `.js` file from a `.tsx` input. Dynamic arguments, escaped marker functions, and marks outside a style child are rejected.
+
 ## Reuse a stylesheet
 
 Repeat the same CSS string in each component's `<style>` element, as the example above does. The [light switch](https://0xjcf.github.io/ignite-element/#build-a-component) uses that `<style>` element.

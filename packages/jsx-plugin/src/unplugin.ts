@@ -10,6 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "@babel/parser";
 import { createUnplugin } from "unplugin";
+import type { IgniteJsxOptions } from "./options.js";
 import {
 	AUTHOR_SOURCE,
 	AUTHOR_STANDALONE,
@@ -18,6 +19,7 @@ import {
 	isOfficialEmittedSpecifier,
 	isRawCssSpecifier,
 	parserPluginsFor,
+	projectJsxImportSource,
 	transformSource,
 } from "./transform.js";
 
@@ -1068,8 +1070,13 @@ const ESBUILD_LOADER: Record<string, "js" | "jsx" | "ts" | "tsx"> = {
 	".tsx": "tsx",
 };
 
-export const igniteJsx = createUnplugin((_options, meta) => {
+export type { IgniteJsxOptions } from "./options.js";
+
+type Options = IgniteJsxOptions | undefined;
+
+export const igniteJsx = createUnplugin<Options>((options, meta) => {
 	const scriptJsx = new Set<string>();
+	let configuredSource: string | undefined;
 	return {
 		name: "ignite-jsx",
 		enforce: "pre",
@@ -1139,6 +1146,11 @@ export const igniteJsx = createUnplugin((_options, meta) => {
 			const file = filePath(id);
 			const next = transformSource(code, file, {
 				jsxScript: fileUsesScriptJsx(scriptJsx, file),
+				jsxImportSource:
+					configuredSource ??
+					projectJsxImportSource(file) ??
+					options?.jsxImportSource ??
+					"react",
 			});
 			if (next === code) return null;
 			rememberImporter(id);
@@ -1157,10 +1169,12 @@ export const igniteJsx = createUnplugin((_options, meta) => {
 							exclude?: unknown;
 							include?: unknown;
 							loader?: string | Record<string, string | undefined>;
+							jsxImportSource?: string;
 					  };
 			}) {
 				if (config.esbuild && typeof config.esbuild === "object") {
 					noteViteScriptJsx(scriptJsx, config.esbuild);
+					configuredSource ??= config.esbuild.jsxImportSource;
 				}
 			},
 			async moduleParsed(info) {
@@ -1190,6 +1204,7 @@ export const igniteJsx = createUnplugin((_options, meta) => {
 			},
 			setup(build) {
 				noteScriptJsx(scriptJsx, build.initialOptions.loader);
+				configuredSource ??= build.initialOptions.jsxImportSource;
 				const deny = (text: string) => ({ errors: [{ text }] });
 				const issued = (file: string) => ({
 					path: file,

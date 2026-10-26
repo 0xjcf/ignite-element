@@ -40,6 +40,14 @@ Those decisions are:
 
 ## Authorized paths
 
+On 2026-10-26, Jose authorized this correction in chat:
+
+> let's fix all three issues on PR #180, add regression tests, and push the fixes. Don't merge it.
+
+This authorizes the corrections to the five-package packed-consumer validation, mixed-runtime style marking, and adoption of Babel/TypeScript output. The correction uses an isolated `codex/pr180-review-fixes` worktree branch from `d738098106d8ebe58645d8e0968672ff511ce8a9`, with a normal follow-up commit pushed to `fix/ignite-jsx-xss`.
+
+The affected paths are `packages/jsx-plugin/`, `scripts/verify-packed-consumers.mjs`, `scripts/__tests__/packed-consumer-manifest.test.mjs`, `pnpm-lock.yaml`, `docs/styling/README.md`, this manifest, and the existing unconsumed `.changeset/jsx-xss-guards.md`. Tests, builds, dependency installation for the bounded manifest/lockfile additions, temporary packed consumers, and the applicable mutation checks are authorized. Task-generated dependencies, bundles, caches, reports, and tarballs are removed from final worktree custody. Validation proceeds through focused red, focused green, and the applicable candidate checks. Report the final commit/tree, validation, custody, and remaining limitations. No merge, release, package publication, or acceptance is authorized.
+
 - `packages/ignite-renderer/src/renderers/jsx/`
 - `packages/ignite-renderer/src/jsx/index.ts`
 - `packages/ignite-element/src/tests/renderers/jsxXss.test.ts`

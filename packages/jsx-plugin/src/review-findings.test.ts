@@ -354,7 +354,7 @@ export const view = <style>{local}</style>;
 				jsx: "automatic",
 				jsxImportSource: "ignite-element/jsx",
 				external: ["ignite-element/jsx/jsx-runtime"],
-				plugins: [igniteEsbuild()],
+				plugins: [igniteEsbuild({ jsxImportSource: "ignite-element/jsx" })],
 				logLevel: "silent",
 			});
 			const bundled = result.outputFiles.map((item) => item.text).join("\n");

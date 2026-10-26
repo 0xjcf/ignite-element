@@ -60,6 +60,7 @@
 		"@babel/parser": "^7.28.5",
 		"@babel/traverse": "^7.28.5",
 		"@babel/types": "^7.28.5",
+		"get-tsconfig": "5.0.0-beta.4",
 		"unplugin": "^2.3.10"
 	},
 	"devDependencies": {
@@ -68,6 +69,7 @@
 		"@rspack/core": "^1.6.0",
 		"@types/jsdom": "^27.0.0",
 		"esbuild": "^0.25.0",
+		"fast-check": "4.10.2",
 		"jsdom": "^27.0.1",
 		"playwright-core": "1.57.0",
 		"rolldown": "^1.0.0-beta.18",

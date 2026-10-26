@@ -13,6 +13,7 @@ import { type ParserPlugin, parse } from "@babel/parser";
 import type { Binding, NodePath } from "@babel/traverse";
 import traverseModule from "@babel/traverse";
 import * as t from "@babel/types";
+import { getTsconfig } from "get-tsconfig";
 
 /** Public name. The plugin rejects it. It is not inserted. */
 export const AUTHOR_SOURCE = "ignite-element/jsx/author-style";
@@ -429,10 +430,7 @@ function specifierImportedName(spec: t.ImportSpecifier): string {
 	return spec.imported.value;
 }
 
-function isOfficialMarkImport(
-	node: t.ImportDeclaration,
-	filename: string,
-): boolean {
+function isOfficialMarkImport(node: t.ImportDeclaration): boolean {
 	if (node.importKind === "type") return false;
 	const source = String(node.source.value);
 	if (source !== AUTHOR_VIRTUAL && source !== AUTHOR_STANDALONE) return false;
@@ -442,7 +440,9 @@ function isOfficialMarkImport(
 		return false;
 	}
 	if (specifierImportedName(spec) !== "igniteAuthorStyle") return false;
-	return spec.local.name === markerLocalName(filename);
+	// The compiler may move the output. This name avoids collisions; it is
+	// not authority. assertOfficialCalls revalidates every static style use.
+	return /^_igniteAuthor\$[0-9a-f]{8}$/.test(spec.local.name);
 }
 
 function refuseMark(): never {
@@ -459,21 +459,36 @@ function jsxImportSource(ast: t.File): string | null {
 	return null;
 }
 
-function shouldMarkStyles(ast: t.File): boolean {
-	const source = jsxImportSource(ast);
+export function projectJsxImportSource(filename: string): string | undefined {
+	const project =
+		getTsconfig(filename) ??
+		getTsconfig(filename, { configName: "jsconfig.json" });
+	return project
+		? (project.config.compilerOptions?.jsxImportSource ?? "react")
+		: undefined;
+}
+
+function shouldMarkStyles(ast: t.File, fallback?: string): boolean {
+	const runtime = ast.program.body.find(
+		(node) =>
+			node.type === "ImportDeclaration" &&
+			/\/jsx-(?:dev-)?runtime$/.test(node.source.value),
+	);
+	const source =
+		jsxImportSource(ast) ??
+		(runtime?.type === "ImportDeclaration"
+			? runtime.source.value.replace(/\/jsx-(?:dev-)?runtime$/, "")
+			: fallback);
 	if (!source) return true;
 	return (
 		source === "ignite-element/jsx" || source.startsWith("ignite-element/jsx/")
 	);
 }
 
-function officialMarkImport(
-	ast: t.File,
-	filename: string,
-): t.ImportDeclaration | null {
+function officialMarkImport(ast: t.File): t.ImportDeclaration | null {
 	for (const statement of ast.program.body) {
 		if (statement.type !== "ImportDeclaration") continue;
-		if (isOfficialMarkImport(statement, filename)) return statement;
+		if (isOfficialMarkImport(statement)) return statement;
 	}
 	return null;
 }
@@ -485,6 +500,58 @@ function meaningfulJsxChildren(
 		if (child.type !== "JSXText") return true;
 		return child.value.trim() !== "";
 	});
+}
+
+function isLoweredStyleChild(path: NodePath): boolean {
+	const property = path.parent;
+	const props = path.parentPath?.parentPath;
+	const invocation = props?.parentPath;
+	if (
+		property.type !== "ObjectProperty" ||
+		property.computed ||
+		property.value !== path.node ||
+		!(
+			(property.key.type === "Identifier" &&
+				property.key.name === "children") ||
+			(property.key.type === "StringLiteral" &&
+				property.key.value === "children")
+		) ||
+		props?.node.type !== "ObjectExpression" ||
+		invocation?.node.type !== "CallExpression"
+	)
+		return false;
+	const call = invocation.node;
+	if (
+		call.arguments[0]?.type !== "StringLiteral" ||
+		call.arguments[0].value !== "style" ||
+		call.arguments[1] !== props.node ||
+		call.callee.type !== "Identifier"
+	)
+		return false;
+	const binding = invocation.scope.getBinding(call.callee.name);
+	if (!binding?.path.isImportSpecifier() || binding.constant === false)
+		return false;
+	const imported = binding.path.node;
+	const declaration = binding.path.parent;
+	if (
+		declaration.type !== "ImportDeclaration" ||
+		!/^ignite-element\/jsx\/jsx-(?:dev-)?runtime$/.test(
+			declaration.source.value,
+		) ||
+		!["jsx", "jsxs", "jsxDEV"].includes(specifierImportedName(imported))
+	)
+		return false;
+	// A spread or another children spelling could replace the checked child.
+	return props.node.properties.every(
+		(entry) =>
+			entry.type === "ObjectProperty" &&
+			!entry.computed &&
+			(entry === property ||
+				!(
+					(entry.key.type === "Identifier" && entry.key.name === "children") ||
+					(entry.key.type === "StringLiteral" && entry.key.value === "children")
+				)),
+	);
 }
 
 function assertOfficialCalls(ast: t.File, local: string): number {
@@ -512,6 +579,10 @@ function assertOfficialCalls(ast: t.File, local: string): number {
 			}
 			const container = callPath.parent;
 			const element = callPath.parentPath?.parent;
+			if (isLoweredStyleChild(callPath)) {
+				count += 1;
+				return;
+			}
 			if (
 				container?.type !== "JSXExpressionContainer" ||
 				element?.type !== "JSXElement" ||
@@ -532,7 +603,7 @@ function rejectHandWrittenAuthorImport(ast: t.File, filename: string): void {
 	const visit = traverse as (node: t.Node, visitors: object) => void;
 	visit(ast, {
 		ImportDeclaration(path: NodePath<t.ImportDeclaration>) {
-			if (isOfficialMarkImport(path.node, filename)) return;
+			if (isOfficialMarkImport(path.node)) return;
 			rejectSpecifier(String(path.node.source.value), filename);
 		},
 		ExportAllDeclaration(path: NodePath<t.ExportAllDeclaration>) {
@@ -558,16 +629,21 @@ function rejectHandWrittenAuthorImport(ast: t.File, filename: string): void {
 	});
 }
 
-export function markFile(ast: t.File, filename = "component.tsx"): boolean {
+export function markFile(
+	ast: t.File,
+	filename = "component.tsx",
+	jsxSource?: string,
+): boolean {
 	rejectHandWrittenAuthorImport(ast, filename);
-	const official = officialMarkImport(ast, filename);
-	if (!shouldMarkStyles(ast)) {
+	const official = officialMarkImport(ast);
+	if (!shouldMarkStyles(ast, jsxSource)) {
 		if (official) refuseMark();
 		return false;
 	}
 	directEvalBlocks = scopesWithDirectEval(ast);
 	try {
-		const local = markerLocalName(filename);
+		const local =
+			official?.specifiers[0]?.local.name ?? markerLocalName(filename);
 		const officialUses = official ? assertOfficialCalls(ast, local) : 0;
 		const hits: Array<{ element: t.JSXElement; parts: Part[] }> = [];
 		traverse(ast, {
@@ -616,13 +692,13 @@ export function markFile(ast: t.File, filename = "component.tsx"): boolean {
 export function transformSource(
 	code: string,
 	filename = "component.tsx",
-	options?: { jsxScript?: boolean },
+	options?: { jsxScript?: boolean; jsxImportSource?: string },
 ): string {
 	const ast = parse(code, {
 		sourceFilename: filename,
 		sourceType: "module",
 		plugins: parserPluginsFor(filename, options?.jsxScript === true),
 	});
-	if (!markFile(ast, filename)) return code;
+	if (!markFile(ast, filename, options?.jsxImportSource)) return code;
 	return generate(ast, { comments: true, retainLines: true }, code).code;
 }

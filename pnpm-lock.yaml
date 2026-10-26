@@ -278,6 +278,9 @@ importers:
       '@babel/types':
         specifier: ^7.28.5
         version: 7.29.7
+      get-tsconfig:
+        specifier: 5.0.0-beta.4
+        version: 5.0.0-beta.4
       unplugin:
         specifier: ^2.3.10
         version: 2.3.11
@@ -297,6 +300,9 @@ importers:
       esbuild:
         specifier: ^0.25.0
         version: 0.25.12
+      fast-check:
+        specifier: 4.10.2
+        version: 4.10.2
       jsdom:
         specifier: ^27.0.1
         version: 27.4.0

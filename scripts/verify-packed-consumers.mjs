@@ -13,36 +13,30 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { RELEASE_PACKAGES } from "./stage-beta-release.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const temporaryRoot = mkdtempSync(join(tmpdir(), "ignite-element-packed-"));
-const tarballDirectory = join(temporaryRoot, "tarballs");
-const npmCacheDirectory = join(temporaryRoot, "npm-cache");
+let temporaryRoot;
+let tarballDirectory;
+let npmCacheDirectory;
 const repositoryIdentity = {
 	type: "git",
 	url: "git+https://github.com/0xjcf/ignite-element.git",
 };
 
-const packageDefinitions = [
-	{
-		directory: "packages/ignite-core",
-		name: "@ignite-element/core",
-	},
-	{
-		directory: "packages/ignite-adapters",
-		name: "@ignite-element/adapters",
-	},
-	{
-		directory: "packages/ignite-renderer",
-		name: "@ignite-element/renderer",
-	},
-	{
-		directory: "packages/ignite-element",
-		name: "ignite-element",
-	},
-];
+const packageDefinitions = RELEASE_PACKAGES;
 
 const consumerLanes = [
+	{
+		name: "jsx-plugin-esbuild",
+		dependencies: ["typescript@5.9.3", "@types/node@25.0.3", "esbuild@0.25.12"],
+		forbidPeers: ["lit-html", "vite", "webpack", "@rspack/core", "rolldown"],
+		specifiers: [
+			"@ignite-element/jsx-plugin/esbuild",
+			"@ignite-element/jsx-plugin/babel",
+			"@ignite-element/jsx-plugin/typescript",
+		],
+	},
 	...[
 		{ name: "xstate", dependencies: ["xstate@5.32.1"] },
 		{ name: "redux", dependencies: ["redux@5.0.1", "@reduxjs/toolkit@2.12.0"] },
@@ -181,7 +175,7 @@ export function resolveReviewedTarballs(manifestPath) {
 		manifest.packages?.length !== packageDefinitions.length
 	) {
 		throw new Error(
-			"reviewed tarball manifest must contain exactly four SHA-256 entries",
+			`reviewed tarball manifest must contain exactly ${packageDefinitions.length} SHA-256 entries`,
 		);
 	}
 	const baseDirectory = dirname(manifestPath);
@@ -223,11 +217,16 @@ function validateTarball(definition, tarballPath) {
 	);
 
 	assert.equal(manifest.name, definition.name);
-	assert.deepEqual(
-		manifest.repository,
-		repositoryIdentity,
-		`${manifest.name} tarball must expose the trusted-publisher repository identity`,
-	);
+	for (const [key, value] of Object.entries(repositoryIdentity)) {
+		assert.equal(
+			manifest.repository?.[key],
+			value,
+			`${manifest.name} tarball must expose the trusted-publisher repository ${key}`,
+		);
+	}
+	if (manifest.repository.directory !== undefined) {
+		assert.equal(manifest.repository.directory, definition.directory);
+	}
 	assert.equal(
 		Object.hasOwn(manifest, "main"),
 		false,
@@ -253,9 +252,14 @@ function validateTarball(definition, tarballPath) {
 			false,
 			`${manifest.name} ${subpath} must not advertise require`,
 		);
-		assert.equal(target.default, target.import);
+		if (target.default !== undefined)
+			assert.equal(target.default, target.import);
 
-		for (const condition of ["types", "import", "default"]) {
+		for (const condition of [
+			"types",
+			"import",
+			...(target.default === undefined ? [] : ["default"]),
+		]) {
 			assert.equal(
 				typeof target[condition],
 				"string",
@@ -782,42 +786,54 @@ for (const config of [null, [], 1, "", () => {}, { onConnect() {} }, { source: u
 }
 `;
 
-try {
-	mkdirSync(tarballDirectory);
-	const manifestArgument = process.argv.indexOf("--tarball-manifest");
-	let tarballPaths;
-	if (manifestArgument !== -1) {
-		if (!process.argv[manifestArgument + 1]) {
-			throw new Error("--tarball-manifest requires a path");
-		}
-		tarballPaths = resolveReviewedTarballs(
-			resolve(process.argv[manifestArgument + 1]),
-		);
-	} else {
-		tarballPaths = [];
-		for (const definition of packageDefinitions) {
-			const packageDirectory = resolve(repositoryRoot, definition.directory);
-			const sourceManifest = readJson(join(packageDirectory, "package.json"));
-			run("pnpm", ["pack", "--pack-destination", tarballDirectory], {
-				cwd: packageDirectory,
-			});
-
-			const tarballPath = join(
-				tarballDirectory,
-				tarballName(definition.name, sourceManifest.version),
+export function verifyPackedConsumers() {
+	temporaryRoot = mkdtempSync(join(tmpdir(), "ignite-element-packed-"));
+	tarballDirectory = join(temporaryRoot, "tarballs");
+	npmCacheDirectory = join(temporaryRoot, "npm-cache");
+	try {
+		mkdirSync(tarballDirectory);
+		const manifestArgument = process.argv.indexOf("--tarball-manifest");
+		let tarballPaths;
+		if (manifestArgument !== -1) {
+			if (!process.argv[manifestArgument + 1]) {
+				throw new Error("--tarball-manifest requires a path");
+			}
+			tarballPaths = resolveReviewedTarballs(
+				resolve(process.argv[manifestArgument + 1]),
 			);
-			validateTarball(definition, tarballPath);
-			tarballPaths.push(tarballPath);
+		} else {
+			tarballPaths = [];
+			for (const definition of packageDefinitions) {
+				const packageDirectory = resolve(repositoryRoot, definition.directory);
+				const sourceManifest = readJson(join(packageDirectory, "package.json"));
+				run("pnpm", ["pack", "--pack-destination", tarballDirectory], {
+					cwd: packageDirectory,
+				});
+
+				const tarballPath = join(
+					tarballDirectory,
+					tarballName(definition.name, sourceManifest.version),
+				);
+				validateTarball(definition, tarballPath);
+				tarballPaths.push(tarballPath);
+			}
 		}
-	}
 
-	for (const lane of consumerLanes) {
-		verifyConsumer(lane, tarballPaths);
-	}
+		for (const lane of consumerLanes) {
+			verifyConsumer(lane, tarballPaths);
+		}
 
-	console.info(
-		"[verify:packed] Candidate tarballs passed ESM inventory, provenance, runtime-import, and strict declaration checks.",
-	);
-} finally {
-	rmSync(temporaryRoot, { force: true, recursive: true });
+		console.info(
+			"[verify:packed] Candidate tarballs passed ESM inventory, provenance, runtime-import, and strict declaration checks.",
+		);
+	} finally {
+		rmSync(temporaryRoot, { force: true, recursive: true });
+	}
+}
+
+if (
+	process.argv[1] &&
+	resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+	verifyPackedConsumers();
 }

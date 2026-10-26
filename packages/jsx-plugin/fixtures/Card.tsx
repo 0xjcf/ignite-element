@@ -1,3 +1,4 @@
+/** @jsxImportSource ignite-element/jsx */
 import cardCss from "./card.css?raw";
 
 const local = ".local{background:url(https://cdn.example/local.png)}";

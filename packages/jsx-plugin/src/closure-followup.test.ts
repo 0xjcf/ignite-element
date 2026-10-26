@@ -6,6 +6,7 @@ import {
 	mkdtempSync,
 	readdirSync,
 	readFileSync,
+	realpathSync,
 	rmSync,
 	symlinkSync,
 	writeFileSync,
@@ -67,7 +68,7 @@ export const view = <style>{${JSON.stringify(CSS)}}</style>;
 					jsx: "automatic",
 					jsxImportSource: "ignite-element/jsx",
 					external: ["ignite-element/jsx/jsx-runtime"],
-					plugins: [igniteEsbuild()],
+					plugins: [igniteEsbuild({ jsxImportSource: "ignite-element/jsx" })],
 					logLevel: "silent",
 				}),
 			).rejects.toThrow(/cannot mark CSS/);
@@ -96,7 +97,7 @@ export const stolen = igniteAuthorStyle(${JSON.stringify(CSS)});
 				jsx: "automatic",
 				jsxImportSource: "ignite-element/jsx",
 				external: ["ignite-element/jsx/jsx-runtime"],
-				plugins: [igniteEsbuild()],
+				plugins: [igniteEsbuild({ jsxImportSource: "ignite-element/jsx" })],
 				logLevel: "silent",
 			}),
 		).rejects.toThrow(/cannot mark CSS/);
@@ -130,7 +131,7 @@ export const view = <style>{${JSON.stringify(CSS)}}</style>;
 						jsx: "automatic",
 						jsxImportSource: "ignite-element/jsx",
 						external: ["ignite-element/jsx/jsx-runtime"],
-						plugins: [igniteEsbuild()],
+						plugins: [igniteEsbuild({ jsxImportSource: "ignite-element/jsx" })],
 						logLevel: "silent",
 					}),
 				).rejects.toThrow(/cannot mark CSS/);
@@ -184,7 +185,7 @@ module.exports = function jsx(source) {
 					jsx: "automatic",
 					jsxImportSource: "ignite-element/jsx",
 					external: ["ignite-element/jsx/jsx-runtime"],
-					plugins: [igniteEsbuild()],
+					plugins: [igniteEsbuild({ jsxImportSource: "ignite-element/jsx" })],
 					logLevel: "silent",
 				}),
 			).rejects.toThrow(/cannot mark CSS/);
@@ -193,7 +194,7 @@ module.exports = function jsx(source) {
 					configFile: false,
 					logLevel: "silent",
 					root: dir,
-					plugins: [igniteVite()],
+					plugins: [igniteVite({ jsxImportSource: "ignite-element/jsx" })],
 					build: {
 						write: false,
 						minify: false,
@@ -208,7 +209,9 @@ module.exports = function jsx(source) {
 							mode: "development",
 							context: dir,
 							entry: path.join(dir, "entry.tsx"),
-							plugins: [igniteWebpack()],
+							plugins: [
+								igniteWebpack({ jsxImportSource: "ignite-element/jsx" }),
+							],
 							resolve: { extensions: [".tsx", ".ts", ".js"] },
 							module: {
 								rules: [{ test: /\.tsx$/, use: [{ loader }] }],
@@ -538,9 +541,10 @@ module.exports = function (source) {
 				if (kind === "vite-dev") {
 					const server = await createViteServer({
 						configFile: false,
-						root: dir,
+						// Vite's file allowlist compares canonical paths on every platform.
+						root: realpathSync(dir),
 						logLevel: "silent",
-						plugins: [igniteVite()],
+						plugins: [igniteVite({ jsxImportSource: "ignite-element/jsx" })],
 						server: { middlewareMode: true, watch: null },
 						appType: "custom",
 					});
@@ -558,7 +562,7 @@ module.exports = function (source) {
 						logLevel: "silent",
 						root: dir,
 						mode,
-						plugins: [igniteVite()],
+						plugins: [igniteVite({ jsxImportSource: "ignite-element/jsx" })],
 						build: {
 							write: false,
 							minify: false,
@@ -580,7 +584,10 @@ module.exports = function (source) {
 					const bundle = await rollup({
 						input: entry,
 						jsx: entryName.endsWith(".jsx") ? "preserve" : false,
-						plugins: [nodeResolve(), igniteRollup()],
+						plugins: [
+							nodeResolve(),
+							igniteRollup({ jsxImportSource: "ignite-element/jsx" }),
+						],
 					});
 					try {
 						const generated = await bundle.generate({ format: "es" });
@@ -601,7 +608,7 @@ module.exports = function (source) {
 						bundle: true,
 						write: false,
 						format: "esm",
-						plugins: [igniteEsbuild()],
+						plugins: [igniteEsbuild({ jsxImportSource: "ignite-element/jsx" })],
 						logLevel: "silent",
 					});
 					return {
@@ -619,7 +626,9 @@ module.exports = function (source) {
 								context: dir,
 								entry,
 								output: { path: out, filename: "bundle.js" },
-								plugins: [igniteWebpack()],
+								plugins: [
+									igniteWebpack({ jsxImportSource: "ignite-element/jsx" }),
+								],
 								module: entryName.endsWith(".jsx")
 									? {
 											rules: [
@@ -980,7 +989,7 @@ export const view = <style>{${JSON.stringify(CSS)}}</style>;
 				jsx: "automatic" as const,
 				jsxImportSource: "ignite-element/jsx",
 				external: ["ignite-element/jsx/jsx-runtime"],
-				plugins: [igniteEsbuild()],
+				plugins: [igniteEsbuild({ jsxImportSource: "ignite-element/jsx" })],
 				logLevel: "silent" as const,
 			};
 			try {
@@ -1043,7 +1052,7 @@ document.body.append(document.createElement("ignite-outline-probe"));
 			await build({
 				configFile: false,
 				root: dir,
-				plugins: [igniteVite()],
+				plugins: [igniteVite({ jsxImportSource: "ignite-element/jsx" })],
 				logLevel: "silent",
 				esbuild: {
 					jsx: "automatic",

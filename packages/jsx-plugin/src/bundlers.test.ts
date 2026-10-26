@@ -90,7 +90,7 @@ describe("bundler fixtures", () => {
 		const viteOut = await build({
 			configFile: false,
 			logLevel: "silent",
-			plugins: [igniteVite()],
+			plugins: [igniteVite({ jsxImportSource: "ignite-element/jsx" })],
 			esbuild: {
 				jsx: "automatic",
 				jsxImportSource: "ignite-element/jsx",
@@ -117,7 +117,7 @@ describe("bundler fixtures", () => {
 			input: fixture,
 			external: [/^ignite-element\//],
 			plugins: [
-				igniteRollup(),
+				igniteRollup({ jsxImportSource: "ignite-element/jsx" }),
 				{
 					name: "esbuild-after",
 					transform(code, id) {
@@ -150,7 +150,7 @@ describe("bundler fixtures", () => {
 			format: "esm",
 			jsx: "preserve",
 			packages: "external",
-			plugins: [igniteEsbuild()],
+			plugins: [igniteEsbuild({ jsxImportSource: "ignite-element/jsx" })],
 		});
 		const esbuildCode = esbuildOut.outputFiles
 			.map((file) => file.text)
@@ -162,7 +162,7 @@ describe("bundler fixtures", () => {
 			input: fixture,
 			external: [/^ignite-element\//],
 			plugins: [
-				igniteRolldown(),
+				igniteRolldown({ jsxImportSource: "ignite-element/jsx" }),
 				{
 					name: "esbuild-after",
 					transform(code, id) {
@@ -247,7 +247,7 @@ export const view = <style>{local}</style>;
 			const result = await build({
 				configFile: false,
 				logLevel: "silent",
-				plugins: [igniteVite()],
+				plugins: [igniteVite({ jsxImportSource: "ignite-element/jsx" })],
 				root: docs,
 				esbuild: {
 					jsx: "automatic",
@@ -328,7 +328,7 @@ export const Fragment = Symbol.for("ignite.fragment");
 						}));
 					},
 				},
-				igniteEsbuild(),
+				igniteEsbuild({ jsxImportSource: "ignite-element/jsx" }),
 			],
 		});
 		const bag = globalThis as typeof globalThis & {
@@ -376,7 +376,7 @@ function webpackBuild(): Promise<string> {
 				mode: "development",
 				entry: fixture,
 				output: { path: out, filename: "bundle.js" },
-				plugins: [igniteWebpack()],
+				plugins: [igniteWebpack({ jsxImportSource: "ignite-element/jsx" })],
 				resolve: { extensions: [".tsx", ".ts", ".js"] },
 				module: {
 					rules: [
@@ -422,7 +422,7 @@ function rspackBuild(): Promise<string> {
 				mode: "development",
 				entry: fixture,
 				output: { path: out, filename: "bundle.js" },
-				plugins: [igniteRspack()],
+				plugins: [igniteRspack({ jsxImportSource: "ignite-element/jsx" })],
 				externals: [
 					({ request }: { request?: string }) =>
 						request?.startsWith("ignite-element/") ? request : undefined,
