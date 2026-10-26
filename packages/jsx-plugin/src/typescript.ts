@@ -91,7 +91,7 @@ function authorCall(
 }
 
 function isStyleTag(name: ts.JsxTagNameExpression): boolean {
-	return ts.isIdentifier(name) && name.text.toLowerCase() === "style";
+	return ts.isIdentifier(name) && name.text === "style";
 }
 
 function adoptCall(

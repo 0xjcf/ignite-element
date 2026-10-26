@@ -9,7 +9,7 @@ import {
 import { createRequire } from "node:module";
 import path from "node:path";
 import generateModule from "@babel/generator";
-import { parse } from "@babel/parser";
+import { type ParserPlugin, parse } from "@babel/parser";
 import type { Binding, NodePath } from "@babel/traverse";
 import traverseModule from "@babel/traverse";
 import * as t from "@babel/types";
@@ -59,11 +59,17 @@ function unwrap(node: t.Node): t.Node {
 }
 
 function isStyleTag(name: t.JSXOpeningElement["name"]): boolean {
-	if (name.type === "JSXIdentifier") return name.name.toLowerCase() === "style";
-	if (name.type === "JSXNamespacedName") {
-		return name.name.name.toLowerCase() === "style";
-	}
+	if (name.type === "JSXIdentifier") return name.name === "style";
+	if (name.type === "JSXNamespacedName") return name.name.name === "style";
 	return false;
+}
+
+/** JSX is enabled only for extensions this package already treats as JSX. */
+export function parserPluginsFor(filename: string): ParserPlugin[] {
+	const file = filename.split("?")[0].split("\\").join("/");
+	const plugins: ParserPlugin[] = ["typescript"];
+	if (/\.[cm]?[jt]sx$/.test(file)) plugins.push("jsx");
+	return plugins;
 }
 
 function isRawImport(binding: Binding): boolean {
@@ -467,7 +473,7 @@ export function transformSource(
 	const ast = parse(code, {
 		sourceFilename: filename,
 		sourceType: "module",
-		plugins: ["typescript", "jsx"],
+		plugins: parserPluginsFor(filename),
 	});
 	if (!markFile(ast, filename)) return code;
 	return generate(ast, { comments: true, retainLines: true }, code).code;

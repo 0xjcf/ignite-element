@@ -1,4 +1,10 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { transformSync } from "@babel/core";
@@ -199,6 +205,74 @@ describe("review findings", () => {
 		} finally {
 			rmSync(dir, { recursive: true, force: true });
 		}
+	});
+
+	it("Codex P1: the package does not publish a CommonJS require condition", () => {
+		const manifest = JSON.parse(
+			readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+		) as { exports?: Record<string, { require?: string }> };
+		for (const [subpath, target] of Object.entries(manifest.exports ?? {})) {
+			expect(target.require, subpath).toBeUndefined();
+		}
+		expect(
+			existsSync(new URL("../scripts/build-cjs.mjs", import.meta.url)),
+		).toBe(false);
+	});
+
+	it("Codex P2: an uppercase Style component and its children stay unchanged", () => {
+		const source = `export const view = (
+			<div>
+				<Style>{"color:red"}</Style>
+				<style>{".a{color:red}"}</style>
+			</div>
+		);`;
+		const output = transformSource(source, "Style.tsx");
+		expect(output).toContain('<Style>{"color:red"}</Style>');
+		expect(output).toMatch(/<style>\{_igniteAuthor\$[0-9a-f]{8}\(/);
+		const printed = ts.transpileModule(source, {
+			fileName: "Style.tsx",
+			compilerOptions: {
+				jsx: ts.JsxEmit.Preserve,
+				target: ts.ScriptTarget.ESNext,
+				module: ts.ModuleKind.ESNext,
+			},
+			transformers: { before: [igniteJsxTypeScript()] },
+		});
+		expect(printed.outputText).toContain('<Style>{"color:red"}</Style>');
+		expect(printed.outputText).not.toMatch(/<Style>\{[^<]*_igniteAuthor\$/);
+		expect(printed.outputText).toMatch(
+			/<style>\{\s*_igniteAuthor\$[0-9a-f]{8}\(/,
+		);
+	});
+
+	it("Codex P2: plain TypeScript keeps angle-bracket assertions and import checks", () => {
+		for (const filename of ["value.ts", "value.mts", "value.cts"]) {
+			const source = "export const v = <number>42;\n";
+			expect(transformSource(source, filename), filename).toBe(source);
+			expect(
+				() =>
+					transformSource(
+						`import { igniteAuthorStyle } from "ignite-element/jsx/author-style";\nexport const v = <number>42;\n`,
+						filename,
+					),
+				filename,
+			).toThrow(/cannot mark CSS/);
+		}
+		const jsx = `export const view = <style>{".a{color:red}"}</style>;\n`;
+		for (const filename of [
+			"view.tsx",
+			"view.jsx",
+			"view.mtsx",
+			"view.ctsx",
+			"view.mjsx",
+			"view.cjsx",
+		]) {
+			expect(transformSource(jsx, filename), filename).toContain(
+				"igniteAuthorStyle",
+			);
+		}
+		const assertion = "export const v = <number>42;\n";
+		expect(transformSource(assertion, "notes.tsx.txt")).toBe(assertion);
 	});
 
 	it("does not call babel or typescript enough on their own", () => {

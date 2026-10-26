@@ -15,6 +15,7 @@ import {
 	AUTHOR_VIRTUAL,
 	isBlockedAuthorSpecifier,
 	isRawCssSpecifier,
+	parserPluginsFor,
 	transformSource,
 } from "./transform.js";
 
@@ -421,7 +422,7 @@ function dynamicSourceReachesMark(file: string): boolean {
 	try {
 		ast = parse(source, {
 			sourceType: "module",
-			plugins: ["typescript", "jsx"],
+			plugins: parserPluginsFor(file),
 			errorRecovery: true,
 		}) as { program: { body: SyntaxNode[] } };
 	} catch {

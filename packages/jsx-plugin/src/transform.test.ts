@@ -232,7 +232,8 @@ describe("author style transform", () => {
 		expect(wrapped.some((call) => call.includes("rawInline"))).toBe(true);
 		expect(wrapped.some((call) => call.includes("live"))).toBe(false);
 		expect(wrapped.some((call) => call.includes("old"))).toBe(false);
-		expect(wrapped.filter((call) => call.trim() === "local").length).toBe(8);
+		expect(wrapped.filter((call) => call.trim() === "local").length).toBe(7);
+		expect(output).toContain("<ns:STYLE>{local}</ns:STYLE>");
 		expect(
 			wrapped.some((call) => /^\s*["']\s+["']\s*\+\s*local\s*$/.test(call)),
 		).toBe(true);
@@ -496,7 +497,7 @@ describe("author style transform", () => {
 		expect(() =>
 			transformSource(
 				`import { readAuthorStyle } from "./authorStyle";
-				export const view = <div />;`,
+				export const view = 1;`,
 				filename,
 			),
 		).not.toThrow();
@@ -510,7 +511,7 @@ describe("author style transform", () => {
 		expect(() =>
 			transformSource(
 				`import { readAuthorStyle } from "pkg/authorStyle.js";
-				export const view = <div />;`,
+				export const view = 1;`,
 				filename,
 			),
 		).toThrow(/cannot mark CSS/);
@@ -523,7 +524,7 @@ describe("author style transform", () => {
 		expect(() =>
 			transformSource(
 				`import { readAuthorStyle } from "./authorStyle";
-				export const view = <div />;`,
+				export const view = 1;`,
 				elementFile,
 			),
 		).toThrow(/cannot mark CSS/);

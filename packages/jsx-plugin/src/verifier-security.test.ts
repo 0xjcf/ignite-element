@@ -304,9 +304,11 @@ describe("P2-3 dev registry and CJS webpack", () => {
 		expect(host.querySelector("style")?.textContent ?? "").toContain(PAYLOAD);
 	});
 
-	it("P2-3: a CJS webpack config does not throw on import.meta.url", async () => {
+	it("P2-3: the ESM webpack plugin loads and marks a style", async () => {
 		const require = createRequire(import.meta.url);
-		const igniteWebpack = require("../dist/webpack.cjs") as () => object;
+		const igniteWebpack = (
+			(await import("../dist/webpack.js")) as { default: () => object }
+		).default;
 		const dir = mkdtempSync(path.join(tmpdir(), "ignite-cjs-webpack-"));
 		const out = path.join(dir, "out");
 		mkdirSync(out, { recursive: true });

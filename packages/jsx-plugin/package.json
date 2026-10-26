@@ -15,52 +15,43 @@
 	"exports": {
 		".": {
 			"types": "./dist/unplugin.d.ts",
-			"import": "./dist/unplugin.js",
-			"require": "./dist/unplugin.cjs"
+			"import": "./dist/unplugin.js"
 		},
 		"./vite": {
 			"types": "./dist/vite.d.ts",
-			"import": "./dist/vite.js",
-			"require": "./dist/vite.cjs"
+			"import": "./dist/vite.js"
 		},
 		"./rollup": {
 			"types": "./dist/rollup.d.ts",
-			"import": "./dist/rollup.js",
-			"require": "./dist/rollup.cjs"
+			"import": "./dist/rollup.js"
 		},
 		"./webpack": {
 			"types": "./dist/webpack.d.ts",
-			"import": "./dist/webpack.js",
-			"require": "./dist/webpack.cjs"
+			"import": "./dist/webpack.js"
 		},
 		"./rspack": {
 			"types": "./dist/rspack.d.ts",
-			"import": "./dist/rspack.js",
-			"require": "./dist/rspack.cjs"
+			"import": "./dist/rspack.js"
 		},
 		"./esbuild": {
 			"types": "./dist/esbuild.d.ts",
-			"import": "./dist/esbuild.js",
-			"require": "./dist/esbuild.cjs"
+			"import": "./dist/esbuild.js"
 		},
 		"./rolldown": {
 			"types": "./dist/rolldown.d.ts",
-			"import": "./dist/rolldown.js",
-			"require": "./dist/rolldown.cjs"
+			"import": "./dist/rolldown.js"
 		},
 		"./babel": {
 			"types": "./dist/babel.d.ts",
-			"import": "./dist/babel.js",
-			"require": "./dist/babel.cjs"
+			"import": "./dist/babel.js"
 		},
 		"./typescript": {
 			"types": "./dist/typescript.d.ts",
-			"import": "./dist/typescript.js",
-			"require": "./dist/typescript.cjs"
+			"import": "./dist/typescript.js"
 		}
 	},
 	"scripts": {
-		"build": "tsc -p tsconfig.json && node scripts/build-cjs.mjs",
+		"build": "tsc -p tsconfig.json",
 		"typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
 		"test": "vitest --run"
 	},
