@@ -306,8 +306,9 @@ describe("P2-3 dev registry and CJS webpack", () => {
 
 	it("P2-3: the ESM webpack plugin loads and marks a style", async () => {
 		const require = createRequire(import.meta.url);
+		const webpackEntry = new URL("../dist/webpack.js", import.meta.url).href;
 		const igniteWebpack = (
-			(await import("../dist/webpack.js")) as { default: () => object }
+			(await import(webpackEntry)) as { default: () => object }
 		).default;
 		const dir = mkdtempSync(path.join(tmpdir(), "ignite-cjs-webpack-"));
 		const out = path.join(dir, "out");
