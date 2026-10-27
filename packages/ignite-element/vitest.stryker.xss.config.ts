@@ -11,6 +11,7 @@ export default defineConfig(async (configEnv) => {
 		test: {
 			...resolved.test,
 			include: [
+				"src/tests/renderers/cssSeparatorProperties.test.ts",
 				"src/tests/renderers/jsxXss.test.ts",
 				"src/tests/renderers/authorStyleGold.test.ts",
 				"src/tests/renderers/rendererMutation.test.ts",

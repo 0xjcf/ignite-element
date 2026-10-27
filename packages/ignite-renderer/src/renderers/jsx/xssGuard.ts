@@ -139,7 +139,7 @@ export function decorativeUrlBlocked(
 	if (typeof value !== "string") return true;
 	// url(#id), url("#id"), or url('#id'). Every other value takes the loader check.
 	if (LOCAL_FRAGMENT.test(value)) return false;
-	return untrustedCssBlocked(value);
+	return cssBlocked(value);
 }
 
 /** True when a guarded URL attribute must not be written. */
@@ -179,60 +179,69 @@ export function urlValueBlocked(
 
 /**
  * Declaration spans. Semicolons, `{`, and `}` inside quotes or comments are
- * not splits. `depth` is the brace depth after the span. It is not reset, so
+ * not splits. Custom-property token blocks stay within their declaration.
+ * `depth` is the rule brace depth after the span. It is not reset, so
  * a later rule stays outside a block whose declaration was dropped.
  */
 function declarationSpans(
 	full: string,
-): Array<{ start: number; end: number; depth: number }> {
-	const spans: Array<{ start: number; end: number; depth: number }> = [];
+	declarations?: boolean,
+): Array<[start: number, end: number, depth: number]> {
+	const spans: Array<[start: number, end: number, depth: number]> = [];
 	let start = 0;
 	let quote = "";
 	let comment = false;
-	let index = 0;
 	let depth = 0;
-	while (index < full.length) {
-		const char = full[index] ?? "";
+	let valueDepth = 0;
+	for (let index = 0; index < full.length; index++) {
+		const char = full[index];
 		if (comment) {
 			if (char === "*" && full[index + 1] === "/") {
 				comment = false;
-				index += 2;
-				continue;
+				index++;
 			}
-			index += 1;
 			continue;
 		}
 		if (quote) {
 			if (char === "\\") {
-				index += 2;
+				index++;
 				continue;
 			}
 			if (char === quote) quote = "";
-			index += 1;
 			continue;
 		}
 		if (char === "/" && full[index + 1] === "*") {
 			comment = true;
-			index += 2;
+			index++;
 			continue;
 		}
 		if (char === "'" || char === '"') {
 			quote = char;
-			index += 1;
 			continue;
 		}
-		if (char === "{" || char === ";" || char === "}") {
-			if (char === "{") depth += 1;
-			else if (char === "}") depth -= 1;
-			const end = char === ";" ? index : index + 1;
-			if (end > start) spans.push({ start, end, depth });
-			start = index + 1;
-			index += 1;
-			continue;
-		}
-		index += 1;
+		// Braces in custom-property values are token blocks, not nested rules.
+		if (char === "{") {
+			if (
+				valueDepth ||
+				((depth || declarations) &&
+					/^\s*--[^:]+:/.test(withoutComments(full.slice(start, index))))
+			) {
+				valueDepth++;
+				continue;
+			}
+			depth++;
+		} else if (char === "}") {
+			if (valueDepth) {
+				valueDepth--;
+				continue;
+			}
+			depth--;
+		} else if (char !== ";" || valueDepth) continue;
+		const end = char === ";" ? index : index + 1;
+		if (end > start) spans.push([start, end, depth]);
+		start = index + 1;
 	}
-	if (full.length > start) spans.push({ start, end: full.length, depth });
+	if (full.length > start) spans.push([start, full.length, depth]);
 	return spans;
 }
 
@@ -252,47 +261,39 @@ export function declaresRemoteLoad(text: string): boolean {
 	return CSS_REMOTE.test(text) || CSS_REMOTE.test(withoutComments(text));
 }
 
-function scriptableCssBlocked(text: string): boolean {
-	return (
-		CSS_SCRIPTABLE.test(text) || CSS_SCRIPTABLE.test(withoutComments(text))
-	);
-}
-
 export function styleSheetFromChildren(
 	children: ReadonlyArray<{ kind: string; value?: string; author?: boolean }>,
+	declarations?: boolean,
 ): { css: string; droppedUrl: boolean } {
 	let full = "";
 	let marked = true;
-	let sawText = false;
 	for (const child of children) {
 		if (child.kind !== "text" || typeof child.value !== "string") continue;
-		sawText = true;
 		full += child.value;
 		if (child.author !== true) marked = false;
 	}
-	if (!sawText) marked = false;
 	// `</` or `<!` drops the whole sheet. A `<` comparison is not a breakout.
 	if (STYLE_BREAK.test(full)) return { css: "", droppedUrl: true };
 	let css = "";
+	let separator = "";
 	let droppedUrl = false;
 	let open = 0;
-	for (const span of declarationSpans(full)) {
-		const part = full.slice(span.start, span.end);
-		const drop = marked
-			? scriptableCssBlocked(part)
-			: untrustedCssBlocked(part);
-		if (drop) {
+	for (const [start, end, depth] of declarationSpans(full, declarations)) {
+		const part = full.slice(start, end);
+		if (cssBlocked(part, marked)) {
 			droppedUrl = true;
-			if (span.depth < open) {
-				css += "}".repeat(open - span.depth);
-				open = span.depth;
+			if (depth < open) {
+				css += "}".repeat(open - depth);
+				open = depth;
+				separator = "";
 			}
 			continue;
 		}
-		// A semicolon after `{` or `}` is not an empty rule. Chromium drops every later rule.
-		if (css && !css.endsWith("}") && !css.endsWith("{")) css += ";";
-		css += part;
-		open = span.depth;
+		// Retain source delimiters: a value block's `}` can still need `;`.
+		// Never invent a delimiter between rules or after a synthesized close.
+		css += separator + part;
+		separator = depth === open && full[end] === ";" ? ";" : "";
+		open = depth;
 	}
 	if (open > 0) css += "}".repeat(open);
 	return { css, droppedUrl };
@@ -304,25 +305,23 @@ export function unmarkedStyleDroppedRemote(
 ): boolean {
 	let full = "";
 	let marked = true;
-	let sawText = false;
 	for (const child of children) {
 		if (child.kind !== "text" || typeof child.value !== "string") continue;
-		sawText = true;
 		full += child.value;
 		if (child.author !== true) marked = false;
 	}
-	if (!sawText || marked) return false;
+	if (marked) return false;
 	if (STYLE_BREAK.test(full)) return declaresRemoteLoad(full);
-	for (const span of declarationSpans(full)) {
-		const part = full.slice(span.start, span.end);
-		if (untrustedCssBlocked(part) && declaresRemoteLoad(part)) return true;
+	for (const [start, end] of declarationSpans(full)) {
+		const part = full.slice(start, end);
+		if (cssBlocked(part) && declaresRemoteLoad(part)) return true;
 	}
 	return false;
 }
 
 export function cssTextWithoutUrls(value: unknown): unknown {
 	if (typeof value === "string") {
-		return styleSheetFromChildren([{ kind: "text", value }]).css;
+		return styleSheetFromChildren([{ kind: "text", value }], true).css;
 	}
 	// A number, false, or null is the setter's value as given.
 	if (!value || typeof value !== "object") {
@@ -336,7 +335,7 @@ export function cssTextWithoutUrls(value: unknown): unknown {
 	for (const name of Object.keys(source)) {
 		// A key is serialized as a declaration. `background:url(...);color` is a load.
 		// `/*` or `*/` in a key or value rebuilds `url(` when a setter joins values.
-		if (untrustedCssBlocked(name) || /\/\*|\*\//.test(name)) continue;
+		if (cssBlocked(name) || /\/\*|\*\//.test(name)) continue;
 		const raw = source[name];
 		if (raw === null) {
 			out[name] = null;
@@ -362,12 +361,12 @@ export function cssValueForStyle(
 	}
 	// A missing name cannot form a loader the value check would keep.
 	// Concatenation stays: a template literal is one byte over the gzip cap.
-	// Values that start with "(" are dropped here, not in untrustedCssBlocked,
+	// Values that start with "(" are dropped here, not in cssBlocked,
 	// so a style sheet can still hold a range query such as (width < 600px).
 	if (
-		untrustedCssBlocked(text) ||
+		cssBlocked(text) ||
 		(name != null && /\/\*|\*\//.test(text)) ||
-		untrustedCssBlocked(name + ":" + text) ||
+		cssBlocked(name + ":" + text) ||
 		/^\s*\(/.test(text)
 	) {
 		return false;
@@ -375,13 +374,14 @@ export function cssValueForStyle(
 	return text;
 }
 
-function untrustedCssBlocked(text: string): boolean {
+function cssBlocked(text: string, author?: boolean): boolean {
+	const pattern = author ? CSS_SCRIPTABLE : CSS_LOADER;
 	// Raw text catches a loader a string-delimited `/*` would hide.
 	// Comment removal catches `url /**/ (`.
 	return (
-		text.includes("\\") ||
-		CSS_LOADER.test(text) ||
-		CSS_LOADER.test(withoutComments(text))
+		(!author && text.includes("\\")) ||
+		pattern.test(text) ||
+		pattern.test(withoutComments(text))
 	);
 }
 
