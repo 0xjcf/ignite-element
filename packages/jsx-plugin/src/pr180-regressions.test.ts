@@ -220,7 +220,7 @@ export const view = make(${JSON.stringify(tag)}, {children: ${local}(${value})})
 		);
 		for (const body of [
 			`make("div", {children: ${local}("color:red")})`,
-			`make("style", {...props, children: ${local}("color:red")})`,
+			`make("style", {children: ${local}("color:red"), ...props})`,
 			`make("style", {children: ${local}("color:red"), children: props.css})`,
 			`${local}("color:red")`,
 		]) {

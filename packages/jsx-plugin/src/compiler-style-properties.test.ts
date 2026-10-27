@@ -177,6 +177,285 @@ describe("compiler author CSS invariants", () => {
 		},
 	);
 
+	it.each(compilers)(
+		"%s adopts static children after preceding spreads at every target",
+		(compiler) => {
+			fc.assert(
+				fc.property(
+					fc.constantFrom(...styleTags),
+					fc.integer({ min: 1, max: 3 }),
+					(tag, count) => {
+						const spreads = Array.from(
+							{ length: count },
+							(_, index) => `{...sources[${index}]}`,
+						).join(" ");
+						for (const target of targets) {
+							const source = `export function view(sources) { return <${tag} id="sheet" ${spreads} title="author">{${JSON.stringify(cssValues[0])}}</${tag}>; }`;
+							const code = compile(source, compiler, target);
+							expect(markedValues(adopt(code))).toEqual([cssValues[0]]);
+						}
+					},
+				),
+				{ seed: 1805, numRuns: 12 },
+			);
+		},
+	);
+
+	it("spread adoption follows the last possible children write", () => {
+		const local = markerLocalName("spread.tsx");
+		fc.assert(
+			fc.property(
+				fc.array(
+					fc.constantFrom(
+						"...props",
+						"children: props.css",
+						"[props.key]: props.value",
+						'id: "before"',
+					),
+					{ maxLength: 3 },
+				),
+				fc.array(
+					fc.constantFrom(
+						'id: "after"',
+						'["title"]: "after"',
+						"...props",
+						"children: props.css",
+						"[props.key]: props.value",
+						"get children() { return props.css; }",
+						"[name]: props.css",
+					),
+					{ maxLength: 3 },
+				),
+				(before, after) => {
+					const object = `{${[...before, `children: ${local}("color:red")`, ...after].join(",")}}`;
+					const safe = after.every(
+						(entry) =>
+							entry === 'id: "after"' || entry === '["title"]: "after"',
+					);
+					for (const value of [object, `Object.assign({}, props, ${object})`]) {
+						const source = `import {jsx} from "ignite-element/jsx/jsx-runtime"; import {igniteAuthorStyle as ${local}} from ${JSON.stringify(AUTHOR_STANDALONE)}; export const view = jsx("style", ${value});`;
+						if (safe) expect(markerCount(adopt(source))).toBe(1);
+						else expect(() => adopt(source)).toThrow(/cannot mark CSS/);
+					}
+				},
+			),
+			{ seed: 1805, numRuns: 48 },
+		);
+	});
+
+	it("spread adoption rejects later merge overrides and unknown or shadowed helpers", () => {
+		const local = markerLocalName("spread.tsx");
+		for (const [prefix, props] of [
+			["", `Object.assign({}, {children: ${local}("color:red")}, props)`],
+			[
+				"",
+				`Object.assign({}, {children: ${local}("color:red")}, {[input]: value})`,
+			],
+			[
+				"",
+				`Object.assign({}, {children: ${local}("color:red")}, {id: "safe", children: props.css})`,
+			],
+			["", `Object.assign({}, {children: ${local}("color:red")}, ...sources)`],
+			["", `Object.assign(props, {children: ${local}("color:red")})`],
+			["", `Object.assign(Object.assign(), {children: ${local}("color:red")})`],
+			["", `Object.other({}, props, {children: ${local}("color:red")})`],
+			["", `Other.assign({}, props, {children: ${local}("color:red")})`],
+			["", `Object[assign]({}, props, {children: ${local}("color:red")})`],
+			["", `merge({}, props, {children: ${local}("color:red")})`],
+			[
+				"const Object = custom;",
+				`Object.assign({}, props, {children: ${local}("color:red")})`,
+			],
+			[
+				"const __assign = custom;",
+				`__assign({}, props, {children: ${local}("color:red")})`,
+			],
+		]) {
+			const source = `import {jsx} from "ignite-element/jsx/jsx-runtime"; import {igniteAuthorStyle as ${local}} from ${JSON.stringify(AUTHOR_STANDALONE)}; ${prefix} export const view = jsx("style", ${props});`;
+			expect(() => adopt(source)).toThrow(/cannot mark CSS/);
+		}
+	});
+
+	it("spread adoption accepts harmless trailing keys and nested compiler merges", () => {
+		const local = markerLocalName("spread.tsx");
+		for (const value of [
+			`{...props, children: ${local}("color:red"), 1: "safe", title() { return "safe"; }}`,
+			`{...props, "children": ${local}("color:red")}`,
+			`Object.assign({}, ...sources, {children: ${local}("color:red")})`,
+			`Object.assign({children: ${local}("color:red")}, {id: "safe"})`,
+			`Object.assign(Object.assign({}, props), {children: ${local}("color:red")}, {id: "safe"})`,
+		]) {
+			const source = `import {jsx} from "ignite-element/jsx/jsx-runtime"; import {igniteAuthorStyle as ${local}} from ${JSON.stringify(AUTHOR_STANDALONE)}; export const view = jsx("style", ${value});`;
+			expect(markerCount(adopt(source))).toBe(1);
+		}
+	});
+
+	it("spread adoption distinguishes known quoted keys from computed child overrides", () => {
+		const local = markerLocalName("spread.tsx");
+		for (const [key, safe] of [
+			['"title"', true],
+			['["title"]', true],
+			['"children"', false],
+			['["children"]', false],
+			["[name]", false],
+			["[props.key]", false],
+		] as const) {
+			for (const props of [
+				`{children: ${local}("color:red"), ${key}: value}`,
+				`Object.assign({}, {children: ${local}("color:red")}, {id: "safe", ${key}: value})`,
+			]) {
+				const source = `import {jsx} from "ignite-element/jsx/jsx-runtime"; import {igniteAuthorStyle as ${local}} from ${JSON.stringify(AUTHOR_STANDALONE)}; export const view = jsx("style", ${props});`;
+				if (safe) expect(markerCount(adopt(source))).toBe(1);
+				else expect(() => adopt(source)).toThrow(/cannot mark CSS/);
+			}
+		}
+	});
+
+	it("spread marks must remain children of the official JSX props argument", () => {
+		const local = markerLocalName("spread.tsx");
+		for (const body of [
+			`jsx("style", {title: ${local}("color:red")})`,
+			`jsx("style", {"title": ${local}("color:red")})`,
+			`jsx("style", {}, {children: ${local}("color:red")})`,
+			`new jsx("style", {children: ${local}("color:red")})`,
+			`{children: ${local}("color:red")}`,
+		]) {
+			const source = `import {jsx} from "ignite-element/jsx/jsx-runtime"; import {igniteAuthorStyle as ${local}} from ${JSON.stringify(AUTHOR_STANDALONE)}; export const view = ${body};`;
+			expect(() => adopt(source)).toThrow(/cannot mark CSS/);
+		}
+	});
+
+	it("spread adoption authenticates inline and imported TypeScript helpers", () => {
+		const source = `export const view = <style {...props}>{"color:red"}</style>;`;
+		const inline = compile(source, "typescript", ts.ScriptTarget.ES5);
+		for (const altered of [
+			inline.replace("export var view", "__assign = custom; export var view"),
+			inline.replace("return t;", "return props;"),
+			"const Object = custom;" + inline,
+		]) {
+			expect(() => adopt(altered)).toThrow(/cannot mark CSS/);
+		}
+		const shadow = compile(
+			'export function view(Object, props) { return <style {...props}>{"color:red"}</style>; }',
+			"typescript",
+			ts.ScriptTarget.ES5,
+		);
+		expect(markerCount(adopt(shadow))).toBe(1);
+		const imported = ts.transpileModule(source, {
+			fileName: "entry.tsx",
+			compilerOptions: {
+				module: ts.ModuleKind.ESNext,
+				target: ts.ScriptTarget.ES5,
+				jsx: ts.JsxEmit.ReactJSX,
+				jsxImportSource: "ignite-element/jsx",
+				importHelpers: true,
+			},
+			transformers: { before: [igniteTypeScript()] },
+		}).outputText;
+		expect(imported).toContain('from "tslib"');
+		expect(markerCount(adopt(imported))).toBe(1);
+		for (const altered of [
+			imported.replace('from "tslib"', 'from "custom"'),
+			imported.replace("import { __assign }", "import { other as __assign }"),
+			imported.replace("import { __assign }", "import type { __assign }"),
+			imported.replace("import { __assign }", "import { type __assign }"),
+			imported.replace("export var view", "__assign = custom; export var view"),
+		]) {
+			expect(() => adopt(altered)).toThrow(/cannot mark CSS/);
+		}
+	});
+
+	it.each(compilers)(
+		"%s spread builds preserve the static CSS and native prop evaluation",
+		async (compiler) => {
+			const dir = mkdtempSync(path.join(tmpdir(), "ignite-compiler-spread-"));
+			try {
+				const entry = path.join(dir, "entry.js");
+				const source = `export function view(props) { return <style id="author" {...props} title="final">{${JSON.stringify(cssValues[0])}}</style>; }`;
+				for (const target of [
+					ts.ScriptTarget.ES5,
+					ts.ScriptTarget.ES2015,
+					ts.ScriptTarget.ESNext,
+				]) {
+					writeFileSync(entry, compile(source, compiler, target));
+					const result = await esbuild.build({
+						entryPoints: [entry],
+						bundle: true,
+						write: false,
+						format: "cjs",
+						external: [
+							"ignite-element/jsx/jsx-runtime",
+							"ignite-element/jsx/jsx-dev-runtime",
+						],
+						plugins: [igniteEsbuild()],
+						logLevel: "silent",
+					});
+					const module = {
+						exports: {
+							view: (_props: object): { props: Record<string, unknown> } => {
+								throw new Error("missing view");
+							},
+						},
+					};
+					const jsx = (_tag: string, props: object) => ({ props });
+					new Function(
+						"require",
+						"module",
+						"exports",
+						result.outputFiles[0].text,
+					)(() => ({ jsx, jsxs: jsx, jsxDEV: jsx }), module, module.exports);
+					const reads: string[] = [];
+					const onClick = () => {};
+					const props = {
+						id: "caller",
+						title: "caller",
+						onClick,
+						get children() {
+							reads.push("children");
+							return "untrusted";
+						},
+					};
+					const output = module.exports.view(props).props;
+					expect(reads).toEqual(["children"]);
+					expect(output.id).toBe("caller");
+					expect(output.title).toBe("final");
+					expect(output.onClick).toBe(onClick);
+					const child = output.children;
+					if (!child || typeof child !== "object")
+						throw new Error("missing author CSS");
+					expect(
+						Reflect.ownKeys(child).map(
+							(key) => Object.getOwnPropertyDescriptor(child, key)?.value,
+						),
+					).toEqual([cssValues[0]]);
+					expect(Object.isFrozen(child)).toBe(true);
+					expect(props.id).toBe("caller");
+					const vite = await build({
+						configFile: false,
+						root: dir,
+						logLevel: "silent",
+						plugins: [igniteVite()],
+						build: {
+							write: false,
+							minify: false,
+							lib: { entry, formats: ["es"] },
+							rollupOptions: { external: [/\/jsx-(?:dev-)?runtime$/] },
+						},
+					});
+					const chunk = Array.isArray(vite) ? vite[0] : vite;
+					if (!("output" in chunk)) throw new Error("missing Vite output");
+					expect(
+						chunk.output
+							.map((item) => ("code" in item ? item.code : ""))
+							.join("\n"),
+					).toContain(cssValues[0]);
+				}
+			} finally {
+				rmSync(dir, { recursive: true, force: true });
+			}
+		},
+	);
+
 	it("TypeScript preserves prefixed JSX and aligns mixed static/dynamic sibling styles", () => {
 		const code = compile(
 			'export const view = <div><x:style>{"color:red"}</x:style><style>{input}</style><style>{"color:blue"}</style></div>;',

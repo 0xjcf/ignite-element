@@ -554,7 +554,6 @@ function meaningfulJsxChildren(
 function isLoweredStyleChild(path: NodePath): boolean {
 	const property = path.parent;
 	const props = path.parentPath?.parentPath;
-	const invocation = props?.parentPath;
 	if (
 		property.type !== "ObjectProperty" ||
 		property.computed ||
@@ -565,15 +564,42 @@ function isLoweredStyleChild(path: NodePath): boolean {
 			(property.key.type === "StringLiteral" &&
 				property.key.value === "children")
 		) ||
-		props?.node.type !== "ObjectExpression" ||
-		invocation?.node.type !== "CallExpression"
+		props?.node.type !== "ObjectExpression"
 	)
 		return false;
+	const index = props.node.properties.indexOf(property);
+	if (
+		index < 0 ||
+		props.node.properties.slice(index + 1).some(mayWriteChildren)
+	)
+		return false;
+	let value: t.Expression = props.node;
+	let invocation = props.parentPath;
+	while (
+		invocation?.node.type === "CallExpression" &&
+		isPropsMerge(invocation.node, invocation.scope)
+	) {
+		const argument = invocation.node.arguments.indexOf(value);
+		if (
+			argument < 0 ||
+			invocation.node.arguments
+				.slice(argument + 1)
+				.some(
+					(node) =>
+						node.type !== "ObjectExpression" ||
+						node.properties.some(mayWriteChildren),
+				)
+		)
+			return false;
+		value = invocation.node;
+		invocation = invocation.parentPath;
+	}
+	if (invocation?.node.type !== "CallExpression") return false;
 	const call = invocation.node;
 	if (
 		call.arguments[0]?.type !== "StringLiteral" ||
 		!/^(?:[^:]+:)?style$/.test(call.arguments[0].value) ||
-		call.arguments[1] !== props.node ||
+		call.arguments[1] !== value ||
 		call.callee.type !== "Identifier"
 	)
 		return false;
@@ -582,24 +608,12 @@ function isLoweredStyleChild(path: NodePath): boolean {
 		return false;
 	const imported = binding.path.node;
 	const declaration = binding.path.parent;
-	if (
-		declaration.type !== "ImportDeclaration" ||
-		!/^ignite-element\/jsx\/jsx-(?:dev-)?runtime$/.test(
+	return (
+		declaration.type === "ImportDeclaration" &&
+		/^ignite-element\/jsx\/jsx-(?:dev-)?runtime$/.test(
 			declaration.source.value,
-		) ||
-		!["jsx", "jsxs", "jsxDEV"].includes(specifierImportedName(imported))
-	)
-		return false;
-	// A spread or another children spelling could replace the checked child.
-	return props.node.properties.every(
-		(entry) =>
-			entry.type === "ObjectProperty" &&
-			!entry.computed &&
-			(entry === property ||
-				!(
-					(entry.key.type === "Identifier" && entry.key.name === "children") ||
-					(entry.key.type === "StringLiteral" && entry.key.value === "children")
-				)),
+		) &&
+		["jsx", "jsxs", "jsxDEV"].includes(specifierImportedName(imported))
 	);
 }
 
@@ -763,4 +777,88 @@ export function transformSource(
 	)
 		return code;
 	return generate(ast, { comments: true, retainLines: true }, code).code;
+}
+
+/** A later unknown key or spread can replace the checked children slot. */
+function mayWriteChildren(
+	entry: t.ObjectExpression["properties"][number],
+): boolean {
+	if (entry.type === "SpreadElement") return true;
+	const key = entry.key;
+	if (key.type === "StringLiteral") return key.value === "children";
+	if (key.type === "NumericLiteral") return false;
+	if (!entry.computed && key.type === "Identifier")
+		return key.name === "children";
+	return true;
+}
+
+/** Recognize the merge forms emitted by the supported ESM compiler entries. */
+function isPropsMerge(
+	call: t.CallExpression,
+	scope: NodePath["scope"],
+): boolean {
+	if (
+		!call.arguments[0] ||
+		!(
+			call.arguments[0].type === "ObjectExpression" ||
+			(call.arguments[0].type === "CallExpression" &&
+				isPropsMerge(call.arguments[0], scope))
+		)
+	)
+		return false;
+	const callee = call.callee;
+	if (
+		callee.type === "MemberExpression" &&
+		!callee.computed &&
+		callee.object.type === "Identifier" &&
+		callee.object.name === "Object" &&
+		callee.property.type === "Identifier" &&
+		callee.property.name === "assign"
+	) {
+		return !scope.getBinding("Object");
+	}
+	if (callee.type !== "Identifier") return false;
+	const binding = scope.getBinding(callee.name);
+	if (!binding) return false;
+	if (binding.path.isImportSpecifier() && binding.constant) {
+		const declaration = binding.path.parent;
+		return (
+			declaration.type === "ImportDeclaration" &&
+			declaration.source.value === "tslib" &&
+			declaration.importKind !== "type" &&
+			binding.path.node.importKind !== "type" &&
+			specifierImportedName(binding.path.node) === "__assign"
+		);
+	}
+	if (
+		!binding.path.isVariableDeclarator() ||
+		!binding.path.node.init ||
+		binding.scope.getBinding("Object")
+	)
+		return false;
+	const expected = parse(
+		`var ${callee.name} = (this && this.${callee.name}) || function () {
+		${callee.name} = Object.assign || function(t) {
+			for (var s, i = 1, n = arguments.length; i < n; i++) {
+				s = arguments[i];
+				for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p)) t[p] = s[p];
+			}
+			return t;
+		};
+		return ${callee.name}.apply(this, arguments);
+	};`,
+		{ sourceType: "module" },
+	).program.body[0];
+	if (
+		expected.type !== "VariableDeclaration" ||
+		!t.isNodesEquivalent(binding.path.node.init, expected.declarations[0].init)
+	)
+		return false;
+	const inner = new Set<t.Node>();
+	t.traverseFast(binding.path.node.init, (node) => {
+		inner.add(node);
+	});
+	return binding.constantViolations.every((violation) =>
+		inner.has(violation.node),
+	);
 }
