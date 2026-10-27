@@ -32,7 +32,9 @@ export default function igniteJsxTypeScript(): ts.TransformerFactory<ts.SourceFi
 			if (!call) return ts.visitEachChild(node, visitor, context);
 			return context.factory.updateJsxElement(
 				node,
-				node.openingElement,
+				// Attributes can contain JSX too; visit them before replacing
+				// the validated children to preserve the shared preorder map.
+				ts.visitEachChild(node.openingElement, visitor, context),
 				[adoptCall(context, call, localName)],
 				node.closingElement,
 			);

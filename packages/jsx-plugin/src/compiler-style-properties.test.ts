@@ -190,6 +190,44 @@ describe("compiler author CSS invariants", () => {
 		expect(markerCount(adopt(code, true))).toBe(2);
 	});
 
+	it.each(compilers)(
+		"%s keeps attribute JSX aligned with later sibling styles",
+		(compiler) => {
+			fc.assert(
+				fc.property(
+					fc.constantFrom("style", "x:style"),
+					fc.array(fc.constantFrom("span", "style", "x:style"), {
+						minLength: 1,
+						maxLength: 4,
+					}),
+					(outerTag, nestedTags) => {
+						const outerCss =
+							".outer{background:url(https://cdn.example/outer.png)}";
+						const tailCss =
+							".tail{background:url(https://cdn.example/tail.png)}";
+						const lastCss =
+							".last{background:url(https://cdn.example/last.png)}";
+						const nestedCss = nestedTags.map(
+							(_, index) =>
+								`.n${index}{background:url(https://cdn.example/n${index}.png)}`,
+						);
+						const attributeTree = `<aside>${nestedTags.map((tag, index) => `<${tag}>{${JSON.stringify(nestedCss[index])}}</${tag}>`).join("")}</aside>`;
+						const source = `export const view = <main><${outerTag} onClick={() => consume(${attributeTree})}>{${JSON.stringify(outerCss)}}</${outerTag}><div>{"ordinary"}</div><style>{${JSON.stringify(tailCss)}}</style><x:style>{${JSON.stringify(lastCss)}}</x:style></main>;`;
+						const expected = [
+							outerCss,
+							tailCss,
+							lastCss,
+							...nestedCss.filter((_, index) => nestedTags[index] !== "span"),
+						].sort();
+						const emitted = compile(source, compiler, ts.ScriptTarget.ES5);
+						expect(markedValues(adopt(emitted)).sort()).toEqual(expected);
+					},
+				),
+				{ seed: 1804, numRuns: 24 },
+			);
+		},
+	);
+
 	it("TypeScript preserves side-effect and named raw imports alongside marked styles", () => {
 		const source =
 			'import "./side.css?raw"; import { value } from "./named.css?raw"; export {value}; export const view = <style>{"color:red"}</style>;';

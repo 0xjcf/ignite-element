@@ -16,9 +16,9 @@
 		"packages/jsx-plugin/src/babel.ts:37-37",
 		"packages/jsx-plugin/src/typescript.ts:13-13",
 		"packages/jsx-plugin/src/typescript.ts:27-29",
-		"packages/jsx-plugin/src/typescript.ts:42-46",
-		"packages/jsx-plugin/src/typescript.ts:78-80",
-		"packages/jsx-plugin/src/typescript.ts:205-250"
+		"packages/jsx-plugin/src/typescript.ts:33-48",
+		"packages/jsx-plugin/src/typescript.ts:80-82",
+		"packages/jsx-plugin/src/typescript.ts:207-252"
 	],
 	"coverageAnalysis": "all",
 	"incremental": false,
