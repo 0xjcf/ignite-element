@@ -12,7 +12,10 @@ declare module "@babel/traverse" {
 	import type * as t from "@babel/types";
 
 	interface Scope {
-		getProgramParent(): { block: t.Node };
+		block: t.Node;
+		path: NodePath;
+		getProgramParent(): Scope;
+		generateUidIdentifier(name?: string): t.Identifier;
 		getBinding(name: string): Binding | undefined;
 	}
 
@@ -21,6 +24,7 @@ declare module "@babel/traverse" {
 		parent: t.Node;
 		scope: Scope;
 		parentPath: NodePath | null;
+		unshiftContainer(listKey: string, nodes: t.Node[]): NodePath[];
 		isImportSpecifier(): this is NodePath<t.ImportSpecifier>;
 		isImportDefaultSpecifier(): this is NodePath<t.ImportDefaultSpecifier>;
 		isImportDeclaration(): this is NodePath<t.ImportDeclaration>;

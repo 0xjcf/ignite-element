@@ -165,7 +165,49 @@ function partFrom(
 	return null;
 }
 
-function readParts(path: NodePath<t.JSXElement>): Part[] | null {
+/** Resolve only references already proved static, before a compiler lowers const.
+ * Raw CSS stays an import; a fresh alias avoids capturing a shadowing local.
+ */
+function compilerRef(
+	name: string,
+	scope: NodePath["scope"],
+	useScope: NodePath["scope"],
+): Part {
+	const binding = scope.getBinding(name);
+	if (binding && isRawImport(binding)) {
+		if (useScope.getBinding(name) === binding) return { type: "ref", name };
+		const declaration = binding.path.parent;
+		if (declaration.type === "ImportDeclaration") {
+			const program = useScope.getProgramParent();
+			const alias = program.generateUidIdentifier("igniteCss");
+			program.path.unshiftContainer("body", [
+				t.importDeclaration(
+					[t.importDefaultSpecifier(alias)],
+					t.cloneNode(declaration.source),
+				),
+			]);
+			return { type: "ref", name: alias.name };
+		}
+	}
+	if (binding?.path.isVariableDeclarator() && binding.path.node.init) {
+		const init = unwrap(binding.path.node.init);
+		if (init.type === "StringLiteral")
+			return { type: "lit", value: init.value };
+		if (init.type === "TemplateLiteral")
+			return {
+				type: "lit",
+				value: init.quasis.map((quasi) => quasi.value.cooked ?? "").join(""),
+			};
+		if (init.type === "Identifier")
+			return compilerRef(init.name, binding.scope, useScope);
+	}
+	return { type: "ref", name };
+}
+
+function readParts(
+	path: NodePath<t.JSXElement>,
+	resolveConstants: boolean,
+): Part[] | null {
 	const parts: Part[] = [];
 	for (const child of path.node.children) {
 		if (child.type === "JSXText") {
@@ -185,7 +227,14 @@ function readParts(path: NodePath<t.JSXElement>): Part[] | null {
 	const meaningful = parts.some(
 		(part) => part.type === "ref" || part.value.trim() !== "",
 	);
-	return meaningful ? parts : null;
+	if (!meaningful) return null;
+	return resolveConstants
+		? parts.map((part) =>
+				part.type === "ref"
+					? compilerRef(part.name, path.scope, path.scope)
+					: part,
+			)
+		: parts;
 }
 
 function buildArg(parts: Part[]): t.Expression {
@@ -523,7 +572,7 @@ function isLoweredStyleChild(path: NodePath): boolean {
 	const call = invocation.node;
 	if (
 		call.arguments[0]?.type !== "StringLiteral" ||
-		call.arguments[0].value !== "style" ||
+		!/^(?:[^:]+:)?style$/.test(call.arguments[0].value) ||
 		call.arguments[1] !== props.node ||
 		call.callee.type !== "Identifier"
 	)
@@ -633,6 +682,7 @@ export function markFile(
 	ast: t.File,
 	filename = "component.tsx",
 	jsxSource?: string,
+	resolveConstants = false,
 ): boolean {
 	rejectHandWrittenAuthorImport(ast, filename);
 	const official = officialMarkImport(ast);
@@ -649,7 +699,7 @@ export function markFile(
 		traverse(ast, {
 			JSXElement(path) {
 				if (!isStyleTag(path.node.openingElement.name)) return;
-				const parts = readParts(path);
+				const parts = readParts(path, resolveConstants);
 				if (!parts) return;
 				hits.push({ element: path.node, parts });
 			},
@@ -692,13 +742,25 @@ export function markFile(
 export function transformSource(
 	code: string,
 	filename = "component.tsx",
-	options?: { jsxScript?: boolean; jsxImportSource?: string },
+	options?: {
+		jsxScript?: boolean;
+		jsxImportSource?: string;
+		resolveConstants?: boolean;
+	},
 ): string {
 	const ast = parse(code, {
 		sourceFilename: filename,
 		sourceType: "module",
 		plugins: parserPluginsFor(filename, options?.jsxScript === true),
 	});
-	if (!markFile(ast, filename, options?.jsxImportSource)) return code;
+	if (
+		!markFile(
+			ast,
+			filename,
+			options?.jsxImportSource,
+			options?.resolveConstants,
+		)
+	)
+		return code;
 	return generate(ast, { comments: true, retainLines: true }, code).code;
 }

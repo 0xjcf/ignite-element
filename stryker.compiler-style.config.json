@@ -1,0 +1,36 @@
+{
+	"$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker/master/packages/core/schema/stryker-schema.json",
+	"testRunner": "vitest",
+	"plugins": ["@stryker-mutator/vitest-runner"],
+	"vitest": {
+		"configFile": "packages/jsx-plugin/vitest.stryker.config.ts",
+		"dir": "packages/jsx-plugin",
+		"related": false
+	},
+	"mutate": [
+		"packages/jsx-plugin/src/transform.ts:171-238",
+		"packages/jsx-plugin/src/transform.ts:575-575",
+		"packages/jsx-plugin/src/transform.ts:685-685",
+		"packages/jsx-plugin/src/transform.ts:702-702",
+		"packages/jsx-plugin/src/transform.ts:756-764",
+		"packages/jsx-plugin/src/babel.ts:37-37",
+		"packages/jsx-plugin/src/typescript.ts:13-13",
+		"packages/jsx-plugin/src/typescript.ts:27-29",
+		"packages/jsx-plugin/src/typescript.ts:42-46",
+		"packages/jsx-plugin/src/typescript.ts:78-80",
+		"packages/jsx-plugin/src/typescript.ts:205-250"
+	],
+	"coverageAnalysis": "all",
+	"incremental": false,
+	"reporters": ["clear-text", "json"],
+	"jsonReporter": {
+		"fileName": "reports/mutation/compiler-style.json"
+	},
+	"thresholds": {
+		"high": 85,
+		"low": 80,
+		"break": 80
+	},
+	"concurrency": 4,
+	"timeoutMS": 15000
+}

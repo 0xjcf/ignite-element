@@ -2,6 +2,7 @@ import ts from "typescript";
 import {
 	AUTHOR_STANDALONE,
 	AUTHOR_VIRTUAL,
+	isRawCssSpecifier,
 	transformSource,
 } from "./transform.js";
 
@@ -9,6 +10,7 @@ export default function igniteJsxTypeScript(): ts.TransformerFactory<ts.SourceFi
 	return (context) => (sourceFile) => {
 		const next = transformSource(sourceFile.text, sourceFile.fileName, {
 			jsxImportSource: context.getCompilerOptions().jsxImportSource ?? "react",
+			resolveConstants: true,
 		});
 		if (next === sourceFile.text) return sourceFile;
 		const parsed = ts.createSourceFile(
@@ -22,7 +24,7 @@ export default function igniteJsxTypeScript(): ts.TransformerFactory<ts.SourceFi
 		const marked = markedStyles(parsed, localName);
 		let index = 0;
 		const visitor = (node: ts.Node): ts.Node => {
-			if (!ts.isJsxElement(node) || !isStyleTag(node.openingElement.tagName)) {
+			if (!ts.isJsxElement(node)) {
 				return ts.visitEachChild(node, visitor, context);
 			}
 			const call = marked[index];
@@ -37,7 +39,11 @@ export default function igniteJsxTypeScript(): ts.TransformerFactory<ts.SourceFi
 		};
 		const visited =
 			ts.visitNode(sourceFile, visitor, ts.isSourceFile) ?? sourceFile;
-		return insertImport(context, visited, parsed, localName);
+		return insertRawImports(
+			context,
+			insertImport(context, visited, parsed, localName),
+			parsed,
+		);
 	};
 }
 
@@ -69,7 +75,7 @@ function markedStyles(
 ): Array<ts.CallExpression | undefined> {
 	const calls: Array<ts.CallExpression | undefined> = [];
 	const visit = (node: ts.Node): void => {
-		if (ts.isJsxElement(node) && isStyleTag(node.openingElement.tagName)) {
+		if (ts.isJsxElement(node)) {
 			calls.push(authorCall(node, localName));
 		}
 		ts.forEachChild(node, visit);
@@ -90,10 +96,6 @@ function authorCall(
 			return child.expression;
 	}
 	return undefined;
-}
-
-function isStyleTag(name: ts.JsxTagNameExpression): boolean {
-	return ts.isIdentifier(name) && name.text === "style";
 }
 
 function adoptCall(
@@ -197,4 +199,46 @@ function isAuthorImport(
 		const imported = element.propertyName ?? element.name;
 		return imported.text === "igniteAuthorStyle";
 	});
+}
+
+/** Copy fresh raw-import aliases inserted while resolving shadowed const chains. */
+function insertRawImports(
+	context: ts.TransformationContext,
+	sourceFile: ts.SourceFile,
+	parsed: ts.SourceFile,
+): ts.SourceFile {
+	const names = new Set(
+		sourceFile.statements.flatMap((statement) =>
+			ts.isImportDeclaration(statement) && statement.importClause?.name
+				? [statement.importClause.name.text]
+				: [],
+		),
+	);
+	const added: ts.ImportDeclaration[] = [];
+	for (const statement of parsed.statements) {
+		if (
+			!ts.isImportDeclaration(statement) ||
+			!ts.isStringLiteral(statement.moduleSpecifier) ||
+			!isRawCssSpecifier(statement.moduleSpecifier.text)
+		)
+			continue;
+		const name = statement.importClause?.name;
+		if (!name || names.has(name.text)) continue;
+		added.push(
+			context.factory.createImportDeclaration(
+				undefined,
+				context.factory.createImportClause(
+					false,
+					context.factory.createIdentifier(name.text),
+					undefined,
+				),
+				context.factory.createStringLiteral(statement.moduleSpecifier.text),
+			),
+		);
+	}
+	if (added.length === 0) return sourceFile;
+	return context.factory.updateSourceFile(sourceFile, [
+		...added,
+		...sourceFile.statements,
+	]);
 }

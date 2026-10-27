@@ -34,7 +34,7 @@ export default function igniteJsxBabel() {
 					: (compiler.options.importSource ?? "react")
 				: (projectJsxImportSource(file.opts.filename ?? file.opts.cwd) ??
 					"react");
-			markFile(file.ast, file.opts.filename, source);
+			markFile(file.ast, file.opts.filename, source, true);
 			for (const statement of file.ast.program.body) {
 				if (
 					statement.type !== "ImportDeclaration" ||
