@@ -7,7 +7,9 @@ import {
 
 export default function igniteJsxTypeScript(): ts.TransformerFactory<ts.SourceFile> {
 	return (context) => (sourceFile) => {
-		const next = transformSource(sourceFile.text, sourceFile.fileName);
+		const next = transformSource(sourceFile.text, sourceFile.fileName, {
+			jsxImportSource: context.getCompilerOptions().jsxImportSource ?? "react",
+		});
 		if (next === sourceFile.text) return sourceFile;
 		const parsed = ts.createSourceFile(
 			sourceFile.fileName,

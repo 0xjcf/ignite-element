@@ -1,5 +1,17 @@
 # Fail-first tests
 
+## Compiler-entrypoint follow-up — 2026-10-26
+
+Baseline: `1b4dbce81659d10c656126afe6f7744c8898a287`, tree `78927714f60b365d66151a66942e98a736064475`. This round addresses discussions 4383496148 and 4383496158.
+
+`pnpm --filter @ignite-element/jsx-plugin exec vitest --run src/compiler-entrypoints.test.ts` initially failed all nine cases: Babel, Babel development, TypeScript, and TypeScript development marked non-Ignite compiler output; all four failed author-mark adoption from application `dist` directories; and invalid marks bypassed validation in that directory. Property cases use seed 1802 with eight runs per compiler. The expanded suite also covers defaults, pragma precedence, preserve mode, Babel's configured cwd for in-memory source, unrelated plugin names and imports, and dependency/library filtering including Windows-shaped input IDs.
+
+The correction passes Babel's normalized JSX-transform options or project selection, and TypeScript's compiler selection, into marking. Application `dist` files reach the existing static-mark validation; genuine library artifacts and dependency boundaries remain protected. Existing positive preserve-mode fixtures now explicitly select the Ignite runtime instead of relying on the React default.
+
+The focused mutation profile is `pnpm exec stryker run stryker.compiler-entrypoints.config.json`. It covers the Babel entrypoint, TypeScript runtime-selection wiring, and the bundler input filter. It passes at **94.00%**: 47 killed, three survivors, no timeouts, no uncovered mutants, and no errors. The unchanged threshold is 80. The initial broad run scored 60.34%; boundary tests were added and redundant guards around Babel's already normalized hook inputs were removed. Remaining survivors affect plugin diagnostic naming, an unchanged-output reparse, and a redundant directory check for current owned library artifacts. No additional current-candidate failure was found.
+
+Node 22.23.3 / pnpm 10.33.0: package/docs build, 113 plugin tests, plugin typecheck, a strict native Babel `PluginItem` type consumer, NodeNext declarations, strict five-package packed consumers, 169 script tests, runtime tests for 10 example roots, and typechecks for 13 examples pass. The source lockfile is unchanged. The earlier whole-repository formatting limitation still applies; changed-file formatting and repository lint pass separately. Mutation runs took 17 and 11 seconds; the extra run improved boundary coverage. The frozen workspace install reused cached dependencies, and the native Babel type probe installed nine temporary packages. All task-generated dependencies, builds, caches, reports, and probe files are removed before final custody. This is correction evidence, not merge, staging, release, or acceptance approval.
+
 ## PR #180 correction — 2026-10-26
 
 Baseline: `d738098106d8ebe58645d8e0968672ff511ce8a9`, tree `7f35edd8f7aae80043507e5954965d61acb805a3`.

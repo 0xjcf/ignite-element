@@ -33,6 +33,8 @@ Vite and esbuild expose their `jsxImportSource` to the plugin. For a compiler th
 
 The Babel and TypeScript entries still require the bundler plugin. It adopts static author-style children in preserved JSX and in ESM automatic-runtime output (`jsx`, `jsxs`, or `jsxDEV`), including an emitted `.js` file from a `.tsx` input. Dynamic arguments, escaped marker functions, and marks outside a style child are rejected.
 
+The compiler entries select the runtime before adding a mark: Babel reads the resolved JSX-transform options (or project configuration when preserving JSX), and TypeScript reads its compiler options. A per-file `@jsxImportSource` still takes precedence. With no Ignite selection, both keep stylesheet children as strings. Application output in `dist/` is validated and adopted too; installed dependencies and Ignite's own built artifacts retain their existing boundary.
+
 ## Reuse a stylesheet
 
 Repeat the same CSS string in each component's `<style>` element, as the example above does. The [light switch](https://0xjcf.github.io/ignite-element/#build-a-component) uses that `<style>` element.

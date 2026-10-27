@@ -170,7 +170,8 @@ describe("review findings", () => {
 	});
 
 	it("P2-5: babel-only and tsc-only fail the build with a clear error", async () => {
-		const source = `export const view = <style>{".a{color:red}"}</style>;`;
+		const source = `/** @jsxImportSource ignite-element/jsx */
+export const view = <style>{".a{color:red}"}</style>;`;
 		const babel = transformSync(source, {
 			filename: "alone.tsx",
 			babelrc: false,
@@ -228,7 +229,8 @@ describe("review findings", () => {
 	});
 
 	it("Codex P2: an uppercase Style component and its children stay unchanged", () => {
-		const source = `export const view = (
+		const source = `/** @jsxImportSource ignite-element/jsx */
+export const view = (
 			<div>
 				<Style>{"color:red"}</Style>
 				<style>{".a{color:red}"}</style>
@@ -325,7 +327,8 @@ export const view = <style>{".a{color:red}"}</style>;
 
 	it("Codex P2: babel and typescript output works with the bundler plugin", async () => {
 		const css = ".a{background:url(http://127.0.0.1:9/adopt.png)}";
-		const source = `const local = ${JSON.stringify(css)};
+		const source = `/** @jsxImportSource ignite-element/jsx */
+const local = ${JSON.stringify(css)};
 export const view = <style>{local}</style>;
 `;
 		const dir = mkdtempSync(path.join(tmpdir(), "ignite-adopt-"));

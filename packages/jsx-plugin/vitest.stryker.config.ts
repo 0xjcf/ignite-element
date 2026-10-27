@@ -11,6 +11,7 @@ export default defineConfig({
 			"src/transform.test.ts",
 			"src/review-findings.test.ts",
 			"src/pr180-regressions.test.ts",
+			"src/compiler-entrypoints.test.ts",
 		],
 		execArgv: [],
 	},

@@ -40,6 +40,8 @@ Those decisions are:
 
 ## Authorized paths
 
+On 2026-10-26, after review of `1b4dbce81659d10c656126afe6f7744c8898a287`, Jose authorized the two follow-up findings with "Let’s do it": propagate runtime selection through the compiler entries (discussion 4383496148) and adopt valid application `dist/` output (discussion 4383496158). This continues the isolated `codex/pr180-review-fixes` branch and authorizes the focused plugin corrections and tests, `stryker.compiler-entrypoints.config.json`, associated styling/changeset/receipt updates, frozen installation and applicable validation, a normal follow-up commit pushed to PR #180, evidence replies and resolution of the verified threads, and another Codex review request. Stop on a candidate mismatch, unexpected custody changes, architecture/public-contract conflicts, or unresolved correction failures. Generated validation output is removed before final custody. No merge, release, package publication, history rewrite, or acceptance is authorized.
+
 On 2026-10-26, Jose authorized this correction in chat:
 
 > let's fix all three issues on PR #180, add regression tests, and push the fixes. Don't merge it.

@@ -33,7 +33,9 @@ function filePath(id: string): string {
 function shouldTransform(id: string): boolean {
 	const file = filePath(id).split("\\").join("/");
 	if (file.includes("/node_modules/")) return false;
-	if (file.includes("/dist/")) return false;
+	// Application compiler output still needs static-mark validation. Only
+	// genuine Ignite library artifacts are already built and must stay intact.
+	if (file.includes("/dist/") && libraryImporter(filePath(id))) return false;
 	if (file.includes("/.ignite-jsx-shims/")) return false;
 	return SOURCE.test(file);
 }

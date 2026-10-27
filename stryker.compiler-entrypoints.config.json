@@ -1,0 +1,23 @@
+{
+	"$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker/master/packages/core/schema/stryker-schema.json",
+	"testRunner": "vitest",
+	"plugins": ["@stryker-mutator/vitest-runner"],
+	"vitest": {
+		"configFile": "packages/jsx-plugin/vitest.stryker.config.ts",
+		"dir": "packages/jsx-plugin",
+		"related": false
+	},
+	"mutate": [
+		"packages/jsx-plugin/src/babel.ts",
+		"packages/jsx-plugin/src/typescript.ts:8-13",
+		"packages/jsx-plugin/src/unplugin.ts:33-40"
+	],
+	"coverageAnalysis": "perTest",
+	"incremental": false,
+	"reporters": ["clear-text", "json"],
+	"jsonReporter": { "fileName": "reports/mutation/compiler-entrypoints.json" },
+	"thresholds": { "high": 85, "low": 80, "break": 80 },
+	"concurrency": 4,
+	"timeoutMS": 15000,
+	"ignoreStatic": true
+}
