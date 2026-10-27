@@ -22,6 +22,7 @@ export const RELEASE_PACKAGES = [
 	{ directory: "packages/ignite-adapters", name: "@ignite-element/adapters" },
 	{ directory: "packages/ignite-renderer", name: "@ignite-element/renderer" },
 	{ directory: "packages/ignite-element", name: "ignite-element" },
+	{ directory: "packages/jsx-plugin", name: "@ignite-element/jsx-plugin" },
 ];
 
 const COMPLETE_VALIDATION = [
@@ -156,7 +157,7 @@ function assertRegularContainedFile(file, baseDirectory, label) {
 
 export function createTarballManifest(candidates, baseDirectory) {
 	if (candidates.length !== RELEASE_PACKAGES.length)
-		throw new Error("exactly four tarballs are required");
+		throw new Error(`exactly ${RELEASE_PACKAGES.length} tarballs are required`);
 	const byName = new Map(
 		candidates.map((candidate) => [candidate.name, candidate]),
 	);
@@ -182,7 +183,9 @@ export function assertTarballManifest(manifest, baseDirectory) {
 		manifest?.algorithm !== "sha256" ||
 		manifest.packages?.length !== RELEASE_PACKAGES.length
 	)
-		throw new Error("invalid four-package tarball manifest");
+		throw new Error(
+			`invalid ${RELEASE_PACKAGES.length}-package tarball manifest`,
+		);
 	for (const [index, definition] of RELEASE_PACKAGES.entries()) {
 		const entry = manifest.packages[index];
 		if (entry.name !== definition.name)
@@ -256,7 +259,7 @@ export function executeStagePlan({
 }) {
 	if (plan.stageCommands.length !== RELEASE_PACKAGES.length)
 		throw new Error(
-			"stage plan must contain all four packages before staging begins",
+			`stage plan must contain all ${RELEASE_PACKAGES.length} packages before staging begins`,
 		);
 	const receipts = [];
 	for (const command of plan.stageCommands) {

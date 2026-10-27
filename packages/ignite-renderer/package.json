@@ -149,5 +149,8 @@
 		"lit-html": {
 			"optional": true
 		}
+	},
+	"engines": {
+		"node": ">=22"
 	}
 }

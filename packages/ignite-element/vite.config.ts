@@ -1,5 +1,42 @@
-import { defineConfig } from "vite";
+import {
+	copyFileSync,
+	existsSync,
+	lstatSync,
+	mkdirSync,
+	rmSync,
+} from "node:fs";
+import path from "node:path";
+import { defineConfig, type Plugin } from "vite";
 import { createLibConfig } from "../../configs/vite/lib";
+
+// Private package import. The build copies the mark into this package.
+// It is not a package export, and app code cannot import it.
+const authorReaderId = "#author-style";
+
+function writePrivateAuthorMark(): void {
+	const source = path.resolve(
+		"..",
+		"ignite-renderer/dist/jsx/author-style-mark.es.js",
+	);
+	if (!existsSync(source)) {
+		throw new Error(
+			`Missing ${source}. Build @ignite-element/renderer before ignite-element.`,
+		);
+	}
+	const target = path.resolve("dist/jsx/author-style-mark.es.js");
+	mkdirSync(path.dirname(target), { recursive: true });
+	copyFileSync(source, target);
+}
+
+function removeWorkspaceRendererLink(): void {
+	const linkPath = path.resolve(process.cwd(), "../@ignite-element/renderer");
+	try {
+		if (!lstatSync(linkPath).isSymbolicLink()) return;
+	} catch {
+		return;
+	}
+	rmSync(linkPath, { force: true });
+}
 
 type ViteCommand = "build" | "serve";
 
@@ -43,6 +80,7 @@ export default defineConfig(({ command }) => {
 		external: [
 			"@ignite-element/core",
 			"@ignite-element/renderer",
+			authorReaderId,
 			"@ignite-element/adapters",
 			"@ignite-element/adapters/actor-web",
 			"lit-html",
@@ -67,6 +105,7 @@ export default defineConfig(({ command }) => {
 		},
 	});
 	const warningsOn = command !== "build" || devArtifact;
+	removeWorkspaceRendererLink();
 	return {
 		...libConfig,
 		define: {
@@ -75,6 +114,33 @@ export default defineConfig(({ command }) => {
 			__IGNITE_DEV_WARNINGS__: JSON.stringify(warningsOn),
 			__IGNITE_HOST_RUNTIME__: JSON.stringify(true),
 		},
-		plugins: libConfig.plugins,
+		plugins: [
+			{
+				name: "externalize-author-style",
+				apply: "build",
+				enforce: "pre",
+				buildStart() {
+					removeWorkspaceRendererLink();
+				},
+				closeBundle() {
+					writePrivateAuthorMark();
+				},
+				resolveId(source, importer) {
+					if (!importer) return null;
+					if (
+						source === "@ignite-element/renderer/jsx/author-style" ||
+						/(?:^|\/)authorStyle(?:\.ts|\.js)?$/.test(source) ||
+						/(?:^|\/)author-style-mark(?:\.development)?\.es\.js$/.test(source)
+					) {
+						return {
+							id: authorReaderId,
+							external: true,
+						};
+					}
+					return null;
+				},
+			} satisfies Plugin,
+			...(libConfig.plugins ?? []),
+		],
 	};
 });

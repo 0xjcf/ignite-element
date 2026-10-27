@@ -15,5 +15,5 @@
 		"../../../packages/ignite-element/src/renderers/jsx/**/*.d.ts",
 		"ignite.config.ts"
 	],
-	"exclude": []
+	"exclude": ["vite.config.ts"]
 }

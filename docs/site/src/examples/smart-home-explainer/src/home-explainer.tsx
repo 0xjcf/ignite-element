@@ -6,9 +6,8 @@ import {
 	type Scene,
 } from "../../../../../../examples/agents/smart-home/src/home";
 import { resetHome } from "./agent-turn";
+import styles from "./home-explainer.css?raw";
 import { home } from "./session";
-
-const styles = new URL("./home-explainer.css", import.meta.url).href;
 
 type HomeCtx = {
 	lights: Record<Room, boolean>;
@@ -30,7 +29,7 @@ function clampTemp(temp: number): number {
 
 home("ignite-v3-home", (ctx: HomeCtx) => (
 	<section class="home-panel" data-scene={ctx.activeScene ?? "manual"}>
-		<link rel="stylesheet" href={styles} />
+		<style>{styles}</style>
 		<header class="home-header">
 			<div>
 				<h2>Smart home</h2>

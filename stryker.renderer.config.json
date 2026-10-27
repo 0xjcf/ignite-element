@@ -1,0 +1,32 @@
+{
+	"$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker/master/packages/core/schema/stryker-schema.json",
+	"testRunner": "vitest",
+	"plugins": ["@stryker-mutator/vitest-runner"],
+	"vitest": {
+		"configFile": "packages/ignite-element/vitest.stryker.xss.config.ts",
+		"dir": "packages/ignite-element",
+		"related": false
+	},
+	"mutate": [
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:227-250",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:251-264",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:270-270",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:442-456",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:523-563",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1200-1200",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1228-1228",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1241-1241",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1252-1252",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1254-1254",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1262-1262",
+		"packages/ignite-renderer/src/renderers/jsx/renderer.ts:1388-1424"
+	],
+	"coverageAnalysis": "perTest",
+	"incremental": false,
+	"reporters": ["clear-text", "json"],
+	"jsonReporter": { "fileName": "reports/mutation/renderer.json" },
+	"thresholds": { "high": 85, "low": 80, "break": 80 },
+	"concurrency": 4,
+	"timeoutMS": 15000,
+	"ignoreStatic": true
+}

@@ -1,6 +1,7 @@
 // @ts-check
 
 import starlight from "@astrojs/starlight";
+import igniteJsx from "@ignite-element/jsx-plugin/vite";
 import { defineConfig } from "astro/config";
 import remarkGfm from "remark-gfm";
 import starlightVersions from "starlight-versions";
@@ -13,6 +14,7 @@ export default defineConfig({
 	// Live demos import the canonical example modules outside this site package.
 	// Resolve their public dependencies from the site and share one React runtime.
 	vite: {
+		plugins: [igniteJsx()],
 		resolve: { dedupe: ["react", "react-dom", "ignite-element", "xstate"] },
 	},
 	// Astro's built-in GFM isn't reaching the Starlight MDX pipeline in this

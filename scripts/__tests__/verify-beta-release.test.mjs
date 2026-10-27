@@ -16,6 +16,7 @@ const names = [
 	"@ignite-element/adapters",
 	"@ignite-element/renderer",
 	"ignite-element",
+	"@ignite-element/jsx-plugin",
 ];
 const metadata = (version = "3.0.0-beta.11") =>
 	Object.fromEntries(
@@ -181,7 +182,7 @@ for (const tool of ["node", "pnpm"]) {
 				]);
 				assert.equal(result.status, 0, result.stderr);
 				const records = requests();
-				assert.equal(records.length, 8);
+				assert.equal(records.length, names.length * 2);
 				assert.equal(new Set(records.map((r) => r.cwd)).size, 1);
 				assert.equal(new Set(records.map((r) => r.cache)).size, 1);
 				for (const record of records) {
@@ -297,7 +298,7 @@ for (const value of ["0.0.0-beta.0", "0.1.0-beta.0", "1.0.0-beta.10"]) {
 					`import {verifyApprovedRelease} from ${JSON.stringify(new URL("../verify-beta-release.mjs", import.meta.url).href)}; verifyApprovedRelease(${JSON.stringify(value)});`,
 				]);
 				assert.equal(result.status, 0, result.stderr);
-				assert.equal(requests().length, 40);
+				assert.equal(requests().length, names.length * 2 * 5);
 			},
 			{ expectedVersion: value },
 		));
@@ -309,7 +310,7 @@ test("actual npm excludes ancestor project configuration under nested TMPDIR", (
 			const result = execute(process.execPath, [verifier, version]);
 			assert.equal(result.status, 0, result.stderr);
 			const records = requests();
-			assert.equal(records.length, 8);
+			assert.equal(records.length, names.length * 2);
 			for (const record of records) {
 				assert.equal(path.dirname(record.cwd), root);
 				assert.equal(

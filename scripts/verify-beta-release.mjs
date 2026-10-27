@@ -9,6 +9,7 @@ const packageNames = [
 	"@ignite-element/adapters",
 	"@ignite-element/renderer",
 	"ignite-element",
+	"@ignite-element/jsx-plugin",
 ];
 
 function betaVersion(value) {
@@ -111,7 +112,8 @@ export function assertApprovedRelease({ expectedVersion, metadata }) {
 		!/^2\./.test(metadata["ignite-element"].tags.latest ?? "")
 	)
 		throw new Error("facade latest must remain on the v2 stable line");
-	for (const name of packageNames.slice(0, 3)) {
+	for (const name of packageNames) {
+		if (name === "ignite-element") continue;
 		if (metadata[name].tags.latest !== expectedVersion)
 			throw new Error(
 				`${name} latest must match the accepted scoped prerelease policy`,

@@ -90,13 +90,18 @@ describe("S1 an own setter wins for every specially normalized key", () => {
 						log.length = 0;
 						strategy.render(jsx("x-special", props));
 						const expected: Array<[string, unknown]> = [];
+						// `style={null}` is the setter's value. Other nulls clear.
+						const committed = (k: string, v: unknown) =>
+							v != null || (k === "style" && v === null);
 						for (const [k, v] of Object.entries(props)) {
-							if (v != null) expected.push([k, v]);
-							else if (old && old[k] != null) expected.push([k, undefined]);
+							if (k === "style" && v === null) expected.push([k, null]);
+							else if (v != null) expected.push([k, v]);
+							else if (old && committed(k, old[k]))
+								expected.push([k, undefined]);
 						}
 						if (old) {
 							for (const k of Object.keys(old)) {
-								if (!(k in props) && old[k] != null)
+								if (!(k in props) && committed(k, old[k]))
 									expected.push([k, undefined]);
 							}
 						}

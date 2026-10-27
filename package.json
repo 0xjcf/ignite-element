@@ -6,11 +6,11 @@
 		"build:types": "pnpm -r run build:types",
 		"build:js": "pnpm -r run build:js",
 		"test": "pnpm run test:full",
-		"test:packages": "pnpm --filter ignite-element test",
+		"test:packages": "pnpm --filter ignite-element test && pnpm --filter @ignite-element/jsx-plugin test",
 		"test:scripts": "node --test scripts/__tests__/*.test.mjs scripts/release-beta.test.mjs",
 		"test:examples": "node scripts/test-examples.mjs",
 		"test:full": "pnpm run test:packages && pnpm run test:scripts && pnpm run test:examples -- --require-covered-packages-match-discovered --covers-package examples/adapters/mobx --covers-package examples/adapters/redux --covers-package examples/adapters/xstate --covers-package examples/agents/smart-home --covers-package examples/agents/voice-workbench --covers-package examples/apps/dashboard-with-shared-state --covers-package examples/apps/form-with-validation --covers-package examples/apps/nested-child-router --covers-package examples/apps/shared-controller --covers-package examples/apps/spa-router",
-		"test:coverage": "pnpm --filter ignite-element test:coverage",
+		"test:coverage": "pnpm --filter ignite-element test:coverage && pnpm --filter @ignite-element/jsx-plugin test",
 		"test:mutation": "stryker run",
 		"test:node": "pnpm --filter ignite-element test:node",
 		"typecheck": "pnpm run typecheck:full",
@@ -59,6 +59,9 @@
 			"tar": "^7.5.2",
 			"read-yaml-file>js-yaml": "3.14.2"
 		}
+	},
+	"engines": {
+		"node": ">=22"
 	},
 	"packageManager": "pnpm@10.33.0+sha512.10568bb4a6afb58c9eb3630da90cc9516417abebd3fabbe6739f0ae795728da1491e9db5a544c76ad8eb7570f5c4bb3d6c637b2cb41bfdcdb47fa823c8649319"
 }

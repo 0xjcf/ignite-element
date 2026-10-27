@@ -222,6 +222,7 @@ const expectedFiles = [
 	"index.html",
 	"src/light-switch.tsx",
 	"src/light-switch.css",
+	"src/env.d.ts",
 ];
 assert.deepEqual(Object.keys(archive).sort(), [...expectedFiles].sort());
 for (const file of expectedFiles) {

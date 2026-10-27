@@ -224,7 +224,7 @@ final lockstep publish from `main` (see the `release-beta` skill +
 
 ### Beta dist-tag contract
 
-`pnpm release:beta` publishes all four fixed-group packages at one prerelease
+`pnpm release:beta` publishes every fixed-group package at one prerelease
 version, repairs every `beta` tag to that version, and verifies the result. The
 unscoped `ignite-element` package keeps `latest` on the existing stable 2.x
 release until the v3 stable cut. Because the three scoped packages do not yet
@@ -247,10 +247,11 @@ npm dist-tag add ignite-element@<version> beta --otp=<OTP>
 npm dist-tag add @ignite-element/core@<version> beta --otp=<OTP>
 npm dist-tag add @ignite-element/adapters@<version> beta --otp=<OTP>
 npm dist-tag add @ignite-element/renderer@<version> beta --otp=<OTP>
+npm dist-tag add @ignite-element/jsx-plugin@<version> beta --otp=<OTP>
 ```
 
 Then rerun `pnpm release:beta`; with no pending version bump it republishes
-nothing, reapplies the idempotent tag repair, and verifies all four `beta` tags
+nothing, reapplies the idempotent tag repair, and verifies every release package's `beta` tag
 plus the unchanged stable `ignite-element` `latest` tag. The inert
 `pnpm release:beta --dry-run` path never calls Changesets publish or npm
 dist-tag mutation.

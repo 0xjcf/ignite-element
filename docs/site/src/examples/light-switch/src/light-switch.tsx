@@ -1,6 +1,7 @@
 /** @jsxImportSource ignite-element/jsx */
 import { igniteCore } from "ignite-element/xstate";
 import { assign, createMachine } from "xstate";
+import styles from "./light-switch.css?raw";
 
 const toggleMachine = createMachine(
 	{
@@ -32,10 +33,7 @@ export const core = igniteCore({
 
 core("ignite-light-switch", (ctx) => (
 	<section class="light-switch" data-state={ctx.label}>
-		<link
-			rel="stylesheet"
-			href={new URL("./light-switch.css", import.meta.url).href}
-		/>
+		<style>{styles}</style>
 		<svg class="bulb" viewBox="0 0 64 80" aria-hidden="true">
 			<path d="M22 56C22 46 10 44 10 28a22 22 0 0 1 44 0c0 16-12 18-12 28Z" />
 			<path d="M23 64h18M26 72h12" />

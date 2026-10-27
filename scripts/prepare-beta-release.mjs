@@ -21,7 +21,15 @@ export const RELEASE_PACKAGES = [
 	{ directory: "packages/ignite-adapters", name: "@ignite-element/adapters" },
 	{ directory: "packages/ignite-renderer", name: "@ignite-element/renderer" },
 	{ directory: "packages/ignite-element", name: "ignite-element" },
+	{ directory: "packages/jsx-plugin", name: "@ignite-element/jsx-plugin" },
 ];
+
+const REVIEWABLE_PREPARATION =
+	/^(?:\.changeset\/pre\.json|\.changeset\/[^/]+\.md|packages\/(?:ignite-(?:core|adapters|renderer|element)|jsx-plugin)\/(?:package\.json|CHANGELOG\.md))$/;
+
+export function isReviewablePreparationPath(name) {
+	return REVIEWABLE_PREPARATION.test(name);
+}
 
 function run(command, args, options = {}) {
 	console.info(`[release:prepare] ${command} ${args.join(" ")}`);
@@ -194,8 +202,7 @@ function validateReviewableCandidate(before) {
 	if (after === before.version)
 		throw new Error("Changesets did not advance the lockstep beta version");
 	assertInternalDependencies(after);
-	const allowed =
-		/^(?:\.changeset\/pre\.json|\.changeset\/[^/]+\.md|packages\/ignite-(?:core|adapters|renderer|element)\/(?:package\.json|CHANGELOG\.md))$/;
+	const allowed = REVIEWABLE_PREPARATION;
 	const changed = parsePorcelainStatus(
 		captureRaw("git", [
 			"status",

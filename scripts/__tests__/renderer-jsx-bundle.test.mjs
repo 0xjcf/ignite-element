@@ -30,6 +30,12 @@ const rollup = requireFromVite("rollup");
 const nodeResolve = requireFromRoot("@rollup/plugin-node-resolve");
 const webpack = requireFromRoot("webpack");
 
+const nodeMajor = Number(process.versions.node.split(".", 1)[0]);
+assert.ok(
+	nodeMajor >= 22,
+	`JSX gzip caps are Node 22 measurements. This process is Node ${process.versions.node}.`,
+);
+
 const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 const rendererDist = path.join(repoRoot, "packages/ignite-renderer/dist");
 const elementDist = path.join(repoRoot, "packages/ignite-element/dist");
@@ -56,6 +62,10 @@ const WARNING_STRINGS = [
 	"URL scheme is not allowed",
 ];
 const EVENT_ORIGIN_WARNING = "observed from both native and effect";
+const STYLE_ELEMENT_WARNING =
+	"[ignite-jsx] a style element dropped url() or @import. If that CSS is a static string in this file, is the ignite plugin on?";
+const STYLE_VALUE_WARNING =
+	"[ignite-jsx] a style value dropped url(). Put a color, length, or keyword in a CSS variable, and keep url() in the static style sheet.";
 
 // Gzip level 9 of this production consumer entry before dev warnings were
 // left for a consumer bundler to strip. Previous target was 4634.
@@ -81,12 +91,20 @@ const EVENT_ORIGIN_WARNING = "observed from both native and effect";
 // Then 6,270 B (Jose's cap): the round-25 file-input skip, releaseView guard and
 // removed-root drop read 6,268 B.
 // Then 6,280 B (Jose approved up to 6,280 B): the round-26 original-parent check reads 6,275 B.
+// Then 7,800 B (Jose approved on PR #180): the JSX XSS guard.
+// Then 8,300 B (Jose approved in chat on PR #180): the re-review fixes.
+// Then 8,400 B (Jose, 2026-10-22): "settle the object-style gap first and increase the budget".
+// Then 8,750 B (Jose, 2026-10-23): "Yes to the replies, raise the caps and ship N11".
+// Measured again after the author-style read seam: 8727 B.
+// Capturing WeakSet.prototype.has and add reads 8748 B.
+// Then 8,800 B (Jose, Oct 24 2026).
+// Function.prototype.call captured at load reads 8767 B on Node 22.
 // Dropped checked, value, and selected stay.
 // Native defaultValue, defaultChecked, and defaultSelected stay on drop.
 // Explicit false for the last two is a set. Own custom setters get undefined
 // and stay case-sensitive. There is no cached built-in element and no
 // fresh-element default reset.
-const TODAY_CONSUMER_GZIP = 6280;
+const TODAY_CONSUMER_GZIP = 8800;
 
 function consumerEntry() {
 	return `import { jsx, mountIgniteJsxOnce } from "@ignite-element/renderer/jsx";
@@ -316,6 +334,15 @@ describe("published renderer jsx bundle", { concurrency: false }, () => {
 		assert.equal(elementDevelopment.includes(EVENT_ORIGIN_WARNING), true);
 		assert.equal(elementDevelopment.includes("Unknown host"), true);
 		assert.equal(elementDevelopment.includes("typeof process"), false);
+	});
+
+	it("production chunks omit the warning sentences", () => {
+		const production = readModuleGraph(jsxBundle);
+		const development = readModuleGraph(jsxDevBundle);
+		assert.equal(production.includes(STYLE_ELEMENT_WARNING), false);
+		assert.equal(production.includes(STYLE_VALUE_WARNING), false);
+		assert.equal(development.includes(STYLE_ELEMENT_WARNING), true);
+		assert.equal(development.includes(STYLE_VALUE_WARNING), true);
 	});
 
 	it("strips warning strings and process from a Vite production build", async () => {

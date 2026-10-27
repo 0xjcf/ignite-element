@@ -56,6 +56,7 @@ describe("voice workbench Vite capability boundary", () => {
 		});
 		expect(JSON.stringify(config.define)).not.toContain("server-secret");
 		expect(config.plugins).toEqual([
+			expect.objectContaining({ name: "ignite-jsx" }),
 			expect.objectContaining({ name: "voice-workbench-capabilities" }),
 		]);
 
