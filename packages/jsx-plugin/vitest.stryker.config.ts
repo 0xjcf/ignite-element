@@ -13,6 +13,7 @@ export default defineConfig({
 			"src/pr180-regressions.test.ts",
 			"src/compiler-entrypoints.test.ts",
 			"src/compiler-style-properties.test.ts",
+			"src/beta-followups.test.ts",
 		],
 		execArgv: [],
 	},

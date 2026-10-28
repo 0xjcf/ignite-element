@@ -298,6 +298,11 @@ type SyntaxNode = {
 	alternate?: SyntaxNode;
 	expression?: SyntaxNode;
 	test?: SyntaxNode;
+	kind?: string;
+	declarations?: SyntaxNode[];
+	id?: SyntaxNode;
+	init?: SyntaxNode | null;
+	name?: string;
 };
 
 function staticPieces(
@@ -371,38 +376,246 @@ function treeContainsMark(
 	return false;
 }
 
-function importTargetReachesMark(node: SyntaxNode, fileDir: string): boolean {
+/**
+ * Trust a file only when its realpath is inside a package Node resolved
+ * for this plugin. A package.json name beside the app does not count.
+ * The renderer root is the library. The element package is trusted only
+ * for its built dist. The mark file itself is never a public import.
+ */
+function trustedLibraryRealpath(file: string): boolean {
+	const real = realpathOf(file);
+	if (insideRoot(real, knownRendererRoot())) return true;
+	const element = knownElementRoot();
+	if (!insideRoot(real, element)) return false;
+	return real.split("\\").join("/").includes("/dist/");
+}
+
+function inNodeModules(file: string): boolean {
+	return realpathOf(file).split("\\").join("/").includes("/node_modules/");
+}
+
+function sourceTypesFor(
+	file: string,
+): Array<"module" | "script" | "unambiguous"> {
+	const ext = path.extname(file.split("?")[0] ?? file).toLowerCase();
+	if (ext === ".cjs" || ext === ".cts")
+		return ["script", "unambiguous", "module"];
+	if (ext === ".mjs" || ext === ".mts") return ["module"];
+	return ["unambiguous", "module", "script"];
+}
+
+function parseRequireSource(
+	source: string,
+	file: string,
+	jsxScript: boolean,
+): { program: { body: SyntaxNode[] } } | null {
+	for (const sourceType of sourceTypesFor(file)) {
+		try {
+			const ast = parse(source, {
+				sourceType,
+				plugins: parserPluginsFor(file, jsxScript),
+				errorRecovery: true,
+			}) as { program: { body: SyntaxNode[] }; errors?: unknown[] };
+			if (!ast.errors?.length) return ast;
+		} catch {
+			// Another source type may accept this CommonJS file.
+		}
+	}
+	return null;
+}
+
+function pushSyntaxChildren(node: SyntaxNode, stack: SyntaxNode[]): void {
+	for (const value of Object.values(node)) {
+		if (!value || typeof value !== "object") continue;
+		if (Array.isArray(value)) {
+			for (const item of value) {
+				if (item && typeof item === "object") stack.push(item as SyntaxNode);
+			}
+			continue;
+		}
+		stack.push(value as SyntaxNode);
+	}
+}
+
+/** Same-file `const` string bindings. `null` means the name is shadowed. */
+function constInits(body: SyntaxNode[]): Map<string, SyntaxNode | null> {
+	const found = new Map<string, SyntaxNode | null>();
+	const stack: SyntaxNode[] = [...body];
+	const visited = new Set<SyntaxNode>();
+	while (stack.length > 0) {
+		const node = stack.pop();
+		if (!node || typeof node !== "object" || visited.has(node)) continue;
+		visited.add(node);
+		if (node.type === "VariableDeclaration" && node.kind === "const") {
+			for (const decl of node.declarations ?? []) {
+				if (decl?.id?.type !== "Identifier" || !decl.id.name) continue;
+				const name = decl.id.name;
+				if (found.has(name)) found.set(name, null);
+				else found.set(name, decl.init ?? null);
+			}
+		}
+		pushSyntaxChildren(node, stack);
+	}
+	return found;
+}
+
+function importTargetReachesMark(
+	node: SyntaxNode,
+	fileDir: string,
+	seen: Set<string>,
+	depth: number,
+	strict: boolean,
+	consts: Map<string, SyntaxNode | null>,
+	resolving: Set<string>,
+): boolean {
+	// `const helper = "./helper.cjs"; require(helper)` is the runtime load.
+	// Follow that one binding. An unbound or shadowed name can be any path.
+	if (node.type === "Identifier" && node.name) {
+		if (resolving.has(node.name)) return strict;
+		if (!consts.has(node.name)) return strict;
+		const init = consts.get(node.name);
+		if (!init) return strict;
+		resolving.add(node.name);
+		const reached = expressionReachesMark(
+			init,
+			fileDir,
+			seen,
+			depth,
+			strict,
+			consts,
+			resolving,
+		);
+		resolving.delete(node.name);
+		return reached;
+	}
 	const pieces = staticPieces(node);
-	if (!pieces) return false;
+	// An identifier or other non-literal can be any path at runtime.
+	if (!pieces) return strict;
 	if (!pieces.dynamic) {
-		const resolved = path.resolve(fileDir, pieces.prefix);
-		return isMarkFile(resolved);
+		return staticSpecifierReachesMark(pieces.prefix, fileDir, seen, depth);
 	}
 	const dir = directoryUnder(pieces.prefix, fileDir);
 	if (!dir) return false;
 	return treeContainsMark(dir, 0, { n: 0 });
 }
 
+function staticSpecifierReachesMark(
+	spec: string,
+	fileDir: string,
+	seen: Set<string>,
+	depth: number,
+): boolean {
+	if (isBlockedAuthorSpecifier(spec) || /author-style|authorStyle/.test(spec)) {
+		return true;
+	}
+	if (spec.startsWith("node:")) return false;
+	let resolved = "";
+	if (spec.startsWith(".") || path.isAbsolute(spec)) {
+		resolved = path.resolve(fileDir, spec);
+	} else {
+		try {
+			resolved = createRequire(path.join(fileDir, "package.json")).resolve(
+				spec,
+			);
+		} catch {
+			return false;
+		}
+	}
+	return resolvedFileReachesMark(resolved, seen, depth);
+}
+
+function resolvedFileReachesMark(
+	file: string,
+	seen: Set<string>,
+	depth: number,
+): boolean {
+	const real = realpathOf(file);
+	if (isMarkFile(real) || isAuthorBridge(real)) return true;
+	if (trustedLibraryRealpath(real)) return false;
+	if (!existsSync(real)) return false;
+	let fileStat = false;
+	try {
+		fileStat = lstatSync(real).isFile();
+	} catch {
+		return false;
+	}
+	if (!fileStat) return false;
+	// A dependency's own dynamic require is not this app file's require.
+	// A static chain from that file to the mark still is.
+	return dynamicSourceReachesMark(
+		real,
+		false,
+		seen,
+		depth + 1,
+		!inNodeModules(real),
+	);
+}
+
 function expressionReachesMark(
 	node: SyntaxNode | null | undefined,
 	fileDir: string,
+	seen: Set<string>,
+	depth: number,
+	strict: boolean,
+	consts: Map<string, SyntaxNode | null>,
+	resolving: Set<string>,
 ): boolean {
 	if (!node) return false;
 	if (node.type === "ConditionalExpression") {
 		return (
-			expressionReachesMark(node.consequent, fileDir) ||
-			expressionReachesMark(node.alternate, fileDir)
+			expressionReachesMark(
+				node.consequent,
+				fileDir,
+				seen,
+				depth,
+				strict,
+				consts,
+				resolving,
+			) ||
+			expressionReachesMark(
+				node.alternate,
+				fileDir,
+				seen,
+				depth,
+				strict,
+				consts,
+				resolving,
+			)
 		);
 	}
 	if (node.type === "LogicalExpression") {
 		return (
-			expressionReachesMark(node.left, fileDir) ||
-			expressionReachesMark(node.right, fileDir)
+			expressionReachesMark(
+				node.left,
+				fileDir,
+				seen,
+				depth,
+				strict,
+				consts,
+				resolving,
+			) ||
+			expressionReachesMark(
+				node.right,
+				fileDir,
+				seen,
+				depth,
+				strict,
+				consts,
+				resolving,
+			)
 		);
 	}
 	if (node.type === "SequenceExpression") {
 		return (node.expressions ?? []).some((item) =>
-			expressionReachesMark(item, fileDir),
+			expressionReachesMark(
+				item,
+				fileDir,
+				seen,
+				depth,
+				strict,
+				consts,
+				resolving,
+			),
 		);
 	}
 	if (
@@ -411,12 +624,39 @@ function expressionReachesMark(
 		node.type === "TSSatisfiesExpression" ||
 		node.type === "TSNonNullExpression"
 	) {
-		return expressionReachesMark(node.expression, fileDir);
+		return expressionReachesMark(
+			node.expression,
+			fileDir,
+			seen,
+			depth,
+			strict,
+			consts,
+			resolving,
+		);
 	}
-	return importTargetReachesMark(node, fileDir);
+	return importTargetReachesMark(
+		node,
+		fileDir,
+		seen,
+		depth,
+		strict,
+		consts,
+		resolving,
+	);
 }
 
-function dynamicSourceReachesMark(file: string, jsxScript = false): boolean {
+function dynamicSourceReachesMark(
+	file: string,
+	jsxScript = false,
+	seen = new Set<string>(),
+	depth = 0,
+	strict = true,
+): boolean {
+	if (depth > 8) return strict;
+	const real = realpathOf(file);
+	if (seen.has(real)) return false;
+	seen.add(real);
+	if (strict && trustedLibraryRealpath(real)) return false;
 	let source = "";
 	try {
 		source = readFileSync(file, "utf8");
@@ -424,17 +664,15 @@ function dynamicSourceReachesMark(file: string, jsxScript = false): boolean {
 		return false;
 	}
 	if (!source.includes("import(") && !source.includes("require(")) return false;
-	let ast: { program: { body: SyntaxNode[] } };
-	try {
-		ast = parse(source, {
-			sourceType: "module",
-			plugins: parserPluginsFor(file, jsxScript),
-			errorRecovery: true,
-		}) as { program: { body: SyntaxNode[] } };
-	} catch {
-		return false;
+	const ast = parseRequireSource(source, file, jsxScript);
+	if (!ast) {
+		// A .cjs file that this parser rejects as a module can still run
+		// under Node or Vite SSR. Fail closed for the app file.
+		if (!strict) return /author-style|authorStyle/.test(source);
+		return true;
 	}
 	const fileDir = path.dirname(file);
+	const consts = constInits(ast.program.body);
 	const stack: SyntaxNode[] = [...ast.program.body];
 	while (stack.length > 0) {
 		const node = stack.pop();
@@ -446,18 +684,22 @@ function dynamicSourceReachesMark(file: string, jsxScript = false): boolean {
 				(node.callee?.type === "Import" || calleeName === "require"));
 		if (dynamicCall) {
 			const target = node.source ?? node.arguments?.[0];
-			if (target && expressionReachesMark(target, fileDir)) return true;
-		}
-		for (const value of Object.values(node)) {
-			if (!value || typeof value !== "object") continue;
-			if (Array.isArray(value)) {
-				for (const item of value) {
-					if (item && typeof item === "object") stack.push(item as SyntaxNode);
-				}
-				continue;
+			if (
+				target &&
+				expressionReachesMark(
+					target,
+					fileDir,
+					seen,
+					depth,
+					strict,
+					consts,
+					new Set(),
+				)
+			) {
+				return true;
 			}
-			stack.push(value as SyntaxNode);
 		}
+		pushSyntaxChildren(node, stack);
 	}
 	return false;
 }
@@ -1061,6 +1303,85 @@ function noteViteScriptJsx(
 	noteScriptJsx(scriptJsx, esbuild.loader);
 }
 
+const BABEL_LOADER = /(?:^|\/|\\)babel-loader(?:@|\/|\\|\.|$)/;
+
+function loaderLabels(loader: unknown, use: unknown): string[] {
+	const labels: string[] = [];
+	const push = (value: unknown) => {
+		if (typeof value === "string") labels.push(value);
+		else if (value && typeof value === "object") {
+			const record = value as { loader?: unknown; use?: unknown };
+			if (typeof record.loader === "string") labels.push(record.loader);
+			if (record.use) push(record.use);
+		}
+	};
+	push(loader);
+	if (Array.isArray(use)) {
+		for (const item of use) push(item);
+	} else {
+		push(use);
+	}
+	return labels;
+}
+
+function ruleTestsExtension(test: unknown, ext: string): boolean {
+	const samples = [`file${ext}`, `dir/file${ext}`];
+	if (test instanceof RegExp)
+		return samples.some((sample) => test.test(sample));
+	if (typeof test === "string") return test.includes(ext);
+	if (typeof test === "function") {
+		return samples.some((sample) => {
+			try {
+				return Boolean((test as (value: string) => boolean)(sample));
+			} catch {
+				return false;
+			}
+		});
+	}
+	if (Array.isArray(test))
+		return test.some((item) => ruleTestsExtension(item, ext));
+	if (test && typeof test === "object") {
+		const record = test as { and?: unknown; or?: unknown; not?: unknown };
+		if (record.not && ruleTestsExtension(record.not, ext)) return false;
+		if (record.and) return ruleTestsExtension(record.and, ext);
+		if (record.or) return ruleTestsExtension(record.or, ext);
+	}
+	return false;
+}
+
+function noteRuleScriptJsx(rule: unknown, scriptJsx: Set<string>): void {
+	if (!rule || typeof rule !== "object") return;
+	const record = rule as {
+		test?: unknown;
+		loader?: unknown;
+		use?: unknown;
+		oneOf?: unknown[];
+		rules?: unknown[];
+	};
+	for (const nested of [...(record.oneOf ?? []), ...(record.rules ?? [])]) {
+		noteRuleScriptJsx(nested, scriptJsx);
+	}
+	const labels = loaderLabels(record.loader, record.use);
+	if (!labels.some((label) => BABEL_LOADER.test(label.split("\\").join("/")))) {
+		return;
+	}
+	for (const ext of SCRIPT_JSX) {
+		if (record.test == null || ruleTestsExtension(record.test, ext)) {
+			scriptJsx.add(ext);
+		}
+	}
+}
+
+/** webpack and Rspack do not set esbuild's jsx loader. babel-loader does. */
+function noteBundlerScriptJsx(
+	compiler: { options?: { module?: { rules?: unknown[] } } },
+	scriptJsx: Set<string>,
+): void {
+	const rules = compiler.options?.module?.rules;
+	if (!Array.isArray(rules)) return;
+	for (const rule of rules) noteRuleScriptJsx(rule, scriptJsx);
+}
+
 const ESBUILD_LOADER: Record<string, "js" | "jsx" | "ts" | "tsx"> = {
 	".cjs": "js",
 	".cts": "ts",
@@ -1144,8 +1465,13 @@ export const igniteJsx = createUnplugin<Options>((options, meta) => {
 		},
 		async transform(code, id) {
 			if (!shouldTransform(id)) return null;
-			await refuseForeignPackageMark(this as unknown as GuardHost, code, id);
 			const file = filePath(id);
+			// Vite leaves a .cjs require(helper) for Node and SSR. Refuse it
+			// before the bundler emits that call.
+			if (dynamicSourceReachesMark(file, fileUsesScriptJsx(scriptJsx, file))) {
+				throw blockedAuthor(file);
+			}
+			await refuseForeignPackageMark(this as unknown as GuardHost, code, id);
 			const next = transformSource(code, file, {
 				jsxScript: fileUsesScriptJsx(scriptJsx, file),
 				jsxImportSource:
@@ -1189,9 +1515,11 @@ export const igniteJsx = createUnplugin<Options>((options, meta) => {
 			},
 		},
 		webpack(compiler) {
+			noteBundlerScriptJsx(compiler, scriptJsx);
 			installBundlerGuards(compiler as unknown as WebpackLike);
 		},
 		rspack(compiler) {
+			noteBundlerScriptJsx(compiler, scriptJsx);
 			installBundlerGuards(compiler as unknown as WebpackLike);
 		},
 		esbuild: {

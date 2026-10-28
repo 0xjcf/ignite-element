@@ -501,11 +501,18 @@ function refuseMark(): never {
 }
 
 function jsxImportSource(ast: t.File): string | null {
+	const sources: string[] = [];
 	for (const comment of ast.comments ?? []) {
-		const match = /@jsxImportSource\s+(\S+)/.exec(comment.value);
-		if (match?.[1]) return match[1];
+		for (const match of comment.value.matchAll(/@jsxImportSource\s+(\S+)/g)) {
+			if (match[1]) sources.push(match[1]);
+		}
 	}
-	return null;
+	if (sources.length > 1) {
+		throw new Error(
+			"A file can have only one @jsxImportSource comment. The ignite JSX plugin and the bundler would otherwise disagree.",
+		);
+	}
+	return sources[0] ?? null;
 }
 
 export function projectJsxImportSource(filename: string): string | undefined {

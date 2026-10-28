@@ -7,7 +7,10 @@
 		"dir": "packages/jsx-plugin",
 		"related": false
 	},
-	"mutate": ["packages/jsx-plugin/src/transform.ts"],
+	"mutate": [
+		"packages/jsx-plugin/src/transform.ts",
+		"packages/jsx-plugin/src/unplugin.ts"
+	],
 	"coverageAnalysis": "perTest",
 	"incremental": false,
 	"reporters": ["clear-text", "json"],
