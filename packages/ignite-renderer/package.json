@@ -122,6 +122,7 @@
 		}
 	},
 	"sideEffects": [
+		"./src/renderers/jsx/hosts.ts",
 		"./dist/jsx.es.js",
 		"./dist/jsx.development.es.js",
 		"./dist/lit.es.js",

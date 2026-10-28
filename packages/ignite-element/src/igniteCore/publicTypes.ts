@@ -6,11 +6,7 @@ import type {
 	FacadeCommandResult,
 } from "@ignite-element/core";
 import type { HostRenderSlot } from "../hosts/types";
-import type {
-	IgniteAgentRuntime,
-	IgniteProjectionSession,
-	IgniteProjectionTarget,
-} from "../types/agent";
+import type { IgniteAgentRuntime } from "../types/agent";
 import type {
 	ComponentRenderer,
 	PublicFacadeRenderArgs,
@@ -184,7 +180,6 @@ export type IgniteCoreReturn<
 	DeclaredEvents extends EventMap = Events,
 	Hosts = undefined,
 > = {
-	(target: IgniteProjectionTarget): IgniteProjectionSession;
 	<View>(
 		elementName: string,
 		renderer: ComponentRenderer<

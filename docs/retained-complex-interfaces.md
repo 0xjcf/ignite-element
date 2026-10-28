@@ -40,7 +40,7 @@ belong to the downstream implementation slices.
 
 | Surface | Current beta evidence | Accepted change |
 | --- | --- | --- |
-| Component registration | The value returned by `igniteCore` retains the existing `(elementName, renderer)` callable signature, while a separate one-argument overload binds an opaque non-DOM projection target. [types.ts:97-149](../packages/ignite-element/src/igniteCore/types.ts#L97-L149) | Keep `component("name", renderer)` unchanged. Do not add a registration stage or core option. |
+| Component registration | The value returned by `igniteCore` retains the existing `(elementName, renderer)` callable signature, and ordinary headless methods remain available; the target overload is removed. [types.ts:97-149](../packages/ignite-element/src/igniteCore/types.ts#L97-L149) | Keep `component("name", renderer)` unchanged. Do not add a registration stage or core option. |
 | Runtime and registration on one value | DOM registration validates a string name plus renderer, returns the component handle, and the agent runtime is assigned onto that same callable. [IgniteElementFactory.ts:1077-1105](../packages/ignite-element/src/IgniteElementFactory.ts#L1077-L1105), [IgniteElementFactory.ts:1294-1303](../packages/ignite-element/src/IgniteElementFactory.ts#L1294-L1303) | The renderer callback continues to receive the existing projected render arguments. |
 | JSX keys | JSX elements and the runtime carry `key`, but normalized renderer nodes omit it. [types.ts:15-19](../packages/ignite-renderer/src/renderers/jsx/types.ts#L15-L19), [jsx-runtime.ts:11-24](../packages/ignite-renderer/src/renderers/jsx/jsx-runtime.ts#L11-L24), [renderer.ts:23-32](../packages/ignite-renderer/src/renderers/jsx/renderer.ts#L23-L32) | Preserve key metadata privately and reconcile fully keyed sibling lists by identity. |
 | Child reconciliation | Children are patched by array position; incompatible or reordered nodes can be replaced. [renderer.ts:159-216](../packages/ignite-renderer/src/renderers/jsx/renderer.ts#L159-L216), [renderer.ts:234-328](../packages/ignite-renderer/src/renderers/jsx/renderer.ts#L234-L328) | Preserve compatible keyed nodes across insertion, removal, and reorder while leaving the unkeyed positional path intact. |
@@ -49,7 +49,6 @@ belong to the downstream implementation slices.
 | Effect ordering | Effects use a separate subscription and defer through a microtask on the assumption that rendering occurred first. [effects.ts:78-123](../packages/ignite-element/src/runtime/effects.ts#L78-L123) | Finish reconciliation, ref acquisition, and `commit` inside the existing render before the current post-render effect phase. Do not create a second effect system. |
 | Move-safe lifecycle | True-disconnect teardown is already deferred by one microtask and canceled by a same-tick reconnect. [IgniteElement.ts:21-58](../packages/ignite-element/src/IgniteElement.ts#L21-L58), [IgniteElement.ts:105-160](../packages/ignite-element/src/IgniteElement.ts#L105-L160) | Put retained cleanup behind the same true-disconnect decision so DOM moves preserve resources. |
 | Strategy lifecycle | Render strategies already expose private attach, render, and optional detach operations. [RenderStrategy.ts:1-5](../packages/ignite-renderer/src/renderers/RenderStrategy.ts#L1-L5), [IgniteJsxRenderStrategy.ts:40-53](../packages/ignite-renderer/src/renderers/jsx/IgniteJsxRenderStrategy.ts#L40-L53), [IgniteJsxRenderStrategy.ts:72-113](../packages/ignite-renderer/src/renderers/jsx/IgniteJsxRenderStrategy.ts#L72-L113) | Reuse this internal boundary; add no public lifecycle object. |
-| Projection targets | First-party non-DOM targets are opaque document or speech committers with private configuration and delivery identity. [projectionTargets.ts:14-52](../packages/ignite-element/src/runtime/projectionTargets.ts#L14-L52), [projectionTargets.ts:79-133](../packages/ignite-element/src/runtime/projectionTargets.ts#L79-L133), [projectionBinding.ts:159-260](../packages/ignite-element/src/internal/projectionBinding.ts#L159-L260) | Keep this overload separate. A retained DOM element is not another projection target. |
 
 ## Exact JSX contract
 
@@ -257,7 +256,7 @@ queue. No framework scheduler clock or flush API is added by the lifecycle task.
 - Creating or using the headless runtime must not read `document`, `Element`, or
   animation-frame globals.
 - Ref and commit callbacks run only after a DOM strategy creates a real element.
-- `get('schema')`, `get('states')`, commands, events, and non-DOM projection targets do
+- `get('schema')`, `get('states')`, commands, and events do
   not acquire retained nodes or schedule presentation work.
 - No DOM means no synthetic ref acquisition or commit callback.
 - A stale callback captured before detach cannot run against a later tree.
@@ -319,14 +318,15 @@ key, canvas, or Mesh Pong slices.
 | Drawing in effects | Rejected. Presentation must occur on initial mount and belongs to DOM commit, while effects remain consequences. [effects.ts:63-123](../packages/ignite-element/src/runtime/effects.ts#L63-L123) |
 | Call `ref(null)` when the callback returned a disposer | Rejected. Call that disposer and do not also call `ref(null)`. A callback that returns nothing is still called with `null` on unmount, disconnect, and ref swap. |
 | Await async cleanup before DOM progress | Rejected. Invoke in order, observe rejection, and continue so teardown cannot stall indefinitely. |
-| Retained-node projection target | Rejected. Artifact targets deliver document/speech channels; DOM identity is renderer-local. |
+| Retained-node projection target | Rejected. Application document/speech consumers use observations or source-owned ports; DOM identity is renderer-local. |
 | Canvas/WebGL/editor-specific core API | Rejected. The lifecycle must work for any element-backed imperative resource. |
 | Generic multi-source state owner | Rejected. Ignite consumes existing source contracts and never becomes transition, topology, simulation, or advisory authority. |
 
 ## Compatibility and changesets
 
 - The two-stage `igniteCore` and `component("name", renderer)` shapes are unchanged.
-- The one-argument non-DOM projection-target overload remains separate.
+- Target factories and the one-argument non-DOM overload are removed separately;
+  retained DOM behavior and its public contracts are unchanged.
 - Ordinary unkeyed children retain positional reconciliation.
 - Existing consumers that do not use `ref`, `commit`, or keys retain current
   synchronous presentation and effect timing.

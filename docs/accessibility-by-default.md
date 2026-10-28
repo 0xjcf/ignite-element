@@ -3,8 +3,8 @@
 ## Status
 
 Accepted replacement guidance for the Ignite Element v3 beta design window.
-This document now aligns with the validated projection-document runtime instead
-of the rejected registry design.
+Semantic documents and speech delivery are application-owned patterns over the
+ordinary runtime. Target factories and `core(target)` are removed.
 
 ## Core position
 
@@ -33,15 +33,15 @@ Ignite already exposes the facts most accessible interfaces need:
 - dynamic availability projected into states and enforced by the source,
 - command results and emitted events through `execute()` and `on(...)`,
 - validated semantic projection state through actor-owned
-  `ProjectionDocument` data.
+  application document data (as in voice-workbench).
 
-Those facts are channel-neutral. A DOM renderer, a speech target, and a text
+Those facts are channel-neutral. A DOM renderer, an application speech port, and a text
 summary should all consume the same durable source of truth.
 
 ## Semantic documents, not raw generated UI
 
-When non-trivial presentation needs to be shared across channels, Ignite uses
-validated semantic nodes instead of raw generated UI code.
+When non-trivial presentation needs to be shared across channels, applications can
+validate semantic nodes instead of accepting raw generated UI code.
 
 This matters for accessibility because it keeps the contract explicit:
 
@@ -51,8 +51,8 @@ This matters for accessibility because it keeps the contract explicit:
 - a status block is structured text,
 - a speech utterance is a durable request with stable identity.
 
-Ignite rejects raw JSX, JavaScript, imports, event handlers, DOM references,
-and arbitrary executable strings in projection state. That prevents "accessible"
+The voice-workbench document boundary rejects raw JSX, JavaScript, imports, event
+handlers, DOM references, and executable URI data. That prevents "accessible"
 output from depending on generated code that cannot be validated or replayed.
 
 ## Command-backed action semantics
@@ -66,8 +66,8 @@ Command-backed action nodes must:
 - check application/source availability at commit time.
 
 Minimal core discovery alone cannot validate payloads: its `input: null` means
-unknown schema, not unrestricted input. Projection bindings retain their private
-source observation seam; it is not a public raw-snapshot core API.
+unknown schema, not unrestricted input. Application consumers observe explicitly
+derived data through `watch`; no private raw-snapshot inspection is needed.
 
 This keeps accessible controls aligned with the same executable contract agents
 and headless tests already use.
@@ -139,7 +139,7 @@ Speech is not just another DOM diff.
 - Speech is request-driven.
 - A speech request must be written into durable state first.
 - Each utterance needs stable identity so rebinding does not replay it.
-- Acknowledgement and deduplication are part of the runtime contract.
+- The application/source owns acknowledgement, deduplication, and explicit replay.
 
 This matters for accessibility because announcements must be intentional and
 testable, not accidental side effects of repeated reads.

@@ -347,6 +347,30 @@ function verifyConsumer(lane, tarballPaths) {
 	const typeSpecifiers = lane.specifiers.filter(
 		(specifier) => !specifier.endsWith("/package.json"),
 	);
+	const retiredTargetAssertions = typeSpecifiers
+		.flatMap((specifier, index) => {
+			if (
+				![
+					"ignite-element",
+					"ignite-element/xstate",
+					"ignite-element/redux",
+					"ignite-element/mobx",
+					"ignite-element/actor-web",
+					"ignite-element/actor-web/web",
+				].includes(specifier)
+			)
+				return [];
+			return [
+				"// @ts-expect-error document target construction is retired",
+				`package${index}.createProjectionDocumentTarget;`,
+				"// @ts-expect-error speech target construction is retired",
+				`package${index}.createProjectionSpeechTarget;`,
+				`declare const registration${index}: ReturnType<typeof package${index}.igniteCore>;`,
+				"// @ts-expect-error one-argument registration is retired",
+				`registration${index}({});`,
+			];
+		})
+		.join("\n");
 	writeFileSync(
 		join(consumerDirectory, "consumer.tsx"),
 		`${typeSpecifiers
@@ -358,7 +382,7 @@ function verifyConsumer(lane, tarballPaths) {
 			.map((_, index) => `package${index}`)
 			.join(
 				", ",
-			)}];\n${lane.name === "source-free" ? sourceFreeTypeConsumer : ""}`,
+			)}];\n${retiredTargetAssertions}\n${lane.name === "source-free" ? sourceFreeTypeConsumer : ""}`,
 	);
 	writeFileSync(
 		join(consumerDirectory, "consumer.mjs"),

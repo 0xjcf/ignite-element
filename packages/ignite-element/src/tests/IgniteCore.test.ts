@@ -29,7 +29,6 @@ import type {
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
 } from "../RenderArgs";
-import { toSchemaValue } from "../runtime/schema";
 import { igniteTools, type ToolSchema } from "../tools";
 import type { InferStateAndEvent } from "../utils/igniteRedux";
 import counterStore, { counterSlice } from "./fixtures/reduxCounterStore";
@@ -1260,16 +1259,6 @@ describe("igniteCore", () => {
 		expect(first.tagName).toBe("handle-dedupe-redux");
 		expect(second.tagName).toBe("handle-dedupe-redux");
 		expect(second.get("schema")).toEqual(first.get("schema"));
-	});
-
-	it("serializes self-returning toJSON values as circular schema values", () => {
-		const selfReturning = {
-			toJSON() {
-				return selfReturning;
-			},
-		};
-
-		expect(toSchemaValue(selfReturning)).toBe("[Circular]");
 	});
 
 	it("keeps explicit tool schemas at the application boundary without changing ordinary execution", async () => {

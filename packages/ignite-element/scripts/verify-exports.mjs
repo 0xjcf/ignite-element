@@ -61,8 +61,6 @@ const requiredExports = [
 		".",
 		{
 			StateScope: "object",
-			createProjectionDocumentTarget: "function",
-			createProjectionSpeechTarget: "function",
 			event: "function",
 			igniteCore: "function",
 		},
@@ -70,8 +68,6 @@ const requiredExports = [
 	[
 		"./xstate",
 		{
-			createProjectionDocumentTarget: "function",
-			createProjectionSpeechTarget: "function",
 			igniteCore: "function",
 			matchState: "function",
 		},
@@ -79,24 +75,18 @@ const requiredExports = [
 	[
 		"./redux",
 		{
-			createProjectionDocumentTarget: "function",
-			createProjectionSpeechTarget: "function",
 			igniteCore: "function",
 		},
 	],
 	[
 		"./mobx",
 		{
-			createProjectionDocumentTarget: "function",
-			createProjectionSpeechTarget: "function",
 			igniteCore: "function",
 		},
 	],
 	[
 		"./actor-web",
 		{
-			createProjectionDocumentTarget: "function",
-			createProjectionSpeechTarget: "function",
 			igniteCore: "function",
 		},
 	],

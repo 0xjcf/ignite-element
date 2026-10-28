@@ -7,10 +7,6 @@ export type {
 	ReduxSliceCommandActor,
 	ReduxStoreCommandActor,
 } from "./igniteCore/reduxTypes";
-export {
-	createProjectionDocumentTarget,
-	createProjectionSpeechTarget,
-} from "./runtime/projectionTargets";
 export type {
 	IgniteAgentEventListener,
 	IgniteAgentRuntime,
