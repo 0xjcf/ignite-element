@@ -1,5 +1,5 @@
 export {
 	flushPendingStyles,
 	injectStyles as default,
-	replayParkedStyles,
 } from "@ignite-element/renderer";
+export { replayParkedStyles } from "./renderers/hostStrategy.js";

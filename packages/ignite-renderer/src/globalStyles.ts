@@ -1,3 +1,5 @@
+import { prepareStyleInjection } from "./injectStyles";
+
 export interface StyleObject {
 	href: string;
 	integrity?: string;
@@ -18,6 +20,9 @@ export function setGlobalStyles(style: GlobalStyles): void {
 			"setGlobalStyles does not accept arrays. Provide a single string or StyleObject.",
 		);
 	}
+	// Transfer pre-driver requests before changing the setting: assigning
+	// styles does not imply flushPendingStyles().
+	prepareStyleInjection();
 	globalStyles = style;
 }
 
