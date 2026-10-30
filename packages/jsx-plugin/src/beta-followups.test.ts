@@ -460,3 +460,183 @@ describe("JSX in .js with babel-loader", () => {
 		}
 	});
 });
+
+describe("Codex scan follow-ups", () => {
+	it("allows an ordinary dependency dynamic require under esbuild", async () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "ignite-dep-require-"));
+		const dep = path.join(dir, "node_modules", "ordinary-dep");
+		mkdirSync(dep, { recursive: true });
+		writeFileSync(
+			path.join(dep, "package.json"),
+			`${JSON.stringify({ name: "ordinary-dep", main: "index.cjs" })}\n`,
+		);
+		writeFileSync(
+			path.join(dep, "index.cjs"),
+			"module.exports = (name) => require(name);\n",
+		);
+		const entry = path.join(dir, "entry.cjs");
+		writeFileSync(entry, 'module.exports = require("ordinary-dep");\n');
+		try {
+			const result = await esbuild.build({
+				absWorkingDir: dir,
+				entryPoints: [entry],
+				bundle: true,
+				write: false,
+				format: "cjs",
+				platform: "node",
+				plugins: [igniteEsbuild()],
+				logLevel: "silent",
+			});
+			expect(result.outputFiles.map((file) => file.text).join("\n")).toContain(
+				"require",
+			);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("still refuses a dependency require of the author mark", async () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "ignite-dep-mark-"));
+		const dep = path.join(dir, "node_modules", "mark-dep");
+		mkdirSync(dep, { recursive: true });
+		writeFileSync(
+			path.join(dep, "package.json"),
+			`${JSON.stringify({ name: "mark-dep", main: "index.cjs" })}\n`,
+		);
+		writeFileSync(
+			path.join(dep, "author-style-mark.es.js"),
+			"exports.igniteAuthorStyle = function (css) { return { css }; };\n",
+		);
+		writeFileSync(
+			path.join(dep, "index.cjs"),
+			`const helper = "./author-style-mark.es.js";
+module.exports = require(helper);
+`,
+		);
+		const entry = path.join(dir, "entry.cjs");
+		writeFileSync(entry, 'module.exports = require("mark-dep");\n');
+		try {
+			await expect(
+				esbuild.build({
+					absWorkingDir: dir,
+					entryPoints: [entry],
+					bundle: true,
+					write: false,
+					format: "cjs",
+					platform: "node",
+					plugins: [igniteEsbuild()],
+					logLevel: "silent",
+				}),
+			).rejects.toThrow(/cannot mark CSS/);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("parses JSX in a dynamically imported .js file when the loader is jsx", async () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "ignite-jsx-scan-"));
+		writeFileSync(
+			path.join(dir, "view.js"),
+			`const loaded = import("node:fs");
+export const view = <section>{loaded}</section>;
+`,
+		);
+		const entry = path.join(dir, "entry.js");
+		writeFileSync(entry, 'export const loaded = import("./view.js");\n');
+		try {
+			const result = await esbuild.build({
+				absWorkingDir: dir,
+				entryPoints: [entry],
+				bundle: true,
+				write: false,
+				format: "esm",
+				platform: "neutral",
+				loader: { ".js": "jsx" },
+				external: ["node:fs"],
+				plugins: [igniteEsbuild()],
+				logLevel: "silent",
+			});
+			const text = result.outputFiles.map((file) => file.text).join("\n");
+			expect(text).toContain("section");
+			expect(text).not.toContain("cannot mark CSS");
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("resolves same-named const import targets in different functions", async () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "ignite-lexical-const-"));
+		writeFileSync(path.join(dir, "safe.js"), "export const ok = 1;\n");
+		writeFileSync(path.join(dir, "also-safe.js"), "export const ok = 2;\n");
+		const entry = path.join(dir, "entry.js");
+		writeFileSync(
+			entry,
+			`function loadSafe() {
+  const specifier = "./safe.js";
+  return import(specifier);
+}
+function loadOther() {
+  const specifier = "./also-safe.js";
+  return import(specifier);
+}
+export const ready = [loadSafe, loadOther];
+`,
+		);
+		try {
+			const result = await esbuild.build({
+				absWorkingDir: dir,
+				entryPoints: [entry],
+				bundle: true,
+				write: false,
+				format: "esm",
+				platform: "neutral",
+				plugins: [igniteEsbuild()],
+				logLevel: "silent",
+			});
+			const text = result.outputFiles.map((file) => file.text).join("\n");
+			expect(text).toContain("./safe.js");
+			expect(text).toContain("./also-safe.js");
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("still refuses a same-named const that reaches the author mark", async () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "ignite-lexical-mark-"));
+		writeFileSync(path.join(dir, "safe.js"), "export const ok = 1;\n");
+		writeFileSync(
+			path.join(dir, "author-style-mark.es.js"),
+			"export function igniteAuthorStyle(css) { return { css }; }\n",
+		);
+		const entry = path.join(dir, "entry.js");
+		writeFileSync(
+			entry,
+			`function loadSafe() {
+  const specifier = "./safe.js";
+  return import(specifier);
+}
+function loadMark() {
+  const specifier = "./author-style-mark.es.js";
+  return import(specifier);
+}
+export const ready = [loadSafe, loadMark];
+`,
+		);
+		try {
+			await expect(
+				esbuild.build({
+					absWorkingDir: dir,
+					entryPoints: [entry],
+					bundle: true,
+					write: false,
+					format: "esm",
+					platform: "neutral",
+					plugins: [igniteEsbuild()],
+					logLevel: "silent",
+				}),
+			).rejects.toThrow(/cannot mark CSS/);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+});

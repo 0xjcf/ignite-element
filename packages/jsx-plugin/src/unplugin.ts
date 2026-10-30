@@ -9,6 +9,8 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "@babel/parser";
+import traverseModule from "@babel/traverse";
+import type * as t from "@babel/types";
 import { createUnplugin } from "unplugin";
 import type { IgniteJsxOptions } from "./options.js";
 import {
@@ -22,6 +24,12 @@ import {
 	projectJsxImportSource,
 	transformSource,
 } from "./transform.js";
+
+type Traverse = typeof traverseModule;
+const traverse =
+	typeof traverseModule === "function"
+		? traverseModule
+		: (traverseModule as unknown as { default: Traverse }).default;
 
 const SOURCE = /\.[cm]?[jt]sx?$/;
 
@@ -437,24 +445,38 @@ function pushSyntaxChildren(node: SyntaxNode, stack: SyntaxNode[]): void {
 	}
 }
 
-/** Same-file `const` string bindings. `null` means the name is shadowed. */
-function constInits(body: SyntaxNode[]): Map<string, SyntaxNode | null> {
-	const found = new Map<string, SyntaxNode | null>();
-	const stack: SyntaxNode[] = [...body];
-	const visited = new Set<SyntaxNode>();
-	while (stack.length > 0) {
-		const node = stack.pop();
-		if (!node || typeof node !== "object" || visited.has(node)) continue;
-		visited.add(node);
-		if (node.type === "VariableDeclaration" && node.kind === "const") {
-			for (const decl of node.declarations ?? []) {
-				if (decl?.id?.type !== "Identifier" || !decl.id.name) continue;
-				const name = decl.id.name;
-				if (found.has(name)) found.set(name, null);
-				else found.set(name, decl.init ?? null);
-			}
-		}
-		pushSyntaxChildren(node, stack);
+/**
+ * Each reference points at the `const` initializer in its own scope.
+ * `null` means the binding is not a single static initializer.
+ * The same name in another function is a different binding.
+ */
+function lexicalConstInits(ast: {
+	program: { body: SyntaxNode[] };
+}): Map<SyntaxNode, SyntaxNode | null> {
+	const found = new Map<SyntaxNode, SyntaxNode | null>();
+	try {
+		traverse(ast as t.Node, {
+			Identifier(path) {
+				if (!path.isReferencedIdentifier()) return;
+				const binding = path.scope.getBinding(path.node.name);
+				if (!binding || binding.kind !== "const") return;
+				if (binding.constantViolations.length > 0) {
+					found.set(path.node as SyntaxNode, null);
+					return;
+				}
+				if (!binding.path.isVariableDeclarator()) return;
+				if (binding.path.node.id.type !== "Identifier") {
+					found.set(path.node as SyntaxNode, null);
+					return;
+				}
+				found.set(
+					path.node as SyntaxNode,
+					(binding.path.node.init as SyntaxNode | null | undefined) ?? null,
+				);
+			},
+		});
+	} catch {
+		// A scope walk that throws leaves the identifier unknown.
 	}
 	return found;
 }
@@ -465,17 +487,16 @@ function importTargetReachesMark(
 	seen: Set<string>,
 	depth: number,
 	strict: boolean,
-	consts: Map<string, SyntaxNode | null>,
-	resolving: Set<string>,
+	consts: Map<SyntaxNode, SyntaxNode | null>,
+	resolving: Set<SyntaxNode>,
 ): boolean {
 	// `const helper = "./helper.cjs"; require(helper)` is the runtime load.
-	// Follow that one binding. An unbound or shadowed name can be any path.
+	// Follow that binding. An unbound name can be any path.
 	if (node.type === "Identifier" && node.name) {
-		if (resolving.has(node.name)) return strict;
-		if (!consts.has(node.name)) return strict;
-		const init = consts.get(node.name);
-		if (!init) return strict;
-		resolving.add(node.name);
+		if (!consts.has(node)) return strict;
+		const init = consts.get(node);
+		if (!init || resolving.has(init)) return strict;
+		resolving.add(init);
 		const reached = expressionReachesMark(
 			init,
 			fileDir,
@@ -485,7 +506,7 @@ function importTargetReachesMark(
 			consts,
 			resolving,
 		);
-		resolving.delete(node.name);
+		resolving.delete(init);
 		return reached;
 	}
 	const pieces = staticPieces(node);
@@ -544,10 +565,11 @@ function resolvedFileReachesMark(
 	// A static chain from that file to the mark still is.
 	return dynamicSourceReachesMark(
 		real,
-		false,
+		fileUsesScriptJsx(activeScriptJsx, real),
 		seen,
 		depth + 1,
 		!inNodeModules(real),
+		activeScriptJsx,
 	);
 }
 
@@ -557,8 +579,8 @@ function expressionReachesMark(
 	seen: Set<string>,
 	depth: number,
 	strict: boolean,
-	consts: Map<string, SyntaxNode | null>,
-	resolving: Set<string>,
+	consts: Map<SyntaxNode, SyntaxNode | null>,
+	resolving: Set<SyntaxNode>,
 ): boolean {
 	if (!node) return false;
 	if (node.type === "ConditionalExpression") {
@@ -645,18 +667,41 @@ function expressionReachesMark(
 	);
 }
 
+const NO_SCRIPT_JSX: ReadonlySet<string> = new Set();
+/** JSX extensions configured for the scan that is currently on the stack. */
+let activeScriptJsx: ReadonlySet<string> = NO_SCRIPT_JSX;
+
 function dynamicSourceReachesMark(
 	file: string,
 	jsxScript = false,
 	seen = new Set<string>(),
 	depth = 0,
-	strict = true,
+	strict?: boolean,
+	scriptJsx?: ReadonlySet<string>,
 ): boolean {
-	if (depth > 8) return strict;
+	const previous = activeScriptJsx;
+	if (scriptJsx) activeScriptJsx = scriptJsx;
+	try {
+		return scanDynamicSource(file, jsxScript, seen, depth, strict);
+	} finally {
+		activeScriptJsx = previous;
+	}
+}
+
+function scanDynamicSource(
+	file: string,
+	jsxScript: boolean,
+	seen: Set<string>,
+	depth: number,
+	strict: boolean | undefined,
+): boolean {
 	const real = realpathOf(file);
+	// Direct scans of a dependency are not the app file's own require.
+	const failClosed = strict ?? !inNodeModules(real);
+	if (depth > 8) return failClosed;
 	if (seen.has(real)) return false;
 	seen.add(real);
-	if (strict && trustedLibraryRealpath(real)) return false;
+	if (failClosed && trustedLibraryRealpath(real)) return false;
 	let source = "";
 	try {
 		source = readFileSync(file, "utf8");
@@ -668,11 +713,11 @@ function dynamicSourceReachesMark(
 	if (!ast) {
 		// A .cjs file that this parser rejects as a module can still run
 		// under Node or Vite SSR. Fail closed for the app file.
-		if (!strict) return /author-style|authorStyle/.test(source);
+		if (!failClosed) return /author-style|authorStyle/.test(source);
 		return true;
 	}
 	const fileDir = path.dirname(file);
-	const consts = constInits(ast.program.body);
+	const consts = lexicalConstInits(ast);
 	const stack: SyntaxNode[] = [...ast.program.body];
 	while (stack.length > 0) {
 		const node = stack.pop();
@@ -691,7 +736,7 @@ function dynamicSourceReachesMark(
 					fileDir,
 					seen,
 					depth,
-					strict,
+					failClosed,
 					consts,
 					new Set(),
 				)
@@ -722,6 +767,7 @@ function outsiderImportsMark(
 		  }
 		| undefined,
 	base: string | undefined,
+	scriptJsx: ReadonlySet<string> = NO_SCRIPT_JSX,
 ): string | null {
 	if (!metafile?.inputs) return null;
 	for (const [input, info] of Object.entries(metafile.inputs)) {
@@ -740,7 +786,19 @@ function outsiderImportsMark(
 			}
 			return original || target;
 		}
-		if (existsSync(file) && dynamicSourceReachesMark(file)) return file;
+		if (
+			existsSync(file) &&
+			dynamicSourceReachesMark(
+				file,
+				fileUsesScriptJsx(scriptJsx, file),
+				new Set(),
+				0,
+				undefined,
+				scriptJsx,
+			)
+		) {
+			return file;
+		}
 	}
 	return null;
 }
@@ -1262,7 +1320,10 @@ function noteScriptJsx(
 	}
 }
 
-function fileUsesScriptJsx(scriptJsx: Set<string>, file: string): boolean {
+function fileUsesScriptJsx(
+	scriptJsx: ReadonlySet<string>,
+	file: string,
+): boolean {
 	const ext = path.extname(file.split("?")[0] ?? file).toLowerCase();
 	return scriptJsx.has(ext);
 }
@@ -1468,7 +1529,16 @@ export const igniteJsx = createUnplugin<Options>((options, meta) => {
 			const file = filePath(id);
 			// Vite leaves a .cjs require(helper) for Node and SSR. Refuse it
 			// before the bundler emits that call.
-			if (dynamicSourceReachesMark(file, fileUsesScriptJsx(scriptJsx, file))) {
+			if (
+				dynamicSourceReachesMark(
+					file,
+					fileUsesScriptJsx(scriptJsx, file),
+					new Set(),
+					0,
+					undefined,
+					scriptJsx,
+				)
+			) {
 				throw blockedAuthor(file);
 			}
 			await refuseForeignPackageMark(this as unknown as GuardHost, code, id);
@@ -1549,6 +1619,7 @@ export const igniteJsx = createUnplugin<Options>((options, meta) => {
 					const hit = outsiderImportsMark(
 						result.metafile,
 						build.initialOptions.absWorkingDir,
+						scriptJsx,
 					);
 					if (!hit) return null;
 					return deny(blockedAuthor(hit).message);
@@ -1596,6 +1667,10 @@ export const igniteJsx = createUnplugin<Options>((options, meta) => {
 						!dynamicSourceReachesMark(
 							args.path,
 							fileUsesScriptJsx(scriptJsx, args.path),
+							new Set(),
+							0,
+							undefined,
+							scriptJsx,
 						)
 					) {
 						return null;

@@ -29,6 +29,7 @@ declare module "@babel/traverse" {
 		isImportDefaultSpecifier(): this is NodePath<t.ImportDefaultSpecifier>;
 		isImportDeclaration(): this is NodePath<t.ImportDeclaration>;
 		isVariableDeclarator(): this is NodePath<t.VariableDeclarator>;
+		isReferencedIdentifier(): boolean;
 	}
 
 	interface Binding {
@@ -44,6 +45,7 @@ declare module "@babel/traverse" {
 		parent: t.Node,
 		opts: {
 			JSXElement?: (path: NodePath<t.JSXElement>) => void;
+			Identifier?: (path: NodePath<t.Identifier>) => void;
 		},
 	): void;
 
