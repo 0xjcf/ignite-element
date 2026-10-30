@@ -21,6 +21,9 @@ importers:
       '@testing-library/dom':
         specifier: 10.4.1
         version: 10.4.1
+      fast-check:
+        specifier: 4.10.2
+        version: 4.10.2
       jsdom:
         specifier: ^27.4.0
         version: 27.4.0
@@ -871,6 +874,14 @@ packages:
   xstate@5.32.1:
     resolution: {integrity: sha512-IGX9q5vEOplWjVq79edfgjJfVV/lXCup9p/fQGgUabAveZrlRwWJ/mC2iZEE7wswXbWITBCoS7gmoFfcuWAwsQ==}
 
+
+  fast-check@4.10.2:
+    resolution: {integrity: sha512-iK2f+YrcmoeGqk6fA0ea2bptcu/itMIm4NfEozq6N25+aG6h7s5HZbB/k1aV7b5w5sFLMCbbtRUsTVR+BgC3xw==}
+    engines: {node: '>=12.17.0'}
+
+  pure-rand@8.4.2:
+    resolution: {integrity: sha512-vvuOGgcuPJAirlHvuQw1TrOiw7ptaIXXmIbNuiNOY6lNGJJH49PQ1Kj4nd783nPdQhQdicgOjVI2yI/9BD6/Ng==}
+
 snapshots:
 
   '@acemir/cssom@0.9.31': {}
@@ -1495,3 +1506,10 @@ snapshots:
   xmlchars@2.2.0: {}
 
   xstate@5.32.1: {}
+
+
+  fast-check@4.10.2:
+    dependencies:
+      pure-rand: 8.4.2
+
+  pure-rand@8.4.2: {}

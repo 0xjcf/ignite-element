@@ -193,13 +193,13 @@ if (scenario.includes("-live") || scenario.includes("-factory")) {
 			/Unknown command/,
 		);
 		unchanged();
-		const { createProjectionDocumentTarget } = await import("ignite-element");
-		const session = core(
-			createProjectionDocumentTarget({ commitDocument() {} }),
+		const root = await import("ignite-element");
+		assert.equal("createProjectionDocumentTarget" in root, false);
+		assert.equal("createProjectionSpeechTarget" in root, false);
+		assert.throws(
+			() => core({}),
+			/DOM registration requires an element name and renderer/,
 		);
-		session.dispose();
-		session.dispose();
-		await Promise.resolve();
 		unchanged();
 	} finally {
 		Reflect.deleteProperty(globalThis, "document");

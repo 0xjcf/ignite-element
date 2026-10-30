@@ -1,264 +1,78 @@
-# Design: Internal projection runtime over behavior contracts
+# Projection ownership and the headless runtime
 
 ## Status
 
-Accepted replacement direction for the Ignite Element v3 beta design window.
-This document supersedes the earlier registry-oriented proposal.
-
-## Why this changed
-
-Ignite already has the right behavior boundary:
-
-- `states` derives stable UI-facing state from the source snapshot.
-- `get('states')` returns that derived state to headless consumers.
-- `get('schema')` returns a pure immutable minimal catalogue, not a live snapshot.
-- `execute()` expresses intent; source-native availability is projected into states.
-
-## Authoring input and compiled blueprint
-
-`igniteCore(config)` receives executable authoring input. Its config may contain
-source factories or actors, callbacks, selectors, effects, and other values that
-are meaningful only inside the running application. That authoring input is not
-a serialization contract.
-
-`runtime.get('schema')` is the sole public compiled, JSON-safe Ignite blueprint.
-The catalogue describes actual bound own command names and declared event names,
-with unknown input/payload/state schemas represented as null. Configured commands
-remain unknown until real binding; no callback means known empty. It contains no
-live snapshot and acquires no source. Explicit tool input definitions belong to
-the application, not inferred metadata in core discovery.
-
-The blueprint deliberately excludes source actors and factories, effects,
-callbacks, selectors, registries, projection bindings, committers, and
-executable model-authored content. Ignite does not add a second
-`getBlueprint()` method for the same contract.
-
-The rejected design added a public projection registry and selection model on top
-of those contracts. That widened the API surface, split ownership across config
-and runtime, and encouraged projection-specific metadata to leak into
-`igniteCore`.
-
-The replacement keeps the behavior boundary intact and adds only one narrow
-public seam: the callable value returned by `igniteCore(...)`. This document
-names that callable `component`; it can be used either as
-`component(tagName, renderer)` for DOM registration or as `component(target)`
-for a first-party non-DOM projection target.
+The approved v3 simplification removes `createProjectionDocumentTarget`,
+`createProjectionSpeechTarget`, and the one-argument `core(target)` overload.
+This supersedes the earlier opaque-target design. No replacement public API is added.
 
 ## Public contract
 
-The public surface remains intentionally small:
+The canonical flow remains:
 
-- `igniteCore` keeps the current source, states, commands, events, and effects
-  config shape.
-- `component(tagName, renderer)` remains source-compatible.
-- One additive overload is allowed: `component(target)`.
-- `target` is a first-party opaque branded value, not a plain object, callback,
-  registry key, or model-authored document.
-- The one-argument overload returns only a disposable handle:
-  `{ dispose(): void }`.
-- Keyed `get`, `watch`, `on`, `execute`, and owning `dispose` are the public runtime.
-  Native snapshots stay on sources and in paired execution results. Discovery-only
-  component handles do not acquire dummy runtime or disposal methods.
+`source → source-native snapshot → derived states → renderer view`
 
-Focused reads are live and intentionally independent. Two separate getter calls
-can observe different source revisions when a transition occurs between them;
-they do not promise an atomic inspection bundle. Long-lived consumers should
-use the public subscriptions and command results to remain synchronized.
+- Construct behavior with `igniteCore({ source, states, commands, events, effects })`.
+- Register DOM presentation with `core("element-name", renderer)`.
+- Read derived state with `get("states")`; observe it with `watch`.
+- Express intent through commands and `execute`; receive outward facts through `on`.
+- Keep explicit tool schemas in application code. `get("schema")` remains a minimal
+  immutable catalogue with unknown schemas represented by null.
+- Release an observation with its unsubscribe handle. Owning core disposal is separate.
+  Neither operation shuts down a borrowed source.
 
-Everything else stays private:
+No public target, registry, inspection bundle, or additional binding API is needed.
+The source-free root registrar retains its existing DOM registration contract.
 
-- no public `projections:` config,
-- no public registry,
-- no public `bind`, `inspect`, or `project` method,
-- no public inspection type or `getBlueprint()` alias,
-- no public `Projection<Format, Output>` generic,
-- no behavior-presentation metadata threaded through adapters.
+## Application document delivery
 
-## Internal runtime model
+Semantic documents, component catalogs, and backend- or model-driven views are
+application patterns. Ignite does not scan source snapshots for specially named
+`documents`, `projection`, or `speech` fields. An application explicitly projects
+what its consumer needs and validates untrusted data at its own boundary.
 
-Ignite's projection runtime is an internal substrate built around one private,
-coherent inspection read. It captures one deterministic bundle for each
-projection validation and commit attempt:
+For example, voice-workbench's private `observeWorkbenchDocuments` observes the
+ordinary derived view, copies and validates its artifact catalog, and delivers the
+first artifact. It retains revision deduplication, serialized asynchronous delivery,
+error reporting and retry on a subsequent notification. Disposing it unsubscribes;
+the application still owns source shutdown. It uses supported `ignite-element/tools`
+validation, never private framework imports.
 
-- snapshot,
-- derived states,
-- schema,
-- `canExecute`,
-- validated `ProjectionDocument` state,
-- stable revision identity.
+```ts
+const documents = observeWorkbenchDocuments(component, (document) => {
+  source.send({ type: "DOCUMENT_COMMITTED", document: {
+    id: document.id, title: document.title, revision: document.revision,
+  } });
+});
+// At the application boundary:
+documents.dispose();
+```
 
-That private read feeds binders and committers:
+The helper and artifact types belong to the example, not the published Ignite API.
+Its parser retains descriptor-based plain-data copying, explicit semantic node
+allowlists, command/payload validation, and executable-content/URI rejection.
+Raw model-authored JSX, JavaScript, handlers, imports, and DOM references remain
+untrusted. Minimal discovery is not a substitute for an explicit input schema or
+source authorization.
 
-- DOM rendering,
-- accessible JSX mapping,
-- terminal or text outputs,
-- speech outputs,
-- future first-party non-DOM targets.
+## Speech ownership
 
-Committers are imperative-shell adapters. They consume deterministic facts and
-return facts such as success, unsupported capability, or explicit error. They
-do not become the source of truth.
+Voice-workbench's existing source-native speech statechart issues correlated port
+requests. The application driver owns browser speech I/O, cancellation and cleanup.
+Acknowledgement follows an accepted delivery receipt; unrelated source updates do
+not speak again. Explicit replay creates another source-owned attempt. Observation
+cleanup alone does not cancel application work or stop its source.
 
-For each attempt, the projection document and behavior facts come from the same
-captured revision. An asynchronous external commit is not transactional with
-source transitions that occur after that capture. Coherent inspection remains
-an implementation primitive rather than a public bootstrap convenience: there
-is no public `inspect()` method or inspection-bundle type.
+## Retained DOM resources
 
-## ProjectionDocument state
+Canvas refs, keyed identity, hosts/use, cleanup and accessible DOM descriptions
+remain presentation-owned. Removing target delivery does not change these contracts.
+The broader retained `commit` design remains a separate pre-stable proposal; it is
+not introduced by this removal.
 
-Dynamic multi-channel output is represented as actor-owned validated
-`ProjectionDocument` data, not as generated UI code.
+## Bundle work
 
-`ProjectionDocument` is:
-
-- durable source state,
-- revisioned,
-- stable-id based,
-- validated before commit,
-- shared across channels.
-
-The document catalog is semantic and safe. Node families include:
-
-- text,
-- checklist,
-- form,
-- table,
-- timeline,
-- chart,
-- code diff,
-- decision log,
-- command-backed action.
-
-Validation rejects executable or environment-coupled content, including:
-
-- raw JSX,
-- JavaScript,
-- imports,
-- event handlers,
-- DOM references,
-- arbitrary executable strings passed off as UI.
-
-### Projection data trust boundary
-
-Projection documents are rebuilt as canonical JSON-like data before validation
-or commit. Arbitrary business data is preserved only in the documented action,
-form, and table data islands. The URI-bearing keys are `action`, `formaction`,
-`href`, `src`, and `xlink:href`. At those keys, strings and dense arrays use a
-deterministic, non-invoking coercion model: nested arrays are joined with
-commas, null contributes an empty segment, and other JSON scalar or object
-elements contribute the fixed blocker `#`. The completed candidate rejects
-`javascript:`, `vbscript:`, `data:text/html`,
-`data:application/xhtml+xml`, and `data:image/svg+xml` without calling
-application coercion hooks.
-
-This validation begins after an adapter has acquired source state. Redux passes
-store state through directly. MobX observable evaluation through `toJS`,
-Actor-Web snapshot and `toJSON` callbacks, and custom adapter source callbacks
-remain trusted programmatic boundaries outside the canonical projection-data
-contract. XState passes its native snapshot through unchanged; `states(snapshot)`
-derives the consumer-facing read model from that native truth. Ignite does not
-flatten the snapshot or substitute the derived states for source state.
-
-## Command-backed actions
-
-Action nodes never carry closures. They reference existing runtime commands by
-name and are validated against the runtime contract:
-
-1. the command must exist in the actual bound command catalogue,
-2. payload validation uses explicit application definitions where supplied; the
-   minimal core catalogue does not fabricate an input schema,
-3. commit-time availability comes from the captured source-derived
-   `commandAvailability` map through the private predicate, never a new public method.
-
-This keeps actions grounded in the same command system that already powers
-`execute()`.
-
-## LLM authorship flow
-
-LLMs do not generate JSX, DOM fragments, or executable projection code.
-
-Instead:
-
-1. `igniteTools` exposes explicit application definitions as validated tools,
-2. the model issues explicit domain commands such as `upsertProjection` or
-   `patchProjection`,
-3. those commands write validated `ProjectionDocument` state,
-4. Ignite committers consume the resulting durable document.
-
-That keeps provider/model contracts outside `igniteCore` while still letting a
-model author or patch projection content.
-
-## Speech is request-driven
-
-Persistent projections such as DOM, terminal, or text summaries are
-change-driven and should only re-commit when the inspected revision changes.
-
-Speech is different:
-
-- speech is request-driven, not change-driven,
-- authored text or structured speech is first written to durable state,
-- each utterance has a stable identity,
-- a speech committer acknowledges each utterance at most once,
-- rebinding or rereading state must not replay acknowledged speech.
-
-Microphone handling and provider loops remain outside core. Ignite only consumes
-validated state and commits it through an injected speech-capable target.
-
-## Lifecycle rules
-
-The non-DOM overload follows existing runtime ownership semantics:
-
-- shared source:
-  - sessions reuse the shared runtime access path,
-  - disposing one session releases only that binding,
-  - consumer-owned shared sources stay alive;
-- isolated source:
-  - each session owns its own adapter subscription path,
-  - disposing tears down only that session.
-
-DOM and non-DOM sessions can coexist on the same `igniteCore` value.
-Unregistered owner disposal drains all its retained sessions and observations.
-It stops only a private Ignite-created XState actor, never a borrowed source or
-headless Actor-Web factory handle. Registered cores reject owning disposal.
-Non-DOM sessions must not depend on `customElements`, `ShadowRoot`, or DOM
-globals.
-
-## Accessibility relationship
-
-Accessible DOM rendering is one committer over the same validated semantic
-document. Ignite does not solve accessibility by adding a second callback DSL or
-by asking models to write DOM directly. The runtime owns behavior facts and
-validated semantic documents; rendered DOM owns final browser accessibility
-semantics.
-
-## Rejected approaches
-
-- Public `ProjectionRequest` / `ProjectionSpec` / registry selection.
-- Public `project()` / `bind()` / `inspect()` methods.
-- A public inspection-bundle type or `getBlueprint()` alias.
-- Behavior-presentation metadata embedded into `igniteCore` commands or adapter
-  config.
-- Raw model-authored JSX, HTML, or JavaScript as runtime projection output.
-- Committers that own truth instead of consuming actor-owned state.
-
-## Decision
-
-The public boundary is:
-
-- executable authoring input through `igniteCore(config)`,
-- `get('schema')` as the sole compiled JSON-safe Ignite blueprint,
-- focused live getters, availability reads, command execution, and
-  subscriptions,
-- and exactly one narrow non-DOM overload through an opaque target.
-
-The private projection boundary is:
-
-- a private coherent inspection primitive,
-- a private `Projection<Format, Output>` substrate,
-- actor-owned validated `ProjectionDocument` state,
-- command-backed semantic actions,
-- and request-driven speech with stable utterance identity.
-
-No public `inspect()` method, inspection-bundle type, registry, or
-`getBlueprint()` alias crosses that boundary.
+This stage removes the target-only validation, inspection and binding paths from
+the package. Internal dependency separation is a later stage. The callable core
+still includes DOM registration, so a smaller headless bundle is not evidence that
+all presentation dependencies have been separated.

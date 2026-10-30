@@ -18,10 +18,6 @@ export type {
 	ActorWebConfig,
 	IgniteCoreReturn,
 } from "./igniteCore/actorWebTypes";
-export {
-	createProjectionDocumentTarget,
-	createProjectionSpeechTarget,
-} from "./runtime/projectionTargets";
 export type {
 	IgniteAgentEventListener,
 	IgniteAgentRuntime,

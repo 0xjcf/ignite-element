@@ -58,9 +58,9 @@ try {
 
 Tag-and-renderer registration requires DOM; imports and headless construction do not create browser globals or hidden elements.
 
-Existing opaque non-DOM projection targets remain supported.
-
-A retained DOM element is not a projection target.
+The target factories and one-argument `core(target)` overload have been removed.
+Use `watch` for application document consumers and source-owned ports for speech
+I/O. Canvas refs, hosts, keyed identity, and DOM accessibility are unchanged.
 
 ## Methods
 

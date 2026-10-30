@@ -66,6 +66,7 @@
 	"devDependencies": {
 		"@babel/core": "^7.28.5",
 		"@babel/preset-react": "7.28.5",
+		"@ignite-element/renderer": "workspace:*",
 		"@rspack/core": "^1.6.0",
 		"@types/jsdom": "^27.0.0",
 		"esbuild": "^0.25.0",

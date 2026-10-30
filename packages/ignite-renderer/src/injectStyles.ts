@@ -24,6 +24,15 @@ const WeakRefImpl = (
 	globalThis as typeof globalThis & { WeakRef?: WeakRefConstructor }
 ).WeakRef;
 let warnedPendingStyleKey: string | null = null;
+let installed = false;
+
+/** Activate on stylesheet use, rather than on a renderer/configuration read. */
+export function prepareStyleInjection(): void {
+	if (installed) return;
+	// Queue replay calls injectStyles recursively, so publish before flushing.
+	installed = true;
+	installStyleInject(injectStyles, replayParkedStyles);
+}
 
 // Debug system
 enum DebugNamespace {
@@ -226,6 +235,7 @@ export default function injectStyles(
 	shadowRoot: ShadowRoot,
 	connectedAtQueue?: boolean | null,
 ): void {
+	prepareStyleInjection();
 	// null is detach(). Drop the queued entry without clearing its stamp.
 	if (connectedAtQueue === null) {
 		const entry = pendingRootIndex.get(shadowRoot);
@@ -409,5 +419,3 @@ export function flushPendingStyles(): void {
 		injectStyles(root);
 	}
 }
-
-installStyleInject(injectStyles);

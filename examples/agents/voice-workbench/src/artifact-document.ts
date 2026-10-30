@@ -1,8 +1,5 @@
-import {
-	containsExecutableUri,
-	isUriBearingKey,
-} from "@ignite-element/renderer";
-import { validateToolInputValue } from "../tools/toolInput";
+import type { IgniteSchemaValue } from "ignite-element";
+import { resolveCall, type ToolInputSchema } from "ignite-element/tools";
 import type {
 	ProjectionActionNode,
 	ProjectionChartNode,
@@ -13,15 +10,16 @@ import type {
 	ProjectionDocumentNode,
 	ProjectionDocumentPatch,
 	ProjectionFormNode,
-	ProjectionSpeechRequest,
 	ProjectionTableNode,
 	ProjectionTextNode,
 	ProjectionTimelineNode,
-} from "../types/agent";
-import type { IgniteSchemaObject, IgniteSchemaValue } from "../types/schema";
+} from "./artifact-types";
+import { containsExecutableUri, isUriBearingKey } from "./artifact-uri";
+
+type IgniteSchemaObject = { [key: string]: IgniteSchemaValue };
 
 type ValidationContext = {
-	schema: { commands: Record<string, Record<string, IgniteSchemaValue>> };
+	schema: { commands: Record<string, object> };
 	canExecute(commandName: string): boolean;
 };
 
@@ -31,10 +29,6 @@ type ProjectionDocumentParseResult =
 
 type ProjectionDocumentCollectionParseResult =
 	| { ok: true; documents: ProjectionDocument[] }
-	| { ok: false; issues: string[] };
-
-type ProjectionSpeechParseResult =
-	| { ok: true; speech: ProjectionSpeechRequest }
 	| { ok: false; issues: string[] };
 
 type ProjectionDocumentPatchParseResult =
@@ -591,47 +585,6 @@ function readArrayOfObjects(
 	return items;
 }
 
-export function parseProjectionSpeechRequest(
-	speech: unknown,
-): ProjectionSpeechParseResult {
-	const issues: string[] = [];
-	const materializedSpeech = materializeRootObject(speech, "speech", issues);
-	if (!materializedSpeech) {
-		return {
-			ok: false,
-			issues,
-		};
-	}
-	const id = readString(materializedSpeech.id, "speech.id", issues);
-	const text = readString(materializedSpeech.text, "speech.text", issues);
-	let status: ProjectionSpeechRequest["status"] | null = null;
-	if (
-		materializedSpeech.status === "pending" ||
-		materializedSpeech.status === "acknowledged"
-	) {
-		status = materializedSpeech.status;
-	} else {
-		issues.push("speech.status: required");
-	}
-	const voice = readOptionalString(
-		materializedSpeech.voice,
-		"speech.voice",
-		issues,
-	);
-	if (!id || !text || status === null || issues.length > 0) {
-		return { ok: false, issues };
-	}
-	return {
-		ok: true,
-		speech: {
-			id,
-			text,
-			status,
-			...(voice ? { voice } : {}),
-		},
-	};
-}
-
 export function parseProjectionDocument(
 	document: unknown,
 ): ProjectionDocumentParseResult {
@@ -1092,7 +1045,7 @@ function validateActionNode(
 
 	const input = command.input;
 	if (isIgniteSchemaObject(input)) {
-		for (const issue of validateToolInputValue(
+		for (const issue of validateArtifactInput(
 			input,
 			node.payload,
 			`${path}.payload`,
@@ -1503,21 +1456,23 @@ export function applyProjectionDocumentPatch(
 	}
 }
 
-export function isPendingSpeechRequest(
-	speech: ProjectionSpeechRequest | null | undefined,
-): speech is ProjectionSpeechRequest {
-	return speech?.status === "pending";
-}
-
-export function validateProjectionSelection(
-	document: ProjectionDocument,
-	inspection: {
-		schema: { commands: Record<string, Record<string, IgniteSchemaValue>> };
-		canExecute(commandName: string): boolean;
-	},
+// Use the supported tool boundary for explicit application input schemas. This
+// performs validation only; command execution and authorization remain source-owned.
+function validateArtifactInput(
+	schema: ToolInputSchema,
+	value: unknown,
+	path: string,
 ): string[] {
-	return validateProjectionDocument(document, {
-		schema: inspection.schema,
-		canExecute: inspection.canExecute,
-	});
+	const result = resolveCall(
+		[{ name: "artifact", inputSchema: schema, gated: false, read: true }],
+		"artifact",
+		value,
+	);
+	return result.ok
+		? []
+		: result.error.kind === "InvalidInput"
+			? result.error.issues.map((issue) =>
+					issue.replace(/^input(?=[:.[])/, path),
+				)
+			: [`${path}: invalid action input`];
 }

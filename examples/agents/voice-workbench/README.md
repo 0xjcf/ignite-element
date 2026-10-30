@@ -40,3 +40,20 @@ process the launcher owns. If a compatible server is already running on port
 See [architecture and validation](architecture-and-validation.md) for the source
 machine, typed ports, lifecycle, provider configuration, operational limits,
 terminal/headless consumers, and complete validation commands.
+
+## Document and speech delivery
+
+The example uses supported Ignite registration and headless APIs. Its private
+`observeWorkbenchDocuments` helper watches derived artifacts, validates canonical
+semantic data and explicit action schemas, serializes commits, and deduplicates
+accepted revisions. Errors remain visible and may retry on the next notification.
+It selects the first artifact for the document receipt; the browser's active
+artifact remains source-owned selection.
+
+The existing speech statechart and application ports own delivery, correlated
+acknowledgement, cancellation, and explicit replay. No target factories or
+`core(target)` calls are needed. The application owns source shutdown; ending a
+document observation only releases its subscription.
+
+Property tests use fast-check seed `1801028`. These complement the source revision,
+voice, speech, DOM accessibility, and browser-entry regressions.

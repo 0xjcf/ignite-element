@@ -7,10 +7,6 @@
 
 export { event, StateScope } from "@ignite-element/core";
 export type { Host, HostContext, HostProps } from "./hosts/types";
-export {
-	createProjectionDocumentTarget,
-	createProjectionSpeechTarget,
-} from "./runtime/projectionTargets";
 export { igniteCore } from "./sourceFreeCore";
 export type {
 	IgniteAgentEventListener,

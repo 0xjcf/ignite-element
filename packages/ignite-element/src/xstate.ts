@@ -43,10 +43,6 @@ export type { IgniteCoreReturn } from "./igniteCore/publicTypes";
 
 import { igniteCoreXState as baseIgniteCoreXState } from "./igniteCore/xstate";
 
-export {
-	createProjectionDocumentTarget,
-	createProjectionSpeechTarget,
-} from "./runtime/projectionTargets";
 export type {
 	IgniteAgentEventListener,
 	IgniteAgentRuntime,

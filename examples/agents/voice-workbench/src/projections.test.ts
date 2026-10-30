@@ -1,8 +1,5 @@
-import {
-	createProjectionDocumentTarget,
-	createProjectionSpeechTarget,
-} from "ignite-element/xstate";
 import { describe, expect, it, vi } from "vitest";
+import { observeWorkbenchDocuments } from "./artifact-observer";
 import {
 	createVoiceWorkbenchSessionActor,
 	type VoiceWorkbenchSessionActor,
@@ -81,27 +78,16 @@ const completeCurrentTurn = (
 	});
 };
 
-describe("voice workbench projection targets", () => {
-	it("commits documents and acknowledged speech through direct component targets", async () => {
+describe("voice workbench application projections", () => {
+	it("commits documents through observation and acknowledges source-owned speech", async () => {
 		const source = createVoiceWorkbenchSessionActor().start();
 		const component = createVoiceWorkbenchComponent(source);
 		const commitDocument = vi.fn();
-		const commitSpeech = vi.fn();
 		let documentSession: { dispose(): void } | undefined;
-		let speechSession: { dispose(): void } | undefined;
 
 		try {
 			makeAvailable(source);
-			documentSession = component(
-				createProjectionDocumentTarget({ commitDocument }),
-			);
-			speechSession = component(
-				createProjectionSpeechTarget({
-					commitSpeech,
-					acknowledgeCommandName: "acknowledgeSpeech",
-					resolveAcknowledgePayload: ({ id }) => ({ id }),
-				}),
-			);
+			documentSession = observeWorkbenchDocuments(component, commitDocument);
 
 			await component.execute({
 				command: "submitPrompt",
@@ -139,21 +125,22 @@ describe("voice workbench projection targets", () => {
 				input: { text: "Decision captured.", speech: "Decision captured." },
 			});
 			completeCurrentTurn(source, component);
-			await vi.waitFor(() => {
-				expect(commitSpeech).toHaveBeenCalledWith(
-					expect.objectContaining({
-						text: "Decision captured.",
-						status: "pending",
-					}),
-				);
-				expect(component.get("states").speech).toMatchObject({
-					text: "Decision captured.",
-					status: "acknowledged",
-				});
+			const speech = component.get("states").speech;
+			expect(speech).toMatchObject({
+				text: "Decision captured.",
+				status: "pending",
+			});
+			if (!speech) throw new Error("Expected source-owned speech request");
+			await component.execute({
+				command: "acknowledgeSpeech",
+				input: { id: speech.id },
+			});
+			expect(component.get("states").speech).toMatchObject({
+				status: "acknowledged",
 			});
 		} finally {
 			documentSession?.dispose();
-			speechSession?.dispose();
+			component.dispose();
 			source.stop();
 		}
 	});
