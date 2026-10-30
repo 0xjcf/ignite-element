@@ -33,6 +33,15 @@ const traverse =
 
 const SOURCE = /\.[cm]?[jt]sx?$/;
 
+/** Only these files can execute a require or import. JSON cannot. */
+function isExecutableModule(file: string): boolean {
+	const clean = (file.split("?")[0] ?? file)
+		.split("\\")
+		.join("/")
+		.toLowerCase();
+	return SOURCE.test(clean);
+}
+
 function filePath(id: string): string {
 	const query = id.indexOf("?");
 	return query < 0 ? id : id.slice(0, query);
@@ -485,7 +494,6 @@ function importTargetReachesMark(
 	node: SyntaxNode,
 	fileDir: string,
 	seen: Set<string>,
-	depth: number,
 	strict: boolean,
 	consts: Map<SyntaxNode, SyntaxNode | null>,
 	resolving: Set<SyntaxNode>,
@@ -501,7 +509,6 @@ function importTargetReachesMark(
 			init,
 			fileDir,
 			seen,
-			depth,
 			strict,
 			consts,
 			resolving,
@@ -513,7 +520,7 @@ function importTargetReachesMark(
 	// An identifier or other non-literal can be any path at runtime.
 	if (!pieces) return strict;
 	if (!pieces.dynamic) {
-		return staticSpecifierReachesMark(pieces.prefix, fileDir, seen, depth);
+		return staticSpecifierReachesMark(pieces.prefix, fileDir, seen);
 	}
 	const dir = directoryUnder(pieces.prefix, fileDir);
 	if (!dir) return false;
@@ -524,7 +531,6 @@ function staticSpecifierReachesMark(
 	spec: string,
 	fileDir: string,
 	seen: Set<string>,
-	depth: number,
 ): boolean {
 	if (isBlockedAuthorSpecifier(spec) || /author-style|authorStyle/.test(spec)) {
 		return true;
@@ -542,14 +548,10 @@ function staticSpecifierReachesMark(
 			return false;
 		}
 	}
-	return resolvedFileReachesMark(resolved, seen, depth);
+	return resolvedFileReachesMark(resolved, seen);
 }
 
-function resolvedFileReachesMark(
-	file: string,
-	seen: Set<string>,
-	depth: number,
-): boolean {
+function resolvedFileReachesMark(file: string, seen: Set<string>): boolean {
 	const real = realpathOf(file);
 	if (isMarkFile(real) || isAuthorBridge(real)) return true;
 	if (trustedLibraryRealpath(real)) return false;
@@ -567,7 +569,6 @@ function resolvedFileReachesMark(
 		real,
 		fileUsesScriptJsx(activeScriptJsx, real),
 		seen,
-		depth + 1,
 		!inNodeModules(real),
 		activeScriptJsx,
 	);
@@ -577,7 +578,6 @@ function expressionReachesMark(
 	node: SyntaxNode | null | undefined,
 	fileDir: string,
 	seen: Set<string>,
-	depth: number,
 	strict: boolean,
 	consts: Map<SyntaxNode, SyntaxNode | null>,
 	resolving: Set<SyntaxNode>,
@@ -589,7 +589,6 @@ function expressionReachesMark(
 				node.consequent,
 				fileDir,
 				seen,
-				depth,
 				strict,
 				consts,
 				resolving,
@@ -598,7 +597,6 @@ function expressionReachesMark(
 				node.alternate,
 				fileDir,
 				seen,
-				depth,
 				strict,
 				consts,
 				resolving,
@@ -611,7 +609,6 @@ function expressionReachesMark(
 				node.left,
 				fileDir,
 				seen,
-				depth,
 				strict,
 				consts,
 				resolving,
@@ -620,7 +617,6 @@ function expressionReachesMark(
 				node.right,
 				fileDir,
 				seen,
-				depth,
 				strict,
 				consts,
 				resolving,
@@ -629,15 +625,7 @@ function expressionReachesMark(
 	}
 	if (node.type === "SequenceExpression") {
 		return (node.expressions ?? []).some((item) =>
-			expressionReachesMark(
-				item,
-				fileDir,
-				seen,
-				depth,
-				strict,
-				consts,
-				resolving,
-			),
+			expressionReachesMark(item, fileDir, seen, strict, consts, resolving),
 		);
 	}
 	if (
@@ -650,7 +638,6 @@ function expressionReachesMark(
 			node.expression,
 			fileDir,
 			seen,
-			depth,
 			strict,
 			consts,
 			resolving,
@@ -660,7 +647,6 @@ function expressionReachesMark(
 		node,
 		fileDir,
 		seen,
-		depth,
 		strict,
 		consts,
 		resolving,
@@ -675,14 +661,13 @@ function dynamicSourceReachesMark(
 	file: string,
 	jsxScript = false,
 	seen = new Set<string>(),
-	depth = 0,
 	strict?: boolean,
 	scriptJsx?: ReadonlySet<string>,
 ): boolean {
 	const previous = activeScriptJsx;
 	if (scriptJsx) activeScriptJsx = scriptJsx;
 	try {
-		return scanDynamicSource(file, jsxScript, seen, depth, strict);
+		return scanDynamicSource(file, jsxScript, seen, strict);
 	} finally {
 		activeScriptJsx = previous;
 	}
@@ -692,15 +677,17 @@ function scanDynamicSource(
 	file: string,
 	jsxScript: boolean,
 	seen: Set<string>,
-	depth: number,
 	strict: boolean | undefined,
 ): boolean {
 	const real = realpathOf(file);
 	// Direct scans of a dependency are not the app file's own require.
 	const failClosed = strict ?? !inNodeModules(real);
-	if (depth > 8) return failClosed;
+	// A cycle is not a new path to the mark. Check this before reading.
 	if (seen.has(real)) return false;
 	seen.add(real);
+	// package.json and other data files are not executed, even when a
+	// script string contains the text require().
+	if (!isExecutableModule(real)) return false;
 	if (failClosed && trustedLibraryRealpath(real)) return false;
 	let source = "";
 	try {
@@ -735,7 +722,6 @@ function scanDynamicSource(
 					target,
 					fileDir,
 					seen,
-					depth,
 					failClosed,
 					consts,
 					new Set(),
@@ -792,7 +778,6 @@ function outsiderImportsMark(
 				file,
 				fileUsesScriptJsx(scriptJsx, file),
 				new Set(),
-				0,
 				undefined,
 				scriptJsx,
 			)
@@ -1534,7 +1519,6 @@ export const igniteJsx = createUnplugin<Options>((options, meta) => {
 					file,
 					fileUsesScriptJsx(scriptJsx, file),
 					new Set(),
-					0,
 					undefined,
 					scriptJsx,
 				)
@@ -1668,7 +1652,6 @@ export const igniteJsx = createUnplugin<Options>((options, meta) => {
 							args.path,
 							fileUsesScriptJsx(scriptJsx, args.path),
 							new Set(),
-							0,
 							undefined,
 							scriptJsx,
 						)

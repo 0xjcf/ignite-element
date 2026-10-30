@@ -639,4 +639,165 @@ export const ready = [loadSafe, loadMark];
 			rmSync(dir, { recursive: true, force: true });
 		}
 	});
+
+	it("allows nine literal require edges that never reach a mark", async () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "ignite-require-chain-"));
+		const entry = path.join(dir, "entry.cjs");
+		writeFileSync(entry, 'module.exports = require("./step-1.cjs");\n');
+		for (let step = 1; step <= 9; step += 1) {
+			const next =
+				step === 9
+					? ""
+					: `module.exports = require("./step-${step + 1}.cjs");\n`;
+			writeFileSync(
+				path.join(dir, `step-${step}.cjs`),
+				step === 9 ? "module.exports = { leaf: true };\n" : next,
+			);
+		}
+		try {
+			const result = await esbuild.build({
+				absWorkingDir: dir,
+				entryPoints: [entry],
+				bundle: true,
+				write: false,
+				format: "cjs",
+				platform: "node",
+				plugins: [igniteEsbuild()],
+				logLevel: "silent",
+			});
+			expect(result.outputFiles.map((file) => file.text).join("\n")).toContain(
+				"leaf",
+			);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("allows nine literal import edges that never reach a mark", async () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "ignite-import-chain-"));
+		const entry = path.join(dir, "entry.js");
+		writeFileSync(entry, 'export const loaded = import("./step-1.js");\n');
+		for (let step = 1; step <= 9; step += 1) {
+			writeFileSync(
+				path.join(dir, `step-${step}.js`),
+				step === 9
+					? "export const leaf = true;\n"
+					: `export const loaded = import("./step-${step + 1}.js");\n`,
+			);
+		}
+		try {
+			const result = await esbuild.build({
+				absWorkingDir: dir,
+				entryPoints: [entry],
+				bundle: true,
+				write: false,
+				format: "esm",
+				platform: "neutral",
+				plugins: [igniteEsbuild()],
+				logLevel: "silent",
+			});
+			expect(result.outputFiles.map((file) => file.text).join("\n")).toContain(
+				"leaf",
+			);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("allows a nine-edge require cycle back to a visited file", async () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "ignite-require-cycle-"));
+		const entry = path.join(dir, "entry.cjs");
+		writeFileSync(
+			entry,
+			'module.exports = { cycle: true, next: require("./step-1.cjs") };\n',
+		);
+		for (let step = 1; step <= 8; step += 1) {
+			const target = step === 8 ? "./entry.cjs" : `./step-${step + 1}.cjs`;
+			writeFileSync(
+				path.join(dir, `step-${step}.cjs`),
+				`module.exports = require(${JSON.stringify(target)});\n`,
+			);
+		}
+		try {
+			const result = await esbuild.build({
+				absWorkingDir: dir,
+				entryPoints: [entry],
+				bundle: true,
+				write: false,
+				format: "cjs",
+				platform: "node",
+				plugins: [igniteEsbuild()],
+				logLevel: "silent",
+			});
+			expect(result.outputFiles.map((file) => file.text).join("\n")).toContain(
+				"cycle",
+			);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("still refuses nine literal require edges that reach the author mark", async () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "ignite-require-chain-mark-"));
+		writeFileSync(
+			path.join(dir, "author-style-mark.es.js"),
+			"exports.igniteAuthorStyle = function (css) { return { css }; };\n",
+		);
+		const entry = path.join(dir, "entry.cjs");
+		writeFileSync(entry, 'module.exports = require("./step-1.cjs");\n');
+		for (let step = 1; step <= 9; step += 1) {
+			writeFileSync(
+				path.join(dir, `step-${step}.cjs`),
+				step === 9
+					? 'module.exports = require("./author-style-mark.es.js");\n'
+					: `module.exports = require("./step-${step + 1}.cjs");\n`,
+			);
+		}
+		try {
+			await expect(
+				esbuild.build({
+					absWorkingDir: dir,
+					entryPoints: [entry],
+					bundle: true,
+					write: false,
+					format: "cjs",
+					platform: "node",
+					plugins: [igniteEsbuild()],
+					logLevel: "silent",
+				}),
+			).rejects.toThrow(/cannot mark CSS/);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("allows require of package.json when a script string contains require", async () => {
+		const dir = mkdtempSync(path.join(tmpdir(), "ignite-json-require-"));
+		writeFileSync(
+			path.join(dir, "package.json"),
+			`${JSON.stringify({
+				name: "app",
+				scripts: { start: `node -e "require('node:fs')"` },
+			})}\n`,
+		);
+		const entry = path.join(dir, "entry.cjs");
+		writeFileSync(entry, 'module.exports = require("./package.json");\n');
+		try {
+			const result = await esbuild.build({
+				absWorkingDir: dir,
+				entryPoints: [entry],
+				bundle: true,
+				write: false,
+				format: "cjs",
+				platform: "node",
+				plugins: [igniteEsbuild()],
+				logLevel: "silent",
+			});
+			expect(result.outputFiles.map((file) => file.text).join("\n")).toContain(
+				"node:fs",
+			);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
 });
