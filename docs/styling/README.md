@@ -29,7 +29,9 @@ Add `@ignite-element/jsx-plugin` once in the bundler config. Babel-only and tsc-
 
 The bundler plugin uses the file's `@jsxImportSource` pragma, emitted JSX runtime imports, the configured toolchain import source, or the nearest `tsconfig.json` / `jsconfig.json` (including `extends`). Unannotated files without an Ignite runtime selection keep their string children. React and Preact files do not receive Ignite author marks.
 
-Vite and esbuild expose their `jsxImportSource` to the plugin. For a compiler that does not expose it, pass `igniteJsx({ jsxImportSource: "ignite-element/jsx" })` as the fallback, or annotate the Ignite component file. A per-file pragma takes precedence, so mixed projects can select Ignite on individual files.
+Vite and esbuild expose their `jsxImportSource` to the plugin. For a compiler that does not expose it, pass `igniteJsx({ jsxImportSource: "ignite-element/jsx" })` as the fallback, or annotate the Ignite component file. A per-file pragma takes precedence, so mixed projects can select Ignite on individual files. A file with more than one `@jsxImportSource` comment fails the build, so the plugin and the bundler cannot pick different runtimes.
+
+Supported bundlers are Vite, esbuild, Rollup, Rolldown, webpack, and Rspack. JSX in a `.js`, `.mjs`, or `.cjs` file is parsed when that extension's loader is JSX: Vite and esbuild `jsx` or `tsx`, or a webpack or Rspack rule whose loader is `babel-loader`. `.ts`, `.mts`, and `.cts` stay TypeScript, so an angle-bracket assertion still parses. A `.cjs` `require()` whose target can load the author-style mark fails the build. The plugin trusts only realpaths inside the resolved Ignite package roots. There is no public mark API.
 
 The Babel and TypeScript entries still require the bundler plugin. It adopts static author-style children in preserved JSX and in ESM automatic-runtime output (`jsx`, `jsxs`, or `jsxDEV`), including an emitted `.js` file from a `.tsx` input. Dynamic arguments, escaped marker functions, and marks outside a style child are rejected.
 
