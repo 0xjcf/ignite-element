@@ -1,5 +1,6 @@
 // @ts-check
 
+import { unified } from "@astrojs/markdown-remark";
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import remarkGfm from "remark-gfm";
@@ -10,11 +11,10 @@ import starlightVersions from "starlight-versions";
 export default defineConfig({
 	site: "https://0xjcf.github.io",
 	base: "/ignite-element",
-	// Astro's built-in GFM isn't reaching the Starlight MDX pipeline in this
-	// Astro 6 / Starlight 0.39 setup, so GFM tables render as literal pipes.
-	// Apply remark-gfm explicitly so `| … |` tables (and other GFM) render.
+	// Astro 7 renders Markdown with Sätteri unless a unified processor is set.
+	// Starlight's MDX pipeline still needs remark-gfm so `| … |` tables render.
 	markdown: {
-		remarkPlugins: [remarkGfm],
+		processor: unified({ remarkPlugins: [remarkGfm] }),
 	},
 	integrations: [
 		starlight({

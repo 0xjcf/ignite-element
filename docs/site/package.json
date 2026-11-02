@@ -23,8 +23,9 @@
 		"check:versions:built": "node scripts/check-version-routing.mjs --built"
 	},
 	"dependencies": {
-		"@astrojs/starlight": "0.39.3",
-		"astro": "6.4.3",
+		"@astrojs/markdown-remark": "7.3.1",
+		"@astrojs/starlight": "0.42.8",
+		"astro": "7.3.3",
 		"sharp": "0.34.5",
 		"starlight-versions": "0.9.0"
 	},
@@ -37,7 +38,7 @@
 		"@playwright/test": "1.57.0",
 		"ignite-element": "3.0.0-beta.11",
 		"remark-gfm": "4.0.1",
-		"starlight-llms-txt": "0.10.0",
+		"starlight-llms-txt": "0.12.0",
 		"typescript": "5.9.3",
 		"yaml": "2.9.0"
 	}
