@@ -4,6 +4,10 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  tar: ^7.5.2
+  read-yaml-file>js-yaml: 3.15.2
+
 importers:
 
   .:
