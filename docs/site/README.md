@@ -18,7 +18,7 @@ Run from repo root:
 | Command | Action |
 | --- | --- |
 | `pnpm --filter docs-site dev` | Start the docs dev server at `localhost:4321`. |
-| `pnpm --filter docs-site build` | Build the static site to `docs/site/dist`. |
+| `pnpm --filter docs-site build` | Build the static site to `docs/site/dist`. CI uses this command. The build decodes committed rasters, and `astro build` runs that same check. |
 | `pnpm --filter docs-site preview` | Preview the built site locally. |
 | `pnpm --filter docs-site check:versions` | Check source-level version routing, beta disclosure, installation, and immutable-link contracts. |
 | `pnpm --filter docs-site check:versions:built` | Check built routes, canonical URLs, version labels, and LLM output. |
