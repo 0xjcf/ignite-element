@@ -36,7 +36,7 @@ function pngMissingEndChunk(buffer) {
 	return true;
 }
 
-async function walk(dir, fixtureRoot) {
+async function walk(dir) {
 	let entries;
 	try {
 		entries = await readdir(dir, { withFileTypes: true });
@@ -48,8 +48,7 @@ async function walk(dir, fixtureRoot) {
 	for (const entry of entries) {
 		const path = join(dir, entry.name);
 		if (entry.isDirectory()) {
-			if (path === fixtureRoot) continue;
-			files.push(...(await walk(path, fixtureRoot)));
+			files.push(...(await walk(path)));
 		} else if (rasterExtensions.has(extname(entry.name).toLowerCase())) {
 			files.push(path);
 		}
@@ -58,10 +57,9 @@ async function walk(dir, fixtureRoot) {
 }
 
 export async function checkCommittedImages(root = siteRoot) {
-	const fixtureRoot = join(root, "src/components/fixtures");
 	const failures = [];
 	for (const dir of ["public", "src"]) {
-		for (const file of await walk(join(root, dir), fixtureRoot)) {
+		for (const file of await walk(join(root, dir))) {
 			const input = await readFile(file);
 			const relativePath = relative(root, file);
 			// libvips 8.18 does not call png_read_end(), so failOn "warning"

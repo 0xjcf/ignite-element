@@ -10,11 +10,11 @@ const repoRoot = path.resolve(siteRoot, "../..");
 const script = path.join(siteRoot, "scripts/check-committed-images.mjs");
 const corruptFixture = path.join(
 	siteRoot,
-	"src/components/fixtures/corrupt-header.jpeg",
+	"scripts/fixtures/committed-images/corrupt-header.jpeg",
 );
 const missingEndFixture = path.join(
 	siteRoot,
-	"src/components/fixtures/missing-iend.png",
+	"scripts/fixtures/committed-images/missing-iend.png",
 );
 
 function runCheck() {
@@ -66,6 +66,45 @@ test("committed image hardening", { concurrency: false }, async (t) => {
 		const source = fs.readFileSync(script, "utf8");
 		assert.match(source, /failOn:\s*"warning"/);
 	});
+
+	await t.test(
+		"truncated png imported through Image from the old exempt path fails the check",
+		() => {
+			const png = path.join(
+				siteRoot,
+				"src/components/fixtures/missing-iend.png",
+			);
+			const page = path.join(siteRoot, "src/pages/truncated-image-probe.astro");
+			const markup = `---
+import { Image } from "astro:assets";
+import truncated from "../components/fixtures/missing-iend.png";
+---
+<Image src={truncated} alt="Truncated fixture" />
+`;
+			fs.mkdirSync(path.dirname(png), { recursive: true });
+			fs.copyFileSync(missingEndFixture, png);
+			fs.mkdirSync(path.dirname(page), { recursive: true });
+			fs.writeFileSync(page, markup);
+			try {
+				assert.match(
+					fs.readFileSync(page, "utf8"),
+					/import \{ Image \} from "astro:assets"/,
+				);
+				assert.match(fs.readFileSync(page, "utf8"), /<Image\s/);
+				const result = runCheck();
+				assert.notEqual(result.status, 0, result.output);
+				assert.match(
+					result.output,
+					/src[/\\]components[/\\]fixtures[/\\]missing-iend\.png/,
+				);
+			} finally {
+				fs.rmSync(page, { force: true });
+				fs.rmSync(png, { force: true });
+				fs.rmdirSync(path.dirname(page));
+				fs.rmdirSync(path.dirname(png));
+			}
+		},
+	);
 
 	await t.test("docs and CI builds cannot skip the image check", () => {
 		const pkg = JSON.parse(
