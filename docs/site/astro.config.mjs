@@ -1,11 +1,33 @@
 // @ts-check
 
+import { fileURLToPath } from "node:url";
 import { unified } from "@astrojs/markdown-remark";
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import remarkGfm from "remark-gfm";
 import starlightLlmsTxt from "starlight-llms-txt";
 import starlightVersions from "starlight-versions";
+import { checkCommittedImages } from "./scripts/check-committed-images.mjs";
+
+const siteRoot = fileURLToPath(new URL(".", import.meta.url));
+
+function committedImageCheck() {
+	return {
+		name: "committed-images",
+		hooks: {
+			"astro:build:start": async () => {
+				const failures = await checkCommittedImages(siteRoot);
+				if (failures.length > 0) {
+					throw new Error(
+						`Committed docs images failed to decode:\n${failures
+							.map((failure) => `- ${failure}`)
+							.join("\n")}`,
+					);
+				}
+			},
+		},
+	};
+}
 
 // https://astro.build/config
 export default defineConfig({
@@ -17,6 +39,7 @@ export default defineConfig({
 		processor: unified({ remarkPlugins: [remarkGfm] }),
 	},
 	integrations: [
+		committedImageCheck(),
 		starlight({
 			title: "Ignite Element",
 			plugins: [

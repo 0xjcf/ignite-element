@@ -7,14 +7,14 @@
 	"scripts": {
 		"dev": "astro dev",
 		"start": "astro dev",
-		"build": "astro build",
+		"build": "node scripts/check-committed-images.mjs && astro build",
 		"check:astro": "astro check",
 		"check:accessibility": "node scripts/check-accessibility.mjs",
 		"preview": "astro preview",
 		"astro": "astro",
 		"check:contrast": "node scripts/check-contrast.mjs",
 		"test:browser-audits": "node --test scripts/browser-audits.test.mjs",
-		"test:contrast": "astro build && pnpm run test:browser-audits && pnpm run check:contrast",
+		"test:contrast": "pnpm run build && pnpm run test:browser-audits && pnpm run check:contrast",
 		"check:docs": "node scripts/check-doc-examples.mjs && node scripts/check-connected-examples.mjs",
 		"check:publication": "node --test scripts/check-docs-publication-permissions.test.mjs scripts/review-regressions.test.mjs scripts/check-links.test.mjs && node scripts/check-docs-publication-contract.mjs",
 		"check:links": "node scripts/check-links.mjs",
@@ -26,7 +26,7 @@
 		"@astrojs/markdown-remark": "7.3.1",
 		"@astrojs/starlight": "0.42.8",
 		"astro": "7.3.3",
-		"sharp": "0.34.5",
+		"sharp": "0.35.5",
 		"starlight-versions": "0.9.0"
 	},
 	"devDependencies": {

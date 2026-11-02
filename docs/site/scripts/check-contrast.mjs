@@ -227,7 +227,7 @@ function geometryInPage({ sel, scaleVars }) {
 async function main() {
 	if (!(await stat(DIST).catch(() => null))) {
 		console.error(
-			`[contrast] No build found at ${DIST}. Run \`astro build\` (npm run build) first.`,
+			`[contrast] No build found at ${DIST}. Run \`pnpm --filter docs-site build\` first.`,
 		);
 		process.exit(2);
 	}
