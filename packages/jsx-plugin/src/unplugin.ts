@@ -20,6 +20,7 @@ import {
 	isBlockedAuthorSpecifier,
 	isOfficialEmittedSpecifier,
 	isRawCssSpecifier,
+	moduleLoadSources,
 	parserPluginsFor,
 	projectJsxImportSource,
 	transformSource,
@@ -447,49 +448,21 @@ function parseRequireSource(
 	return null;
 }
 
-function pushSyntaxChildren(node: SyntaxNode, stack: SyntaxNode[]): void {
-	for (const value of Object.values(node)) {
-		if (!value || typeof value !== "object") continue;
-		if (Array.isArray(value)) {
-			for (const item of value) {
-				if (item && typeof item === "object") stack.push(item as SyntaxNode);
-			}
-			continue;
-		}
-		stack.push(value as SyntaxNode);
-	}
-}
-
 /**
  * Each reference points at the `const` initializer in its own scope.
  * `null` means the binding is not a single static initializer.
  * The same name in another function is a different binding.
  */
-function lexicalBindings(ast: { program: { body: SyntaxNode[] } }): {
-	consts: Map<SyntaxNode, SyntaxNode | null>;
-	localRequires: Set<SyntaxNode>;
-} {
+function lexicalConstInits(ast: {
+	program: { body: SyntaxNode[] };
+}): Map<SyntaxNode, SyntaxNode | null> {
 	const found = new Map<SyntaxNode, SyntaxNode | null>();
-	const localRequires = new Set<SyntaxNode>();
 	try {
 		traverse(ast as t.Node, {
 			Identifier(path) {
 				if (!path.isReferencedIdentifier()) return;
 				const binding = path.scope.getBinding(path.node.name);
-				if (!binding) return;
-				// A stable local function is not the Node loader. Unknown bindings,
-				// reassigned functions and createRequire(...) still fail closed.
-				if (
-					path.node.name === "require" &&
-					binding.constantViolations.length === 0 &&
-					(binding.path.node.type === "FunctionDeclaration" ||
-						(binding.path.isVariableDeclarator() &&
-							(binding.path.node.init?.type === "FunctionExpression" ||
-								binding.path.node.init?.type === "ArrowFunctionExpression")))
-				) {
-					localRequires.add(path.node as SyntaxNode);
-				}
-				if (binding.kind !== "const") return;
+				if (!binding || binding.kind !== "const") return;
 				if (binding.constantViolations.length > 0) {
 					found.set(path.node as SyntaxNode, null);
 					return;
@@ -508,7 +481,7 @@ function lexicalBindings(ast: { program: { body: SyntaxNode[] } }): {
 	} catch {
 		// A scope walk that throws leaves the identifier unknown.
 	}
-	return { consts: found, localRequires };
+	return found;
 }
 
 function importTargetReachesMark(
@@ -729,35 +702,20 @@ function scanDynamicSource(
 		return true;
 	}
 	const fileDir = path.dirname(file);
-	const { consts, localRequires } = lexicalBindings(ast);
-	const stack: SyntaxNode[] = [...ast.program.body];
-	while (stack.length > 0) {
-		const node = stack.pop();
-		if (!node || typeof node !== "object") continue;
-		const calleeName = (node.callee as { name?: string } | undefined)?.name;
-		const dynamicCall =
-			node.type === "ImportExpression" ||
-			(node.type === "CallExpression" &&
-				(node.callee?.type === "Import" ||
-					(calleeName === "require" &&
-						!localRequires.has(node.callee as SyntaxNode))));
-		if (dynamicCall) {
-			const target = node.source ?? node.arguments?.[0];
-			if (
-				target &&
-				expressionReachesMark(
-					target,
-					fileDir,
-					seen,
-					failClosed,
-					consts,
-					new Set(),
-				)
-			) {
-				return true;
-			}
-		}
-		pushSyntaxChildren(node, stack);
+	const consts = lexicalConstInits(ast);
+	for (const { source, kind } of moduleLoadSources(ast as t.File)) {
+		if (kind !== "call") continue;
+		if (
+			expressionReachesMark(
+				source as SyntaxNode,
+				fileDir,
+				seen,
+				failClosed,
+				consts,
+				new Set(),
+			)
+		)
+			return true;
 	}
 	return false;
 }
@@ -1087,7 +1045,11 @@ function collectImportSources(node: unknown, out: string[]): void {
 	) {
 		out.push(source.value);
 	}
-	if (type === "ImportExpression" || type === "CallExpression") {
+	const callee = record.callee as { type?: string } | undefined;
+	if (
+		type === "ImportExpression" ||
+		(type === "CallExpression" && callee?.type === "Import")
+	) {
 		const template = source ?? (record.arguments as unknown[] | undefined)?.[0];
 		const quasis = (
 			template as
@@ -1129,13 +1091,14 @@ async function refuseForeignPackageMark(
 	host: GuardHost,
 	code: string,
 	importer: string,
+	jsxScript: boolean,
 ): Promise<void> {
 	const specs = new Set<string>();
-	const importSpec =
-		/(?:\bfrom\s*|\bimport\s*(?:\(\s*)?|\brequire\s*\(\s*)["']([^"']+)["']/g;
-	for (const match of code.matchAll(importSpec)) {
-		const spec = match[1];
-		if (spec) specs.add(spec);
+	const ast = parseRequireSource(code, importer, jsxScript);
+	if (!ast) return;
+	for (const { source } of moduleLoadSources(ast as t.File)) {
+		const spec = staticPieces(source as SyntaxNode);
+		if (spec && !spec.dynamic) specs.add(spec.prefix);
 	}
 	for (const spec of specs) {
 		if (
@@ -1487,7 +1450,12 @@ export const igniteJsx = createUnplugin<Options>((options, meta) => {
 			) {
 				throw blockedAuthor(file);
 			}
-			await refuseForeignPackageMark(this as unknown as GuardHost, code, id);
+			await refuseForeignPackageMark(
+				this as unknown as GuardHost,
+				code,
+				id,
+				jsxScript,
+			);
 			const next = transformSource(code, file, {
 				jsxScript,
 				jsxImportSource:

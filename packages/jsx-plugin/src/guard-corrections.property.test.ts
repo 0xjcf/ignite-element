@@ -76,16 +76,34 @@ describe("reviewed guard correction rules", () => {
 	it("R1: real mark loads stay refused, including nested sequence loads and createRequire", async () => {
 		await fc.assert(
 			fc.asyncProperty(
-				fc.constantFrom("dynamic", "sequence", "createRequire"),
+				fc.constantFrom(
+					"dynamic",
+					"sequence",
+					"createRequire",
+					"reassigned",
+					"evalMutable",
+					"cast",
+				),
 				fc.constantFrom("", " ", "/**/"),
 				async (form, gap) => {
-					const entry = form === "createRequire" ? "entry.mjs" : "entry.cjs";
+					const entry =
+						form === "cast"
+							? "entry.cts"
+							: form === "createRequire" || form === "reassigned"
+								? "entry.mjs"
+								: "entry.cjs";
 					const source =
-						form === "createRequire"
-							? 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url); const helper = "./helper.cjs"; export const value = require(helper);'
-							: form === "sequence"
-								? 'const helper = "./helper.cjs"; module.exports.load = () => import((require(helper), "./safe.js"));'
-								: 'const helper = "./helper.cjs"; module.exports = require(helper);';
+						form === "cast"
+							? 'const helper = "./helper.cjs"; module.exports = (require as (name: string) => unknown)(helper);'
+							: form === "reassigned"
+								? 'import { createRequire } from "node:module"; let require = value => Boolean(value); require = createRequire(import.meta.url); const helper = "./helper.cjs"; export const value = require(helper);'
+								: form === "evalMutable"
+									? 'let helper = "./safe.js"; eval(\'helper = "./helper.cjs"\'); module.exports = require(helper);'
+									: form === "createRequire"
+										? 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url); const helper = "./helper.cjs"; export const value = require(helper);'
+										: form === "sequence"
+											? 'const helper = "./helper.cjs"; module.exports.load = () => import((require(helper), "./safe.js"));'
+											: 'const helper = "./helper.cjs"; module.exports = require(helper);';
 					await fixture(
 						{
 							[entry]: source
@@ -108,7 +126,14 @@ describe("reviewed guard correction rules", () => {
 					);
 				},
 			),
-			profile,
+			{
+				...profile,
+				examples: [
+					["cast", ""],
+					["reassigned", " "],
+					["evalMutable", "/**/"],
+				],
+			},
 		);
 	});
 
@@ -123,7 +148,7 @@ describe("reviewed guard correction rules", () => {
 				async (declaration) => {
 					await fixture(
 						{
-							"entry.cjs": `${declaration}\nmodule.exports.check = input => require(input);`,
+							"entry.cjs": `${declaration}\nmodule.exports.check = input => require(input); module.exports.literal = require("author-style-is-data"); module.exports.template = require(\`./author-style-is-data\`); module.exports.create = input => new Error(input);`,
 						},
 						ordinaryBuild,
 					);

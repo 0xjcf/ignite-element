@@ -669,34 +669,77 @@ function assertOfficialCalls(ast: t.File, local: string): number {
 	return count;
 }
 
-function rejectHandWrittenAuthorImport(ast: t.File, filename: string): void {
+/** Only a proven, unchanged local function can be excluded from loader checks. */
+export function isLocalRequire(scope: NodePath["scope"]): boolean {
+	const binding = scope.getBinding("require");
+	if (!binding || binding.constantViolations.length !== 0) return false;
+	return (
+		binding.path.node.type === "FunctionDeclaration" ||
+		(binding.path.isVariableDeclarator() &&
+			(binding.path.node.init?.type === "FunctionExpression" ||
+				binding.path.node.init?.type === "ArrowFunctionExpression"))
+	);
+}
+
+/** Shared lexical classification for source, compiler and resolved-package guards. */
+export function moduleLoadSources(ast: t.File): Array<{
+	source: t.Node;
+	official: boolean;
+	kind: "declaration" | "call";
+}> {
+	const sources: Array<{
+		source: t.Node;
+		official: boolean;
+		kind: "declaration" | "call";
+	}> = [];
 	const visit = traverse as (node: t.Node, visitors: object) => void;
 	visit(ast, {
 		ImportDeclaration(path: NodePath<t.ImportDeclaration>) {
-			if (isOfficialMarkImport(path.node)) return;
-			rejectSpecifier(String(path.node.source.value), filename);
+			sources.push({
+				source: path.node.source,
+				official: isOfficialMarkImport(path.node),
+				kind: "declaration",
+			});
 		},
 		ExportAllDeclaration(path: NodePath<t.ExportAllDeclaration>) {
-			rejectSpecifier(String(path.node.source.value), filename);
+			sources.push({
+				source: path.node.source,
+				official: false,
+				kind: "declaration",
+			});
 		},
 		ExportNamedDeclaration(path: NodePath<t.ExportNamedDeclaration>) {
 			if (path.node.source)
-				rejectSpecifier(String(path.node.source.value), filename);
+				sources.push({
+					source: path.node.source,
+					official: false,
+					kind: "declaration",
+				});
 		},
 		CallExpression(path: NodePath<t.CallExpression>) {
 			const callee = unwrap(path.node.callee);
 			const isImport = callee.type === "Import";
 			const isRequire =
-				callee.type === "Identifier" && callee.name === "require";
+				callee.type === "Identifier" &&
+				callee.name === "require" &&
+				!isLocalRequire(path.scope);
 			if (!isImport && !isRequire) return;
-			rejectImportSource(path.node.arguments[0], filename);
+			const source = path.node.arguments[0];
+			if (source) sources.push({ source, official: false, kind: "call" });
 		},
 		// Babel 7.29 parses import() as ImportExpression, not CallExpression.
 		ImportExpression(path: NodePath<t.CallExpression> & { node: t.Node }) {
 			const source = (path.node as { source?: t.Node }).source;
-			rejectImportSource(source, filename);
+			if (source) sources.push({ source, official: false, kind: "call" });
 		},
 	});
+	return sources;
+}
+
+function rejectHandWrittenAuthorImport(ast: t.File, filename: string): void {
+	for (const { source, official } of moduleLoadSources(ast)) {
+		if (!official) rejectImportSource(source, filename);
+	}
 }
 
 export function markFile(
