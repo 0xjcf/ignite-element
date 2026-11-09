@@ -166,18 +166,19 @@ describe("reviewed guard correction rules", () => {
 					"return void 0;",
 					"if (module.exports) return module.exports;",
 				),
-				async (earlyReturn) => {
+				fc.boolean(),
+				async (earlyReturn, typed) => {
+					const entry = typed ? "entry.ts" : "entry.cjs";
 					await fixture(
 						{
-							"entry.cjs":
-								'const helper = "./helper.cjs"; module.exports = require(helper);',
+							[entry]: `${typed ? "declare const require: (name: string) => unknown;" : ""} const helper = "./helper.cjs"; module.exports = require(helper);`,
 							"helper.cjs": `${earlyReturn}\nmodule.exports = require("node:fs");`,
 						},
-						ordinaryBuild,
+						(dir) => ordinaryBuild(dir, entry),
 					);
 				},
 			),
-			profile,
+			{ ...profile, examples: [["return void 0;", true]] },
 		);
 	});
 

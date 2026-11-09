@@ -15,6 +15,7 @@ export default defineConfig({
 			"src/compiler-style-properties.test.ts",
 			"src/beta-followups.test.ts",
 			"src/guard-corrections.property.test.ts",
+			"src/guard-boundaries.property.test.ts",
 		],
 		execArgv: [],
 	},
