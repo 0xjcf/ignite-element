@@ -881,9 +881,7 @@ describe("gaps", () => {
 			{ numRuns: 12, seed: 1 },
 		);
 		expect(
-			readAuthorStyle(
-				igniteAuthorStyle("@media (x < 1){.a{color:red}}"),
-			),
+			readAuthorStyle(igniteAuthorStyle("@media (x < 1){.a{color:red}}")),
 		).toBe("@media (x < 1){.a{color:red}}");
 		expect(
 			styleSheetFromChildren([
