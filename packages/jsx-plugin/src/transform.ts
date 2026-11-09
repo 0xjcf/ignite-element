@@ -670,7 +670,7 @@ function assertOfficialCalls(ast: t.File, local: string): number {
 }
 
 /** Only a proven, unchanged local function can be excluded from loader checks. */
-export function isLocalRequire(scope: NodePath["scope"]): boolean {
+function isLocalRequire(scope: NodePath["scope"]): boolean {
 	const binding = scope.getBinding("require");
 	if (!binding || binding.constantViolations.length !== 0) return false;
 	return (
