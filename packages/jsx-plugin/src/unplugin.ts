@@ -430,7 +430,13 @@ function parseRequireSource(
 		try {
 			const ast = parse(source, {
 				sourceType,
-				plugins: parserPluginsFor(file, jsxScript),
+				// A read-only scan may reach JSX before webpack resolves that
+				// resource's loaders. Transformation still uses the actual loader.
+				plugins: parserPluginsFor(
+					file,
+					jsxScript || SCRIPT_JSX.some((ext) => filePath(file).endsWith(ext)),
+				),
+				allowReturnOutsideFunction: sourceType === "script",
 				errorRecovery: true,
 			}) as { program: { body: SyntaxNode[] }; errors?: unknown[] };
 			if (!ast.errors?.length) return ast;
@@ -459,16 +465,31 @@ function pushSyntaxChildren(node: SyntaxNode, stack: SyntaxNode[]): void {
  * `null` means the binding is not a single static initializer.
  * The same name in another function is a different binding.
  */
-function lexicalConstInits(ast: {
-	program: { body: SyntaxNode[] };
-}): Map<SyntaxNode, SyntaxNode | null> {
+function lexicalBindings(ast: { program: { body: SyntaxNode[] } }): {
+	consts: Map<SyntaxNode, SyntaxNode | null>;
+	localRequires: Set<SyntaxNode>;
+} {
 	const found = new Map<SyntaxNode, SyntaxNode | null>();
+	const localRequires = new Set<SyntaxNode>();
 	try {
 		traverse(ast as t.Node, {
 			Identifier(path) {
 				if (!path.isReferencedIdentifier()) return;
 				const binding = path.scope.getBinding(path.node.name);
-				if (!binding || binding.kind !== "const") return;
+				if (!binding) return;
+				// A stable local function is not the Node loader. Unknown bindings,
+				// reassigned functions and createRequire(...) still fail closed.
+				if (
+					path.node.name === "require" &&
+					binding.constantViolations.length === 0 &&
+					(binding.path.node.type === "FunctionDeclaration" ||
+						(binding.path.isVariableDeclarator() &&
+							(binding.path.node.init?.type === "FunctionExpression" ||
+								binding.path.node.init?.type === "ArrowFunctionExpression")))
+				) {
+					localRequires.add(path.node as SyntaxNode);
+				}
+				if (binding.kind !== "const") return;
 				if (binding.constantViolations.length > 0) {
 					found.set(path.node as SyntaxNode, null);
 					return;
@@ -487,7 +508,7 @@ function lexicalConstInits(ast: {
 	} catch {
 		// A scope walk that throws leaves the identifier unknown.
 	}
-	return found;
+	return { consts: found, localRequires };
 }
 
 function importTargetReachesMark(
@@ -624,8 +645,13 @@ function expressionReachesMark(
 		);
 	}
 	if (node.type === "SequenceExpression") {
-		return (node.expressions ?? []).some((item) =>
-			expressionReachesMark(item, fileDir, seen, strict, consts, resolving),
+		return expressionReachesMark(
+			node.expressions?.at(-1),
+			fileDir,
+			seen,
+			strict,
+			consts,
+			resolving,
 		);
 	}
 	if (
@@ -695,7 +721,6 @@ function scanDynamicSource(
 	} catch {
 		return false;
 	}
-	if (!source.includes("import(") && !source.includes("require(")) return false;
 	const ast = parseRequireSource(source, file, jsxScript);
 	if (!ast) {
 		// A .cjs file that this parser rejects as a module can still run
@@ -704,7 +729,7 @@ function scanDynamicSource(
 		return true;
 	}
 	const fileDir = path.dirname(file);
-	const consts = lexicalConstInits(ast);
+	const { consts, localRequires } = lexicalBindings(ast);
 	const stack: SyntaxNode[] = [...ast.program.body];
 	while (stack.length > 0) {
 		const node = stack.pop();
@@ -713,7 +738,9 @@ function scanDynamicSource(
 		const dynamicCall =
 			node.type === "ImportExpression" ||
 			(node.type === "CallExpression" &&
-				(node.callee?.type === "Import" || calleeName === "require"));
+				(node.callee?.type === "Import" ||
+					(calleeName === "require" &&
+						!localRequires.has(node.callee as SyntaxNode))));
 		if (dynamicCall) {
 			const target = node.source ?? node.arguments?.[0];
 			if (
@@ -1351,83 +1378,6 @@ function noteViteScriptJsx(
 
 const BABEL_LOADER = /(?:^|\/|\\)babel-loader(?:@|\/|\\|\.|$)/;
 
-function loaderLabels(loader: unknown, use: unknown): string[] {
-	const labels: string[] = [];
-	const push = (value: unknown) => {
-		if (typeof value === "string") labels.push(value);
-		else if (value && typeof value === "object") {
-			const record = value as { loader?: unknown; use?: unknown };
-			if (typeof record.loader === "string") labels.push(record.loader);
-			if (record.use) push(record.use);
-		}
-	};
-	push(loader);
-	if (Array.isArray(use)) {
-		for (const item of use) push(item);
-	} else {
-		push(use);
-	}
-	return labels;
-}
-
-function ruleTestsExtension(test: unknown, ext: string): boolean {
-	const samples = [`file${ext}`, `dir/file${ext}`];
-	if (test instanceof RegExp)
-		return samples.some((sample) => test.test(sample));
-	if (typeof test === "string") return test.includes(ext);
-	if (typeof test === "function") {
-		return samples.some((sample) => {
-			try {
-				return Boolean((test as (value: string) => boolean)(sample));
-			} catch {
-				return false;
-			}
-		});
-	}
-	if (Array.isArray(test))
-		return test.some((item) => ruleTestsExtension(item, ext));
-	if (test && typeof test === "object") {
-		const record = test as { and?: unknown; or?: unknown; not?: unknown };
-		if (record.not && ruleTestsExtension(record.not, ext)) return false;
-		if (record.and) return ruleTestsExtension(record.and, ext);
-		if (record.or) return ruleTestsExtension(record.or, ext);
-	}
-	return false;
-}
-
-function noteRuleScriptJsx(rule: unknown, scriptJsx: Set<string>): void {
-	if (!rule || typeof rule !== "object") return;
-	const record = rule as {
-		test?: unknown;
-		loader?: unknown;
-		use?: unknown;
-		oneOf?: unknown[];
-		rules?: unknown[];
-	};
-	for (const nested of [...(record.oneOf ?? []), ...(record.rules ?? [])]) {
-		noteRuleScriptJsx(nested, scriptJsx);
-	}
-	const labels = loaderLabels(record.loader, record.use);
-	if (!labels.some((label) => BABEL_LOADER.test(label.split("\\").join("/")))) {
-		return;
-	}
-	for (const ext of SCRIPT_JSX) {
-		if (record.test == null || ruleTestsExtension(record.test, ext)) {
-			scriptJsx.add(ext);
-		}
-	}
-}
-
-/** webpack and Rspack do not set esbuild's jsx loader. babel-loader does. */
-function noteBundlerScriptJsx(
-	compiler: { options?: { module?: { rules?: unknown[] } } },
-	scriptJsx: Set<string>,
-): void {
-	const rules = compiler.options?.module?.rules;
-	if (!Array.isArray(rules)) return;
-	for (const rule of rules) noteRuleScriptJsx(rule, scriptJsx);
-}
-
 const ESBUILD_LOADER: Record<string, "js" | "jsx" | "ts" | "tsx"> = {
 	".cjs": "js",
 	".cts": "ts",
@@ -1512,12 +1462,24 @@ export const igniteJsx = createUnplugin<Options>((options, meta) => {
 		async transform(code, id) {
 			if (!shouldTransform(id)) return null;
 			const file = filePath(id);
+			let jsxScript = fileUsesScriptJsx(scriptJsx, file);
+			const native = this.getNativeBuildContext?.();
+			if (native?.framework === "webpack" || native?.framework === "rspack") {
+				// The running loader supplies the bundler's actual selection. Rule
+				// conditions, includes, excludes and oneOf are owned by the bundler.
+				jsxScript =
+					SCRIPT_JSX.some((ext) => file.endsWith(ext)) &&
+					(native.loaderContext?.loaders.some(({ path: loader }) =>
+						BABEL_LOADER.test(loader.split("\\").join("/")),
+					) ??
+						false);
+			}
 			// Vite leaves a .cjs require(helper) for Node and SSR. Refuse it
 			// before the bundler emits that call.
 			if (
 				dynamicSourceReachesMark(
 					file,
-					fileUsesScriptJsx(scriptJsx, file),
+					jsxScript,
 					new Set(),
 					undefined,
 					scriptJsx,
@@ -1527,7 +1489,7 @@ export const igniteJsx = createUnplugin<Options>((options, meta) => {
 			}
 			await refuseForeignPackageMark(this as unknown as GuardHost, code, id);
 			const next = transformSource(code, file, {
-				jsxScript: fileUsesScriptJsx(scriptJsx, file),
+				jsxScript,
 				jsxImportSource:
 					configuredSource ??
 					projectJsxImportSource(file) ??
@@ -1569,11 +1531,9 @@ export const igniteJsx = createUnplugin<Options>((options, meta) => {
 			},
 		},
 		webpack(compiler) {
-			noteBundlerScriptJsx(compiler, scriptJsx);
 			installBundlerGuards(compiler as unknown as WebpackLike);
 		},
 		rspack(compiler) {
-			noteBundlerScriptJsx(compiler, scriptJsx);
 			installBundlerGuards(compiler as unknown as WebpackLike);
 		},
 		esbuild: {

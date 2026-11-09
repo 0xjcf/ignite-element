@@ -14,6 +14,7 @@ export default defineConfig({
 			"src/compiler-entrypoints.test.ts",
 			"src/compiler-style-properties.test.ts",
 			"src/beta-followups.test.ts",
+			"src/guard-corrections.property.test.ts",
 		],
 		execArgv: [],
 	},
