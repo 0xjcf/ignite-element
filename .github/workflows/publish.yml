@@ -55,6 +55,9 @@ jobs:
       - name: Build packages and verify declarations and exports
         run: pnpm run build
 
+      - name: Install Chromium for release browser tests
+        run: pnpm --filter ignite-element exec playwright install --with-deps chromium
+
       - name: Pack once and validate the exact staging payload
         id: payload
         run: >-
