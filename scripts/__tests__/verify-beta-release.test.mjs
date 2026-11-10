@@ -41,7 +41,9 @@ function fixture(
 	run,
 	{ fail = false, expectedVersion = version, inspectNpm = false } = {},
 ) {
-	const root = fs.mkdtempSync(path.join(os.tmpdir(), "verify-beta-fixture-"));
+	const root = fs.realpathSync(
+		fs.mkdtempSync(path.join(os.tmpdir(), "verify-beta-fixture-")),
+	);
 	const bin = path.join(root, "bin");
 	const log = path.join(root, "requests.jsonl");
 	fs.mkdirSync(bin);
@@ -77,7 +79,7 @@ let resolved;
 if (${inspectNpm}) {
   const options = args.filter(arg => arg.startsWith('--prefix=') || arg.startsWith('--registry='));
   const inspect = flags => {
-    const r = spawnSync(process.execPath, [${JSON.stringify(realNpm)}, 'config', 'list', ...flags, ...options], {env, encoding:'utf8', timeout:10000});
+    const r = spawnSync(${JSON.stringify(realNpm)}, ['config', 'list', ...flags, ...options], {env, encoding:'utf8', timeout:10000});
     if (r.error || r.signal || r.status !== 0) throw new Error('real npm configuration inspection failed');
     return r.stdout;
   };
@@ -138,16 +140,12 @@ console.log(JSON.stringify(args[2] === 'dist-tags' ? all[name]?.tags : all[name]
 				NPM_CONFIG_CACHE: path.join(control, "cache"),
 			};
 			const inspect = (flags) => {
-				const result = spawnSync(
-					process.execPath,
-					[realNpm, "config", "list", ...flags],
-					{
-						cwd: control,
-						env: controlEnv,
-						encoding: "utf8",
-						timeout: 10000,
-					},
-				);
+				const result = spawnSync(realNpm, ["config", "list", ...flags], {
+					cwd: control,
+					env: controlEnv,
+					encoding: "utf8",
+					timeout: 10000,
+				});
 				assert.equal(result.error, undefined);
 				assert.equal(result.signal, null);
 				assert.equal(result.status, 0, "real npm control must execute");

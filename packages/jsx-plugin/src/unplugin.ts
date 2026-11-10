@@ -9,6 +9,8 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "@babel/parser";
+import traverseModule from "@babel/traverse";
+import type * as t from "@babel/types";
 import { createUnplugin } from "unplugin";
 import type { IgniteJsxOptions } from "./options.js";
 import {
@@ -18,12 +20,30 @@ import {
 	isBlockedAuthorSpecifier,
 	isOfficialEmittedSpecifier,
 	isRawCssSpecifier,
+	moduleLoadSources,
 	parserPluginsFor,
 	projectJsxImportSource,
+	rejectImportSource,
 	transformSource,
+	unwrap,
 } from "./transform.js";
 
+type Traverse = typeof traverseModule;
+const traverse =
+	typeof traverseModule === "function"
+		? traverseModule
+		: (traverseModule as unknown as { default: Traverse }).default;
+
 const SOURCE = /\.[cm]?[jt]sx?$/;
+
+/** Only these files can execute a require or import. JSON cannot. */
+function isExecutableModule(file: string): boolean {
+	const clean = (file.split("?")[0] ?? file)
+		.split("\\")
+		.join("/")
+		.toLowerCase();
+	return SOURCE.test(clean);
+}
 
 function filePath(id: string): string {
 	const query = id.indexOf("?");
@@ -298,12 +318,19 @@ type SyntaxNode = {
 	alternate?: SyntaxNode;
 	expression?: SyntaxNode;
 	test?: SyntaxNode;
+	kind?: string;
+	declarations?: SyntaxNode[];
+	id?: SyntaxNode;
+	init?: SyntaxNode | null;
+	name?: string;
 };
 
 function staticPieces(
 	node: SyntaxNode | null | undefined,
 ): { prefix: string; dynamic: boolean } | null {
 	if (!node) return null;
+	const expression = unwrap(node as t.Node) as SyntaxNode;
+	if (expression !== node) return staticPieces(expression);
 	if (node.type === "StringLiteral")
 		return { prefix: node.value ?? "", dynamic: false };
 	if (node.type === "TemplateLiteral") {
@@ -371,93 +398,328 @@ function treeContainsMark(
 	return false;
 }
 
-function importTargetReachesMark(node: SyntaxNode, fileDir: string): boolean {
+/**
+ * Trust a file only when its realpath is inside a package Node resolved
+ * for this plugin. A package.json name beside the app does not count.
+ * The renderer root is the library. The element package is trusted only
+ * for its built dist. The mark file itself is never a public import.
+ */
+function trustedLibraryRealpath(file: string): boolean {
+	const real = realpathOf(file);
+	if (insideRoot(real, knownRendererRoot())) return true;
+	const element = knownElementRoot();
+	if (!insideRoot(real, element)) return false;
+	return real.split("\\").join("/").includes("/dist/");
+}
+
+function inNodeModules(file: string): boolean {
+	return realpathOf(file).split("\\").join("/").includes("/node_modules/");
+}
+
+/** Application code fails closed; dependency scans retain their existing relaxation. */
+function scanStrictness(file: string, strict?: boolean): boolean {
+	return strict ?? !inNodeModules(file);
+}
+
+function sourceTypesFor(
+	file: string,
+): Array<"module" | "script" | "unambiguous"> {
+	const ext = path.extname(file.split("?")[0] ?? file).toLowerCase();
+	if (ext === ".cjs" || ext === ".cts")
+		return ["script", "unambiguous", "module"];
+	if (ext === ".mjs" || ext === ".mts") return ["module"];
+	return ["unambiguous", "module", "script"];
+}
+
+function parseRequireSource(
+	source: string,
+	file: string,
+	jsxScript: boolean,
+): { program: { body: SyntaxNode[] } } | null {
+	for (const sourceType of sourceTypesFor(file)) {
+		try {
+			const ast = parse(source, {
+				sourceType,
+				// A read-only scan may reach JSX before webpack resolves that
+				// resource's loaders. Transformation still uses the actual loader.
+				plugins: parserPluginsFor(
+					file,
+					jsxScript || SCRIPT_JSX.some((ext) => filePath(file).endsWith(ext)),
+				),
+				allowReturnOutsideFunction: sourceType === "script",
+				errorRecovery: true,
+			}) as { program: { body: SyntaxNode[] }; errors?: unknown[] };
+			if (!ast.errors?.length) return ast;
+		} catch {
+			// Another source type may accept this CommonJS file.
+		}
+	}
+	return null;
+}
+
+/**
+ * Each reference points at the `const` initializer in its own scope.
+ * `null` means the binding is not a single static initializer.
+ * The same name in another function is a different binding.
+ */
+function lexicalConstInits(ast: {
+	program: { body: SyntaxNode[] };
+}): Map<SyntaxNode, SyntaxNode | null> {
+	const found = new Map<SyntaxNode, SyntaxNode | null>();
+	try {
+		traverse(ast as t.Node, {
+			Identifier(path) {
+				if (!path.isReferencedIdentifier()) return;
+				const binding = path.scope.getBinding(path.node.name);
+				if (!binding || binding.kind !== "const") return;
+				if (binding.constantViolations.length > 0) {
+					found.set(path.node as SyntaxNode, null);
+					return;
+				}
+				if (!binding.path.isVariableDeclarator()) return;
+				if (binding.path.node.id.type !== "Identifier") {
+					found.set(path.node as SyntaxNode, null);
+					return;
+				}
+				found.set(
+					path.node as SyntaxNode,
+					(binding.path.node.init as SyntaxNode | null | undefined) ?? null,
+				);
+			},
+		});
+	} catch {
+		// A scope walk that throws leaves the identifier unknown.
+	}
+	return found;
+}
+
+function importTargetReachesMark(
+	node: SyntaxNode,
+	fileDir: string,
+	seen: Set<string>,
+	strict: boolean,
+	consts: Map<SyntaxNode, SyntaxNode | null>,
+	resolving: Set<SyntaxNode>,
+): boolean {
+	// `const helper = "./helper.cjs"; require(helper)` is the runtime load.
+	// Follow that binding. An unbound name can be any path.
+	if (node.type === "Identifier" && node.name) {
+		if (!consts.has(node)) return strict;
+		const init = consts.get(node);
+		if (!init || resolving.has(init)) return strict;
+		resolving.add(init);
+		const reached = expressionReachesMark(
+			init,
+			fileDir,
+			seen,
+			strict,
+			consts,
+			resolving,
+		);
+		resolving.delete(init);
+		return reached;
+	}
 	const pieces = staticPieces(node);
-	if (!pieces) return false;
+	// An identifier or other non-literal can be any path at runtime.
+	if (!pieces) return strict;
 	if (!pieces.dynamic) {
-		const resolved = path.resolve(fileDir, pieces.prefix);
-		return isMarkFile(resolved);
+		return staticSpecifierReachesMark(pieces.prefix, fileDir, seen);
 	}
 	const dir = directoryUnder(pieces.prefix, fileDir);
 	if (!dir) return false;
 	return treeContainsMark(dir, 0, { n: 0 });
 }
 
+function staticSpecifierReachesMark(
+	spec: string,
+	fileDir: string,
+	seen: Set<string>,
+): boolean {
+	if (isBlockedAuthorSpecifier(spec) || /author-style|authorStyle/.test(spec)) {
+		return true;
+	}
+	if (spec.startsWith("node:")) return false;
+	let resolved = "";
+	if (spec.startsWith(".") || path.isAbsolute(spec)) {
+		resolved = path.resolve(fileDir, spec);
+	} else {
+		try {
+			resolved = createRequire(path.join(fileDir, "package.json")).resolve(
+				spec,
+			);
+		} catch {
+			return false;
+		}
+	}
+	return resolvedFileReachesMark(resolved, seen);
+}
+
+function resolvedFileReachesMark(file: string, seen: Set<string>): boolean {
+	const real = realpathOf(file);
+	if (isMarkFile(real) || isAuthorBridge(real)) return true;
+	if (trustedLibraryRealpath(real)) return false;
+	if (!existsSync(real)) return false;
+	let fileStat = false;
+	try {
+		fileStat = lstatSync(real).isFile();
+	} catch {
+		return false;
+	}
+	if (!fileStat) return false;
+	// A dependency's own dynamic require is not this app file's require.
+	// A static chain from that file to the mark still is.
+	return dynamicSourceReachesMark(
+		real,
+		fileUsesScriptJsx(activeScriptJsx, real),
+		seen,
+		!inNodeModules(real),
+		activeScriptJsx,
+	);
+}
+
 function expressionReachesMark(
 	node: SyntaxNode | null | undefined,
 	fileDir: string,
+	seen: Set<string>,
+	strict: boolean,
+	consts: Map<SyntaxNode, SyntaxNode | null>,
+	resolving: Set<SyntaxNode>,
 ): boolean {
 	if (!node) return false;
+	const expression = unwrap(node as t.Node) as SyntaxNode;
+	if (expression !== node)
+		return expressionReachesMark(
+			expression,
+			fileDir,
+			seen,
+			strict,
+			consts,
+			resolving,
+		);
 	if (node.type === "ConditionalExpression") {
 		return (
-			expressionReachesMark(node.consequent, fileDir) ||
-			expressionReachesMark(node.alternate, fileDir)
+			expressionReachesMark(
+				node.consequent,
+				fileDir,
+				seen,
+				strict,
+				consts,
+				resolving,
+			) ||
+			expressionReachesMark(
+				node.alternate,
+				fileDir,
+				seen,
+				strict,
+				consts,
+				resolving,
+			)
 		);
 	}
 	if (node.type === "LogicalExpression") {
 		return (
-			expressionReachesMark(node.left, fileDir) ||
-			expressionReachesMark(node.right, fileDir)
+			expressionReachesMark(
+				node.left,
+				fileDir,
+				seen,
+				strict,
+				consts,
+				resolving,
+			) ||
+			expressionReachesMark(
+				node.right,
+				fileDir,
+				seen,
+				strict,
+				consts,
+				resolving,
+			)
 		);
 	}
 	if (node.type === "SequenceExpression") {
-		return (node.expressions ?? []).some((item) =>
-			expressionReachesMark(item, fileDir),
+		return expressionReachesMark(
+			node.expressions?.at(-1),
+			fileDir,
+			seen,
+			strict,
+			consts,
+			resolving,
 		);
 	}
-	if (
-		node.type === "ParenthesizedExpression" ||
-		node.type === "TSAsExpression" ||
-		node.type === "TSSatisfiesExpression" ||
-		node.type === "TSNonNullExpression"
-	) {
-		return expressionReachesMark(node.expression, fileDir);
-	}
-	return importTargetReachesMark(node, fileDir);
+	return importTargetReachesMark(
+		node,
+		fileDir,
+		seen,
+		strict,
+		consts,
+		resolving,
+	);
 }
 
-function dynamicSourceReachesMark(file: string, jsxScript = false): boolean {
+const NO_SCRIPT_JSX: ReadonlySet<string> = new Set();
+/** JSX extensions configured for the scan that is currently on the stack. */
+let activeScriptJsx: ReadonlySet<string> = NO_SCRIPT_JSX;
+
+function dynamicSourceReachesMark(
+	file: string,
+	jsxScript = false,
+	seen = new Set<string>(),
+	strict?: boolean,
+	scriptJsx?: ReadonlySet<string>,
+): boolean {
+	const previous = activeScriptJsx;
+	if (scriptJsx) activeScriptJsx = scriptJsx;
+	try {
+		return scanDynamicSource(file, jsxScript, seen, strict);
+	} finally {
+		activeScriptJsx = previous;
+	}
+}
+
+function scanDynamicSource(
+	file: string,
+	jsxScript: boolean,
+	seen: Set<string>,
+	strict: boolean | undefined,
+): boolean {
+	const real = realpathOf(file);
+	// Direct scans of a dependency are not the app file's own require.
+	const failClosed = scanStrictness(real, strict);
+	// A cycle is not a new path to the mark. Check this before reading.
+	if (seen.has(real)) return false;
+	seen.add(real);
+	// package.json and other data files are not executed, even when a
+	// script string contains the text require().
+	if (!isExecutableModule(real)) return false;
+	if (failClosed && trustedLibraryRealpath(real)) return false;
 	let source = "";
 	try {
 		source = readFileSync(file, "utf8");
 	} catch {
 		return false;
 	}
-	if (!source.includes("import(") && !source.includes("require(")) return false;
-	let ast: { program: { body: SyntaxNode[] } };
-	try {
-		ast = parse(source, {
-			sourceType: "module",
-			plugins: parserPluginsFor(file, jsxScript),
-			errorRecovery: true,
-		}) as { program: { body: SyntaxNode[] } };
-	} catch {
-		return false;
+	const ast = parseRequireSource(source, file, jsxScript);
+	if (!ast) {
+		// A .cjs file that this parser rejects as a module can still run
+		// under Node or Vite SSR. Fail closed for the app file.
+		if (!failClosed) return /author-style|authorStyle/.test(source);
+		return true;
 	}
 	const fileDir = path.dirname(file);
-	const stack: SyntaxNode[] = [...ast.program.body];
-	while (stack.length > 0) {
-		const node = stack.pop();
-		if (!node || typeof node !== "object") continue;
-		const calleeName = (node.callee as { name?: string } | undefined)?.name;
-		const dynamicCall =
-			node.type === "ImportExpression" ||
-			(node.type === "CallExpression" &&
-				(node.callee?.type === "Import" || calleeName === "require"));
-		if (dynamicCall) {
-			const target = node.source ?? node.arguments?.[0];
-			if (target && expressionReachesMark(target, fileDir)) return true;
-		}
-		for (const value of Object.values(node)) {
-			if (!value || typeof value !== "object") continue;
-			if (Array.isArray(value)) {
-				for (const item of value) {
-					if (item && typeof item === "object") stack.push(item as SyntaxNode);
-				}
-				continue;
-			}
-			stack.push(value as SyntaxNode);
-		}
+	const consts = lexicalConstInits(ast);
+	for (const { source, kind } of moduleLoadSources(ast as t.File)) {
+		if (kind !== "call") continue;
+		if (
+			expressionReachesMark(
+				source as SyntaxNode,
+				fileDir,
+				seen,
+				failClosed,
+				consts,
+				new Set(),
+			)
+		)
+			return true;
 	}
 	return false;
 }
@@ -480,6 +742,7 @@ function outsiderImportsMark(
 		  }
 		| undefined,
 	base: string | undefined,
+	scriptJsx: ReadonlySet<string> = NO_SCRIPT_JSX,
 ): string | null {
 	if (!metafile?.inputs) return null;
 	for (const [input, info] of Object.entries(metafile.inputs)) {
@@ -498,7 +761,18 @@ function outsiderImportsMark(
 			}
 			return original || target;
 		}
-		if (existsSync(file) && dynamicSourceReachesMark(file)) return file;
+		if (
+			existsSync(file) &&
+			dynamicSourceReachesMark(
+				file,
+				fileUsesScriptJsx(scriptJsx, file),
+				new Set(),
+				undefined,
+				scriptJsx,
+			)
+		) {
+			return file;
+		}
 	}
 	return null;
 }
@@ -749,7 +1023,7 @@ const AUTHOR_ID = /author-style|authorStyle|\0ignite-jsx:author-style/;
 type ParsedModule = {
 	id: string;
 	importedIds?: readonly string[];
-	ast?: { body?: unknown[] } | null;
+	code?: string | null;
 };
 
 type GuardHost = {
@@ -761,53 +1035,11 @@ type GuardHost = {
 	error: (message: string) => void;
 };
 
-function collectImportSources(node: unknown, out: string[]): void {
-	if (!node || typeof node !== "object") return;
-	const record = node as Record<string, unknown>;
-	const type = record.type;
-	const source = record.source as { value?: unknown } | undefined;
-	if (
-		(type === "ImportDeclaration" ||
-			type === "ExportAllDeclaration" ||
-			type === "ExportNamedDeclaration" ||
-			type === "ImportExpression") &&
-		typeof source?.value === "string"
-	) {
-		out.push(source.value);
-	}
-	if (type === "ImportExpression" || type === "CallExpression") {
-		const template = source ?? (record.arguments as unknown[] | undefined)?.[0];
-		const quasis = (
-			template as
-				| { quasis?: Array<{ value?: { cooked?: string; raw?: string } }> }
-				| undefined
-		)?.quasis;
-		if (
-			quasis?.some((quasi) =>
-				/author-style|authorStyle/.test(
-					quasi.value?.cooked ?? quasi.value?.raw ?? "",
-				),
-			)
-		) {
-			out.push("author-style");
-		}
-	}
-	for (const [key, value] of Object.entries(record)) {
-		if (key === "loc" || key === "range" || key === "start" || key === "end")
-			continue;
-		if (Array.isArray(value)) {
-			for (const item of value) collectImportSources(item, out);
-			continue;
-		}
-		if (value && typeof value === "object") collectImportSources(value, out);
-	}
-}
-
-function readModuleAst(info: ParsedModule): unknown {
+function readModuleCode(info: ParsedModule): string | null {
 	try {
-		return info.ast ?? null;
+		return info.code ?? null;
 	} catch {
-		// Rolldown's ModuleInfo#ast throws. importedIds is the fallback.
+		// Native importedIds remain the fallback if source is unavailable.
 		return null;
 	}
 }
@@ -817,13 +1049,14 @@ async function refuseForeignPackageMark(
 	host: GuardHost,
 	code: string,
 	importer: string,
+	jsxScript: boolean,
 ): Promise<void> {
 	const specs = new Set<string>();
-	const importSpec =
-		/(?:\bfrom\s*|\bimport\s*(?:\(\s*)?|\brequire\s*\(\s*)["']([^"']+)["']/g;
-	for (const match of code.matchAll(importSpec)) {
-		const spec = match[1];
-		if (spec) specs.add(spec);
+	const ast = parseRequireSource(code, importer, jsxScript);
+	if (!ast) return;
+	for (const { source } of moduleLoadSources(ast as t.File)) {
+		const spec = staticPieces(source as SyntaxNode);
+		if (spec && !spec.dynamic) specs.add(spec.prefix);
 	}
 	for (const spec of specs) {
 		if (
@@ -862,11 +1095,42 @@ async function guardParsedModule(
 		host.error(blockedAuthor(imported).message);
 		return;
 	}
-	const sources: string[] = [];
-	const ast = readModuleAst(info);
+	const code = readModuleCode(info);
+	if (code === null) return;
+	// ModuleInfo.code is the host's post-transform source, not the original file.
+	const ast = parseRequireSource(code, info.id, false);
 	if (!ast) return;
 	const library = libraryImporter(info.id);
-	collectImportSources(ast, sources);
+	const sources = new Set<string>();
+	const consts = lexicalConstInits(ast);
+	for (const { source, official } of moduleLoadSources(ast as t.File)) {
+		const spec = staticPieces(source as SyntaxNode);
+		if (
+			official ||
+			(spec &&
+				!spec.dynamic &&
+				(isOfficialEmittedSpecifier(spec.prefix) ||
+					allowIssuedFollowUp(spec.prefix, info.id)))
+		)
+			continue;
+		if (!library) {
+			rejectImportSource(source, info.id);
+			if (
+				expressionReachesMark(
+					source as SyntaxNode,
+					path.dirname(info.id),
+					new Set(),
+					scanStrictness(info.id),
+					consts,
+					new Set(),
+				)
+			) {
+				host.error(blockedAuthor(info.id).message);
+				return;
+			}
+		}
+		if (spec && !spec.dynamic) sources.add(spec.prefix);
+	}
 	for (const spec of sources) {
 		if (spec === AUTHOR_VIRTUAL || spec === AUTHOR_STANDALONE) continue;
 		if (isOfficialEmittedSpecifier(spec)) continue;
@@ -1020,7 +1284,10 @@ function noteScriptJsx(
 	}
 }
 
-function fileUsesScriptJsx(scriptJsx: Set<string>, file: string): boolean {
+function fileUsesScriptJsx(
+	scriptJsx: ReadonlySet<string>,
+	file: string,
+): boolean {
 	const ext = path.extname(file.split("?")[0] ?? file).toLowerCase();
 	return scriptJsx.has(ext);
 }
@@ -1060,6 +1327,8 @@ function noteViteScriptJsx(
 	}
 	noteScriptJsx(scriptJsx, esbuild.loader);
 }
+
+const BABEL_LOADER = /(?:^|\/|\\)babel-loader(?:@|\/|\\|\.|$)/;
 
 const ESBUILD_LOADER: Record<string, "js" | "jsx" | "ts" | "tsx"> = {
 	".cjs": "js",
@@ -1144,10 +1413,40 @@ export const igniteJsx = createUnplugin<Options>((options, meta) => {
 		},
 		async transform(code, id) {
 			if (!shouldTransform(id)) return null;
-			await refuseForeignPackageMark(this as unknown as GuardHost, code, id);
 			const file = filePath(id);
+			let jsxScript = fileUsesScriptJsx(scriptJsx, file);
+			const native = this.getNativeBuildContext?.();
+			if (native?.framework === "webpack" || native?.framework === "rspack") {
+				// The running loader supplies the bundler's actual selection. Rule
+				// conditions, includes, excludes and oneOf are owned by the bundler.
+				jsxScript =
+					SCRIPT_JSX.some((ext) => file.endsWith(ext)) &&
+					(native.loaderContext?.loaders.some(({ path: loader }) =>
+						BABEL_LOADER.test(loader.split("\\").join("/")),
+					) ??
+						false);
+			}
+			// Vite leaves a .cjs require(helper) for Node and SSR. Refuse it
+			// before the bundler emits that call.
+			if (
+				dynamicSourceReachesMark(
+					file,
+					jsxScript,
+					new Set(),
+					undefined,
+					scriptJsx,
+				)
+			) {
+				throw blockedAuthor(file);
+			}
+			await refuseForeignPackageMark(
+				this as unknown as GuardHost,
+				code,
+				id,
+				jsxScript,
+			);
 			const next = transformSource(code, file, {
-				jsxScript: fileUsesScriptJsx(scriptJsx, file),
+				jsxScript,
 				jsxImportSource:
 					configuredSource ??
 					projectJsxImportSource(file) ??
@@ -1221,6 +1520,7 @@ export const igniteJsx = createUnplugin<Options>((options, meta) => {
 					const hit = outsiderImportsMark(
 						result.metafile,
 						build.initialOptions.absWorkingDir,
+						scriptJsx,
 					);
 					if (!hit) return null;
 					return deny(blockedAuthor(hit).message);
@@ -1268,6 +1568,9 @@ export const igniteJsx = createUnplugin<Options>((options, meta) => {
 						!dynamicSourceReachesMark(
 							args.path,
 							fileUsesScriptJsx(scriptJsx, args.path),
+							new Set(),
+							undefined,
+							scriptJsx,
 						)
 					) {
 						return null;

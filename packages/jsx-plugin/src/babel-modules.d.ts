@@ -29,6 +29,17 @@ declare module "@babel/traverse" {
 		isImportDefaultSpecifier(): this is NodePath<t.ImportDefaultSpecifier>;
 		isImportDeclaration(): this is NodePath<t.ImportDeclaration>;
 		isVariableDeclarator(): this is NodePath<t.VariableDeclarator>;
+		isReferencedIdentifier(): boolean;
+		get<K extends keyof T>(key: K): T[K] extends Array<infer Child> ? NodePath<Child>[] : NodePath<T[K]>;
+		get(key: string): NodePath<t.Node | null | undefined> | NodePath<t.Node | null | undefined>[];
+		isIdentifier(): this is NodePath<t.Identifier>;
+		isSequenceExpression(): this is NodePath<t.SequenceExpression>;
+		isConditionalExpression(): this is NodePath<t.ConditionalExpression>;
+		isArrayExpression(): this is NodePath<t.ArrayExpression>;
+		isAssignmentExpression(): this is NodePath<t.AssignmentExpression>;
+		isMemberExpression(): this is NodePath<t.MemberExpression>;
+		isOptionalMemberExpression(): this is NodePath<t.OptionalMemberExpression>;
+
 	}
 
 	interface Binding {
@@ -38,12 +49,14 @@ declare module "@babel/traverse" {
 		scope: Scope;
 		constant: boolean;
 		constantViolations: NodePath[];
+		referencePaths: NodePath[];
 	}
 
 	function traverse(
 		parent: t.Node,
 		opts: {
 			JSXElement?: (path: NodePath<t.JSXElement>) => void;
+			Identifier?: (path: NodePath<t.Identifier>) => void;
 		},
 	): void;
 

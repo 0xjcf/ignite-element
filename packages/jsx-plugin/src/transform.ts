@@ -46,11 +46,12 @@ export function isRawCssSpecifier(source: string): boolean {
 	return RAW_SPECIFIER.test(source);
 }
 
-function unwrap(node: t.Node): t.Node {
+export function unwrap(node: t.Node): t.Node {
 	let current = node;
 	while (
 		current.type === "ParenthesizedExpression" ||
 		current.type === "TSAsExpression" ||
+		current.type === "TSTypeAssertion" ||
 		current.type === "TSSatisfiesExpression" ||
 		current.type === "TSNonNullExpression"
 	) {
@@ -442,7 +443,7 @@ function rejectTemplate(node: t.TemplateLiteral, filename: string): void {
 	);
 }
 
-function rejectImportSource(
+export function rejectImportSource(
 	node: t.Node | null | undefined,
 	filename: string,
 ): void {
@@ -501,11 +502,18 @@ function refuseMark(): never {
 }
 
 function jsxImportSource(ast: t.File): string | null {
+	const sources: string[] = [];
 	for (const comment of ast.comments ?? []) {
-		const match = /@jsxImportSource\s+(\S+)/.exec(comment.value);
-		if (match?.[1]) return match[1];
+		for (const match of comment.value.matchAll(/@jsxImportSource\s+(\S+)/g)) {
+			if (match[1]) sources.push(match[1]);
+		}
 	}
-	return null;
+	if (sources.length > 1) {
+		throw new Error(
+			"A file can have only one @jsxImportSource comment. The ignite JSX plugin and the bundler would otherwise disagree.",
+		);
+	}
+	return sources[0] ?? null;
 }
 
 export function projectJsxImportSource(filename: string): string | undefined {
@@ -662,34 +670,313 @@ function assertOfficialCalls(ast: t.File, local: string): number {
 	return count;
 }
 
-function rejectHandWrittenAuthorImport(ast: t.File, filename: string): void {
+/** A locally shadowed module object is data, not Node's CommonJS module port. */
+function isNodeModuleRequire(
+	callee: t.Node,
+	scope: NodePath["scope"],
+): boolean {
+	if (
+		callee.type !== "MemberExpression" &&
+		callee.type !== "OptionalMemberExpression"
+	)
+		return false;
+	const object = unwrap(callee.object);
+	return (
+		object.type === "Identifier" &&
+		object.name === "module" &&
+		!scope.getBinding("module") &&
+		memberName(callee) === "require"
+	);
+}
+
+/** A later reassignment cannot erase a load through the initial function. */
+function forwardsFirstParameter(
+	fn: NonNullable<ReturnType<typeof boundFunction>>,
+	forwarded: ReadonlySet<t.Identifier>,
+): boolean {
+	const parameter = fn.params[0];
+	const first =
+		parameter?.type === "AssignmentPattern"
+			? parameter.left
+			: parameter?.type === "RestElement"
+				? parameter.argument
+				: parameter;
+	return first?.type === "Identifier" && forwarded.has(first);
+}
+
+function evaluatedPath(
+	source: NodePath<t.Node | null | undefined> | undefined,
+): NodePath<t.Node> | undefined {
+	if (!source?.node) return undefined;
+	if (unwrap(source.node) !== source.node)
+		return evaluatedPath(
+			source.get("expression") as NodePath<t.Node | null | undefined>,
+		);
+	if (source.isSequenceExpression())
+		return evaluatedPath(source.get("expressions").at(-1));
+	return source as NodePath<t.Node>;
+}
+
+function boundFunction(binding: Binding | undefined) {
+	const node = binding?.path.node;
+	return node?.type === "FunctionDeclaration"
+		? node
+		: node?.type === "VariableDeclarator" &&
+				(node.init?.type === "FunctionExpression" ||
+					node.init?.type === "ArrowFunctionExpression")
+			? node.init
+			: null;
+}
+
+function memberName(
+	node: t.MemberExpression | t.OptionalMemberExpression,
+): string | undefined {
+	return node.computed
+		? node.property.type === "StringLiteral"
+			? node.property.value
+			: undefined
+		: node.property.type === "Identifier"
+			? node.property.name
+			: undefined;
+}
+
+/** Resolve lexical loader aliases; unrelated local functions remain ordinary data. */
+function isNodeLoader(
+	input: NodePath<t.Node | null | undefined> | undefined,
+	forwarded: ReadonlySet<t.Identifier>,
+	seen = new Set<Binding>(),
+): boolean {
+	const source = evaluatedPath(input);
+	if (!source) return false;
+	if (isNodeModuleRequire(source.node, source.scope)) return true;
+	if (!source.isIdentifier()) return false;
+	const binding = source.scope.getBinding(source.node.name);
+	if (!binding) return source.node.name === "require";
+	if (seen.has(binding)) return false;
+	seen.add(binding);
+	const fn = boundFunction(binding);
+	if (fn && forwardsFirstParameter(fn, forwarded)) return true;
+	if (fn && binding.constantViolations.length === 0) return false;
+	if (
+		binding.path.isVariableDeclarator() &&
+		isNodeLoader(binding.path.get("init"), forwarded, seen)
+	)
+		return true;
+	for (const violation of binding.constantViolations) {
+		if (
+			violation.isAssignmentExpression() &&
+			isNodeLoader(violation.get("right"), forwarded, seen)
+		)
+			return true;
+	}
+	// A require binding not proven to be an ordinary stable function stays guarded.
+	return source.node.name === "require";
+}
+
+type ModuleCallTarget = {
+	path: NodePath<t.Node | null | undefined>;
+	opaqueList?: boolean;
+};
+
+/** Array bindings can keep their identity while their first element changes. */
+function applyTargets(
+	input: NodePath<t.Node | null | undefined> | undefined,
+	seen = new Set<Binding>(),
+): ModuleCallTarget[] {
+	const source = evaluatedPath(input);
+	if (!source) return [];
+	if (source.isArrayExpression()) {
+		const first = source.get("elements")[0];
+		return first?.node ? [{ path: first }] : [];
+	}
+	if (!source.isIdentifier()) return [{ path: source, opaqueList: true }];
+	const binding = source.scope.getBinding(source.node.name);
+	if (!binding || seen.has(binding) || !binding.path.isVariableDeclarator())
+		return [{ path: source, opaqueList: true }];
+	seen.add(binding);
+	const targets = applyTargets(binding.path.get("init"), seen);
+	let opaque = binding.kind !== "const" || !binding.path.node.init;
+	for (const violation of binding.constantViolations) {
+		opaque = true;
+		if (violation.isAssignmentExpression())
+			targets.push(...applyTargets(violation.get("right"), seen));
+	}
+	for (const reference of binding.referencePaths) {
+		if (reference.node === source.node) continue;
+		const member = reference.parentPath;
+		const assignment = member?.parentPath;
+		if (
+			member?.isMemberExpression() &&
+			member.node.object === reference.node &&
+			assignment?.isAssignmentExpression() &&
+			assignment.node.left === member.node
+		) {
+			const property = member.node.property;
+			const key =
+				member.node.computed &&
+				(property.type === "NumericLiteral" ||
+					property.type === "StringLiteral")
+					? String(property.value)
+					: undefined;
+			if (key === "0") {
+				targets.push({ path: assignment.get("right") });
+				if (assignment.node.operator !== "=") opaque = true;
+			} else if (key === undefined || !/^\d+$/.test(key)) {
+				targets.push({ path: assignment.get("right") });
+				opaque = true;
+			}
+		} else opaque = true;
+	}
+	if (opaque) targets.push({ path: source, opaqueList: true });
+	return targets;
+}
+
+/** Normalize possible targets once; opaque argument lists are not specifier values. */
+function moduleCallSources(
+	path: NodePath<t.CallExpression | t.OptionalCallExpression>,
+	forwarded: ReadonlySet<t.Identifier>,
+): ModuleCallTarget[] {
+	const callee = evaluatedPath(path.get("callee"));
+	if (!callee) return [];
+	const args = path.get("arguments");
+	const target = (index: number): ModuleCallTarget[] =>
+		args[index] ? [{ path: args[index] }] : [];
+	if (callee.node.type === "Import" || isNodeLoader(callee, forwarded))
+		return target(0);
+	if (!callee.isMemberExpression() && !callee.isOptionalMemberExpression())
+		return [];
+	const member = callee as NodePath<
+		t.MemberExpression | t.OptionalMemberExpression
+	>;
+	if (!isNodeLoader(member.get("object"), forwarded)) return [];
+	const name = memberName(callee.node);
+	if (name === "call") return target(1);
+	if (name === "apply") return applyTargets(args[1]);
+	return [];
+}
+
+function noteForwardedParameter(
+	source: NodePath<t.Node | null | undefined> | undefined,
+	forwarded: Set<t.Identifier>,
+	seen = new Set<Binding>(),
+): void {
+	if (!source?.node) return;
+	if (unwrap(source.node) !== source.node) {
+		noteForwardedParameter(
+			source.get("expression") as NodePath<t.Node | null | undefined>,
+			forwarded,
+			seen,
+		);
+		return;
+	}
+	if (source.isIdentifier()) {
+		if (!source.isReferencedIdentifier()) return;
+		const binding = source.scope.getBinding(source.node.name);
+		if (!binding || seen.has(binding)) return;
+		seen.add(binding);
+		if (binding.kind === "param") {
+			forwarded.add(binding.identifier);
+			return;
+		}
+		// Discover possible input flow; proving a safe target separately requires const.
+		if (binding.path.isVariableDeclarator())
+			noteForwardedParameter(binding.path.get("init"), forwarded, seen);
+		for (const violation of binding.constantViolations) {
+			if (violation.isAssignmentExpression())
+				noteForwardedParameter(violation.get("right"), forwarded, seen);
+		}
+		return;
+	}
+	// Only the final sequence value and conditional result branches form the target.
+	if (source.isSequenceExpression()) {
+		noteForwardedParameter(source.get("expressions").at(-1), forwarded, seen);
+		return;
+	}
+	if (source.isConditionalExpression()) {
+		noteForwardedParameter(source.get("consequent"), forwarded, seen);
+		noteForwardedParameter(source.get("alternate"), forwarded, seen);
+		return;
+	}
+	for (const key of t.VISITOR_KEYS[source.node.type] ?? []) {
+		const children = source.get(key);
+		for (const child of Array.isArray(children) ? children : [children])
+			noteForwardedParameter(child, forwarded, seen);
+	}
+}
+
+/** Shared lexical classification for source, compiler and resolved-package guards. */
+export function moduleLoadSources(ast: t.File): Array<{
+	source: t.Node;
+	official: boolean;
+	kind: "declaration" | "call";
+}> {
+	const sources: Array<{
+		source: t.Node;
+		official: boolean;
+		kind: "declaration" | "call";
+	}> = [];
 	const visit = traverse as (node: t.Node, visitors: object) => void;
+	const forwarded = new Set<t.Identifier>();
+	// A finite binding set reaches a fixed point even through chained wrappers.
+	let changed = true;
+	while (changed) {
+		const before = forwarded.size;
+		visit(ast, {
+			"CallExpression|OptionalCallExpression"(
+				path: NodePath<t.CallExpression | t.OptionalCallExpression>,
+			) {
+				for (const target of moduleCallSources(path, forwarded))
+					if (!target.opaqueList)
+						noteForwardedParameter(target.path, forwarded);
+			},
+			ImportExpression(path: NodePath<t.ImportExpression>) {
+				noteForwardedParameter(path.get("source"), forwarded);
+			},
+		});
+		changed = forwarded.size !== before;
+	}
 	visit(ast, {
 		ImportDeclaration(path: NodePath<t.ImportDeclaration>) {
-			if (isOfficialMarkImport(path.node)) return;
-			rejectSpecifier(String(path.node.source.value), filename);
+			sources.push({
+				source: path.node.source,
+				official: isOfficialMarkImport(path.node),
+				kind: "declaration",
+			});
 		},
 		ExportAllDeclaration(path: NodePath<t.ExportAllDeclaration>) {
-			rejectSpecifier(String(path.node.source.value), filename);
+			sources.push({
+				source: path.node.source,
+				official: false,
+				kind: "declaration",
+			});
 		},
 		ExportNamedDeclaration(path: NodePath<t.ExportNamedDeclaration>) {
 			if (path.node.source)
-				rejectSpecifier(String(path.node.source.value), filename);
+				sources.push({
+					source: path.node.source,
+					official: false,
+					kind: "declaration",
+				});
 		},
-		CallExpression(path: NodePath<t.CallExpression>) {
-			const callee = unwrap(path.node.callee);
-			const isImport = callee.type === "Import";
-			const isRequire =
-				callee.type === "Identifier" && callee.name === "require";
-			if (!isImport && !isRequire) return;
-			rejectImportSource(path.node.arguments[0], filename);
+		"CallExpression|OptionalCallExpression"(
+			path: NodePath<t.CallExpression | t.OptionalCallExpression>,
+		) {
+			for (const { path: source } of moduleCallSources(path, forwarded))
+				if (source.node)
+					sources.push({ source: source.node, official: false, kind: "call" });
 		},
-		// Babel 7.29 parses import() as ImportExpression, not CallExpression.
-		ImportExpression(path: NodePath<t.CallExpression> & { node: t.Node }) {
-			const source = (path.node as { source?: t.Node }).source;
-			rejectImportSource(source, filename);
+		// Also support parsers configured to emit ImportExpression directly.
+		ImportExpression(path: NodePath<t.ImportExpression>) {
+			sources.push({ source: path.node.source, official: false, kind: "call" });
 		},
 	});
+	return sources;
+}
+
+function rejectHandWrittenAuthorImport(ast: t.File, filename: string): void {
+	for (const { source, official } of moduleLoadSources(ast)) {
+		if (!official) rejectImportSource(source, filename);
+	}
 }
 
 export function markFile(

@@ -78,6 +78,8 @@ describe("route closure", () => {
 		const app = mkdtempSync(path.join(tmpdir(), "ignite-rollup-app-"));
 		try {
 			for (const cwd of [
+				"packages/ignite-core",
+				"packages/ignite-adapters",
 				"packages/ignite-element",
 				"packages/ignite-renderer",
 				"packages/jsx-plugin",

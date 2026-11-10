@@ -526,7 +526,9 @@ describe("listing checks grant liveness before advertising the command", () => {
 					).toBe(true);
 				}
 				expect(authority.canExecute("act")).toBe(false);
-				expect(authority.canExecute("act", input, { core: target })).toBe(false);
+				expect(authority.canExecute("act", input, { core: target })).toBe(
+					false,
+				);
 				const live = createCommandApprovalAuthority("ada", () => CLOCK);
 				live.grant({
 					actor: "ada",

@@ -122,19 +122,22 @@ The downloaded digest must equal the receipt before approval.
 
 ## Operator approval and tags
 
-With 2FA present, approve in dependency order. Adapters and renderer may be
-approved in either order after core; the deterministic workflow order is core,
-adapters, renderer, then facade. The facade is always last.
+With 2FA present, approve all five receipt-bound packages in dependency order.
+Adapters and renderer may be approved in either order after core. Approve the
+independent JSX plugin before the facade so the facade remains the final public
+approval. Private staging follows the manifest order (core, adapters, renderer,
+facade, JSX plugin); public approval uses the order below.
 
 ```sh
 npm stage approve <core-stage-id>
 npm stage approve <adapters-stage-id>
 npm stage approve <renderer-stage-id>
+npm stage approve <jsx-plugin-stage-id>
 npm stage approve <facade-stage-id>
 ```
 
 After approval, explicitly reconcile tags. Every package's `beta` tag and the
-three scoped packages' `latest` tags point to the approved beta version. The
+four scoped packages' `latest` tags point to the approved beta version. The
 unscoped facade's `latest` tag stays on v2.
 
 ```sh
@@ -144,6 +147,8 @@ npm dist-tag add @ignite-element/adapters@<version> beta
 npm dist-tag add @ignite-element/adapters@<version> latest
 npm dist-tag add @ignite-element/renderer@<version> beta
 npm dist-tag add @ignite-element/renderer@<version> latest
+npm dist-tag add @ignite-element/jsx-plugin@<version> beta
+npm dist-tag add @ignite-element/jsx-plugin@<version> latest
 npm dist-tag add ignite-element@<version> beta
 ```
 
@@ -239,14 +244,14 @@ command and a distinct review purpose.
   dispatch again. Never stage a replacement over an existing public version.
 - **Only some packages approved:** never unpublish them. Continue only after
   confirming the approved dependencies and tags; approve remaining packages in
-  dependency order. Withhold the facade until core, adapters, and renderer are
+  dependency order. Withhold the facade until core, adapters, renderer and the JSX plugin are
   public and resolvable.
 - **Approval succeeded but a dist-tag update failed:** re-read online dist-tags,
   apply only the missing command from the explicit list above with fresh 2FA,
   then rerun the verifier. Do not republish.
 - **Facade withheld:** leave it staged or reject it according to Operator
-  judgment. Repair or approve the unavailable dependency first, verify all
-  three dependencies, then approve the unchanged matching facade stage. If its
+  judgment. Repair or approve the unavailable dependency first, verify core, adapters, renderer and the JSX plugin are all public and
+  resolvable, then approve the unchanged matching facade stage. If its
   reviewed artifact is no longer valid, reject it and prepare a later version.
 
 Git tags, GitHub Releases, branch mutation, and stable-v3 integration are
