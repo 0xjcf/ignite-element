@@ -853,3 +853,58 @@ describe("reviewed apply-array writes", () => {
 		);
 	});
 });
+
+describe("reviewed array target model", () => {
+	it("R1/R2: array source selection includes binding replacements and aliases", () => {
+		const cases = {
+			replacement: { code: 'let args=["node:fs"]; args=[target];', count: 3 },
+			assigned: { code: "let args; args=[target];", count: 2 },
+			alias: {
+				code: 'const base=["node:fs"]; const args=base; base[0]=target;',
+				count: 2,
+			},
+			escape: {
+				code: 'const args=["node:fs"]; function inspect(value) { return value.length; } inspect(args);',
+				count: 2,
+			},
+			compound: { code: 'const args=["./"]; args[0]+=target;', count: 3 },
+		};
+		fc.assert(
+			fc.property(
+				fc.constantFrom(...(Object.keys(cases) as (keyof typeof cases)[])),
+				fc.boolean(),
+				(form, local) => {
+					const prelude = local
+						? "function require(value) { return Boolean(value); }"
+						: "";
+					const ast = parse(
+						`${prelude} const target="./author-style-mark.es.js"; ${cases[form].code} require.apply(null,args);`,
+						{ sourceType: "module" },
+					);
+					const sources = moduleLoadSources(ast).filter(
+						(source) => source.kind === "call",
+					);
+					expect(sources).toHaveLength(local ? 0 : cases[form].count);
+					if (!local && form !== "escape")
+						expect(
+							sources.some(
+								(source) =>
+									source.source.type === "Identifier" &&
+									source.source.name === "target",
+							),
+						).toBe(true);
+				},
+			),
+			{
+				...profile,
+				numRuns: 100,
+				examples: Object.keys(cases).flatMap<[keyof typeof cases, boolean]>(
+					(form) => [
+						[form as keyof typeof cases, false],
+						[form as keyof typeof cases, true],
+					],
+				),
+			},
+		);
+	});
+});
