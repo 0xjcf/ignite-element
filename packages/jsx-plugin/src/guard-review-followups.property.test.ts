@@ -638,3 +638,65 @@ describe("reviewed lexical wrapper chains", () => {
 		);
 	});
 });
+
+describe("reviewed reassigned forwarders", () => {
+	it("R1/R2: reassignment retains real initial loaders while ordinary functions stay data", async () => {
+		await fc.assert(
+			fc.asyncProperty(
+				fc.constantFrom("declaration", "arrow", "expression"),
+				fc.boolean(),
+				fc.boolean(),
+				async (form, loader, dependency) => {
+					const operation = loader
+						? "module.require(`${value}`)"
+						: "Boolean(value)";
+					const declaration =
+						form === "declaration"
+							? `function load(value) { return ${operation}; }`
+							: form === "arrow"
+								? `let load = value => ${operation};`
+								: `let load = function(value) { return ${operation}; };`;
+					const source = `${declaration} module.exports = load("./author-style-mark.es.js"); load = value => Boolean(value);`;
+					const calls = moduleLoadSources(
+						parse(source, { sourceType: "module" }),
+					).filter((source) => source.kind === "call");
+					expect(calls).toHaveLength(loader ? 2 : 0);
+					const files: Record<string, string> = dependency
+						? {
+								"entry.cjs": 'module.exports = require("loader-dep");',
+								"node_modules/loader-dep/package.json":
+									'{"name":"loader-dep","main":"index.cjs"}',
+								"node_modules/loader-dep/index.cjs": source,
+								"node_modules/loader-dep/author-style-mark.es.js":
+									"exports.igniteAuthorStyle = css => ({ css });",
+							}
+						: {
+								"entry.cjs": source,
+								"author-style-mark.es.js":
+									"exports.igniteAuthorStyle = css => ({ css });",
+							};
+					await fixture(files, async (dir) => {
+						const builds = [esbuildApp(dir), viteApp(dir)];
+						if (loader) await expectMarkRefusal(builds);
+						else await Promise.all(builds);
+					});
+				},
+			),
+			{
+				...profile,
+				examples: [
+					["arrow", true, false],
+					["arrow", true, true],
+					["expression", true, false],
+					["expression", true, true],
+					["declaration", true, false],
+					["declaration", true, true],
+					["arrow", false, false],
+					["arrow", false, true],
+					["expression", false, true],
+					["declaration", false, false],
+				],
+			},
+		);
+	});
+});

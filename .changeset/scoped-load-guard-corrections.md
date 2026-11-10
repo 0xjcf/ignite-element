@@ -28,3 +28,6 @@ discarded sequence values and conditional tests when classifying forwarding.
 
 Classify optional and sequence callees, lexical loader aliases and explicit
 Function.call/apply load arguments through that same classifier.
+
+Retain loads through forwarding function initializers even when a later
+reassignment changes their binding; ordinary reassigned data functions stay data.

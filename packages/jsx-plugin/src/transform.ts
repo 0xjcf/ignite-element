@@ -689,16 +689,11 @@ function isNodeModuleRequire(
 	);
 }
 
-/** Stable local data functions are distinct from loader-argument forwarders. */
-function isLocalRequire(
-	scope: NodePath["scope"],
+/** A later reassignment cannot erase a load through the initial function. */
+function forwardsFirstParameter(
+	fn: NonNullable<ReturnType<typeof boundFunction>>,
 	forwarded: ReadonlySet<t.Identifier>,
-	name = "require",
 ): boolean {
-	const binding = scope.getBinding(name);
-	if (!binding || binding.constantViolations.length !== 0) return false;
-	const fn = boundFunction(binding);
-	if (!fn) return false;
 	const parameter = fn.params[0];
 	const first =
 		parameter?.type === "AssignmentPattern"
@@ -706,7 +701,7 @@ function isLocalRequire(
 			: parameter?.type === "RestElement"
 				? parameter.argument
 				: parameter;
-	return first?.type !== "Identifier" || !forwarded.has(first);
+	return first?.type === "Identifier" && forwarded.has(first);
 }
 
 function evaluatedPath(
@@ -759,8 +754,9 @@ function isNodeLoader(
 	if (!binding) return source.node.name === "require";
 	if (seen.has(binding)) return false;
 	seen.add(binding);
-	if (boundFunction(binding) && binding.constantViolations.length === 0)
-		return !isLocalRequire(source.scope, forwarded, source.node.name);
+	const fn = boundFunction(binding);
+	if (fn && forwardsFirstParameter(fn, forwarded)) return true;
+	if (fn && binding.constantViolations.length === 0) return false;
 	if (
 		binding.path.isVariableDeclarator() &&
 		isNodeLoader(binding.path.get("init"), forwarded, seen)
