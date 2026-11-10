@@ -1,4 +1,10 @@
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+	mkdirSync,
+	mkdtempSync,
+	realpathSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import esbuild from "esbuild";
@@ -23,8 +29,10 @@ async function fixture(
 		mkdtempSync(path.join(tmpdir(), "ignite-review-followup-")),
 	);
 	try {
-		for (const [name, source] of Object.entries(files))
+		for (const [name, source] of Object.entries(files)) {
+			mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
 			writeFileSync(path.join(dir, name), source);
+		}
 		await check(dir);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
@@ -77,6 +85,60 @@ async function expectMarkRefusal(builds: Promise<unknown>[]) {
 }
 
 describe("reviewed guard follow-up observations", () => {
+	it("R1/R2: dependency wrappers retain dynamic loading but reject known private targets", async () => {
+		await fc.assert(
+			fc.asyncProperty(
+				fc.constantFrom("module.require", "import"),
+				fc.constantFrom("direct", "alias", "default"),
+				fc.constantFrom("private", "safe", "unknown"),
+				async (loader, form, target) => {
+					const declaration =
+						form === "alias"
+							? `function require(value) { const specifier = value; return ${loader}(specifier); }`
+							: form === "default"
+								? `function require(value = "node:fs") { return ${loader}(value); }`
+								: `function require(value) { return ${loader}(value); }`;
+					const call =
+						target === "private"
+							? 'const target = "./author-style-mark.es.js"; module.exports = require(target);'
+							: target === "safe"
+								? 'module.exports = require("node:fs");'
+								: "module.exports = name => require(name);";
+					await fixture(
+						{
+							"entry.cjs": 'module.exports = require("loader-dep");',
+							"node_modules/loader-dep/package.json":
+								'{"name":"loader-dep","main":"index.cjs"}',
+							"node_modules/loader-dep/index.cjs": `${declaration} ${call}`,
+							"node_modules/loader-dep/author-style-mark.es.js":
+								"exports.igniteAuthorStyle = css => ({ css });",
+						},
+						async (dir) => {
+							const builds = [esbuildApp(dir), viteApp(dir)];
+							if (target === "private") await expectMarkRefusal(builds);
+							else await Promise.all(builds);
+						},
+					);
+				},
+			),
+			{
+				...profile,
+				examples: [
+					["module.require", "direct", "private"],
+					["module.require", "alias", "private"],
+					["module.require", "default", "private"],
+					["import", "direct", "private"],
+					["import", "alias", "private"],
+					["import", "default", "private"],
+					["module.require", "direct", "safe"],
+					["module.require", "direct", "unknown"],
+					["import", "direct", "safe"],
+					["import", "direct", "unknown"],
+				],
+			},
+		);
+	});
+
 	it("R1/R2: local wrappers forwarding a Node loader stay guarded", async () => {
 		await fc.assert(
 			fc.asyncProperty(
