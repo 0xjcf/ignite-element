@@ -35,3 +35,7 @@ reassignment changes their binding; ordinary reassigned data functions stay data
 Discover possible loader-input flow through const, let and var initializers and
 assignments. Keep this conservative discovery separate from the unchanged-const
 requirement used to prove safe target values.
+
+Inspect possible first-element writes to apply argument arrays. Keep opaque
+argument-list uncertainty separate from scalar loader-input forwarding, so
+unused argument data does not become a module specifier.

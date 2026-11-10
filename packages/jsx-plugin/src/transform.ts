@@ -773,47 +773,83 @@ function isNodeLoader(
 	return source.node.name === "require";
 }
 
-function applyTarget(
+type ModuleCallTarget = {
+	path: NodePath<t.Node | null | undefined>;
+	opaqueList?: boolean;
+};
+
+/** Array bindings can keep their identity while their first element changes. */
+function applyTargets(
 	input: NodePath<t.Node | null | undefined> | undefined,
 	seen = new Set<Binding>(),
-): NodePath<t.Node | null | undefined> | undefined {
+): ModuleCallTarget[] {
 	const source = evaluatedPath(input);
-	if (!source) return undefined;
-	if (source.isArrayExpression()) return source.get("elements")[0];
-	if (!source.isIdentifier()) return source;
+	if (!source) return [];
+	if (source.isArrayExpression()) {
+		const first = source.get("elements")[0];
+		return first?.node ? [{ path: first }] : [];
+	}
+	if (!source.isIdentifier()) return [{ path: source, opaqueList: true }];
 	const binding = source.scope.getBinding(source.node.name);
-	if (
-		!binding ||
-		seen.has(binding) ||
-		binding.kind !== "const" ||
-		binding.constantViolations.length !== 0 ||
-		!binding.path.isVariableDeclarator()
-	)
-		return source;
+	if (!binding || seen.has(binding) || !binding.path.isVariableDeclarator())
+		return [{ path: source, opaqueList: true }];
 	seen.add(binding);
-	return applyTarget(binding.path.get("init"), seen);
+	const targets = applyTargets(binding.path.get("init"), seen);
+	let opaque = binding.kind !== "const" || !binding.path.node.init;
+	for (const violation of binding.constantViolations) {
+		opaque = true;
+		if (violation.isAssignmentExpression())
+			targets.push(...applyTargets(violation.get("right"), seen));
+	}
+	for (const reference of binding.referencePaths) {
+		if (reference.node === source.node) continue;
+		const member = reference.parentPath;
+		const assignment = member?.parentPath;
+		if (
+			member?.isMemberExpression() &&
+			member.node.object === reference.node &&
+			assignment?.isAssignmentExpression() &&
+			assignment.node.left === member.node
+		) {
+			const property = member.node.property;
+			const key =
+				member.node.computed &&
+				(property.type === "NumericLiteral" ||
+					property.type === "StringLiteral")
+					? String(property.value)
+					: undefined;
+			if (key === "0") {
+				targets.push({ path: assignment.get("right") });
+				if (assignment.node.operator !== "=") opaque = true;
+			} else if (key === undefined || !/^\d+$/.test(key)) opaque = true;
+		} else opaque = true;
+	}
+	if (opaque) targets.push({ path: source, opaqueList: true });
+	return targets;
 }
 
-/** Normalize direct, optional and indirect calls once for every guard. */
-function moduleCallSource(
+/** Normalize possible targets once; opaque argument lists are not specifier values. */
+function moduleCallSources(
 	path: NodePath<t.CallExpression | t.OptionalCallExpression>,
 	forwarded: ReadonlySet<t.Identifier>,
-): NodePath<t.Node | null | undefined> | undefined {
+): ModuleCallTarget[] {
 	const callee = evaluatedPath(path.get("callee"));
-	if (!callee) return undefined;
+	if (!callee) return [];
 	const args = path.get("arguments");
+	const target = (index: number): ModuleCallTarget[] =>
+		args[index] ? [{ path: args[index] }] : [];
 	if (callee.node.type === "Import" || isNodeLoader(callee, forwarded))
-		return args[0];
+		return target(0);
 	if (!callee.isMemberExpression() && !callee.isOptionalMemberExpression())
-		return undefined;
+		return [];
 	const member = callee as NodePath<
 		t.MemberExpression | t.OptionalMemberExpression
 	>;
-	if (!isNodeLoader(member.get("object"), forwarded)) return undefined;
+	if (!isNodeLoader(member.get("object"), forwarded)) return [];
 	const name = memberName(callee.node);
-	if (name === "call") return args[1];
-	if (name === "apply") return applyTarget(args[1]);
-	return undefined;
+	if (name === "call") return target(1);
+	if (name === "apply") return applyTargets(args[1]);
+	return [];
 }
 
 function noteForwardedParameter(
@@ -886,8 +922,9 @@ export function moduleLoadSources(ast: t.File): Array<{
 			"CallExpression|OptionalCallExpression"(
 				path: NodePath<t.CallExpression | t.OptionalCallExpression>,
 			) {
-				const source = moduleCallSource(path, forwarded);
-				if (source) noteForwardedParameter(source, forwarded);
+				for (const target of moduleCallSources(path, forwarded))
+					if (!target.opaqueList)
+						noteForwardedParameter(target.path, forwarded);
 			},
 			ImportExpression(path: NodePath<t.ImportExpression>) {
 				noteForwardedParameter(path.get("source"), forwarded);
@@ -921,9 +958,9 @@ export function moduleLoadSources(ast: t.File): Array<{
 		"CallExpression|OptionalCallExpression"(
 			path: NodePath<t.CallExpression | t.OptionalCallExpression>,
 		) {
-			const source = moduleCallSource(path, forwarded);
-			if (source?.node)
-				sources.push({ source: source.node, official: false, kind: "call" });
+			for (const { path: source } of moduleCallSources(path, forwarded))
+				if (source.node)
+					sources.push({ source: source.node, official: false, kind: "call" });
 		},
 		// Also support parsers configured to emit ImportExpression directly.
 		ImportExpression(path: NodePath<t.ImportExpression>) {

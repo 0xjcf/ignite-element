@@ -49,6 +49,7 @@ declare module "@babel/traverse" {
 		scope: Scope;
 		constant: boolean;
 		constantViolations: NodePath[];
+		referencePaths: NodePath[];
 	}
 
 	function traverse(

@@ -770,3 +770,86 @@ describe("reviewed mutable target aliases", () => {
 		);
 	});
 });
+
+describe("reviewed apply-array writes", () => {
+	it("R1/R2: first-element writes remain targets and unused argument data stays data", async () => {
+		await fc.assert(
+			fc.asyncProperty(
+				fc.boolean(),
+				fc.boolean(),
+				fc.boolean(),
+				fc.boolean(),
+				async (first, blocked, local, dependency) => {
+					const prelude = local
+						? "function require(value) { return Boolean(value); }"
+						: "";
+					const target = blocked ? "./author-style-mark.es.js" : "node:path";
+					const source = `${prelude} const target=${JSON.stringify(target)}; const args=["node:fs"]; args[${first ? 0 : 1}]=target; module.exports=require.apply(null,args);`;
+					const calls = moduleLoadSources(
+						parse(source, { sourceType: "module" }),
+					).filter((source) => source.kind === "call");
+					expect(calls).toHaveLength(local ? 0 : first ? 2 : 1);
+					const files: Record<string, string> = dependency
+						? {
+								"entry.cjs": 'module.exports=require("loader-dep");',
+								"node_modules/loader-dep/package.json":
+									'{"name":"loader-dep","main":"index.cjs"}',
+								"node_modules/loader-dep/index.cjs": source,
+								"node_modules/loader-dep/author-style-mark.es.js":
+									"exports.igniteAuthorStyle=css=>({css});",
+							}
+						: {
+								"entry.cjs": source,
+								"author-style-mark.es.js":
+									"exports.igniteAuthorStyle=css=>({css});",
+							};
+					await fixture(files, async (dir) => {
+						const builds = [esbuildApp(dir), viteApp(dir)];
+						if (first && blocked && !local) await expectMarkRefusal(builds);
+						else await Promise.all(builds);
+					});
+				},
+			),
+			{
+				...profile,
+				examples: [
+					[true, true, false, false],
+					[true, true, false, true],
+					[true, false, false, false],
+					[true, false, false, true],
+					[false, true, false, false],
+					[false, true, false, true],
+					[true, true, true, false],
+					[true, true, true, true],
+				],
+			},
+		);
+	});
+	it("R1/R2: opaque argument lists retain dependency policy without treating debug data as a specifier", async () => {
+		await fc.assert(
+			fc.asyncProperty(fc.boolean(), async (dependency) => {
+				const source =
+					'function load(value) { let args=["node:fs",value]; return require.apply(null,args); } module.exports=load("author-style-is-data");';
+				expect(
+					moduleLoadSources(parse(source, { sourceType: "module" })).filter(
+						(source) => source.kind === "call",
+					),
+				).toHaveLength(2);
+				const files: Record<string, string> = dependency
+					? {
+							"entry.cjs": 'module.exports=require("loader-dep");',
+							"node_modules/loader-dep/package.json":
+								'{"name":"loader-dep","main":"index.cjs"}',
+							"node_modules/loader-dep/index.cjs": source,
+						}
+					: { "entry.cjs": source };
+				await fixture(files, async (dir) => {
+					const builds = [esbuildApp(dir), viteApp(dir)];
+					if (dependency) await Promise.all(builds);
+					else await expectMarkRefusal(builds);
+				});
+			}),
+			{ ...profile, examples: [[false], [true]] },
+		);
+	});
+});
