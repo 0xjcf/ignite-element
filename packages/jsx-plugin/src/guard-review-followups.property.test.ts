@@ -3,10 +3,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import esbuild from "esbuild";
 import fc from "fast-check";
+import { rolldown } from "rolldown";
 import { rollup } from "rollup";
 import { build as viteBuild } from "vite";
 import { describe, expect, it } from "vitest";
 import igniteEsbuild from "./esbuild.js";
+import igniteRolldown from "./rolldown.js";
 import igniteRollup from "./rollup.js";
 import igniteVite from "./vite.js";
 
@@ -248,7 +250,32 @@ describe("reviewed guard follow-up observations", () => {
 									await bundle.close();
 								}
 							};
-							const builds = [rollupApp(), viteApp(dir, "entry.mjs", output)];
+							const rolldownApp = async () => {
+								const bundle = await rolldown({
+									input: path.join(dir, "entry.mjs"),
+									plugins: [
+										igniteRolldown(),
+										{
+											name: "later-source-producer",
+											transform(_code, id) {
+												return id === path.join(dir, "entry.mjs")
+													? output
+													: null;
+											},
+										},
+									],
+								});
+								try {
+									await bundle.generate({ format: "es" });
+								} finally {
+									await bundle.close();
+								}
+							};
+							const builds = [
+								rollupApp(),
+								rolldownApp(),
+								viteApp(dir, "entry.mjs", output),
+							];
 							if (
 								[
 									"require",
