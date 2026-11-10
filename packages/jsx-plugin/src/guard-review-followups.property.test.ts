@@ -394,8 +394,10 @@ describe("reviewed expression-forwarding observations", () => {
 		concat: '"" + value',
 		alias: "target",
 		conditional: 'true ? `${value}` : "node:fs"',
+		"conditional-alternate": 'false ? "node:fs" : `${value}`',
 		logical: 'value || "node:fs"',
 		sequence: '("discarded", `${value}`)',
+		"sequence-many": '(0, "discarded", `${value}`)',
 		call: "String(value)",
 		member: "[value][0]",
 		capture: "(() => value)()",
@@ -454,8 +456,10 @@ describe("reviewed expression-forwarding observations", () => {
 					["concat", "dependency"],
 					["alias", "dependency"],
 					["conditional", "dependency"],
+					["conditional-alternate", "dependency"],
 					["logical", "dependency"],
 					["sequence", "dependency"],
+					["sequence-many", "dependency"],
 					["call", "dependency"],
 					["member", "dependency"],
 					["capture", "dependency"],
@@ -470,6 +474,7 @@ describe("reviewed expression-forwarding observations", () => {
 			fc.asyncProperty(
 				fc.constantFrom(
 					'(value, "node:fs")',
+					'(value, Boolean(value), "node:fs")',
 					'value ? "node:fs" : "node:path"',
 					'`${(() => { const value = "node:fs"; return value; })()}`',
 				),
@@ -494,6 +499,7 @@ describe("reviewed expression-forwarding observations", () => {
 				...profile,
 				examples: [
 					['(value, "node:fs")'],
+					['(value, Boolean(value), "node:fs")'],
 					['value ? "node:fs" : "node:path"'],
 					['`${(() => { const value = "node:fs"; return value; })()}`'],
 				],
@@ -508,6 +514,7 @@ describe("reviewed loader-call observations", () => {
 		"optional-member": "module?.require(target)",
 		"optional-method": "module.require?.(target)",
 		sequence: "(0, require)(target)",
+		"sequence-many": "(0, Boolean, require)(target)",
 		alias: "r(target)",
 		"alias-chain": "s(target)",
 		"module-alias": "m(target)",
@@ -601,15 +608,17 @@ describe("reviewed lexical wrapper chains", () => {
 			fc.property(
 				fc.integer({ min: 1, max: 6 }),
 				fc.boolean(),
-				(count, data) => {
+				fc.boolean(),
+				(count, data, rest) => {
+					const argument = rest ? "values[0]" : "value";
 					const declarations = Array.from({ length: count }, (_, index) => {
 						const result =
 							index + 1 < count
-								? `wrapper${index + 1}(value)`
+								? `wrapper${index + 1}(${argument})`
 								: data
-									? "Boolean(value)"
-									: "module.require(`${value}`)";
-						return `function wrapper${index}(value) { return ${result}; }`;
+									? `Boolean(${argument})`
+									: `module.require(String(${argument}))`;
+						return `function wrapper${index}(${rest ? "...values" : "value"}) { return ${result}; }`;
 					}).join("\n");
 					const ast = parse(
 						`${declarations}\nwrapper0("author-style-is-data");`,
@@ -630,9 +639,12 @@ describe("reviewed lexical wrapper chains", () => {
 				...profile,
 				numRuns: 100,
 				examples: [
-					[1, false],
-					[6, false],
-					[6, true],
+					[1, false, false],
+					[1, false, true],
+					[6, false, false],
+					[6, false, true],
+					[6, true, false],
+					[6, true, true],
 				],
 			},
 		);
