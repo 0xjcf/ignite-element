@@ -675,17 +675,17 @@ function isNodeModuleRequire(
 	callee: t.Node,
 	scope: NodePath["scope"],
 ): boolean {
-	if (callee.type !== "MemberExpression") return false;
+	if (
+		callee.type !== "MemberExpression" &&
+		callee.type !== "OptionalMemberExpression"
+	)
+		return false;
 	const object = unwrap(callee.object);
 	return (
 		object.type === "Identifier" &&
 		object.name === "module" &&
 		!scope.getBinding("module") &&
-		(callee.computed
-			? callee.property.type === "StringLiteral" &&
-				callee.property.value === "require"
-			: callee.property.type === "Identifier" &&
-				callee.property.name === "require")
+		memberName(callee) === "require"
 	);
 }
 
@@ -693,49 +693,176 @@ function isNodeModuleRequire(
 function isLocalRequire(
 	scope: NodePath["scope"],
 	forwarded: ReadonlySet<t.Identifier>,
+	name = "require",
 ): boolean {
-	const binding = scope.getBinding("require");
+	const binding = scope.getBinding(name);
 	if (!binding || binding.constantViolations.length !== 0) return false;
-	const node = binding.path.node;
-	const fn =
-		node.type === "FunctionDeclaration"
-			? node
-			: node.type === "VariableDeclarator" &&
-					(node.init?.type === "FunctionExpression" ||
-						node.init?.type === "ArrowFunctionExpression")
-				? node.init
-				: null;
+	const fn = boundFunction(binding);
 	if (!fn) return false;
 	const parameter = fn.params[0];
 	const first =
-		parameter?.type === "AssignmentPattern" ? parameter.left : parameter;
+		parameter?.type === "AssignmentPattern"
+			? parameter.left
+			: parameter?.type === "RestElement"
+				? parameter.argument
+				: parameter;
 	return first?.type !== "Identifier" || !forwarded.has(first);
 }
 
+function evaluatedPath(
+	source: NodePath<t.Node | null | undefined> | undefined,
+): NodePath<t.Node> | undefined {
+	if (!source?.node) return undefined;
+	if (unwrap(source.node) !== source.node)
+		return evaluatedPath(
+			source.get("expression") as NodePath<t.Node | null | undefined>,
+		);
+	if (source.isSequenceExpression())
+		return evaluatedPath(source.get("expressions").at(-1));
+	return source as NodePath<t.Node>;
+}
+
+function boundFunction(binding: Binding | undefined) {
+	const node = binding?.path.node;
+	return node?.type === "FunctionDeclaration"
+		? node
+		: node?.type === "VariableDeclarator" &&
+				(node.init?.type === "FunctionExpression" ||
+					node.init?.type === "ArrowFunctionExpression")
+			? node.init
+			: null;
+}
+
+function memberName(
+	node: t.MemberExpression | t.OptionalMemberExpression,
+): string | undefined {
+	return node.computed
+		? node.property.type === "StringLiteral"
+			? node.property.value
+			: undefined
+		: node.property.type === "Identifier"
+			? node.property.name
+			: undefined;
+}
+
+/** Resolve lexical loader aliases; unrelated local functions remain ordinary data. */
+function isNodeLoader(
+	input: NodePath<t.Node | null | undefined> | undefined,
+	forwarded: ReadonlySet<t.Identifier>,
+	seen = new Set<Binding>(),
+): boolean {
+	const source = evaluatedPath(input);
+	if (!source) return false;
+	if (isNodeModuleRequire(source.node, source.scope)) return true;
+	if (!source.isIdentifier()) return false;
+	const binding = source.scope.getBinding(source.node.name);
+	if (!binding) return source.node.name === "require";
+	if (seen.has(binding)) return false;
+	seen.add(binding);
+	if (boundFunction(binding) && binding.constantViolations.length === 0)
+		return !isLocalRequire(source.scope, forwarded, source.node.name);
+	if (
+		binding.path.isVariableDeclarator() &&
+		isNodeLoader(binding.path.get("init"), forwarded, seen)
+	)
+		return true;
+	for (const violation of binding.constantViolations) {
+		if (
+			violation.isAssignmentExpression() &&
+			isNodeLoader(violation.get("right"), forwarded, seen)
+		)
+			return true;
+	}
+	// A require binding not proven to be an ordinary stable function stays guarded.
+	return source.node.name === "require";
+}
+
+function applyTarget(
+	input: NodePath<t.Node | null | undefined> | undefined,
+	seen = new Set<Binding>(),
+): NodePath<t.Node | null | undefined> | undefined {
+	const source = evaluatedPath(input);
+	if (!source) return undefined;
+	if (source.isArrayExpression()) return source.get("elements")[0];
+	if (!source.isIdentifier()) return source;
+	const binding = source.scope.getBinding(source.node.name);
+	if (
+		!binding ||
+		seen.has(binding) ||
+		binding.kind !== "const" ||
+		binding.constantViolations.length !== 0 ||
+		!binding.path.isVariableDeclarator()
+	)
+		return source;
+	seen.add(binding);
+	return applyTarget(binding.path.get("init"), seen);
+}
+
+/** Normalize direct, optional and indirect calls once for every guard. */
+function moduleCallSource(
+	path: NodePath<t.CallExpression | t.OptionalCallExpression>,
+	forwarded: ReadonlySet<t.Identifier>,
+): NodePath<t.Node | null | undefined> | undefined {
+	const callee = evaluatedPath(path.get("callee"));
+	if (!callee) return undefined;
+	const args = path.get("arguments");
+	if (callee.node.type === "Import" || isNodeLoader(callee, forwarded))
+		return args[0];
+	if (!callee.isMemberExpression() && !callee.isOptionalMemberExpression())
+		return undefined;
+	const member = callee as NodePath<
+		t.MemberExpression | t.OptionalMemberExpression
+	>;
+	if (!isNodeLoader(member.get("object"), forwarded)) return undefined;
+	const name = memberName(callee.node);
+	if (name === "call") return args[1];
+	if (name === "apply") return applyTarget(args[1]);
+	return undefined;
+}
+
 function noteForwardedParameter(
-	source: t.Node | undefined,
-	scope: NodePath["scope"],
+	source: NodePath<t.Node | null | undefined> | undefined,
 	forwarded: Set<t.Identifier>,
 	seen = new Set<Binding>(),
 ): void {
-	if (!source) return;
-	const argument = unwrap(source);
-	if (argument.type !== "Identifier") return;
-	const binding = scope.getBinding(argument.name);
-	if (!binding || seen.has(binding)) return;
-	seen.add(binding);
-	if (binding.kind === "param") forwarded.add(binding.identifier);
-	else if (
-		binding.kind === "const" &&
-		binding.constantViolations.length === 0 &&
-		binding.path.isVariableDeclarator()
-	)
+	if (!source?.node) return;
+	if (unwrap(source.node) !== source.node) {
 		noteForwardedParameter(
-			binding.path.node.init ?? undefined,
-			binding.path.scope,
+			source.get("expression") as NodePath<t.Node | null | undefined>,
 			forwarded,
 			seen,
 		);
+		return;
+	}
+	if (source.isIdentifier()) {
+		if (!source.isReferencedIdentifier()) return;
+		const binding = source.scope.getBinding(source.node.name);
+		if (!binding || seen.has(binding)) return;
+		seen.add(binding);
+		if (binding.kind === "param") forwarded.add(binding.identifier);
+		else if (
+			binding.kind === "const" &&
+			binding.constantViolations.length === 0 &&
+			binding.path.isVariableDeclarator()
+		)
+			noteForwardedParameter(binding.path.get("init"), forwarded, seen);
+		return;
+	}
+	// Only the final sequence value and conditional result branches form the target.
+	if (source.isSequenceExpression()) {
+		noteForwardedParameter(source.get("expressions").at(-1), forwarded, seen);
+		return;
+	}
+	if (source.isConditionalExpression()) {
+		noteForwardedParameter(source.get("consequent"), forwarded, seen);
+		noteForwardedParameter(source.get("alternate"), forwarded, seen);
+		return;
+	}
+	for (const key of t.VISITOR_KEYS[source.node.type] ?? []) {
+		const children = source.get(key);
+		for (const child of Array.isArray(children) ? children : [children])
+			noteForwardedParameter(child, forwarded, seen);
+	}
 }
 
 /** Shared lexical classification for source, compiler and resolved-package guards. */
@@ -750,18 +877,24 @@ export function moduleLoadSources(ast: t.File): Array<{
 		kind: "declaration" | "call";
 	}> = [];
 	const visit = traverse as (node: t.Node, visitors: object) => void;
-	// Resolve parameter identity before classifying local require wrappers.
 	const forwarded = new Set<t.Identifier>();
-	visit(ast, {
-		CallExpression(path: NodePath<t.CallExpression>) {
-			const callee = unwrap(path.node.callee);
-			if (callee.type === "Import" || isNodeModuleRequire(callee, path.scope))
-				noteForwardedParameter(path.node.arguments[0], path.scope, forwarded);
-		},
-		ImportExpression(path: NodePath<t.ImportExpression>) {
-			noteForwardedParameter(path.node.source, path.scope, forwarded);
-		},
-	});
+	// A finite binding set reaches a fixed point even through chained wrappers.
+	let changed = true;
+	while (changed) {
+		const before = forwarded.size;
+		visit(ast, {
+			"CallExpression|OptionalCallExpression"(
+				path: NodePath<t.CallExpression | t.OptionalCallExpression>,
+			) {
+				const source = moduleCallSource(path, forwarded);
+				if (source) noteForwardedParameter(source, forwarded);
+			},
+			ImportExpression(path: NodePath<t.ImportExpression>) {
+				noteForwardedParameter(path.get("source"), forwarded);
+			},
+		});
+		changed = forwarded.size !== before;
+	}
 	visit(ast, {
 		ImportDeclaration(path: NodePath<t.ImportDeclaration>) {
 			sources.push({
@@ -785,22 +918,16 @@ export function moduleLoadSources(ast: t.File): Array<{
 					kind: "declaration",
 				});
 		},
-		CallExpression(path: NodePath<t.CallExpression>) {
-			const callee = unwrap(path.node.callee);
-			const isImport = callee.type === "Import";
-			const isRequire =
-				callee.type === "Identifier" &&
-				callee.name === "require" &&
-				!isLocalRequire(path.scope, forwarded);
-			if (!isImport && !isRequire && !isNodeModuleRequire(callee, path.scope))
-				return;
-			const source = path.node.arguments[0];
-			if (source) sources.push({ source, official: false, kind: "call" });
+		"CallExpression|OptionalCallExpression"(
+			path: NodePath<t.CallExpression | t.OptionalCallExpression>,
+		) {
+			const source = moduleCallSource(path, forwarded);
+			if (source?.node)
+				sources.push({ source: source.node, official: false, kind: "call" });
 		},
 		// Also support parsers configured to emit ImportExpression directly.
-		ImportExpression(path: NodePath<t.CallExpression> & { node: t.Node }) {
-			const source = (path.node as { source?: t.Node }).source;
-			if (source) sources.push({ source, official: false, kind: "call" });
+		ImportExpression(path: NodePath<t.ImportExpression>) {
+			sources.push({ source: path.node.source, official: false, kind: "call" });
 		},
 	});
 	return sources;

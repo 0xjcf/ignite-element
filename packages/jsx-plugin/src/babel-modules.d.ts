@@ -30,6 +30,16 @@ declare module "@babel/traverse" {
 		isImportDeclaration(): this is NodePath<t.ImportDeclaration>;
 		isVariableDeclarator(): this is NodePath<t.VariableDeclarator>;
 		isReferencedIdentifier(): boolean;
+		get<K extends keyof T>(key: K): T[K] extends Array<infer Child> ? NodePath<Child>[] : NodePath<T[K]>;
+		get(key: string): NodePath<t.Node | null | undefined> | NodePath<t.Node | null | undefined>[];
+		isIdentifier(): this is NodePath<t.Identifier>;
+		isSequenceExpression(): this is NodePath<t.SequenceExpression>;
+		isConditionalExpression(): this is NodePath<t.ConditionalExpression>;
+		isArrayExpression(): this is NodePath<t.ArrayExpression>;
+		isAssignmentExpression(): this is NodePath<t.AssignmentExpression>;
+		isMemberExpression(): this is NodePath<t.MemberExpression>;
+		isOptionalMemberExpression(): this is NodePath<t.OptionalMemberExpression>;
+
 	}
 
 	interface Binding {

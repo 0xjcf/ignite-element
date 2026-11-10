@@ -244,14 +244,14 @@ command and a distinct review purpose.
   dispatch again. Never stage a replacement over an existing public version.
 - **Only some packages approved:** never unpublish them. Continue only after
   confirming the approved dependencies and tags; approve remaining packages in
-  dependency order. Withhold the facade until core, adapters, and renderer are
+  dependency order. Withhold the facade until core, adapters, renderer and the JSX plugin are
   public and resolvable.
 - **Approval succeeded but a dist-tag update failed:** re-read online dist-tags,
   apply only the missing command from the explicit list above with fresh 2FA,
   then rerun the verifier. Do not republish.
 - **Facade withheld:** leave it staged or reject it according to Operator
-  judgment. Repair or approve the unavailable dependency first, verify all
-  three dependencies, then approve the unchanged matching facade stage. If its
+  judgment. Repair or approve the unavailable dependency first, verify core, adapters, renderer and the JSX plugin are all public and
+  resolvable, then approve the unchanged matching facade stage. If its
   reviewed artifact is no longer valid, reject it and prepare a later version.
 
 Git tags, GitHub Releases, branch mutation, and stable-v3 integration are

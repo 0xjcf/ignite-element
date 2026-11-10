@@ -21,3 +21,10 @@ Inspect the host's final module code after other transforms using the same
 binding-aware loader and target checks, so generated private loads stay refused.
 Original and final application code share the same fail-closed policy for
 unknown loader targets; dependency scans retain their existing relaxation.
+
+Follow lexical parameter dependencies through composed loader expressions and
+rest arguments, including templates, aliases, calls and member access. Ignore
+discarded sequence values and conditional tests when classifying forwarding.
+
+Classify optional and sequence callees, lexical loader aliases and explicit
+Function.call/apply load arguments through that same classifier.
