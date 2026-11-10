@@ -290,12 +290,12 @@
 		"CHANGELOG.md"
 	],
 	"sideEffects": [
+		"./src/internal/hostRuntime.js",
 		"./src/renderers/*.ts",
 		"./src/renderers/*.js",
 		"./dist/registry-*.js",
 		"./dist/jsx.es-*.js",
 		"./dist/renderers/*.es.js",
-		"./dist/projectionTargets-*.js",
 		"./dist/IgniteElement-*.js"
 	],
 	"scripts": {

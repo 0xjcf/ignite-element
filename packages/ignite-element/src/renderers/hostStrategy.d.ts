@@ -13,3 +13,5 @@ export function mountIgniteJsxOnce(
 export function reacquireMountedView(root: ParentNode): void;
 
 export function releaseMountedView(root: ParentNode): void;
+
+export function replayParkedStyles(root: ShadowRoot): void;

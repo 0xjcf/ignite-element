@@ -1,8 +1,9 @@
 /// <reference types="vite/client" />
-import { createProjectionDocumentTarget } from "ignite-element/xstate";
+
 import { createBrowserSpeechDeliveryPort } from "./adapters/browser-speech";
 import { createBrowserVoiceCapturePort } from "./adapters/browser-voice";
 import { createWorkbenchModelTurnPort } from "./adapters/mlx-model-turn";
+import { observeWorkbenchDocuments } from "./artifact-observer";
 import {
 	createProductPriceCapability,
 	createProductPricingDomainPack,
@@ -81,26 +82,22 @@ const runtime = createVoiceWorkbenchRuntime({
 
 component("voice-workbench", renderWorkbench);
 
-const documentProjection = component(
-	createProjectionDocumentTarget({
-		commitDocument: (projectionDocument) => {
-			source.send({
-				type: "DOCUMENT_COMMITTED",
-				document: {
-					id: projectionDocument.id,
-					title: projectionDocument.title,
-					revision: projectionDocument.revision,
-				},
-			});
+const documents = observeWorkbenchDocuments(component, (document) => {
+	source.send({
+		type: "DOCUMENT_COMMITTED",
+		document: {
+			id: document.id,
+			title: document.title,
+			revision: document.revision,
 		},
-	}),
-);
+	});
+});
 
 let pageDisposed = false;
 window.addEventListener("pagehide", (event) => {
 	if (event.persisted || pageDisposed) return;
 	pageDisposed = true;
-	documentProjection.dispose();
+	documents.dispose();
 	runtime.dispose();
 	source.stop();
 });

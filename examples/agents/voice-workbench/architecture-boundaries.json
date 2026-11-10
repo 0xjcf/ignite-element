@@ -3,7 +3,11 @@
 		{
 			"id": "contracts",
 			"layer": "contracts",
-			"paths": ["src/ports.ts", "src/domains/contracts.ts"],
+			"paths": [
+				"src/ports.ts",
+				"src/domains/contracts.ts",
+				"src/artifact-types.ts"
+			],
 			"allowSideEffects": false,
 			"allowedInternalDependencies": [
 				"contracts",
@@ -29,7 +33,9 @@
 				"src/domains/product-pricing/completion-audit.ts",
 				"src/domains/product-pricing/index.ts",
 				"src/domains/product-pricing/policy.ts",
-				"src/domains/product-pricing/projection.ts"
+				"src/domains/product-pricing/projection.ts",
+				"src/artifact-document.ts",
+				"src/artifact-uri.ts"
 			],
 			"allowSideEffects": false,
 			"allowedInternalDependencies": ["contracts", "functional-core"],
@@ -145,7 +151,21 @@
 				"runtime",
 				"adapter",
 				"composition",
-				"host-root"
+				"host-root",
+				"document-delivery"
+			],
+			"allowedExternalRuntimeImports": [],
+			"disposition": "move"
+		},
+		{
+			"id": "document-delivery",
+			"layer": "adapter",
+			"paths": ["src/artifact-observer.ts"],
+			"allowSideEffects": true,
+			"allowedInternalDependencies": [
+				"functional-core",
+				"contracts",
+				"composition"
 			],
 			"allowedExternalRuntimeImports": [],
 			"disposition": "move"

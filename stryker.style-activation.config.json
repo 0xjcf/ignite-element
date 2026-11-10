@@ -1,0 +1,20 @@
+{
+	"testRunner": "command",
+	"commandRunner": {
+		"command": "pnpm --filter ignite-element exec vitest --config vitest.style-activation.config.ts --run"
+	},
+	"mutate": [
+		"packages/ignite-renderer/src/styleHook.ts",
+		"packages/ignite-renderer/src/globalStyles.ts",
+		"packages/ignite-renderer/src/injectStyles.ts:29:0-35:1",
+		"packages/ignite-renderer/src/injectStyles.ts:238:0-238:28"
+	],
+	"coverageAnalysis": "off",
+	"incremental": false,
+	"ignoreStatic": false,
+	"reporters": ["clear-text", "json"],
+	"jsonReporter": { "fileName": "reports/style-activation/mutation.json" },
+	"thresholds": { "high": 85, "low": 70, "break": null },
+	"concurrency": 4,
+	"timeoutMS": 10000
+}

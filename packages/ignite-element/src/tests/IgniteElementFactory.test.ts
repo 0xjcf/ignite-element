@@ -4,10 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createComponentFactory } from "../createComponentFactory";
 import { StateScope } from "../IgniteAdapter";
 import igniteElementFactory from "../IgniteElementFactory";
-import { createProjectionDocumentTarget } from "../index";
 import * as strategyResolution from "../renderers/resolveConfiguredRenderStrategy";
 import { facadeCleanupSymbol } from "../runtime/effects";
-import type { ProjectionDocument } from "../types/agent";
 import MinimalMockAdapter from "./MockAdapter";
 
 it("selects configured rendering at registration, and never with an override", () => {
@@ -32,12 +30,7 @@ const flushMicrotasks = () =>
 
 describe("igniteElementFactory", () => {
 	it("preserves the shared adapter after watcher setup fails", async () => {
-		const document: ProjectionDocument = {
-			id: "shared-panel",
-			revision: "1",
-			nodes: [{ kind: "text", id: "summary", text: "Ready" }],
-		};
-		const snapshot = { documents: [document], speech: null };
+		const snapshot = { value: 1 };
 		let failWatcherSetup = true;
 		const unsubscribe = vi.fn();
 		const stop = vi.fn();
@@ -78,12 +71,10 @@ describe("igniteElementFactory", () => {
 				render: () => undefined,
 			}),
 		});
-		const ghostCommit = vi.fn();
-		expect(() =>
-			Reflect.apply(core, undefined, [
-				createProjectionDocumentTarget({ commitDocument: ghostCommit }),
-			]),
-		).toThrow("watcher setup failed");
+		const ghostWatcher = vi.fn();
+		expect(() => Reflect.get(core, "watch")(ghostWatcher)).toThrow(
+			"watcher setup failed",
+		);
 		expect(acquireAdapter).toHaveBeenCalledOnce();
 		expect(acquireAdapter.mock.results[0]?.value.stop).not.toHaveBeenCalled();
 		failWatcherSetup = false;
@@ -94,7 +85,7 @@ describe("igniteElementFactory", () => {
 		element.remove();
 		await flushMicrotasks();
 		await flushMicrotasks();
-		expect(ghostCommit).not.toHaveBeenCalled();
+		expect(ghostWatcher).not.toHaveBeenCalled();
 		expect(acquireAdapter).toHaveBeenCalledOnce();
 		expect(stop).not.toHaveBeenCalled();
 		Reflect.get(core, "dispose")();

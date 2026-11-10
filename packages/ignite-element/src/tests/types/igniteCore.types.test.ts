@@ -28,10 +28,6 @@ import type {
 	ReduxInstanceConfig,
 	IgniteCoreReturn as SharedIgniteCoreReturn,
 } from "../../igniteCore/types";
-import {
-	createProjectionDocumentTarget,
-	createProjectionSpeechTarget,
-} from "../../index";
 import type {
 	CommandContext,
 	EmitFromEvents,
@@ -208,47 +204,10 @@ describe("igniteCore type inference", () => {
 		expectTypeOf<CounterParameters["length"]>().toEqualTypeOf<2>();
 		expectTypeOf<CounterParameters[0]>().toEqualTypeOf<string>();
 
-		const documentTarget = createProjectionDocumentTarget({
-			commitDocument: () => undefined,
-		});
-		const speechTarget = createProjectionSpeechTarget({
-			commitSpeech: () => undefined,
-			acknowledgeCommandName: "acknowledgeSpeech",
-		});
-
-		type DocumentTarget = ReturnType<typeof createProjectionDocumentTarget>;
-		type SpeechTarget = ReturnType<typeof createProjectionSpeechTarget>;
-		type DocumentTargetExposesConfiguration =
-			"commitDocument" extends keyof DocumentTarget
-				? true
-				: "documentId" extends keyof DocumentTarget
-					? true
-					: false;
-		type SpeechTargetExposesConfiguration =
-			"commitSpeech" extends keyof SpeechTarget
-				? true
-				: "acknowledgeCommandName" extends keyof SpeechTarget
-					? true
-					: "resolveAcknowledgePayload" extends keyof SpeechTarget
-						? true
-						: false;
-		expectTypeOf(documentTarget).toEqualTypeOf<DocumentTarget>();
-		expectTypeOf(speechTarget).toEqualTypeOf<SpeechTarget>();
-		expectTypeOf<DocumentTargetExposesConfiguration>().toEqualTypeOf<false>();
-		expectTypeOf<SpeechTargetExposesConfiguration>().toEqualTypeOf<false>();
-		const documentSession = counter(documentTarget);
-		const speechSession = counter(speechTarget);
-		try {
-			expectTypeOf(documentSession.dispose).toEqualTypeOf<() => void>();
-			expectTypeOf(speechSession.dispose).toEqualTypeOf<() => void>();
-		} finally {
-			documentSession.dispose();
-			speechSession.dispose();
-		}
 		const assertInvalidOneArgumentUsage = (
 			invalidCounter: typeof counter,
 		): void => {
-			// @ts-expect-error one-argument overload accepts only first-party targets
+			// @ts-expect-error DOM registration requires an element name and renderer
 			invalidCounter("div");
 		};
 		void assertInvalidOneArgumentUsage;
@@ -259,16 +218,10 @@ describe("igniteCore type inference", () => {
 		const assertPlainTargetRejected = (
 			invalidCounter: typeof counter,
 		): void => {
-			// @ts-expect-error plain objects are not valid projection targets
+			// @ts-expect-error plain objects cannot register a DOM element
 			invalidCounter(plainTarget);
 		};
 		void assertPlainTargetRejected;
-
-		createProjectionDocumentTarget({
-			// @ts-expect-error callback selectors are not part of the public target API
-			selectDocument: () => null,
-			commitDocument: () => undefined,
-		});
 	});
 
 	it("accepts an EventTarget host for the headless agent runtime", () => {

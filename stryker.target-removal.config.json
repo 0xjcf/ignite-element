@@ -1,0 +1,22 @@
+{
+	"testRunner": "vitest",
+	"plugins": ["@stryker-mutator/vitest-runner"],
+	"vitest": {
+		"configFile": "packages/ignite-element/vitest.target-removal.config.ts",
+		"dir": "packages/ignite-element",
+		"related": false
+	},
+	"mutate": [
+		"examples/agents/voice-workbench/src/artifact-observer.ts",
+		"examples/agents/voice-workbench/src/artifact-uri.ts",
+		"examples/agents/voice-workbench/src/artifact-document.ts:1455:0-1478:0"
+	],
+	"coverageAnalysis": "perTest",
+	"incremental": false,
+	"ignoreStatic": false,
+	"reporters": ["clear-text", "json"],
+	"jsonReporter": { "fileName": "reports/target-removal/mutation.json" },
+	"thresholds": { "high": 85, "low": 70, "break": null },
+	"concurrency": 4,
+	"timeoutMS": 5000
+}

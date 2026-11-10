@@ -1,15 +1,8 @@
 import type {
-	createProjectionDocumentTarget,
-	createProjectionSpeechTarget,
-} from "ignite-element/xstate";
-
-type ProjectionDocument = Parameters<
-	Parameters<typeof createProjectionDocumentTarget>[0]["commitDocument"]
->[0];
-type ProjectionDocumentNode = ProjectionDocument["nodes"][number];
-type ProjectionSpeechRequest = Parameters<
-	Parameters<typeof createProjectionSpeechTarget>[0]["commitSpeech"]
->[0];
+	ProjectionDocument,
+	ProjectionDocumentNode,
+	ProjectionSpeechRequest,
+} from "./artifact-types";
 
 export type CreateArtifactInput = {
 	id: string;

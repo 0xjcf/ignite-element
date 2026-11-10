@@ -3,7 +3,6 @@ import { assign, createMachine, setup } from "xstate";
 import type { Host } from "../hosts/types";
 import { igniteCore } from "../IgniteCore";
 import { jsx } from "../renderers/jsx/jsx-runtime";
-import { createProjectionDocumentTarget } from "../runtime/projectionTargets";
 
 const flush = () => new Promise<void>((resolve) => queueMicrotask(resolve));
 const tag = () => `host-${crypto.randomUUID()}`;
@@ -330,59 +329,5 @@ describe("igniteCore hosts", () => {
 		expect(typeof command).toBe("function");
 		expect((command as () => string)()).toBe("ready");
 		commanded.dispose();
-	});
-
-	it("projects host describe text to a document target without mounting", async () => {
-		let mounts = 0;
-		const committed: string[] = [];
-		const machine = createMachine({
-			types: { context: {} as { n: number } },
-			context: { n: 3 },
-		});
-		const scene: Host<
-			HTMLCanvasElement,
-			number,
-			void,
-			{ context: { n: number } }
-		> = {
-			mount() {
-				mounts += 1;
-			},
-			dispose() {},
-			select: (snapshot) => snapshot.context.n,
-			describe: (slice) => `angle ${slice}`,
-		};
-		const core = igniteCore({
-			source: machine,
-			hosts: { scene },
-			states: () => ({
-				projection: {
-					documents: [
-						{
-							id: "panel",
-							revision: "1",
-							nodes: [{ kind: "text" as const, id: "summary", text: "Ready" }],
-						},
-					],
-				},
-			}),
-		});
-		const session = core(
-			createProjectionDocumentTarget({
-				commitDocument(document) {
-					committed.push(
-						document.nodes
-							.map((node) => ("text" in node ? node.text : ""))
-							.join("|"),
-					);
-				},
-			}),
-		);
-		await flush();
-		await flush();
-		expect(mounts).toBe(0);
-		expect(committed.some((text) => text.includes("angle 3"))).toBe(true);
-		session.dispose();
-		core.dispose();
 	});
 });

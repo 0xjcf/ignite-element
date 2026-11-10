@@ -12,7 +12,8 @@ Command-defined execution results shipped in beta.16, replacing the beta.15 rece
 ## Construction and reads
 
 Use the public source entrypoint (`ignite-element/xstate`, `/redux`, or `/mobx`). Root `const core = igniteCore()` remains source-free registrar-only.
-Source-backed owners retain registration and opaque projection-target call forms.
+Source-backed owners retain two-argument DOM registration and the headless methods below.
+The former target factories and `core(target)` overload are removed.
 
 | Surface | Contract |
 | --- | --- |
@@ -28,8 +29,8 @@ Source-backed owners retain registration and opaque projection-target call forms
 No zero-argument read, snapshot key, path language, function lookup or compatibility
 aliases are added. The former public raw getters/watchers, derived getters/watchers,
 schema getter, `canExecute`, command helpers and their metadata builders are removed.
-Native source APIs, native snapshots in projections/effects, and the
-private document/speech observation seam remain.
+Native source APIs and native snapshots in projections/effects remain.
+Application document and speech consumers use ordinary `watch` or source-owned ports.
 
 ## Minimal catalogue
 

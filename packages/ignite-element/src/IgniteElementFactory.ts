@@ -8,25 +8,10 @@ import {
 	rollbackElementSetup,
 } from "./IgniteElement";
 import { assertSupportedSourceOptions } from "./internal/assertSupportedSourceOptions";
-import {
-	describeIgniteHosts,
-	HOST_RUNTIME_FIELD,
-} from "./internal/hostRuntime.js";
-import {
-	commitProjectionDocumentTarget,
-	commitProjectionSpeechTarget,
-	createProjectionBindingState,
-	createProjectionDocument,
-	createProjectionSpeech,
-	type ProjectionInspection,
-} from "./internal/projectionBinding";
+import { HOST_RUNTIME_FIELD } from "./internal/hostRuntime.js";
 import { requireDomRegistration } from "./internal/requireDomRegistration";
 import "./renderers/ignite-jsx";
 import type { IgniteComponent } from "./igniteCore/types";
-import {
-	parseProjectionDocumentCollection,
-	parseProjectionSpeechRequest,
-} from "./internal/projectionDocument";
 import { resolveConfiguredRenderStrategy } from "./renderers/resolveConfiguredRenderStrategy";
 import { createAgentRuntime } from "./runtime/agent";
 import {
@@ -38,19 +23,11 @@ import { activateHostEffects, facadeCleanupSymbol } from "./runtime/effects";
 import { createEventOrigins } from "./runtime/eventOrigins";
 import { createLifetime, releaseAll } from "./runtime/lifetime";
 import { forwardNativeEvents } from "./runtime/nativeEvents";
-import { resolveProjectionTarget } from "./runtime/projectionTargets";
-import { toInspectableSchemaValue } from "./runtime/schema";
-import type {
-	IgniteAgentSubscription,
-	IgniteProjectionSession,
-	IgniteProjectionTarget,
-} from "./types/agent";
 import type {
 	BaseRenderArgs,
 	ComponentRenderer,
 	RendererObject,
 } from "./types/render";
-import type { IgniteSchemaValue } from "./types/schema";
 
 export type { BaseRenderArgs, ComponentRenderer } from "./types/render";
 
@@ -113,10 +90,6 @@ type FactoryOptions<
 		observeEffect?: (name: string) => void,
 	) => AdditionalRenderArgs<State, Event, RenderArgs>;
 	resolveStates?: (adapter: IgniteAdapter<State, Event>) => RuntimeStates;
-	resolveInspection?: (adapter: IgniteAdapter<State, Event>) => {
-		snapshot: unknown;
-		states: RuntimeStates;
-	};
 	resolveDeliveredStates?: (snapshot: State) => RuntimeStates;
 	createRenderArgs?: (
 		snapshot: State,
@@ -125,36 +98,6 @@ type FactoryOptions<
 	) => RenderArgs;
 	createRenderStrategy?: RenderStrategyFactory<View>;
 };
-
-function getAdditionalArg(
-	additionalArgs: object,
-	commandName: string,
-): unknown {
-	return Reflect.get(additionalArgs, commandName);
-}
-
-function createCommandSchemaEntry(
-	name: string,
-	commandValue: unknown,
-): [string, Record<string, IgniteSchemaValue>] {
-	void commandValue;
-	return [name, { input: null }];
-}
-
-function getOwnCommandEntries(value: object): Array<[string, unknown]> {
-	const entries: Array<[string, unknown]> = [];
-	for (const name of Object.keys(value)) {
-		const descriptor = Object.getOwnPropertyDescriptor(value, name);
-		if (
-			descriptor &&
-			"value" in descriptor &&
-			typeof descriptor.value === "function"
-		) {
-			entries.push([name, descriptor.value]);
-		}
-	}
-	return entries;
-}
 
 /**
  * Expose command functions from additionalArgs as methods on the custom element.
@@ -328,12 +271,6 @@ export default function igniteElementFactory<
 	const resolveDeliveredStates =
 		options?.resolveDeliveredStates ??
 		((_) => Object.create(null) as RuntimeView);
-	const resolveInspection =
-		options?.resolveInspection ??
-		((adapter: IgniteAdapter<State, Event>) => ({
-			snapshot: adapter.getSnapshot(),
-			states: resolveStates(adapter),
-		}));
 	const createBaseRenderArgs =
 		options?.createRenderArgs ??
 		((
@@ -499,196 +436,8 @@ export default function igniteElementFactory<
 		}
 	};
 
-	const isInspectableRecord = (
-		value: unknown,
-	): value is Record<string, unknown> =>
-		typeof value === "object" && value !== null && !Array.isArray(value);
-	type InspectablePropertyRead =
-		| { found: false }
-		| { found: true; safe: false }
-		| { found: true; safe: true; value: unknown };
-	const readInspectableProperty = (
-		value: Record<string, unknown>,
-		key: string,
-	): InspectablePropertyRead => {
-		let descriptor: PropertyDescriptor | undefined;
-		try {
-			descriptor = Object.getOwnPropertyDescriptor(value, key);
-		} catch {
-			return { found: true, safe: false };
-		}
-		if (!descriptor) {
-			return { found: false };
-		}
-		if (!("value" in descriptor)) {
-			return { found: true, safe: false };
-		}
-		const propertyValue: unknown = descriptor.value;
-		return { found: true, safe: true, value: propertyValue };
-	};
-	type ProjectionDocumentsRead =
-		| { found: false; safe: true }
-		| {
-				found: true;
-				safe: boolean;
-				value: readonly ProjectionInspection["documents"][number][];
-		  };
-	type ProjectionSpeechRead =
-		| { found: false; safe: true }
-		| {
-				found: true;
-				safe: boolean;
-				value: ProjectionInspection["speech"];
-		  };
-
-	const readProjectionDocuments = (
-		candidate: unknown,
-	): ProjectionDocumentsRead => {
-		if (!isInspectableRecord(candidate)) {
-			return { found: false, safe: true };
-		}
-
-		const property = readInspectableProperty(candidate, "documents");
-		if (!property.found) {
-			return { found: false, safe: true };
-		}
-		if (!property.safe) {
-			return { found: true, safe: false, value: [] };
-		}
-
-		const parsed = parseProjectionDocumentCollection(property.value);
-		return {
-			found: true,
-			safe: parsed.ok,
-			value: parsed.ok ? parsed.documents : [],
-		};
-	};
-
-	const readProjectionSpeech = (candidate: unknown): ProjectionSpeechRead => {
-		if (!isInspectableRecord(candidate)) {
-			return { found: false, safe: true };
-		}
-
-		const property = readInspectableProperty(candidate, "speech");
-		if (!property.found) {
-			return { found: false, safe: true };
-		}
-		if (!property.safe) {
-			return { found: true, safe: false, value: null };
-		}
-
-		const parsed = parseProjectionSpeechRequest(property.value);
-		return {
-			found: true,
-			safe: parsed.ok,
-			value: parsed.ok ? parsed.speech : null,
-		};
-	};
-
-	const resolveProjectionState = (
-		snapshot: unknown,
-		states: unknown,
-	): Pick<ProjectionInspection, "documents" | "speech"> & {
-		inspectionDataSafe: boolean;
-	} => {
-		let inspectionDataSafe = true;
-		const actorOwnedContainers = [snapshot];
-		if (isInspectableRecord(snapshot)) {
-			for (const key of ["context", "projection"]) {
-				const property = readInspectableProperty(snapshot, key);
-				if (property.found && property.safe) {
-					actorOwnedContainers.push(property.value);
-				} else if (property.found) {
-					inspectionDataSafe = false;
-				}
-			}
-		}
-
-		const derivedStatesContainers = [states];
-		if (isInspectableRecord(states)) {
-			const property = readInspectableProperty(states, "projection");
-			if (property.found && property.safe) {
-				derivedStatesContainers.push(property.value);
-			} else if (property.found) {
-				inspectionDataSafe = false;
-			}
-		}
-		const containers = [...actorOwnedContainers, ...derivedStatesContainers];
-
-		let documents:
-			| readonly ProjectionInspection["documents"][number][]
-			| undefined;
-		let speech: ProjectionInspection["speech"] = null;
-		let speechFound = false;
-
-		for (const container of containers) {
-			const documentsRead = readProjectionDocuments(container);
-			inspectionDataSafe = inspectionDataSafe && documentsRead.safe;
-			if (typeof documents === "undefined" && documentsRead.found) {
-				documents = documentsRead.value;
-			}
-
-			const speechRead = readProjectionSpeech(container);
-			inspectionDataSafe = inspectionDataSafe && speechRead.safe;
-			if (!speechFound && speechRead.found) {
-				speech = speechRead.value;
-				speechFound = true;
-			}
-		}
-
-		return { documents: documents ?? [], speech, inspectionDataSafe };
-	};
-
-	const resolveProjectionInspection = (): ProjectionInspection => {
-		const { adapter, additionalArgs } = resolveRuntimeResources();
-		const commandEntries = getOwnCommandEntries(additionalArgs);
-		const { snapshot, states } = resolveInspection(adapter);
-		const projectionState = resolveProjectionState(snapshot, states);
-		const schema = {
-			commands: Object.fromEntries(
-				commandEntries
-					.map(([name, value]) => createCommandSchemaEntry(name, value))
-					.sort(([left], [right]) => left.localeCompare(right)),
-			),
-			events: [...eventTypes].sort().map((type) => ({ type })),
-			snapshot: projectionState.inspectionDataSafe
-				? (toInspectableSchemaValue(snapshot) ?? null)
-				: null,
-			states: projectionState.inspectionDataSafe
-				? (toInspectableSchemaValue(states) ?? null)
-				: null,
-		};
-		const revision = JSON.stringify({
-			snapshot: schema.snapshot,
-			states: schema.states,
-			commands: Object.keys(schema.commands),
-		});
-
-		return {
-			snapshot,
-			states,
-			schema,
-			hostDescriptions: describeIgniteHosts(coreHosts ?? {}, snapshot),
-			canExecute: (commandName: string) => {
-				const command = getAdditionalArg(additionalArgs, commandName);
-				if (typeof command !== "function") {
-					return false;
-				}
-				const availability =
-					isInspectableRecord(states) &&
-					isInspectableRecord(states.commandAvailability)
-						? states.commandAvailability
-						: undefined;
-				return availability?.[commandName] !== false;
-			},
-			documents: projectionState.documents,
-			speech: projectionState.speech,
-			revision,
-		};
-	};
 	const {
 		runtime: agentRuntime,
-		watchSnapshot,
 		bindingStore,
 		publishCatalogue,
 		readCatalogue,
@@ -709,124 +458,16 @@ export default function igniteElementFactory<
 		resolveStates,
 	});
 
-	const bindProjectionTarget = (target: unknown): IgniteProjectionSession => {
-		const targetConfiguration = resolveProjectionTarget(target);
-		if (!targetConfiguration) {
-			throw new Error(
-				"[igniteElementFactory] The one-argument overload only accepts first-party projection targets.",
-			);
-		}
-
-		let setupState: "installing" | "active" | "failed" | "disposed" =
-			"installing";
-		const bindingState = createProjectionBindingState();
-		let commitQueue = Promise.resolve();
-		let commitQueued = false;
-
-		const commitCurrent = () => {
-			if (setupState !== "active" || commitQueued) {
-				return;
-			}
-			commitQueued = true;
-
-			commitQueue = commitQueue
-				.then(async () => {
-					commitQueued = false;
-					if (setupState !== "active") {
-						return;
-					}
-
-					const inspection = resolveProjectionInspection();
-					const fact =
-						targetConfiguration.kind === "document"
-							? await commitProjectionDocumentTarget({
-									state: bindingState,
-									inspection,
-									projection: createProjectionDocument(
-										targetConfiguration.documentId,
-									),
-									commitDocument: targetConfiguration.commitDocument,
-								})
-							: await commitProjectionSpeechTarget({
-									state: bindingState,
-									inspection,
-									projection: createProjectionSpeech(),
-									commitSpeech: targetConfiguration.commitSpeech,
-									acknowledge: async (speech) => {
-										const payload =
-											targetConfiguration.resolveAcknowledgePayload?.(speech);
-										const { additionalArgs } = resolveRuntimeResources();
-										const command = getAdditionalArg(
-											additionalArgs,
-											targetConfiguration.acknowledgeCommandName,
-										);
-										if (typeof command !== "function") {
-											throw new Error(
-												`Unknown command "${targetConfiguration.acknowledgeCommandName}".`,
-											);
-										}
-										await command(payload);
-									},
-								});
-
-					if (fact.status === "error" || fact.status === "unsupported") {
-						console.error(
-							"[igniteElementFactory] Projection commit fact",
-							fact,
-						);
-					}
-				})
-				.catch((error) => {
-					console.error(
-						"[igniteElementFactory] Projection commit failed unexpectedly.",
-						error,
-					);
-				});
-		};
-
-		let subscription: IgniteAgentSubscription | undefined;
-		try {
-			subscription = watchSnapshot(() => {
-				if (setupState === "active") {
-					commitCurrent();
-				}
-			});
-			setupState = "active";
-		} catch (error) {
-			setupState = "failed";
-			throw error;
-		}
-
-		commitCurrent();
-
-		const release = lifetime.own(() => {
-			if (setupState !== "active") {
-				return;
-			}
-			setupState = "disposed";
-			const ownedSubscription = subscription;
-			subscription = undefined;
-			ownedSubscription?.unsubscribe();
-		});
-		return { dispose: release };
-	};
-
 	const registerImpl = (
-		elementNameOrTarget: string | IgniteProjectionTarget,
-		renderer?: ComponentRenderer<RenderArgs, View>,
-	): IgniteComponent | IgniteProjectionSession => {
-		if (renderer === undefined) {
-			return bindProjectionTarget(elementNameOrTarget);
-		}
-		const resolvedRenderer = renderer;
-
-		if (typeof elementNameOrTarget !== "string") {
+		elementName: string,
+		renderer: ComponentRenderer<RenderArgs, View>,
+	): IgniteComponent => {
+		if (typeof elementName !== "string" || renderer === undefined) {
 			throw new Error(
 				"[igniteElementFactory] DOM registration requires an element name and renderer.",
 			);
 		}
-
-		const elementName = elementNameOrTarget;
+		const resolvedRenderer = renderer;
 		const { ElementBase, registry } = requireDomRegistration();
 		const handle: IgniteComponent = {
 			tagName: elementName,
@@ -1135,16 +776,15 @@ export default function igniteElementFactory<
 	};
 
 	const register = (
-		target: string | IgniteProjectionTarget,
-		renderer?: ComponentRenderer<RenderArgs, View>,
+		elementName: string,
+		renderer: ComponentRenderer<RenderArgs, View>,
 	) => {
 		lifetime.assertActive();
-		if (renderer === undefined) return registerImpl(target);
 		if (registrationInProgress)
 			throw new Error("[igniteCore] Reentrant registration.");
 		registrationInProgress = true;
 		try {
-			return registerImpl(target, renderer);
+			return registerImpl(elementName, renderer);
 		} finally {
 			registrationInProgress = false;
 		}

@@ -291,6 +291,9 @@ importers:
       '@babel/preset-react':
         specifier: 7.28.5
         version: 7.28.5(@babel/core@7.29.7)
+      '@ignite-element/renderer':
+        specifier: workspace:*
+        version: link:../ignite-renderer
       '@rspack/core':
         specifier: ^1.6.0
         version: 1.7.12

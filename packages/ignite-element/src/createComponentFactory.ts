@@ -49,10 +49,7 @@ export type ElementFactoryOptions<
 	resolveStates?: (
 		adapter: IgniteAdapter<State, Event>,
 	) => RuntimeView | Record<never, never>;
-	resolveInspection?: (adapter: IgniteAdapter<State, Event>) => {
-		snapshot: unknown;
-		states: RuntimeView | Record<never, never>;
-	};
+
 	resolveDeliveredStates?: (
 		snapshot: State,
 	) => RuntimeView | Record<never, never>;
@@ -193,7 +190,6 @@ export function bindProjectionToElements<
 		eventTypes: projection.eventTypes,
 		hasCommands: projection.hasCommands,
 		disposeEffects: projection.disposeEffects,
-		resolveInspection: projection.resolveInspection,
 		resolveStates: projection.resolveStates,
 		resolveDeliveredStates: projection.resolveDeliveredStates,
 		createRenderArgs: projection.createRenderArgs,
