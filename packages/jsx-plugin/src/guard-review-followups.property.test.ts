@@ -779,12 +779,13 @@ describe("reviewed apply-array writes", () => {
 				fc.boolean(),
 				fc.boolean(),
 				fc.boolean(),
-				async (first, blocked, local, dependency) => {
+				fc.boolean(),
+				async (first, blocked, local, dependency, stringKey) => {
 					const prelude = local
 						? "function require(value) { return Boolean(value); }"
 						: "";
 					const target = blocked ? "./author-style-mark.es.js" : "node:path";
-					const source = `${prelude} const target=${JSON.stringify(target)}; const args=["node:fs"]; args[${first ? 0 : 1}]=target; module.exports=require.apply(null,args);`;
+					const source = `${prelude} const target=${JSON.stringify(target)}; const args=["node:fs"]; args[${stringKey ? JSON.stringify(first ? "0" : "1") : first ? 0 : 1}]=target; module.exports=require.apply(null,args);`;
 					const calls = moduleLoadSources(
 						parse(source, { sourceType: "module" }),
 					).filter((source) => source.kind === "call");
@@ -812,16 +813,17 @@ describe("reviewed apply-array writes", () => {
 			),
 			{
 				...profile,
-				examples: [
-					[true, true, false, false],
-					[true, true, false, true],
-					[true, false, false, false],
-					[true, false, false, true],
-					[false, true, false, false],
-					[false, true, false, true],
-					[true, true, true, false],
-					[true, true, true, true],
-				],
+				examples: Array.from(
+					{ length: 32 },
+					(_, mask) =>
+						[
+							Boolean(mask & 1),
+							Boolean(mask & 2),
+							Boolean(mask & 4),
+							Boolean(mask & 8),
+							Boolean(mask & 16),
+						] as [boolean, boolean, boolean, boolean, boolean],
+				),
 			},
 		);
 	});
@@ -908,6 +910,67 @@ describe("reviewed array target model", () => {
 						[form as keyof typeof cases, true],
 					],
 				),
+			},
+		);
+	});
+});
+
+describe("reviewed cyclic binding models", () => {
+	it("R1/R2: runtime-valid alias cycles terminate and preserve loader versus data roles", async () => {
+		await fc.assert(
+			fc.asyncProperty(
+				fc.constantFrom("loader", "array"),
+				fc.boolean(),
+				fc.boolean(),
+				async (form, local, blocked) => {
+					const prelude = local
+						? "function require(value) { return Boolean(value); }"
+						: "";
+					const target = blocked ? "./author-style-mark.es.js" : "node:fs";
+					const body =
+						form === "loader"
+							? "let load=require; let alias=load; load=alias; module.exports=load(target);"
+							: "let args=[target]; let alias=args; args=alias; module.exports=require.apply(null,args);";
+					const source = `${prelude} const target=${JSON.stringify(target)}; ${body}`;
+					const sources = moduleLoadSources(
+						parse(source, { sourceType: "module" }),
+					).filter((source) => source.kind === "call");
+					if (local) expect(sources).toEqual([]);
+					else
+						expect(
+							sources.some(
+								(source) =>
+									source.source.type === "Identifier" &&
+									source.source.name === "target",
+							),
+						).toBe(true);
+					await fixture(
+						{
+							"entry.cjs": 'module.exports=require("loader-dep");',
+							"node_modules/loader-dep/package.json":
+								'{"name":"loader-dep","main":"index.cjs"}',
+							"node_modules/loader-dep/index.cjs": source,
+							"node_modules/loader-dep/author-style-mark.es.js":
+								"exports.igniteAuthorStyle=css=>({css});",
+						},
+						async (dir) => {
+							const builds = [esbuildApp(dir), viteApp(dir)];
+							if (blocked && !local) await expectMarkRefusal(builds);
+							else await Promise.all(builds);
+						},
+					);
+				},
+			),
+			{
+				...profile,
+				examples: [
+					["loader", false, true],
+					["loader", false, false],
+					["loader", true, true],
+					["array", false, true],
+					["array", false, false],
+					["array", true, true],
+				],
 			},
 		);
 	});
