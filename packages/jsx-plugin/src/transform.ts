@@ -821,7 +821,10 @@ function applyTargets(
 			if (key === "0") {
 				targets.push({ path: assignment.get("right") });
 				if (assignment.node.operator !== "=") opaque = true;
-			} else if (key === undefined || !/^\d+$/.test(key)) opaque = true;
+			} else if (key === undefined || !/^\d+$/.test(key)) {
+				targets.push({ path: assignment.get("right") });
+				opaque = true;
+			}
 		} else opaque = true;
 	}
 	if (opaque) targets.push({ path: source, opaqueList: true });

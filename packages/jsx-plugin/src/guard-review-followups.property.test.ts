@@ -857,6 +857,10 @@ describe("reviewed apply-array writes", () => {
 describe("reviewed array target model", () => {
 	it("R1/R2: array source selection includes binding replacements and aliases", () => {
 		const cases = {
+			computed: {
+				code: 'const args=["node:fs"]; const index=0; args[index]=target;',
+				count: 3,
+			},
 			replacement: { code: 'let args=["node:fs"]; args=[target];', count: 3 },
 			assigned: { code: "let args; args=[target];", count: 2 },
 			alias: {
