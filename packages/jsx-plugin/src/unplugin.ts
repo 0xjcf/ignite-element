@@ -416,6 +416,11 @@ function inNodeModules(file: string): boolean {
 	return realpathOf(file).split("\\").join("/").includes("/node_modules/");
 }
 
+/** Application code fails closed; dependency scans retain their existing relaxation. */
+function scanStrictness(file: string, strict?: boolean): boolean {
+	return strict ?? !inNodeModules(file);
+}
+
 function sourceTypesFor(
 	file: string,
 ): Array<"module" | "script" | "unambiguous"> {
@@ -679,7 +684,7 @@ function scanDynamicSource(
 ): boolean {
 	const real = realpathOf(file);
 	// Direct scans of a dependency are not the app file's own require.
-	const failClosed = strict ?? !inNodeModules(real);
+	const failClosed = scanStrictness(real, strict);
 	// A cycle is not a new path to the mark. Check this before reading.
 	if (seen.has(real)) return false;
 	seen.add(real);
@@ -1115,7 +1120,7 @@ async function guardParsedModule(
 					source as SyntaxNode,
 					path.dirname(info.id),
 					new Set(),
-					false,
+					scanStrictness(info.id),
 					consts,
 					new Set(),
 				)

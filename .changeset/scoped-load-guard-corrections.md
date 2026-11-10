@@ -19,3 +19,5 @@ loader argument, while preserving locally shadowed module-shaped data. Unwrap
 angle-bracket TypeScript assertions through the shared expression classifier.
 Inspect the host's final module code after other transforms using the same
 binding-aware loader and target checks, so generated private loads stay refused.
+Original and final application code share the same fail-closed policy for
+unknown loader targets; dependency scans retain their existing relaxation.

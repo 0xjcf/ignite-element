@@ -204,6 +204,9 @@ describe("reviewed guard follow-up observations", () => {
 					"wrapper",
 					"wrapper-alias",
 					"wrapper-default",
+					"rest-wrapper",
+					"unknown-require",
+					"unknown-module",
 					"require-const",
 					"ordinary-require",
 					"ordinary-module",
@@ -218,6 +221,10 @@ describe("reviewed guard follow-up observations", () => {
 						wrapper: `function require(value) { return module.require(value); } export const load = suffix => require(${template});`,
 						"wrapper-alias": `function require(value) { const target = value; return module.require(target); } export const load = suffix => require(${template});`,
 						"wrapper-default": `function require(value = "node:fs") { return module.require(value); } export const load = suffix => require(${template});`,
+						"rest-wrapper": `function require(...args) { return module.require(args[0]); } export const load = suffix => require(${template});`,
+						"unknown-require": "export const load = target => require(target);",
+						"unknown-module":
+							"export const load = target => module.require(target);",
 						"require-const":
 							'const target = "./author-style-mark.es.js"; export const load = () => require(target);',
 						"ordinary-require": `const require = value => Boolean(value); export const load = suffix => require(${template});`,
@@ -283,6 +290,9 @@ describe("reviewed guard follow-up observations", () => {
 									"wrapper",
 									"wrapper-alias",
 									"wrapper-default",
+									"rest-wrapper",
+									"unknown-require",
+									"unknown-module",
 									"require-const",
 								].includes(form)
 							)
@@ -300,6 +310,9 @@ describe("reviewed guard follow-up observations", () => {
 					["wrapper"],
 					["wrapper-alias"],
 					["wrapper-default"],
+					["rest-wrapper"],
+					["unknown-require"],
+					["unknown-module"],
 					["require-const"],
 					["ordinary-require"],
 					["ordinary-module"],
