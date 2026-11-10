@@ -46,11 +46,12 @@ export function isRawCssSpecifier(source: string): boolean {
 	return RAW_SPECIFIER.test(source);
 }
 
-function unwrap(node: t.Node): t.Node {
+export function unwrap(node: t.Node): t.Node {
 	let current = node;
 	while (
 		current.type === "ParenthesizedExpression" ||
 		current.type === "TSAsExpression" ||
+		current.type === "TSTypeAssertion" ||
 		current.type === "TSSatisfiesExpression" ||
 		current.type === "TSNonNullExpression"
 	) {
@@ -442,7 +443,7 @@ function rejectTemplate(node: t.TemplateLiteral, filename: string): void {
 	);
 }
 
-function rejectImportSource(
+export function rejectImportSource(
 	node: t.Node | null | undefined,
 	filename: string,
 ): void {
@@ -669,16 +670,72 @@ function assertOfficialCalls(ast: t.File, local: string): number {
 	return count;
 }
 
-/** Only a proven, unchanged local function can be excluded from loader checks. */
-function isLocalRequire(scope: NodePath["scope"]): boolean {
+/** A locally shadowed module object is data, not Node's CommonJS module port. */
+function isNodeModuleRequire(
+	callee: t.Node,
+	scope: NodePath["scope"],
+): boolean {
+	if (callee.type !== "MemberExpression") return false;
+	const object = unwrap(callee.object);
+	return (
+		object.type === "Identifier" &&
+		object.name === "module" &&
+		!scope.getBinding("module") &&
+		(callee.computed
+			? callee.property.type === "StringLiteral" &&
+				callee.property.value === "require"
+			: callee.property.type === "Identifier" &&
+				callee.property.name === "require")
+	);
+}
+
+/** Stable local data functions are distinct from loader-argument forwarders. */
+function isLocalRequire(
+	scope: NodePath["scope"],
+	forwarded: ReadonlySet<t.Identifier>,
+): boolean {
 	const binding = scope.getBinding("require");
 	if (!binding || binding.constantViolations.length !== 0) return false;
-	return (
-		binding.path.node.type === "FunctionDeclaration" ||
-		(binding.path.isVariableDeclarator() &&
-			(binding.path.node.init?.type === "FunctionExpression" ||
-				binding.path.node.init?.type === "ArrowFunctionExpression"))
-	);
+	const node = binding.path.node;
+	const fn =
+		node.type === "FunctionDeclaration"
+			? node
+			: node.type === "VariableDeclarator" &&
+					(node.init?.type === "FunctionExpression" ||
+						node.init?.type === "ArrowFunctionExpression")
+				? node.init
+				: null;
+	if (!fn) return false;
+	const parameter = fn.params[0];
+	const first =
+		parameter?.type === "AssignmentPattern" ? parameter.left : parameter;
+	return first?.type !== "Identifier" || !forwarded.has(first);
+}
+
+function noteForwardedParameter(
+	source: t.Node | undefined,
+	scope: NodePath["scope"],
+	forwarded: Set<t.Identifier>,
+	seen = new Set<Binding>(),
+): void {
+	if (!source) return;
+	const argument = unwrap(source);
+	if (argument.type !== "Identifier") return;
+	const binding = scope.getBinding(argument.name);
+	if (!binding || seen.has(binding)) return;
+	seen.add(binding);
+	if (binding.kind === "param") forwarded.add(binding.identifier);
+	else if (
+		binding.kind === "const" &&
+		binding.constantViolations.length === 0 &&
+		binding.path.isVariableDeclarator()
+	)
+		noteForwardedParameter(
+			binding.path.node.init ?? undefined,
+			binding.path.scope,
+			forwarded,
+			seen,
+		);
 }
 
 /** Shared lexical classification for source, compiler and resolved-package guards. */
@@ -693,6 +750,18 @@ export function moduleLoadSources(ast: t.File): Array<{
 		kind: "declaration" | "call";
 	}> = [];
 	const visit = traverse as (node: t.Node, visitors: object) => void;
+	// Resolve parameter identity before classifying local require wrappers.
+	const forwarded = new Set<t.Identifier>();
+	visit(ast, {
+		CallExpression(path: NodePath<t.CallExpression>) {
+			const callee = unwrap(path.node.callee);
+			if (callee.type === "Import" || isNodeModuleRequire(callee, path.scope))
+				noteForwardedParameter(path.node.arguments[0], path.scope, forwarded);
+		},
+		ImportExpression(path: NodePath<t.ImportExpression>) {
+			noteForwardedParameter(path.node.source, path.scope, forwarded);
+		},
+	});
 	visit(ast, {
 		ImportDeclaration(path: NodePath<t.ImportDeclaration>) {
 			sources.push({
@@ -722,12 +791,13 @@ export function moduleLoadSources(ast: t.File): Array<{
 			const isRequire =
 				callee.type === "Identifier" &&
 				callee.name === "require" &&
-				!isLocalRequire(path.scope);
-			if (!isImport && !isRequire) return;
+				!isLocalRequire(path.scope, forwarded);
+			if (!isImport && !isRequire && !isNodeModuleRequire(callee, path.scope))
+				return;
 			const source = path.node.arguments[0];
 			if (source) sources.push({ source, official: false, kind: "call" });
 		},
-		// Babel 7.29 parses import() as ImportExpression, not CallExpression.
+		// Also support parsers configured to emit ImportExpression directly.
 		ImportExpression(path: NodePath<t.CallExpression> & { node: t.Node }) {
 			const source = (path.node as { source?: t.Node }).source;
 			if (source) sources.push({ source, official: false, kind: "call" });

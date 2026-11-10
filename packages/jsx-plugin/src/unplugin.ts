@@ -23,7 +23,9 @@ import {
 	moduleLoadSources,
 	parserPluginsFor,
 	projectJsxImportSource,
+	rejectImportSource,
 	transformSource,
+	unwrap,
 } from "./transform.js";
 
 type Traverse = typeof traverseModule;
@@ -327,6 +329,8 @@ function staticPieces(
 	node: SyntaxNode | null | undefined,
 ): { prefix: string; dynamic: boolean } | null {
 	if (!node) return null;
+	const expression = unwrap(node as t.Node) as SyntaxNode;
+	if (expression !== node) return staticPieces(expression);
 	if (node.type === "StringLiteral")
 		return { prefix: node.value ?? "", dynamic: false };
 	if (node.type === "TemplateLiteral") {
@@ -577,6 +581,16 @@ function expressionReachesMark(
 	resolving: Set<SyntaxNode>,
 ): boolean {
 	if (!node) return false;
+	const expression = unwrap(node as t.Node) as SyntaxNode;
+	if (expression !== node)
+		return expressionReachesMark(
+			expression,
+			fileDir,
+			seen,
+			strict,
+			consts,
+			resolving,
+		);
 	if (node.type === "ConditionalExpression") {
 		return (
 			expressionReachesMark(
@@ -620,21 +634,6 @@ function expressionReachesMark(
 	if (node.type === "SequenceExpression") {
 		return expressionReachesMark(
 			node.expressions?.at(-1),
-			fileDir,
-			seen,
-			strict,
-			consts,
-			resolving,
-		);
-	}
-	if (
-		node.type === "ParenthesizedExpression" ||
-		node.type === "TSAsExpression" ||
-		node.type === "TSSatisfiesExpression" ||
-		node.type === "TSNonNullExpression"
-	) {
-		return expressionReachesMark(
-			node.expression,
 			fileDir,
 			seen,
 			strict,
@@ -1019,7 +1018,7 @@ const AUTHOR_ID = /author-style|authorStyle|\0ignite-jsx:author-style/;
 type ParsedModule = {
 	id: string;
 	importedIds?: readonly string[];
-	ast?: { body?: unknown[] } | null;
+	code?: string | null;
 };
 
 type GuardHost = {
@@ -1031,57 +1030,11 @@ type GuardHost = {
 	error: (message: string) => void;
 };
 
-function collectImportSources(node: unknown, out: string[]): void {
-	if (!node || typeof node !== "object") return;
-	const record = node as Record<string, unknown>;
-	const type = record.type;
-	const source = record.source as { value?: unknown } | undefined;
-	if (
-		(type === "ImportDeclaration" ||
-			type === "ExportAllDeclaration" ||
-			type === "ExportNamedDeclaration" ||
-			type === "ImportExpression") &&
-		typeof source?.value === "string"
-	) {
-		out.push(source.value);
-	}
-	const callee = record.callee as { type?: string } | undefined;
-	if (
-		type === "ImportExpression" ||
-		(type === "CallExpression" && callee?.type === "Import")
-	) {
-		const template = source ?? (record.arguments as unknown[] | undefined)?.[0];
-		const quasis = (
-			template as
-				| { quasis?: Array<{ value?: { cooked?: string; raw?: string } }> }
-				| undefined
-		)?.quasis;
-		if (
-			quasis?.some((quasi) =>
-				/author-style|authorStyle/.test(
-					quasi.value?.cooked ?? quasi.value?.raw ?? "",
-				),
-			)
-		) {
-			out.push("author-style");
-		}
-	}
-	for (const [key, value] of Object.entries(record)) {
-		if (key === "loc" || key === "range" || key === "start" || key === "end")
-			continue;
-		if (Array.isArray(value)) {
-			for (const item of value) collectImportSources(item, out);
-			continue;
-		}
-		if (value && typeof value === "object") collectImportSources(value, out);
-	}
-}
-
-function readModuleAst(info: ParsedModule): unknown {
+function readModuleCode(info: ParsedModule): string | null {
 	try {
-		return info.ast ?? null;
+		return info.code ?? null;
 	} catch {
-		// Rolldown's ModuleInfo#ast throws. importedIds is the fallback.
+		// Native importedIds remain the fallback if source is unavailable.
 		return null;
 	}
 }
@@ -1137,11 +1090,42 @@ async function guardParsedModule(
 		host.error(blockedAuthor(imported).message);
 		return;
 	}
-	const sources: string[] = [];
-	const ast = readModuleAst(info);
+	const code = readModuleCode(info);
+	if (code === null) return;
+	// ModuleInfo.code is the host's post-transform source, not the original file.
+	const ast = parseRequireSource(code, info.id, false);
 	if (!ast) return;
 	const library = libraryImporter(info.id);
-	collectImportSources(ast, sources);
+	const sources = new Set<string>();
+	const consts = lexicalConstInits(ast);
+	for (const { source, official } of moduleLoadSources(ast as t.File)) {
+		const spec = staticPieces(source as SyntaxNode);
+		if (
+			official ||
+			(spec &&
+				!spec.dynamic &&
+				(isOfficialEmittedSpecifier(spec.prefix) ||
+					allowIssuedFollowUp(spec.prefix, info.id)))
+		)
+			continue;
+		if (!library) {
+			rejectImportSource(source, info.id);
+			if (
+				expressionReachesMark(
+					source as SyntaxNode,
+					path.dirname(info.id),
+					new Set(),
+					false,
+					consts,
+					new Set(),
+				)
+			) {
+				host.error(blockedAuthor(info.id).message);
+				return;
+			}
+		}
+		if (spec && !spec.dynamic) sources.add(spec.prefix);
+	}
 	for (const spec of sources) {
 		if (spec === AUTHOR_VIRTUAL || spec === AUTHOR_STANDALONE) continue;
 		if (isOfficialEmittedSpecifier(spec)) continue;

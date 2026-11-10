@@ -13,3 +13,9 @@ functions stay data; reassigned and mutable loader bindings remain guarded.
 For webpack and Rspack, use the running loader's native context to identify the
 actual Babel-loader selection. Path-qualified rules, includes, excludes and
 `oneOf` remain owned by the bundler, and TypeScript assertion syntax stays intact.
+
+Recognize real CommonJS `module.require` ports and local wrappers forwarding a
+loader argument, while preserving locally shadowed module-shaped data. Unwrap
+angle-bracket TypeScript assertions through the shared expression classifier.
+Inspect the host's final module code after other transforms using the same
+binding-aware loader and target checks, so generated private loads stay refused.

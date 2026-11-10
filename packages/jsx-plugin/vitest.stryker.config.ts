@@ -16,6 +16,7 @@ export default defineConfig({
 			"src/beta-followups.test.ts",
 			"src/guard-corrections.property.test.ts",
 			"src/guard-boundaries.property.test.ts",
+			"src/guard-review-followups.property.test.ts",
 		],
 		execArgv: [],
 	},
