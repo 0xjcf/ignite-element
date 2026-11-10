@@ -1,5 +1,16 @@
 # ignite-adapters
 
+## 3.0.0-beta.19
+
+### Patch Changes
+
+- 159fbe1: Resolve published declarations under TypeScript `NodeNext` and `node16`.
+
+  Relative imports in the `.d.ts` graph now include the `.js` extension those modes require, so `igniteCore` callback parameters stay typed when `skipLibCheck` is on. Declaration maps shift with those edits, and both `build:types` and `build:js` rewrite the graph. The `types` condition stays first, and consumers that ignore custom export conditions still receive the production build.
+
+- Updated dependencies [159fbe1]
+  - @ignite-element/core@3.0.0-beta.19
+
 ## 3.0.0-beta.18
 
 ### Patch Changes

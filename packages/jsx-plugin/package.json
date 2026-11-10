@@ -1,6 +1,6 @@
 {
 	"name": "@ignite-element/jsx-plugin",
-	"version": "3.0.0-beta.18",
+	"version": "3.0.0-beta.19",
 	"type": "module",
 	"description": "Build plugin that marks static Ignite JSX style sheets as author CSS.",
 	"license": "MIT",
