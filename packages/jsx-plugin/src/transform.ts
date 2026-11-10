@@ -835,13 +835,17 @@ function noteForwardedParameter(
 		const binding = source.scope.getBinding(source.node.name);
 		if (!binding || seen.has(binding)) return;
 		seen.add(binding);
-		if (binding.kind === "param") forwarded.add(binding.identifier);
-		else if (
-			binding.kind === "const" &&
-			binding.constantViolations.length === 0 &&
-			binding.path.isVariableDeclarator()
-		)
+		if (binding.kind === "param") {
+			forwarded.add(binding.identifier);
+			return;
+		}
+		// Discover possible input flow; proving a safe target separately requires const.
+		if (binding.path.isVariableDeclarator())
 			noteForwardedParameter(binding.path.get("init"), forwarded, seen);
+		for (const violation of binding.constantViolations) {
+			if (violation.isAssignmentExpression())
+				noteForwardedParameter(violation.get("right"), forwarded, seen);
+		}
 		return;
 	}
 	// Only the final sequence value and conditional result branches form the target.

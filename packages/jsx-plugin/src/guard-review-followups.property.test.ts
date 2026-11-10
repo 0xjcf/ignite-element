@@ -712,3 +712,61 @@ describe("reviewed reassigned forwarders", () => {
 		);
 	});
 });
+
+describe("reviewed mutable target aliases", () => {
+	it("R1/R2: possible loader inputs flow through mutable aliases without reclassifying unrelated safe I/O", async () => {
+		const aliases = {
+			let: "let target = value;",
+			var: "var target = value;",
+			assigned: "let target; target = value;",
+			reassigned: 'let target = "node:fs"; target = value;',
+		};
+		await fc.assert(
+			fc.asyncProperty(
+				fc.constantFrom(...(Object.keys(aliases) as (keyof typeof aliases)[])),
+				fc.boolean(),
+				fc.boolean(),
+				async (form, loader, dependency) => {
+					const operation = loader
+						? "return module.require(`${target}`);"
+						: 'module.require("node:fs"); return Boolean(target);';
+					const source = `function load(value) { ${aliases[form]} ${operation} } module.exports = load("./author-style-mark.es.js");`;
+					const calls = moduleLoadSources(
+						parse(source, { sourceType: "module" }),
+					).filter((source) => source.kind === "call");
+					expect(calls).toHaveLength(loader ? 2 : 1);
+					const files: Record<string, string> = dependency
+						? {
+								"entry.cjs": 'module.exports = require("loader-dep");',
+								"node_modules/loader-dep/package.json":
+									'{"name":"loader-dep","main":"index.cjs"}',
+								"node_modules/loader-dep/index.cjs": source,
+								"node_modules/loader-dep/author-style-mark.es.js":
+									"exports.igniteAuthorStyle = css => ({ css });",
+							}
+						: {
+								"entry.cjs": source,
+								"author-style-mark.es.js":
+									"exports.igniteAuthorStyle = css => ({ css });",
+							};
+					await fixture(files, async (dir) => {
+						const builds = [esbuildApp(dir), viteApp(dir)];
+						if (loader) await expectMarkRefusal(builds);
+						else await Promise.all(builds);
+					});
+				},
+			),
+			{
+				...profile,
+				examples: Object.keys(aliases).flatMap<
+					[keyof typeof aliases, boolean, boolean]
+				>((form) => [
+					[form as keyof typeof aliases, true, false],
+					[form as keyof typeof aliases, true, true],
+					[form as keyof typeof aliases, false, false],
+					[form as keyof typeof aliases, false, true],
+				]),
+			},
+		);
+	});
+});

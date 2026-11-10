@@ -31,3 +31,7 @@ Function.call/apply load arguments through that same classifier.
 
 Retain loads through forwarding function initializers even when a later
 reassignment changes their binding; ordinary reassigned data functions stay data.
+
+Discover possible loader-input flow through const, let and var initializers and
+assignments. Keep this conservative discovery separate from the unchanged-const
+requirement used to prove safe target values.
